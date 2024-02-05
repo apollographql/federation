@@ -9,6 +9,7 @@ import { ServiceMap } from './executeQueryPlan';
 import { ServiceDefinition } from "@apollo/federation-internals";
 import { Fetcher } from '@apollo/utils.fetcher';
 import { UplinkSupergraphManager } from './supergraphManagers';
+import { OpenTelemetryConfig } from './utilities/opentelemetry';
 
 export type ServiceEndpointDefinition = Pick<ServiceDefinition, 'name' | 'url'>;
 
@@ -129,6 +130,25 @@ interface GatewayConfigBase {
   serviceHealthCheck?: boolean;
 
   queryPlannerConfig?: QueryPlannerConfig;
+  telemetry?: OpenTelemetryConfig;
+
+  /**
+   * Whether to validate the supergraphs received from either the static configuration or the
+   * configured supergraph manager.
+   *
+   * When enables, this run validations to make sure the supergraph SDL is full valid graphQL
+   * and it equally validates the subgraphs extracted from that supergraph. Note that even when
+   * this is disabled, the supergraph SDL still needs to be valid graphQL syntax and essentially
+   * be a valid supergraph for the gateway to be able to use it, and so this option is not
+   * necessary to protected against corrupted/invalid supergraphs, but it may produce more legible
+   * errors when facing such invalid supergraph.
+   *
+   * By default, this depends on the value of `NODE_ENV`: for production, validation is disabled
+   * (as it is somewhat expensive and not that valuable as mentioned above), but it is enabled
+   * for development (mostly to provide better error messages when provided with an incorrect
+   * supergraph).
+   */
+  validateSupergraph?: boolean;
 }
 
 // TODO(trevor:removeServiceList)

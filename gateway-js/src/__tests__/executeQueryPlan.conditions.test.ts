@@ -1,13 +1,23 @@
 import gql from 'graphql-tag';
-import { getFederatedTestingSchema, ServiceDefinitionModule } from './execution-utils';
+import {
+  getFederatedTestingSchema,
+  ServiceDefinitionModule,
+} from './execution-utils';
 import {
   astSerializer,
   queryPlanSerializer,
 } from 'apollo-federation-integration-testsuite';
-import { Operation, parseOperation, Schema } from '@apollo/federation-internals';
+import {
+  Operation,
+  parseOperation,
+  Schema,
+} from '@apollo/federation-internals';
 import { QueryPlan } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources';
-import { GatewayExecutionResult, GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
+import {
+  GatewayExecutionResult,
+  GatewayGraphQLRequestContext,
+} from '@apollo/server-gateway-interface';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
 
@@ -15,7 +25,9 @@ expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 describe('Execution tests for @include/@skip', () => {
-  function buildRequestContext(variables: Record<string, any>): GatewayGraphQLRequestContext {
+  function buildRequestContext(
+    variables: Record<string, any>,
+  ): GatewayGraphQLRequestContext {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     return {
@@ -28,7 +40,7 @@ describe('Execution tests for @include/@skip', () => {
     };
   }
 
-  let s2Queries: {id : number}[] = [];
+  let s2Queries: { id: number }[] = [];
   /**
    * Simple subgraph schemas reused by a number of tests. This declares a simple interface `T` with 2 implems `T1` and `T2`.
    * There is a simple operation that returns a list of 3 simple objects:
@@ -70,9 +82,9 @@ describe('Execution tests for @include/@skip', () => {
               { __typename: 'T2', id: 2, a2: 20 },
               { __typename: 'T1', id: 3, a1: 30 },
             ];
-          }
+          },
         },
-      }
+      },
     },
     {
       name: 'S2',
@@ -100,8 +112,8 @@ describe('Execution tests for @include/@skip', () => {
             return { ...ref, b2: 100 * ref.id };
           },
         },
-      }
-    }
+      },
+    },
   ];
 
   async function executePlan(
@@ -114,7 +126,9 @@ describe('Execution tests for @include/@skip', () => {
     const apiSchema = schema.toAPISchema();
     const operationContext = buildOperationContext({
       schema: apiSchema.toGraphQLJSSchema(),
-      operationDocument: gql`${operation.toString()}`,
+      operationDocument: gql`
+        ${operation.toString()}
+      `,
     });
     return executeQueryPlan(
       queryPlan,
@@ -127,50 +141,71 @@ describe('Execution tests for @include/@skip', () => {
   }
 
   describe('Constant conditions optimisation', () => {
-    const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema(simpleInterfaceSchemas);
+    const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema(
+      simpleInterfaceSchemas,
+    );
 
     it('top-level @include never included', async () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         {
           t @include(if: false) {
             id
           }
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       expect(queryPlan).toMatchInlineSnapshot(`QueryPlan {}`);
 
-      const response = await executePlan(queryPlan, operation, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`Object {}`);
     });
 
     it('top-level @skip always skipped', async () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         {
           t @skip(if: true) {
             id
           }
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       expect(queryPlan).toMatchInlineSnapshot(`QueryPlan {}`);
 
-      const response = await executePlan(queryPlan, operation, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`Object {}`);
     });
 
     it('top-level @include always included', async () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         {
           t @include(if: true) {
             id
           }
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       // Note that due to how we handle constant conditions, those don't get removed in the fetch nodes (which only matter when things are
@@ -190,7 +225,12 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -210,13 +250,16 @@ describe('Execution tests for @include/@skip', () => {
     });
 
     it('top-level @skip always included', async () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         {
           t @skip(if: false) {
             id
           }
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       // Same as for @include: the @skip within the fetch is not cleared, but that's harmless.
@@ -233,7 +276,12 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -253,7 +301,9 @@ describe('Execution tests for @include/@skip', () => {
     });
 
     it('Non top-level @include never included', async () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         {
           t {
             ... on T1 {
@@ -262,7 +312,8 @@ describe('Execution tests for @include/@skip', () => {
             }
           }
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       // Importantly, we only bother querying S1
@@ -283,7 +334,12 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -301,7 +357,9 @@ describe('Execution tests for @include/@skip', () => {
     });
 
     it('Non top-level @skip always skipped', async () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         {
           t {
             ... on T1 {
@@ -310,7 +368,8 @@ describe('Execution tests for @include/@skip', () => {
             }
           }
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       // Importantly, we only bother querying S1
@@ -331,7 +390,12 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -349,7 +413,9 @@ describe('Execution tests for @include/@skip', () => {
     });
 
     it('Non top-level @include always included', async () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         {
           t {
             ... on T1 {
@@ -358,7 +424,8 @@ describe('Execution tests for @include/@skip', () => {
             }
           }
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       // Again, constantly included is the one case that still show up in the fetch, but that's harmless. The point here is
@@ -397,7 +464,12 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -417,7 +489,9 @@ describe('Execution tests for @include/@skip', () => {
     });
 
     it('Non top-level @skip always included', async () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         {
           t {
             ... on T1 {
@@ -426,7 +500,8 @@ describe('Execution tests for @include/@skip', () => {
             }
           }
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       // Again, constantly included is the one case that still show up in the fetch, but that's harmless. The point here is
@@ -465,7 +540,12 @@ describe('Execution tests for @include/@skip', () => {
         }
       `);
 
-      const response = await executePlan(queryPlan, operation, schema, serviceMap);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -486,10 +566,14 @@ describe('Execution tests for @include/@skip', () => {
   });
 
   describe('Simple variable conditions handling', () => {
-    const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema(simpleInterfaceSchemas);
+    const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema(
+      simpleInterfaceSchemas,
+    );
 
     it('handles default values for condition variables', async () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         query ($if: Boolean! = false){
           t {
             id
@@ -498,7 +582,8 @@ describe('Execution tests for @include/@skip', () => {
             }
           }
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       // We validate that the condition has been extracted.
@@ -540,7 +625,12 @@ describe('Execution tests for @include/@skip', () => {
 
       s2Queries = [];
       // No variables: the default (not included) should be used.
-      let response = await executePlan(queryPlan, operation, schema, serviceMap);
+      let response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -561,7 +651,9 @@ describe('Execution tests for @include/@skip', () => {
 
       s2Queries = [];
       // Checks that the overriding of the default does work.
-      response = await executePlan(queryPlan, operation, schema, serviceMap, { if: true });
+      response = await executePlan(queryPlan, operation, schema, serviceMap, {
+        if: true,
+      });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -584,7 +676,9 @@ describe('Execution tests for @include/@skip', () => {
     });
 
     it('handles condition on named fragments spread', async () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         query ($if: Boolean!){
           t {
             id
@@ -595,7 +689,8 @@ describe('Execution tests for @include/@skip', () => {
         fragment GetB1 on T1 {
           b1
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -635,7 +730,13 @@ describe('Execution tests for @include/@skip', () => {
       `);
 
       s2Queries = [];
-      let response = await executePlan(queryPlan, operation, schema, serviceMap, { if: true });
+      let response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+        { if: true },
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -658,7 +759,9 @@ describe('Execution tests for @include/@skip', () => {
 
       s2Queries = [];
       // Checks that the overriding of the default does work.
-      response = await executePlan(queryPlan, operation, schema, serviceMap, { if: false });
+      response = await executePlan(queryPlan, operation, schema, serviceMap, {
+        if: false,
+      });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -679,7 +782,9 @@ describe('Execution tests for @include/@skip', () => {
     });
 
     it('handles condition inside named fragments', async () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         query ($if: Boolean!){
           t {
             id
@@ -690,7 +795,8 @@ describe('Execution tests for @include/@skip', () => {
         fragment OtherGetB1 on T1 {
           b1 @include(if: $if)
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       expect(queryPlan).toMatchInlineSnapshot(`
@@ -730,7 +836,13 @@ describe('Execution tests for @include/@skip', () => {
       `);
 
       s2Queries = [];
-      let response = await executePlan(queryPlan, operation, schema, serviceMap, { if: true });
+      let response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+        { if: true },
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -753,7 +865,9 @@ describe('Execution tests for @include/@skip', () => {
 
       s2Queries = [];
       // Checks that the overriding of the default does work.
-      response = await executePlan(queryPlan, operation, schema, serviceMap, { if: false });
+      response = await executePlan(queryPlan, operation, schema, serviceMap, {
+        if: false,
+      });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -772,13 +886,17 @@ describe('Execution tests for @include/@skip', () => {
       `);
       expect(s2Queries).toHaveLength(0);
     });
-  })
+  });
 
   describe('Fetches with multiple top-level conditioned types', () => {
-    const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema(simpleInterfaceSchemas);
+    const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema(
+      simpleInterfaceSchemas,
+    );
 
     it('creates a condition node when a condition covers a whole fetch', async () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         query ($if: Boolean!){
           t {
             id
@@ -790,7 +908,8 @@ describe('Execution tests for @include/@skip', () => {
             }
           }
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       // We validate that the condition has been extracted.
@@ -842,7 +961,13 @@ describe('Execution tests for @include/@skip', () => {
       `);
 
       s2Queries = [];
-      let response = await executePlan(queryPlan, operation, schema, serviceMap, { if: true });
+      let response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+        { if: true },
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -866,7 +991,9 @@ describe('Execution tests for @include/@skip', () => {
       expect(s2Queries).toHaveLength(3);
 
       s2Queries = [];
-      response = await executePlan(queryPlan, operation, schema, serviceMap, { if: false });
+      response = await executePlan(queryPlan, operation, schema, serviceMap, {
+        if: false,
+      });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -888,7 +1015,9 @@ describe('Execution tests for @include/@skip', () => {
     });
 
     it('does _not_ creates a condition node when no single condition covers the whole fetch', async () => {
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         query ($if1: Boolean!, $if2: Boolean!){
           t {
             id
@@ -900,7 +1029,8 @@ describe('Execution tests for @include/@skip', () => {
             }
           }
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       // We validate that the condition has been extracted.
@@ -950,7 +1080,13 @@ describe('Execution tests for @include/@skip', () => {
       `);
 
       s2Queries = [];
-      let response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: true, if2: true });
+      let response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+        { if1: true, if2: true },
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -974,7 +1110,10 @@ describe('Execution tests for @include/@skip', () => {
       expect(s2Queries).toHaveLength(3);
 
       s2Queries = [];
-      response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: false, if2: false });
+      response = await executePlan(queryPlan, operation, schema, serviceMap, {
+        if1: false,
+        if2: false,
+      });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -999,7 +1138,10 @@ describe('Execution tests for @include/@skip', () => {
       expect(s2Queries).toHaveLength(3);
 
       s2Queries = [];
-      response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: false, if2: true });
+      response = await executePlan(queryPlan, operation, schema, serviceMap, {
+        if1: false,
+        if2: true,
+      });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -1024,7 +1166,9 @@ describe('Execution tests for @include/@skip', () => {
 
     it('handles "nested" conditions', async () => {
       // Shows that as long as the condition matches, even "nested" @include gets handled as a condition node.
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         query ($if1: Boolean!, $if2: Boolean!){
           t {
             id
@@ -1036,7 +1180,8 @@ describe('Execution tests for @include/@skip', () => {
             }
           }
         }
-      `);
+      `,
+      );
 
       const queryPlan = queryPlanner.buildQueryPlan(operation);
       // We validate that the condition has been extracted.
@@ -1090,7 +1235,13 @@ describe('Execution tests for @include/@skip', () => {
       `);
 
       s2Queries = [];
-      let response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: true, if2: true });
+      let response = await executePlan(
+        queryPlan,
+        operation,
+        schema,
+        serviceMap,
+        { if1: true, if2: true },
+      );
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -1114,7 +1265,10 @@ describe('Execution tests for @include/@skip', () => {
       expect(s2Queries).toHaveLength(3);
 
       s2Queries = [];
-      response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: false, if2: true });
+      response = await executePlan(queryPlan, operation, schema, serviceMap, {
+        if1: false,
+        if2: true,
+      });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -1135,7 +1289,10 @@ describe('Execution tests for @include/@skip', () => {
       expect(s2Queries).toHaveLength(0);
 
       s2Queries = [];
-      response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: true, if2: false });
+      response = await executePlan(queryPlan, operation, schema, serviceMap, {
+        if1: true,
+        if2: false,
+      });
       expect(response.errors).toBeUndefined();
       expect(response.data).toMatchInlineSnapshot(`
         Object {
@@ -1157,7 +1314,9 @@ describe('Execution tests for @include/@skip', () => {
 
     describe('same element having both @skip and @include', () => {
       it('with constant conditions, neither excluding', async () => {
-        const operation = parseOperation(schema, `
+        const operation = parseOperation(
+          schema,
+          `
           {
             t {
               id
@@ -1166,7 +1325,8 @@ describe('Execution tests for @include/@skip', () => {
               }
             }
           }
-        `);
+        `,
+        );
 
         const queryPlan = queryPlanner.buildQueryPlan(operation);
         expect(queryPlan).toMatchInlineSnapshot(`
@@ -1208,7 +1368,12 @@ describe('Execution tests for @include/@skip', () => {
         `);
 
         s2Queries = [];
-        const response = await executePlan(queryPlan, operation, schema, serviceMap);
+        const response = await executePlan(
+          queryPlan,
+          operation,
+          schema,
+          serviceMap,
+        );
         expect(response.errors).toBeUndefined();
         expect(response.data).toMatchInlineSnapshot(`
           Object {
@@ -1231,7 +1396,9 @@ describe('Execution tests for @include/@skip', () => {
       });
 
       it('with constant conditions, both excluding', async () => {
-        const operation = parseOperation(schema, `
+        const operation = parseOperation(
+          schema,
+          `
           {
             t {
               id
@@ -1240,7 +1407,8 @@ describe('Execution tests for @include/@skip', () => {
               }
             }
           }
-        `);
+        `,
+        );
 
         const queryPlan = queryPlanner.buildQueryPlan(operation);
         expect(queryPlan).toMatchInlineSnapshot(`
@@ -1261,7 +1429,12 @@ describe('Execution tests for @include/@skip', () => {
         `);
 
         s2Queries = [];
-        const response = await executePlan(queryPlan, operation, schema, serviceMap);
+        const response = await executePlan(
+          queryPlan,
+          operation,
+          schema,
+          serviceMap,
+        );
         expect(response.errors).toBeUndefined();
         expect(response.data).toMatchInlineSnapshot(`
           Object {
@@ -1282,7 +1455,9 @@ describe('Execution tests for @include/@skip', () => {
       });
 
       it('with constant conditions, first excluding', async () => {
-        const operation = parseOperation(schema, `
+        const operation = parseOperation(
+          schema,
+          `
           {
             t {
               id
@@ -1291,7 +1466,8 @@ describe('Execution tests for @include/@skip', () => {
               }
             }
           }
-        `);
+        `,
+        );
 
         const queryPlan = queryPlanner.buildQueryPlan(operation);
         expect(queryPlan).toMatchInlineSnapshot(`
@@ -1312,7 +1488,12 @@ describe('Execution tests for @include/@skip', () => {
         `);
 
         s2Queries = [];
-        const response = await executePlan(queryPlan, operation, schema, serviceMap);
+        const response = await executePlan(
+          queryPlan,
+          operation,
+          schema,
+          serviceMap,
+        );
         expect(response.errors).toBeUndefined();
         expect(response.data).toMatchInlineSnapshot(`
           Object {
@@ -1333,7 +1514,9 @@ describe('Execution tests for @include/@skip', () => {
       });
 
       it('with constant conditions, second excluding', async () => {
-        const operation = parseOperation(schema, `
+        const operation = parseOperation(
+          schema,
+          `
           {
             t {
               id
@@ -1342,7 +1525,8 @@ describe('Execution tests for @include/@skip', () => {
               }
             }
           }
-        `);
+        `,
+        );
 
         const queryPlan = queryPlanner.buildQueryPlan(operation);
         expect(queryPlan).toMatchInlineSnapshot(`
@@ -1363,7 +1547,12 @@ describe('Execution tests for @include/@skip', () => {
         `);
 
         s2Queries = [];
-        const response = await executePlan(queryPlan, operation, schema, serviceMap);
+        const response = await executePlan(
+          queryPlan,
+          operation,
+          schema,
+          serviceMap,
+        );
         expect(response.errors).toBeUndefined();
         expect(response.data).toMatchInlineSnapshot(`
           Object {
@@ -1384,7 +1573,9 @@ describe('Execution tests for @include/@skip', () => {
       });
 
       it('with variable conditions', async () => {
-        const operation = parseOperation(schema, `
+        const operation = parseOperation(
+          schema,
+          `
           query ($if1: Boolean!, $if2: Boolean!) {
             t {
               id
@@ -1393,7 +1584,8 @@ describe('Execution tests for @include/@skip', () => {
               }
             }
           }
-        `);
+        `,
+        );
 
         const queryPlan = queryPlanner.buildQueryPlan(operation);
         // Ensures both @skip and @include have condition nodes.
@@ -1441,7 +1633,13 @@ describe('Execution tests for @include/@skip', () => {
 
         s2Queries = [];
         // With data included by both conditions
-        let response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: true, if2: false });
+        let response = await executePlan(
+          queryPlan,
+          operation,
+          schema,
+          serviceMap,
+          { if1: true, if2: false },
+        );
         expect(response.errors).toBeUndefined();
         expect(response.data).toMatchInlineSnapshot(`
           Object {
@@ -1464,7 +1662,10 @@ describe('Execution tests for @include/@skip', () => {
 
         s2Queries = [];
         // With data excluded by one condition
-        response = await executePlan(queryPlan, operation, schema, serviceMap, { if1: true, if2: true });
+        response = await executePlan(queryPlan, operation, schema, serviceMap, {
+          if1: true,
+          if2: true,
+        });
         expect(response.errors).toBeUndefined();
         expect(response.data).toMatchInlineSnapshot(`
           Object {
@@ -1483,6 +1684,6 @@ describe('Execution tests for @include/@skip', () => {
         `);
         expect(s2Queries).toHaveLength(0);
       });
-    })
-  })
+    });
+  });
 });

@@ -9,7 +9,10 @@ import { QueryPlanner } from '@apollo/query-planner';
 import { unwrapSingleResultKind } from '../gateway/testUtils';
 
 it('caches the query plan for a request', async () => {
-  const buildQueryPlanSpy = jest.spyOn(QueryPlanner.prototype, 'buildQueryPlan');
+  const buildQueryPlanSpy = jest.spyOn(
+    QueryPlanner.prototype,
+    'buildQueryPlan',
+  );
 
   const localDataSources = Object.fromEntries(
     fixtures.map((f) => [

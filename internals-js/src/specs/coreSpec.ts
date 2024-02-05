@@ -1,13 +1,13 @@
 import { ASTNode, DirectiveLocation, GraphQLError, StringValueNode } from "graphql";
 import { URL } from "url";
-import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement, sourceASTs } from "./definitions";
-import { sameType } from "./types";
-import { assert, findLast, firstOf, MapWithCachedArrays } from './utils';
-import { aggregateError, ERRORS } from "./error";
-import { valueToString } from "./values";
-import { coreFeatureDefinitionIfKnown, registerKnownFeature } from "./knownCoreFeatures";
-import { didYouMean, suggestionList } from "./suggestions";
-import { ArgumentSpecification, createDirectiveSpecification, createEnumTypeSpecification, createScalarTypeSpecification, DirectiveCompositionSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
+import { CoreFeature, Directive, DirectiveDefinition, EnumType, ErrGraphQLAPISchemaValidationFailed, ErrGraphQLValidationFailed, InputType, ListType, NamedType, NonNullType, ScalarType, Schema, SchemaDefinition, SchemaElement, sourceASTs } from "../definitions";
+import { sameType } from "../types";
+import { assert, findLast, firstOf, MapWithCachedArrays } from '../utils';
+import { aggregateError, ERRORS } from "../error";
+import { valueToString } from "../values";
+import { coreFeatureDefinitionIfKnown, registerKnownFeature } from "../knownCoreFeatures";
+import { didYouMean, suggestionList } from "../suggestions";
+import { ArgumentSpecification, createDirectiveSpecification, createEnumTypeSpecification, createScalarTypeSpecification, DirectiveCompositionSpecification, DirectiveSpecification, TypeSpecification } from "../directiveAndTypeSpecification";
 
 export const coreIdentity = 'https://specs.apollo.dev/core';
 export const linkIdentity = 'https://specs.apollo.dev/link';
@@ -54,6 +54,15 @@ export abstract class FeatureDefinition {
     this._typeSpecs.set(spec.name, spec);
   }
 
+  protected registerSubFeature(subFeature: FeatureDefinition) {
+    for (const typeSpec of subFeature.typeSpecs()) {
+      this.registerType(typeSpec);
+    }
+    for (const directiveSpec of subFeature.directiveSpecs()) {
+      this.registerDirective(directiveSpec);
+    }
+  }
+
   directiveSpecs(): readonly DirectiveSpecification[] {
     return this._directiveSpecs.values();
   }
@@ -90,15 +99,15 @@ export abstract class FeatureDefinition {
 
   addElementsToSchema(schema: Schema): GraphQLError[] {
     const feature = this.featureInSchema(schema);
-    assert(feature, 'The federation specification should have been added to the schema before this is called');
+    assert(feature, () => `The ${this.url} specification should have been added to the schema before this is called`);
 
     let errors: GraphQLError[] = [];
     for (const type of this.typeSpecs()) {
-      errors = errors.concat(this.addTypeSpec(schema, type));
+      errors = errors.concat(type.checkOrAdd(schema, feature));
     }
 
     for (const directive of this.directiveSpecs()) {
-      errors = errors.concat(this.addDirectiveSpec(schema, directive));
+      errors = errors.concat(directive.checkOrAdd(schema, feature));
     }
     return errors;
   }
@@ -106,6 +115,11 @@ export abstract class FeatureDefinition {
   allElementNames(): string[] {
     return this.directiveSpecs().map((spec) => `@${spec.name}`)
       .concat(this.typeSpecs().map((spec) => spec.name));
+  }
+
+  // No-op implementation that can be overridden by subclasses.
+  validateSubgraphSchema(_schema: Schema): GraphQLError[] {
+    return [];
   }
 
   protected nameInSchema(schema: Schema): string | undefined {
@@ -146,14 +160,6 @@ export abstract class FeatureDefinition {
     return schema.addDirectiveDefinition(this.directiveNameInSchema(schema, name)!);
   }
 
-  protected addDirectiveSpec(schema: Schema, spec: DirectiveSpecification): GraphQLError[] {
-    return spec.checkOrAdd(schema, this.directiveNameInSchema(schema, spec.name));
-  }
-
-  protected addTypeSpec(schema: Schema, spec: TypeSpecification): GraphQLError[] {
-    return spec.checkOrAdd(schema, this.typeNameInSchema(schema, spec.name));
-  }
-
   protected addScalarType(schema: Schema, name: string): ScalarType {
     return schema.addType(new ScalarType(this.typeNameInSchema(schema, name)!));
   }
@@ -165,7 +171,7 @@ export abstract class FeatureDefinition {
   protected featureInSchema(schema: Schema): CoreFeature | undefined {
     const features = schema.coreFeatures;
     if (!features) {
-      throw buildError(`Schema is not a core schema (add @core first)`);
+      throw buildError(`Schema is not a core schema (add @link first)`);
     }
     return features.getByIdentity(this.identity);
   }
@@ -384,26 +390,18 @@ export class CoreSpecDefinition extends FeatureDefinition {
     if (this.supportPurposes()) {
       args.push({
         name: 'for',
-        type: (schema, nameInSchema) => {
-          const purposeName = `${nameInSchema ?? this.url.name}__${linkPurposeTypeSpec.name}`;
-          const errors = linkPurposeTypeSpec.checkOrAdd(schema, purposeName);
-          if (errors.length > 0) {
-            return errors;
-          }
-          return schema.type(purposeName) as InputType;
+        type: (schema, feature) => {
+          assert(feature, "Shouldn't be added without being attached to a @link spec");
+          return schema.type(feature.typeNameInSchema(linkPurposeTypeSpec.name)) as InputType;
         },
       });
     }
     if (this.supportImport()) {
       args.push({
         name: 'import',
-        type: (schema, nameInSchema) => {
-          const importName = `${nameInSchema ?? this.url.name}__${linkImportTypeSpec.name}`;
-          const errors = linkImportTypeSpec.checkOrAdd(schema, importName);
-          if (errors.length > 0) {
-            return errors;
-          }
-          return new ListType(schema.type(importName)!);
+        type: (schema, feature) => {
+          assert(feature, "Shouldn't be added without being attached to a @link spec");
+          return new ListType(schema.type(feature.typeNameInSchema(linkImportTypeSpec.name))!);
         }
       });
     }
@@ -468,7 +466,7 @@ export class CoreSpecDefinition extends FeatureDefinition {
     return [];
   }
 
-  addDefinitionsToSchema(schema: Schema, as?: string): GraphQLError[] {
+  addDefinitionsToSchema(schema: Schema, as?: string, imports: CoreImport[] = []): GraphQLError[] {
     const existingCore = schema.coreFeatures;
     if (existingCore) {
       if (existingCore.coreItself.url.identity === this.identity) {
@@ -482,7 +480,18 @@ export class CoreSpecDefinition extends FeatureDefinition {
     }
 
     const nameInSchema = as ?? this.url.name;
-    return this.directiveDefinitionSpec.checkOrAdd(schema, nameInSchema);
+    // The @link spec is special in that it is the one that bootstrap everything, and by the time this method
+    // is called, the `schema` may not yet have any `schema.coreFeatures` setup yet. To have `checkAndAdd`
+    // calls below still work, we pass a temp feature object with the proper information (not that the
+    // `Directive` we pass is not complete and not even attached to the schema, but that is not used
+    // in practice so unused).
+    const feature = new CoreFeature(this.url, nameInSchema, new Directive(nameInSchema), imports);
+
+    let errors: GraphQLError[] = [];
+    errors = errors.concat(linkPurposeTypeSpec.checkOrAdd(schema, feature));
+    errors = errors.concat(linkImportTypeSpec.checkOrAdd(schema, feature));
+    errors = errors.concat(this.directiveDefinitionSpec.checkOrAdd(schema, feature));
+    return errors;
   }
 
   /**
@@ -686,6 +695,22 @@ export class FeatureVersion {
     return 0;
   }
 
+  public lt(other: FeatureVersion): boolean {
+    return this.compareTo(other) < 0;
+  }
+
+  public lte(other: FeatureVersion): boolean {
+    return this.compareTo(other) <= 0;
+  }
+
+  public gt(other: FeatureVersion): boolean {
+    return this.compareTo(other) > 0;
+  }
+
+  public gte(other: FeatureVersion): boolean {
+    return this.compareTo(other) >= 0;
+  }
+
   /**
    * Return true if this FeatureVersion is strictly greater than the provided one,
    * where ordering is meant by major and then minor number.
@@ -730,7 +755,14 @@ export class FeatureUrl {
     public readonly element?: string,
   ) { }
 
-  /// Parse a spec URL or throw
+  public static maybeParse(input: string, node?: ASTNode): FeatureUrl | undefined {
+    try {
+      return FeatureUrl.parse(input, node);
+    } catch (err) {
+      return undefined;
+    }
+  }
+    /// Parse a spec URL or throw
   public static parse(input: string, node?: ASTNode): FeatureUrl {
     const url = new URL(input)
     if (!url.pathname || url.pathname === '/') {

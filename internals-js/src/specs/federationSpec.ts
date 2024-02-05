@@ -2,19 +2,23 @@ import {
   InputType,
   NonNullType,
   Schema,
-} from "./definitions";
+} from "../definitions";
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
 import {
   ArgumentSpecification,
   createDirectiveSpecification,
   createScalarTypeSpecification,
-} from "./directiveAndTypeSpecification";
+} from "../directiveAndTypeSpecification";
 import { DirectiveLocation } from "graphql";
-import { assert } from "./utils";
+import { assert } from "../utils";
 import { TAG_VERSIONS } from "./tagSpec";
-import { federationMetadata } from "./federation";
-import { registerKnownFeature } from "./knownCoreFeatures";
+import { federationMetadata } from "../federation";
+import { registerKnownFeature } from "../knownCoreFeatures";
 import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
+import { AUTHENTICATED_VERSIONS } from "./authenticatedSpec";
+import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
+import { POLICY_VERSIONS } from './policySpec';
+import { SOURCE_VERSIONS } from './sourceSpec';
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -34,7 +38,12 @@ export enum FederationDirectiveName {
   INACCESSIBLE = 'inaccessible',
   COMPOSE_DIRECTIVE = 'composeDirective',
   INTERFACE_OBJECT = 'interfaceObject',
-  FINDER = 'finder',
+  AUTHENTICATED = 'authenticated',
+  REQUIRES_SCOPES = 'requiresScopes',
+  POLICY = 'policy',
+  SOURCE_API = 'sourceAPI',
+  SOURCE_TYPE = 'sourceType',
+  SOURCE_FIELD = 'sourceField',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
@@ -114,18 +123,29 @@ export class FederationSpecDefinition extends FeatureDefinition {
     this.registerDirective(createDirectiveSpecification({
       name: FederationDirectiveName.SHAREABLE,
       locations: [DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION],
-      repeatable: version >= (new FeatureVersion(2, 2)),
+      repeatable: version.gte(new FeatureVersion(2, 2)),
     }));
 
-    this.registerDirective(INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(version).inaccessibleDirectiveSpec);
+    this.registerSubFeature(INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(version));
 
-    this.registerDirective(createDirectiveSpecification({
-      name: FederationDirectiveName.OVERRIDE,
-      locations: [DirectiveLocation.FIELD_DEFINITION],
-      args: [{ name: 'from', type: (schema) => new NonNullType(schema.stringType()) }],
-    }));
+    if (version >= (new FeatureVersion(2, 7))) {
+      this.registerDirective(createDirectiveSpecification({
+        name: FederationDirectiveName.OVERRIDE,
+        locations: [DirectiveLocation.FIELD_DEFINITION],
+        args: [
+          { name: 'from', type: (schema) => new NonNullType(schema.stringType()) },
+          { name: 'label', type: (schema) => schema.stringType() },
+        ],
+      }));
+    } else {
+      this.registerDirective(createDirectiveSpecification({
+        name: FederationDirectiveName.OVERRIDE,
+        locations: [DirectiveLocation.FIELD_DEFINITION],
+        args: [{ name: 'from', type: (schema) => new NonNullType(schema.stringType()) }],
+      }));
+    }
 
-    if (version >= (new FeatureVersion(2, 1))) {
+    if (version.gte(new FeatureVersion(2, 1))) {
       this.registerDirective(createDirectiveSpecification({
         name: FederationDirectiveName.COMPOSE_DIRECTIVE,
         locations: [DirectiveLocation.SCHEMA],
@@ -134,20 +154,25 @@ export class FederationSpecDefinition extends FeatureDefinition {
       }));
     }
 
-    if (version >= (new FeatureVersion(2, 3))) {
+    if (version.gte(new FeatureVersion(2, 3))) {
       this.registerDirective(createDirectiveSpecification({
         name: FederationDirectiveName.INTERFACE_OBJECT,
         locations: [DirectiveLocation.OBJECT],
       }));
-      this.registerDirective(
-        TAG_VERSIONS.find(new FeatureVersion(0, 3))!.tagDirectiveSpec
-      );
+      this.registerSubFeature(TAG_VERSIONS.find(new FeatureVersion(0, 3))!);
     }
-    if (version >= (new FeatureVersion(2, 5))) {
-      this.registerDirective(createDirectiveSpecification({
-        name: FederationDirectiveName.FINDER,
-        locations: [DirectiveLocation.FIELD_DEFINITION],
-      }))
+
+    if (version.gte(new FeatureVersion(2, 5))) {
+      this.registerSubFeature(AUTHENTICATED_VERSIONS.find(new FeatureVersion(0, 1))!);
+      this.registerSubFeature(REQUIRES_SCOPES_VERSIONS.find(new FeatureVersion(0, 1))!);
+    }
+
+    if (version.gte(new FeatureVersion(2, 6))) {
+      this.registerSubFeature(POLICY_VERSIONS.find(new FeatureVersion(0, 1))!);
+    }
+
+    if (version.gte(new FeatureVersion(2, 7))) {
+      this.registerSubFeature(SOURCE_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
   }
 }
@@ -158,6 +183,8 @@ export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefiniti
   .add(new FederationSpecDefinition(new FeatureVersion(2, 2)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 3)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 4)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 5)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 5)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 6)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 7)));
 
 registerKnownFeature(FEDERATION_VERSIONS);

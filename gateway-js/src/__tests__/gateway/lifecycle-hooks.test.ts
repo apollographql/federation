@@ -138,7 +138,9 @@ describe('lifecycle hooks', () => {
     const [firstCall, secondCall] = mockDidUpdate.mock.calls;
 
     // Note that we've composing our usual test fixtures here
-    const expectedFirstId = createHash('sha256').update(getTestingSupergraphSdl()).digest('hex');
+    const expectedFirstId = createHash('sha256')
+      .update(getTestingSupergraphSdl())
+      .digest('hex');
     expect(firstCall[0]!.compositionId).toEqual(expectedFirstId);
     // first call should have no second "previous" argument
     expect(firstCall[1]).toBeUndefined();
@@ -146,8 +148,8 @@ describe('lifecycle hooks', () => {
     // Note that this assertion is a tad fragile in that every time we modify
     // the supergraph (even just formatting differences), this ID will change
     // and this test will have to updated.
-    expect(secondCall[0]!.compositionId).toEqual(
-      '9600c71683ab1e029318ac780a57a86170e3b192dab542f5a2ddc0334f56a5d2',
+    expect(secondCall[0]!.compositionId).toMatchInlineSnapshot(
+      `"208492fefbbc8f62458b3f698b047a7c119f5169d4ccaef4c24b81a1ba82f87c"`,
     );
     // second call should have previous info in the second arg
     expect(secondCall[1]!.compositionId).toEqual(expectedFirstId);

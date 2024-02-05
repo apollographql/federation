@@ -3,8 +3,9 @@
  */
 
 import {
-    AbstractType,
+  AbstractType,
   InterfaceType,
+  isCompositeType,
   isInterfaceType,
   isListType,
   isNamedType,
@@ -147,3 +148,23 @@ export function isStrictSubtype(
         && isSubtype(type.ofType, maybeSubType, allowedRules, unionMembershipTester, implementsInterfaceTester);
   }
 }
+
+/**
+ * This essentially follows the beginning of https://spec.graphql.org/draft/#SameResponseShape().
+ * That is, the types cannot be merged unless:
+ * - they have the same nullability and "list-ability", potentially recursively.
+ * - their base type is either both composite, or are the same type.
+ */
+export function typesCanBeMerged(t1: Type, t2: Type): boolean {
+  if (isNonNullType(t1)) {
+    return isNonNullType(t2) ? typesCanBeMerged(t1.ofType, t2.ofType) : false;
+  }
+  if (isListType(t1)) {
+    return isListType(t2) ? typesCanBeMerged(t1.ofType, t2.ofType) : false;
+  }
+  if (isCompositeType(t1)) {
+    return isCompositeType(t2);
+  }
+  return sameType(t1, t2);
+}
+

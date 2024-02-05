@@ -1,5 +1,12 @@
 import { composeServices } from '@apollo/composition';
-import { asFed2SubgraphDocument, assert, buildSupergraphSchema, isDefined, operationFromDocument, Schema } from '@apollo/federation-internals';
+import {
+  asFed2SubgraphDocument,
+  assert,
+  isDefined,
+  operationFromDocument,
+  Schema,
+  Supergraph,
+} from '@apollo/federation-internals';
 import fs from 'fs';
 import gql from 'graphql-tag';
 import path from 'path';
@@ -16,7 +23,6 @@ import { astSerializer, queryPlanSerializer, QueryPlanner } from '..';
  *
  */
 
-
 const accounts = {
   name: 'accounts',
   typeDefs: gql`
@@ -32,8 +38,8 @@ const accounts = {
       password: String
       nickname: String @override(from: "reviews")
     }
-  `
-}
+  `,
+};
 
 const products = {
   name: 'products',
@@ -59,7 +65,7 @@ const products = {
       rating: Int @external
     }
 
-    type Movie implements Product @key(fields: "id")  {
+    type Movie implements Product @key(fields: "id") {
       id: ID!
       price: Price
       title: String
@@ -92,8 +98,8 @@ const products = {
       USD
       EUR
     }
-  `
-}
+  `,
+};
 
 const reviews = {
   name: 'reviews',
@@ -130,8 +136,8 @@ const reviews = {
       id: ID!
       reviews: [Review]
     }
-  `
-}
+  `,
+};
 
 const testSupergraphDir = path.join(__dirname, 'testSupergraphs');
 
@@ -140,33 +146,47 @@ function testSupergraphPath(v: string): fs.PathLike {
 }
 
 export function generateTestSupergraph(v: string) {
-  const services = [ accounts, products, reviews ];
-  const res =  composeServices(
-    services.map((s) => ({ ...s, typeDefs: asFed2SubgraphDocument(s.typeDefs) }))
+  const services = [accounts, products, reviews];
+  const res = composeServices(
+    services.map((s) => ({
+      ...s,
+      typeDefs: asFed2SubgraphDocument(s.typeDefs),
+    })),
   );
-  assert(!res.errors, `Expected to compose but got errors:\n${res.errors?.join('\n\n')}`);
+  assert(
+    !res.errors,
+    `Expected to compose but got errors:\n${res.errors?.join('\n\n')}`,
+  );
   fs.writeFileSync(testSupergraphPath(v), res.supergraphSdl);
 }
 
 type TestSupergraph = {
-  version: string,
-  supergraph: Schema,
-  api: Schema,
-}
+  version: string;
+  supergraph: Supergraph;
+  api: Schema;
+};
 
 function listTestSupergraphs(): TestSupergraph[] {
-  return fs.readdirSync(testSupergraphDir).map((file) => {
-    if (!file.startsWith('testSupergraph_')) {
-      return undefined;
-    }
-    const version = file.slice('testSupergraph_'.length, file.length - '.graphql'.length);
-    const supergraph = buildSupergraphSchema(fs.readFileSync(path.join(testSupergraphDir, file), 'utf8'))[0];
-    return {
-      version,
-      supergraph,
-      api: supergraph.toAPISchema(),
-    };
-  }).filter(isDefined);
+  return fs
+    .readdirSync(testSupergraphDir)
+    .map((file) => {
+      if (!file.startsWith('testSupergraph_')) {
+        return undefined;
+      }
+      const version = file.slice(
+        'testSupergraph_'.length,
+        file.length - '.graphql'.length,
+      );
+      const supergraph = Supergraph.build(
+        fs.readFileSync(path.join(testSupergraphDir, file), 'utf8'),
+      );
+      return {
+        version,
+        supergraph,
+        api: supergraph.apiSchema(),
+      };
+    })
+    .filter(isDefined);
 }
 
 // This file is loaded by the `genTestSupergraph.ts` script to generate the test supergraph for the current version.
@@ -180,27 +200,32 @@ if (typeof describe !== 'undefined') {
 
     const toTest = listTestSupergraphs();
 
-    describe.each(toTest)(`handles supergraphs from $version`, ({supergraph, api}) => {
-      let qp: QueryPlanner;
+    describe.each(toTest)(
+      `handles supergraphs from $version`,
+      ({ supergraph, api }) => {
+        let qp: QueryPlanner;
 
-      test('can extract subgraphs and build the query planner', () => {
-        qp = new QueryPlanner(supergraph);
-      });
+        test('can extract subgraphs and build the query planner', () => {
+          qp = new QueryPlanner(supergraph);
+        });
 
-      test('can execute "me" query', () => {
-        const operation = operationFromDocument(api, gql`
-          {
-            me {
-              nickname
-              reviews {
-                rating
+        test('can execute "me" query', () => {
+          const operation = operationFromDocument(
+            api,
+            gql`
+              {
+                me {
+                  nickname
+                  reviews {
+                    rating
+                  }
+                }
               }
-            }
-          }
-        `);
+            `,
+          );
 
-        const plan = qp.buildQueryPlan(operation);
-        expect(plan).toMatchInlineSnapshot(`
+          const plan = qp.buildQueryPlan(operation);
+          expect(plan).toMatchInlineSnapshot(`
           QueryPlan {
             Parallel {
               Fetch(service: "accounts") {
@@ -222,34 +247,37 @@ if (typeof describe !== 'undefined') {
             },
           }
         `);
-      });
+        });
 
-      test('can execute "bestRatedProducts" query', () => {
-        const operation = operationFromDocument(api, gql`
-          {
-            bestRatedProducts(limit: 10) {
-              reviews {
-                author {
-                  nickname
+        test('can execute "bestRatedProducts" query', () => {
+          const operation = operationFromDocument(
+            api,
+            gql`
+              {
+                bestRatedProducts(limit: 10) {
+                  reviews {
+                    author {
+                      nickname
+                    }
+                    rating
+                  }
+                  price {
+                    value
+                    currency
+                  }
+                  ... on Movie {
+                    length_minutes
+                  }
+                  ... on Book {
+                    avg_rating
+                  }
                 }
-                rating
               }
-              price {
-                value
-                currency
-              }
-              ... on Movie {
-                length_minutes
-              }
-              ... on Book {
-                avg_rating
-              }
-            }
-          }
-        `);
+            `,
+          );
 
-        const plan = qp.buildQueryPlan(operation);
-        expect(plan).toMatchInlineSnapshot(`
+          const plan = qp.buildQueryPlan(operation);
+          expect(plan).toMatchInlineSnapshot(`
           QueryPlan {
             Sequence {
               Fetch(service: "reviews") {
@@ -330,7 +358,8 @@ if (typeof describe !== 'undefined') {
             },
           }
         `);
-      });
-    });
+        });
+      },
+    );
   });
 }

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Grab prettier output, filter out garbage output lines (lines which aren't a
+# file path), and remove the " 0ms" from the end of each line (everything after
+# whitespace)
+FILES=$(npm run prettier:fix | grep 'src' | sed 's/ .*//')
+
+# Add the files to the commit
+echo "$FILES" | xargs git add

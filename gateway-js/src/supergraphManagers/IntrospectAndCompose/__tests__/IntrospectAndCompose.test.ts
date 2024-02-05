@@ -3,11 +3,17 @@ import {
   fixtures,
   fixturesWithUpdate,
 } from 'apollo-federation-integration-testsuite';
-import { nockBeforeEach, nockAfterEach } from '../../../__tests__/nockAssertions';
+import {
+  nockBeforeEach,
+  nockAfterEach,
+} from '../../../__tests__/nockAssertions';
 import { RemoteGraphQLDataSource, ServiceEndpointDefinition } from '../../..';
 import { IntrospectAndCompose } from '..';
 import { mockAllServicesSdlQuerySuccess } from '../../../__tests__/integration/nockMocks';
-import { getTestingSupergraphSdl, wait } from '../../../__tests__/execution-utils';
+import {
+  getTestingSupergraphSdl,
+  wait,
+} from '../../../__tests__/execution-utils';
 import resolvable from '@josephg/resolvable';
 import type { Logger } from '@apollo/utils.logger';
 
@@ -182,10 +188,7 @@ describe('IntrospectAndCompose', () => {
       },
     });
 
-    await Promise.all([
-      healthCheckPromiseOnLoad,
-      healthCheckPromiseOnUpdate,
-    ]);
+    await Promise.all([healthCheckPromiseOnLoad, healthCheckPromiseOnUpdate]);
 
     expect(healthCheckSpy).toHaveBeenNthCalledWith(
       1,

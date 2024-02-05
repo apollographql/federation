@@ -19,7 +19,9 @@ describe('addExtensions', () => {
 
   it('has extensions on loaded schemas', async () => {
     const { schema } = await gateway.load();
-    expect(schema.extensions).toEqual({ apollo: { gateway: { version: version } } });
+    expect(schema.extensions).toEqual({
+      apollo: { gateway: { version: version } },
+    });
   });
 
   it('has extensions on schema updates', async () => {
@@ -32,6 +34,8 @@ describe('addExtensions', () => {
     gateway.load();
 
     const { apiSchema } = await schemaChangeBlocker;
-    expect(apiSchema.extensions).toEqual({ apollo: { gateway: { version: version } } });
+    expect(apiSchema.extensions).toEqual({
+      apollo: { gateway: { version: version } },
+    });
   });
 });

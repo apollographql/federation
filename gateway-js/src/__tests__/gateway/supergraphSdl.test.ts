@@ -4,7 +4,10 @@ import {
   SubgraphHealthCheckFunction,
   SupergraphSdlUpdateFunction,
 } from '@apollo/gateway';
-import { accounts, fixturesWithUpdate } from 'apollo-federation-integration-testsuite';
+import {
+  accounts,
+  fixturesWithUpdate,
+} from 'apollo-federation-integration-testsuite';
 import { createHash } from '@apollo/utils.createhash';
 import { ApolloServer } from '@apollo/server';
 import { startStandaloneServer } from '@apollo/server/standalone';
@@ -54,7 +57,9 @@ afterEach(async () => {
   }
 });
 
-const testingFixturesDefaultCompositionId = createHash('sha256').update(getTestingSupergraphSdl()).digest('hex');
+const testingFixturesDefaultCompositionId = createHash('sha256')
+  .update(getTestingSupergraphSdl())
+  .digest('hex');
 
 describe('Using supergraphSdl static configuration', () => {
   it('successfully starts and serves requests to the proper services', async () => {
@@ -63,7 +68,6 @@ describe('Using supergraphSdl static configuration', () => {
     nock(accounts.url)
       .post('/', { query: '{me{username}}', variables: {} })
       .reply(200, { data: { me: { username: '@apollo-user' } } });
-
 
     const result = await server.executeOperation({
       query: '{ me { username } }',
@@ -185,9 +189,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
     await gateway.load();
     const { state, compositionId } = gateway.__testing();
     expect(state.phase).toEqual('loaded');
-    expect(compositionId).toEqual(
-      testingFixturesDefaultCompositionId,
-    );
+    expect(compositionId).toEqual(testingFixturesDefaultCompositionId);
 
     await gateway.stop();
     expect(cleanup).toHaveBeenCalledTimes(1);
@@ -210,9 +212,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
     await gateway.load();
     const { state, compositionId } = gateway.__testing();
     expect(state.phase).toEqual('loaded');
-    expect(compositionId).toEqual(
-      testingFixturesDefaultCompositionId,
-    );
+    expect(compositionId).toEqual(testingFixturesDefaultCompositionId);
 
     await expect(healthCheckCallback!(supergraphSdl)).resolves.toBeUndefined();
   });
@@ -292,9 +292,7 @@ describe('Using supergraphSdl dynamic configuration', () => {
       await gateway.load();
       const { state, compositionId } = gateway.__testing();
       expect(state.phase).toEqual('loaded');
-      expect(compositionId).toEqual(
-        testingFixturesDefaultCompositionId
-      );
+      expect(compositionId).toEqual(testingFixturesDefaultCompositionId);
 
       await expect(healthCheckCallback!(supergraphSdl)).rejects.toThrowError(
         /The gateway subgraphs health check failed\. Updating to the provided `supergraphSdl` will likely result in future request failures to subgraphs\. The following error occurred during the health check/,

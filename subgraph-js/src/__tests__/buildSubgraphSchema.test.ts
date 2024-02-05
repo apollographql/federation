@@ -862,7 +862,8 @@ describe('buildSubgraphSchema', () => {
       directiveDefinitions: string,
       typeDefinitions: string,
     ) => {
-      const schema = buildSubgraphSchema(gql`${header}
+      const schema = buildSubgraphSchema(gql`
+        ${header}
         type User @key(fields: "email") @tag(name: "tagOnType") {
           email: String @tag(name: "tagOnField")
         }
@@ -881,8 +882,8 @@ describe('buildSubgraphSchema', () => {
           ? ''
           : `
         ${header.trim()}
-        `)
-        + `
+        `) +
+          `
         ${directiveDefinitions.trim()}
 
         type User
@@ -903,13 +904,15 @@ describe('buildSubgraphSchema', () => {
          = User
 
         ${typeDefinitions.trim()}
-      `);
+      `,
+      );
     };
 
-    it.each([{
-      name: 'fed1',
-      header: '',
-      directiveDefinitions: `
+    it.each([
+      {
+        name: 'fed1',
+        header: '',
+        directiveDefinitions: `
         directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 
         directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
@@ -922,7 +925,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @extends on OBJECT | INTERFACE
       `,
-      typesDefinitions: `
+        typesDefinitions: `
         scalar _FieldSet
 
         scalar _Any
@@ -938,14 +941,15 @@ describe('buildSubgraphSchema', () => {
           _service: _Service!
         }
       `,
-    }, {
-      name: 'fed2',
-      header: `
+      },
+      {
+        name: 'fed2',
+        header: `
         extend schema
           @link(url: "https://specs.apollo.dev/link/v1.0")
           @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@tag"])
       `,
-      directiveDefinitions: `
+        directiveDefinitions: `
         directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
         directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
@@ -966,7 +970,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @federation__override(from: String!) on FIELD_DEFINITION
       `,
-      typesDefinitions: `
+        typesDefinitions: `
         enum link__Purpose {
           """
           \`SECURITY\` features provide metadata necessary to securely resolve fields.
@@ -996,9 +1000,13 @@ describe('buildSubgraphSchema', () => {
           _service: _Service!
         }
       `,
-    }])('adds it for $name schema', async ({header, directiveDefinitions, typesDefinitions}) => {
-      await validateTag(header, directiveDefinitions, typesDefinitions);
-    });
+      },
+    ])(
+      'adds it for $name schema',
+      async ({ header, directiveDefinitions, typesDefinitions }) => {
+        await validateTag(header, directiveDefinitions, typesDefinitions);
+      },
+    );
   });
 
   it(`fails on bad linking`, () => {
@@ -1006,8 +1014,10 @@ describe('buildSubgraphSchema', () => {
       buildSubgraphSchema(gql`
         extend schema
           @link(url: "https://specs.apollo.dev/link/v1.0")
-          @link(url: "https://specs.apollo.dev/federation/v2.0",
-            import: [ { name: "@key", as: "@primaryKey" } ])
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: [{ name: "@key", as: "@primaryKey" }]
+          )
 
         type Query {
           t: T
@@ -1016,10 +1026,10 @@ describe('buildSubgraphSchema', () => {
         type T @key(fields: "id") {
           id: ID!
         }
-        `);
+      `);
     } catch (e) {
       expect(errorCauses(e)?.map((e) => e.message)).toStrictEqual([
-        'Unknown directive "@key". If you meant the "@key" federation directive, you should use "@primaryKey" as it is imported under that name in the @link to the federation specification of this schema.'
+        'Unknown directive "@key". If you meant the "@key" federation directive, you should use "@primaryKey" as it is imported under that name in the @link to the federation specification of this schema.',
       ]);
     }
   });
@@ -1047,9 +1057,12 @@ describe('buildSubgraphSchema', () => {
             {
               kind: Kind.OPERATION_TYPE_DEFINITION,
               operation: OperationTypeNode.QUERY,
-              type: { kind: Kind.NAMED_TYPE, name: { kind: Kind.NAME, value: 'Query' } }
+              type: {
+                kind: Kind.NAMED_TYPE,
+                name: { kind: Kind.NAME, value: 'Query' },
+              },
             },
-          ]
+          ],
         },
         {
           kind: Kind.OBJECT_TYPE_DEFINITION,
@@ -1060,20 +1073,19 @@ describe('buildSubgraphSchema', () => {
               name: { kind: Kind.NAME, value: 'test' },
               type: {
                 kind: Kind.NAMED_TYPE,
-                name: { kind: Kind.NAME, value: 'String' }
+                name: { kind: Kind.NAME, value: 'String' },
               },
             },
-          ]
+          ],
         },
       ],
     };
-
 
     expect(() => buildSubgraphSchema(doc)).not.toThrow();
   });
 
   it('correctly attaches the provided subscribe function to the schema object', () => {
-    async function* subscribeFn () {
+    async function* subscribeFn() {
       for await (const word of ['Hello', 'Bonjour', 'Ciao']) {
         yield word;
       }
@@ -1123,18 +1135,20 @@ describe('buildSubgraphSchema', () => {
         type Query {
           x: Int
         }
-      `)
+      `);
 
       const { data, errors } = await graphql({ schema, source: query });
       expect(errors).toBeUndefined();
       expect((data?._service as any).sdl).toMatchString(expectedOutput);
-    }
+    };
 
     it('expands federation 2.0 correctly', async () => {
       // For 2.0, we expect in particular that:
       // - the @composeDirective directive is *not* present
       // - the @shareable directive is *not* repeatable
-      await testVersion('2.0', `
+      await testVersion(
+        '2.0',
+        `
         schema
           @link(url: \"https://specs.apollo.dev/link/v1.0\")
         {
@@ -1190,14 +1204,17 @@ describe('buildSubgraphSchema', () => {
         type _Service {
           sdl: String
         }
-      `);
+      `,
+      );
     });
 
     it('expands federation 2.1 correctly', async () => {
       // For 2.1, we expect in particular that:
       // - the @composeDirective directive to exists
       // - the @shareable directive is *not* repeatable
-      await testVersion('2.1', `
+      await testVersion(
+        '2.1',
+        `
         schema
           @link(url: \"https://specs.apollo.dev/link/v1.0\")
         {
@@ -1255,13 +1272,16 @@ describe('buildSubgraphSchema', () => {
         type _Service {
           sdl: String
         }
-      `);
+      `,
+      );
     });
 
     it('expands federation 2.2 correctly', async () => {
       // For 2.2, we expect everything from 2.1 plus:
       // - the @shareable directive to be repeatable
-      await testVersion('2.2', `
+      await testVersion(
+        '2.2',
+        `
         schema
           @link(url: \"https://specs.apollo.dev/link/v1.0\")
         {
@@ -1319,14 +1339,17 @@ describe('buildSubgraphSchema', () => {
         type _Service {
           sdl: String
         }
-      `);
+      `,
+      );
     });
 
     it('expands federation 2.5 correctly', async () => {
       // For 2.5, we expect in everything from 2.2 plus:
       // - the @interfaceObject directive
       // - the @tag directive to additionally have the SCHEMA location
-      await testVersion('2.5', `
+      await testVersion(
+        '2.3',
+        `
         schema
           @link(url: \"https://specs.apollo.dev/link/v1.0\")
         {
@@ -1388,7 +1411,8 @@ describe('buildSubgraphSchema', () => {
         type _Service {
           sdl: String
         }
-      `);
+      `,
+      );
     });
   });
 });

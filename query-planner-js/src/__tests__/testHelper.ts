@@ -1,6 +1,6 @@
 import { astSerializer, FetchNode, PlanNode, queryPlanSerializer, QueryPlanner, QueryPlannerConfig, SubgraphFetchNode } from '@apollo/query-planner';
 import { composeServices } from '@apollo/composition';
-import { asFed2SubgraphDocument, buildSchema, Schema, ServiceDefinition } from '@apollo/federation-internals';
+import { asFed2SubgraphDocument, Schema, ServiceDefinition, Supergraph } from '@apollo/federation-internals';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -16,7 +16,7 @@ export function composeAndCreatePlannerWithOptions(services: ServiceDefinition[]
   expect(compositionResults.errors).toBeUndefined();
   return [
     compositionResults.schema!.toAPISchema(),
-    new QueryPlanner(buildSchema(compositionResults.supergraphSdl!), config)
+    new QueryPlanner(Supergraph.build(compositionResults.supergraphSdl!), config)
   ];
 }
 

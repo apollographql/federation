@@ -31,7 +31,6 @@ import {
   NamedFragments,
   operationToDocument,
   MapWithCachedArrays,
-  sameType,
   FederationMetadata,
   federationMetadata,
   entitiesFieldName,
@@ -51,7 +50,6 @@ import {
   mapValues,
   isInterfaceObjectType,
   isInterfaceType,
-  isNonNullType,
   Type,
   MutableSelectionSet,
   SelectionSetUpdates,
@@ -60,6 +58,9 @@ import {
   InterfaceType,
   FragmentSelection,
   possibleRuntimeTypes,
+  typesCanBeMerged,
+  Supergraph,
+  sameType,
   FederationDirectiveName,
   ArgumentDefinition,
   FieldDefinition,
@@ -70,7 +71,7 @@ import {
   advanceSimultaneousPathsWithOperation,
   Edge,
   emptyContext,
-  ExcludedEdges,
+  ExcludedDestinations,
   QueryGraph,
   GraphPath,
   isPathContext,
@@ -285,6 +286,94 @@ function selectionIsFullyLocalFromAllVertices(
   return true;
 }
 
+/**
+ * Given 2 paths that are 2 different options to reach the same query leaf field, checks if one can be shown
+ * to be always "better" (more efficient/optimal) than the other one, and this regardless of any surrounding context (that
+ * is regardless of what the rest of the query plan would be for any other query leaf field.
+ *
+ * Note that this method is used on final options of a given "query path", so all the heuristics done within `GraphPath`
+ * to avoid unecessary option have already been applied (say, avoiding to consider a path that do 2 successives key jumps
+ * when there is a 1 jump equivalent, ...), so this focus on what can be done based on the fact that the path considered
+ * are "finished".
+ *
+ * @return -1 if `opt1` is known to be strictly better than `opt2`, 1 if it is `opt2` that is strictly better, and 0 if we
+ * cannot really guarantee anything (at least "out of context").
+ */
+export function compareOptionsComplexityOutOfContext<RV extends Vertex>(opt1: SimultaneousPaths<RV>, opt2: SimultaneousPaths<RV>): number {
+  // Currently, we only every compare single-path options. We may find smart things to do for multi-path options later,
+  // but unsure what currently.
+  if (opt1.length === 1) {
+    if (opt2.length === 1) {
+      return compareSinglePathOptionsComplexityOutOfContext(opt1[0], opt2[0]);
+    } else {
+      return compareSingleVsMultiPathOptionsComplexityOutOfContext(opt1[0], opt2);
+    }
+  } else if (opt2.length === 1) {
+    return -compareSingleVsMultiPathOptionsComplexityOutOfContext(opt2[0], opt1);
+  }
+  return 0;
+}
+
+function compareSinglePathOptionsComplexityOutOfContext<RV extends Vertex>(p1: OpGraphPath<RV>, p2: OpGraphPath<RV>): number {
+  // Currently, this method only handle the case where we have something like:
+  //  - `p1`: <some prefix> -[t]-> T(A)               -[u]-> U(A) -[x] -> Int(A)
+  //  - `p2`: <some prefix> -[t]-> T(A) -[key]-> T(B) -[u]-> U(B) -[x] -> Int(B)
+  // That is, we have 2 choices that are identical up to the "end", when one stays in the subgraph (p1, which stays in A)
+  // while the other use a key to another subgraph (p2, going to B).
+  //
+  // In such a case, whatever else the a query might be doing, it can never be "worst"
+  // to use `p1` than to use `p2` because both will force the same "fetch group" up to the
+  // end, but `p2` may force one more fetch that `p` does not.
+  // Do note that we say "may" above, because the rest of the plan may well have a forced
+  // choice like:
+  //  - `other`: <some prefix> -[t]-> T(A) -[key]-> T(B) -[u]-> U(B) -[y] -> Int(B)
+  // in which case the plan will have the jump from A to B after `t` whether we use `p1` or
+  // `p2`, but while in that particular case `p1` and `p2` are about comparable in term
+  // of performance, `p1` is still not worst than `p2` (and in other situtation, `p1` may
+  // genuinely be better).
+  //
+  // Note that this is in many ways just a generalization of a heuristic we use earlier for leaf field. That is,
+  // we will never get as input to this method something like:
+  //  - `p1`: <some prefix> -[t]-> T(A)               -[x] -> Int(A)
+  //  - `p2`: <some prefix> -[t]-> T(A) -[key]-> T(B) -[x] -> Int(B)
+  // because when the code is asked for option for `x` after `<some prefix> -[t]-> T(A)`, it notices that `x`
+  // is a leaf and is in `A`, so it doesn't ever look for alternative path. But this only work for direct
+  // leaf of an entity. In the example at the beginning, field `u` makes this not working, because when
+  // we compute choices for `u`, we don't yet know what comes after that, and so we have to take the option
+  // of going to subgraph `B` into account (it may very be that whatever comes after `u` is not in `A` for
+  // instance).
+  if (p1.tail.source !== p2.tail.source) {
+    const { thisJumps: p1Jumps, thatJumps: p2Jumps } = p1.countSubgraphJumpsAfterLastCommonVertex(p2);
+    // As described above, we want to known if one of the path has no jumps at all (after the common prefix) while
+    // the other do have some.
+    if (p1Jumps === 0 && p2Jumps > 0) {
+      return -1;
+    } else if (p1Jumps > 0 && p2Jumps === 0) {
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+  return 0;
+}
+
+function compareSingleVsMultiPathOptionsComplexityOutOfContext<RV extends Vertex>(p1: OpGraphPath<RV>, p2s: SimultaneousPaths<RV>): number {
+  // This handle the same case than for the single-path only case, but compares the single path against
+  // each of the option of the multi-path, and only "ignore" the multi-path if all its paths can be ignored.
+  // Note that this happens less often than the single-path only case, but with @provides on an interface, you can
+  // have case where one the one side you can get something entirely on the current graph, but the type-exploded case
+  // has still be generated due to the leaf field not being the one just after "provided" interface.
+  for (const p2 of p2s) {
+    // Note: not sure if it is possible for a branch of the multi-path option to subsume the single-path one in practice, but
+    // if it does, we ignore it because it's not obvious that this is enough to get rid of `p1` (maybe `p1` is provably a bit
+    // costlier than one of the path of `p2s`, but `p2s` may have many paths and could still be collectively worst than `p1`).
+    if (compareSinglePathOptionsComplexityOutOfContext(p1, p2) >= 0) {
+      return 0;
+    }
+  }
+  return -1;
+}
+
 class QueryPlanningTraversal<RV extends Vertex> {
   // The stack contains all states that aren't terminal.
   private bestPlan: [FetchDependencyGraph, OpPathTree<RV>, number] | undefined;
@@ -293,6 +382,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
 
   private stack: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][];
   private readonly closedBranches: ClosedBranch<RV>[] = [];
+  private readonly optionsLimit: number | null;
 
   constructor(
     readonly parameters: PlanningParameters<RV>,
@@ -302,23 +392,26 @@ class QueryPlanningTraversal<RV extends Vertex> {
     private readonly rootKind: SchemaRootKind,
     readonly costFunction: CostFunction,
     initialContext: PathContext,
-    excludedEdges: ExcludedEdges = [],
+    excludedDestinations: ExcludedDestinations = [],
     excludedConditions: ExcludedConditions = [],
   ) {
     const { root, federatedQueryGraph } = parameters;
     this.isTopLevel = isRootVertex(root);
+    this.optionsLimit = parameters.config.debug?.pathsLimit;
     this.conditionResolver = cachingConditionResolver(
       federatedQueryGraph,
       (edge, context, excludedEdges, excludedConditions) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions),
     );
 
     const initialPath: OpGraphPath<RV> = GraphPath.create(federatedQueryGraph, root);
+
     const initialOptions = createInitialOptions(
       initialPath,
       initialContext,
       this.conditionResolver,
-      excludedEdges,
+      excludedDestinations,
       excludedConditions,
+      parameters.overrideConditions,
     );
     this.stack = mapOptionsToSelections(selectionSet, initialOptions);
   }
@@ -343,12 +436,23 @@ class QueryPlanningTraversal<RV extends Vertex> {
     return this.bestPlan;
   }
 
+  private recordClosedBranch(closed: ClosedBranch<RV>) {
+    const maybeTrimmed = this.maybeEliminateStrictlyMoreCostlyPaths(closed);
+    debug.log(() => `Closed branch has ${maybeTrimmed.length} options (eliminated ${closed.length - maybeTrimmed.length} that could be proved as unecessary)`);
+    this.closedBranches.push(maybeTrimmed);
+  }
+
   private handleOpenBranch(selection: Selection, options: SimultaneousPathsWithLazyIndirectPaths<RV>[]) {
     const operation = selection.element;
     debug.group(() => `Handling open branch: ${operation}`);
     let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
     for (const option of options) {
-      const followupForOption = advanceSimultaneousPathsWithOperation(this.parameters.supergraphSchema, option, operation);
+      const followupForOption = advanceSimultaneousPathsWithOperation(
+        this.parameters.supergraphSchema,
+        option,
+        operation,
+        this.parameters.overrideConditions,
+      );
       if (!followupForOption) {
         // There is no valid way to advance the current `operation` from this option, so this option is a dead branch
         // that cannot produce a valid query plan. So we simply ignore it and rely on other options.
@@ -381,12 +485,18 @@ class QueryPlanningTraversal<RV extends Vertex> {
         // Do note that we'll only need that `__typename` if there is no other selections inside `foo`, and so we might include
         // it unecessarally in practice: it's a very minor inefficiency though.
         if (operation.kind === 'FragmentElement') {
-          this.closedBranches.push(options.map((o) => ({ paths: o.paths.map(p => terminateWithNonRequestedTypenameField(p))})));
+          this.recordClosedBranch(options.map((o) => ({
+            paths: o.paths.map(p => terminateWithNonRequestedTypenameField(p, this.parameters.overrideConditions))
+          })));
         }
         debug.groupEnd(() => `Terminating branch with no possible results`);
         return;
       }
       newOptions = newOptions.concat(followupForOption);
+
+      if (this.optionsLimit && newOptions.length > this.optionsLimit) {
+        throw new Error(`Too many options generated for ${selection}, reached the limit of ${this.optionsLimit}`);
+      }
     }
 
     if (newOptions.length === 0) {
@@ -423,7 +533,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
         //   as we should (we add `__typename` for abstract types on the "normal path" and so we add them too to
         //   named fragments; as such, we need them here too).
         const selectionSet = addTypenameFieldForAbstractTypes(addBackTypenameInAttachments(selection.selectionSet));
-        this.closedBranches.push(newOptions.map((opt) => ({ paths: opt.paths, selection: selectionSet })));
+        this.recordClosedBranch(newOptions.map((opt) => ({ paths: opt.paths, selection: selectionSet })));
       } else {
         for (const branch of mapOptionsToSelections(selection.selectionSet, newOptions)) {
           this.stack.push(branch);
@@ -431,57 +541,62 @@ class QueryPlanningTraversal<RV extends Vertex> {
       }
       debug.groupEnd();
     } else {
-      const updated = this.maybeEliminateStrictlyMoreCostlyPaths(newOptions);
-      this.closedBranches.push(updated);
-      debug.groupEnd(() => `Branch finished with ${updated.length} options`);
+      this.recordClosedBranch(newOptions.map((opt) => ({ paths: opt.paths })));
+      debug.groupEnd(() => `Branch finished`);
     }
   }
 
-  // This method should be applied to "final" paths, that is when the tail of the paths is a leaf field.
-  // TODO: this method was added for cases where we had the following options:
-  //   1) _ -[f1]-> T1(A) -[f2]-> T2(A) -[f3]-> T3(A) -[f4]-> Int(A)
-  //   2) _ -[f1]-> T1(A) -[f2]-> T2(A) -[key]-> T2(B) -[f3]-> T3(B) -[f4] -> Int(B)
-  // where clearly the 2nd option is not necessary (we're in A up to T2 in both case, so staying in A is never
-  // going to be more expensive that going to B; note that if _other_ branches do jump to B after T2(A) for
-  // other fieleds, the option 2 might well lead to a plan _as_ efficient as with option 1, but it will
-  // not be _more_ efficient).
-  // Anyway, while the implementation does handle this case, I believe it's a bit over-generic and can
-  // eliminiate options we could want to keep. Double-check that and fix.
-  private maybeEliminateStrictlyMoreCostlyPaths(
-    options: SimultaneousPathsWithLazyIndirectPaths<RV>[]
-  ): ClosedBranch<RV> {
-    if (options.length === 1) {
-      return [{ paths: options[0].paths }];
+  /**
+   * This method is called on a closed branch, that is on all the possible options found
+   * to get a particular leaf of the query being planned. And when there is more than one
+   * option, it tries a last effort at checking an option can be shown to be less efficient
+   * than another one _whatever the rest of the query plan is_ (that is, whatever the options
+   * for any other leaf of the query are).
+   *
+   * In practice, this compare all pair of options and call the heuristics
+   * of `compareOptionsComplexityOutOfContext` on them to see if one strictly
+   * subsume the other (and if that's the case, the subsumed one is ignored).
+   */
+  private maybeEliminateStrictlyMoreCostlyPaths(branch: ClosedBranch<RV>): ClosedBranch<RV> {
+    if (branch.length <= 1) {
+      return branch;
     }
 
-    const singlePathOptions = options.filter(opt => opt.paths.length === 1);
-    if (singlePathOptions.length === 0) {
-      // we can't easily compare multi-path options
-      return options.map(opt => ({ paths: opt.paths }));
-    }
+    // Copying the branch because we're going to modify in place.
+    const toHandle = branch.concat();
 
-    let minJumps = Number.MAX_SAFE_INTEGER;
-    let withMinJumps: ClosedBranch<RV> = [];
-    for (const option of singlePathOptions) {
-      const jumps = option.paths[0].subgraphJumps();
-      const closedBranch = { paths: option.paths };
-      if (jumps < minJumps) {
-        minJumps = jumps;
-        withMinJumps = [closedBranch];
-      } else if (jumps === minJumps) {
-        withMinJumps.push(closedBranch);
+    const keptOptions: ClosedPath<RV>[] = [];
+    while (toHandle.length >= 2) {
+      const first = toHandle[0];
+      let shouldKeepFirst = true;
+      // We compare `first` to every other remaining. But we iterate from end to beginning
+      // because we may remove in place some of those we iterate on and that makes it safe.
+      for (let i = toHandle.length - 1 ; i >= 1; i--) {
+        const other = toHandle[i];
+        const cmp = compareOptionsComplexityOutOfContext(first.paths, other.paths);
+        if (cmp < 0) {
+          // This means that `first` is always better than `other`. So we eliminate `other`.
+          toHandle.splice(i, 1);
+        } else if (cmp > 0) {
+          // This means that `first` is always worst than `other`. So we eliminate `first` (
+          // and we're done with this inner loop).
+          toHandle.splice(0, 1);
+          shouldKeepFirst = false;
+          break;
+        }
+      }
+      if (shouldKeepFirst) {
+        // Means that we found no other option that make first unecessary. We mark first as kept,
+        // and remove it from our working set (which we know it hasn't yet).
+        keptOptions.push(first);
+        toHandle.splice(0, 1);
       }
     }
-
-    // We then look at multi-path options. We can exclude those if the path with the least amount of jumps is
-    // more than our minJumps
-    for (const option of singlePathOptions.filter(opt => opt.paths.length > 1)) {
-      const jumps = option.paths.reduce((acc, p) => Math.min(acc, p.subgraphJumps()), Number.MAX_SAFE_INTEGER);
-      if (jumps <= minJumps) {
-        withMinJumps.push({ paths: option.paths });
-      }
+    // We know toHandle has at most 1 element, but it may have one and we should keep it.
+    if (toHandle.length > 0) {
+      keptOptions.push(toHandle[0]);
     }
-    return withMinJumps;
+    return keptOptions;
   }
 
   private newDependencyGraph(): FetchDependencyGraph {
@@ -505,34 +620,12 @@ class QueryPlanningTraversal<RV extends Vertex> {
     this.closedBranches[i - 1] = firstBranch;
   }
 
-  // Remove closed branches that are known to be overridden by others.
-  private pruneClosedBranches() {
-    for (let i = 0; i < this.closedBranches.length; i++) {
-      const branch = this.closedBranches[i];
-      if (branch.length <= 1) {
-        continue;
-      }
-
-      const pruned: ClosedBranch<RV> = [];
-      for (const toCheck of branch) {
-        if (!this.optionIsOverriden(toCheck.paths, branch)) {
-          pruned.push(toCheck);
-        }
-      }
-      this.closedBranches[i] = pruned;
-    }
-  }
-
-  private optionIsOverriden(toCheck: SimultaneousPaths<RV>, allOptions: ClosedBranch<RV>): boolean {
-    for (const { paths } of allOptions) {
-      if (toCheck === paths) {
-        continue;
-      }
-      if (toCheck.every((p) => paths.some((o) => p.isOverriddenBy(o)))) {
-        return true;
-      }
-    }
-    return false;
+  private sortOptionsInClosedBranches() {
+    this.closedBranches.forEach((branch) => branch.sort((p1, p2) => {
+      const p1Jumps = Math.max(...p1.paths.map((p) => p.subgraphJumps()));
+      const p2Jumps = Math.max(...p2.paths.map((p) => p.subgraphJumps()));
+      return p1Jumps - p2Jumps;
+    }));
   }
 
   private computeBestPlanFromClosedBranches() {
@@ -540,13 +633,18 @@ class QueryPlanningTraversal<RV extends Vertex> {
       return;
     }
 
-    // We've computed all branches and need to compare all the possible plans to pick the best.
-    // Note however that "all the possible plans" is essentially a cartesian product of all
-    // the closed branches options, and if a lot of branches have multiple options, this can
-    // exponentially explode.
-    // So first, we check if we can preemptively prune some branches based on those branches having options
-    // that are known to be overriden by other ones.
-    this.pruneClosedBranches();
+    // We now sort the options within each branch, putting those with the least amount of subgraph jumps first.
+    // The idea is that for each branch taken individually, the option with the least jumps is going to be
+    // the most efficient, and while it is not always the case that the best plan is built for those
+    // individual bests, they are still statistically more likely to be part of the best plan. So putting
+    // them first has 2 benefits for the rest of this method:
+    // 1. if we end up cutting some options of a branch below (due to having too many possible plans),
+    //   we'll cut the last option first (we `pop()`), so better cut what it the least likely to be good.
+    // 2. when we finally generate the plan, we use the cost of previously computed plans to cut computation
+    //   early when possible (see `generateAllPlansAndFindBest`), so there is a premium in generating good
+    //   plans early (it cuts more computation), and putting those more-likely-to-be-good options first helps
+    //   this.
+    this.sortOptionsInClosedBranches();
 
     // We're out of smart ideas for now, so we look at how many plans we'd have to generate, and if it's
     // "too much", we reduce it to something manageable by arbitrarilly throwing out options. This effectively
@@ -555,7 +653,8 @@ class QueryPlanningTraversal<RV extends Vertex> {
     // TODO: currently, when we need to reduce options, we do so somewhat arbitrarilly. More
     // precisely, we reduce the branches with the most options first and then drop the last
     // option of the branch, repeating until we have a reasonable number of plans to consider.
-    // However, there is likely ways to drop options in a more "intelligent" way.
+    // The sorting we do about help making this slightly more likely to be a good choice, but
+    // there is likely more "smarts" we could add to this.
 
     // We sort branches by those that have the most options first.
     this.closedBranches.sort((b1, b2) => b1.length > b2.length ? -1 : (b1.length < b2.length ? 1 : 0));
@@ -618,6 +717,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       .closedBranches
       .slice(0, idxFirstOfLengthOne)
       .map(b => b.map(opt => PathTree.createFromOpPaths(federatedQueryGraph, root, flattenClosedPath(opt))));
+
     const { best, cost} = generateAllPlansAndFindBest({
       initial: { graph: initialDependencyGraph, tree: initialTree },
       toAdd: otherTrees,
@@ -633,9 +733,9 @@ class QueryPlanningTraversal<RV extends Vertex> {
           if (!prevCost) {
             return `Computed plan with cost ${cost}: ${p.tree}`;
           } else if (cost > prevCost) {
-            return `Found better with cost ${cost} (previous had cost ${prevCost}: ${p.tree}`;
-          } else {
             return `Ignoring plan with cost ${cost} (a better plan with cost ${prevCost} exists): ${p.tree}`
+          } else {
+            return `Found better with cost ${cost} (previous had cost ${prevCost}: ${p.tree}`;
           }
         });
       },
@@ -656,7 +756,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       : computeNonRootFetchGroups(dependencyGraph, tree, this.rootKind);
   }
 
-  private resolveConditionPlan(edge: Edge, context: PathContext, excludedEdges: ExcludedEdges, excludedConditions: ExcludedConditions): ConditionResolution {
+  private resolveConditionPlan(edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions): ConditionResolution {
     const bestPlan = new QueryPlanningTraversal(
       {
         ...this.parameters,
@@ -668,17 +768,14 @@ class QueryPlanningTraversal<RV extends Vertex> {
       'query',
       this.costFunction,
       context,
-      excludedEdges,
-      addConditionExclusion(excludedConditions, edge.conditions)
+      excludedDestinations,
+      addConditionExclusion(excludedConditions, edge.conditions),
     ).findBestPlan();
     // Note that we want to return 'null', not 'undefined', because it's the latter that means "I cannot resolve that
     // condition" within `advanceSimultaneousPathsWithOperation`.
     return bestPlan ? { satisfied: true, cost: bestPlan[2], pathTree: bestPlan[1] } : unsatisfiedConditionsResolution;
   }
 }
-
-type UnhandledGroups = [FetchGroup, UnhandledParentRelations][];
-type UnhandledParentRelations = ParentRelation[];
 
 /**
  * Used in `FetchDependencyGraph` to store, for a given group, information about one of its parent.
@@ -701,6 +798,7 @@ const conditionsMemoizer = (selectionSet: SelectionSet) => ({ conditions: condit
 
 class GroupInputs {
   private readonly perType = new Map<string, MutableSelectionSet>();
+  onUpdateCallback?: () => void | undefined = undefined;
 
   constructor(
     readonly supergraphSchema: Schema,
@@ -717,6 +815,7 @@ class GroupInputs {
       this.perType.set(typeName, typeSelection);
     }
     typeSelection.updates().add(selection);
+    this.onUpdateCallback?.();
   }
 
   addAll(other: GroupInputs) {
@@ -798,8 +897,6 @@ class FetchGroup {
   // Set in some code-path to indicate that the selection of the group not be optimized away even if it "looks" useless.
   mustPreserveSelection: boolean = false;
 
-  private readonly inputRewrites: FetchDataRewrite[] = [];
-
   private constructor(
     readonly dependencyGraph: FetchDependencyGraph,
     public index: number,
@@ -815,7 +912,22 @@ class FetchGroup {
     // key for that. Having it here saves us from re-computing it more than once.
     readonly subgraphAndMergeAtKey?: string,
     private cachedCost?: number,
+    // Cache used to save unecessary recomputation of the `isUseless` method.
+    private isKnownUseful: boolean = false,
+    private readonly inputRewrites: FetchDataRewrite[] = [],
   ) {
+    if (this._inputs) {
+      this._inputs.onUpdateCallback = () => {
+        // We're trying to avoid the full recomputation of `isUseless` when we're already
+        // shown that the group is known useful (if it is shown useless, the group is removed,
+        // so we're not caching that result but it's ok). And `isUseless` basically checks if
+        // `inputs.contains(selection)`, so if a group is shown useful, it means that there
+        // is some selections not in the inputs, but as long as we add to selections (and we
+        // never remove from selections; `MutableSelectionSet` don't have removing methods),
+        // then this won't change. Only changing inputs may require some recomputation.
+        this.isKnownUseful = false;
+      }
+    }
   }
 
   static create({
@@ -854,6 +966,7 @@ class FetchGroup {
     );
   }
 
+  // Clones everything on the group itself, but not it's `_parents` or `_children` links.
   cloneShallow(newDependencyGraph: FetchDependencyGraph): FetchGroup {
     return new FetchGroup(
       newDependencyGraph,
@@ -868,6 +981,8 @@ class FetchGroup {
       this.deferRef,
       this.subgraphAndMergeAtKey,
       this.cachedCost,
+      this.isKnownUseful,
+      [...this.inputRewrites],
     );
   }
 
@@ -976,6 +1091,15 @@ class FetchGroup {
       return true;
     }
 
+    // If we do have inputs, then we first look at the path to `maybeParent`, and it needs to be
+    // essentially empty, "essentially" is because path can sometimes have some leading fragment(s)
+    // and those are fine to ignore. But if the path has some field, then this implies that the inputs
+    // of `this` are based on something at a deeper level than those of `maybeParent`, and the "contains"
+    // comparison we do below would not make sense.
+    if (relation.path.some((elt) => elt.kind === 'Field')) {
+      return false;
+    }
+
     // In theory, the most general test we could have here is to check if `this.inputs` "intersects"
     // `maybeParent.selection. As if it doesn't, we know our inputs don't depend on anything the
     // parent fetches. However, selection set intersection is a bit tricky to implement (due to fragments,
@@ -1045,14 +1169,14 @@ class FetchGroup {
     if (inputs) {
       this.cachedCost = undefined;
       const updated = inputs.selectionSets().reduce((prev, value) => prev.minus(value), this.selection);
-      this._selection = MutableSelectionSet.ofWithMemoized(this.selection.minus(updated), conditionsMemoizer);
+      this._selection = MutableSelectionSet.ofWithMemoized(updated, conditionsMemoizer);
     }
   }
 
   // If a group is such that everything is fetches is already included in the inputs, then
   // this group does useless fetches.
   isUseless(): boolean {
-    if (!this.inputs || this.mustPreserveSelection) {
+    if (this.isKnownUseful || !this.inputs || this.mustPreserveSelection) {
       return false;
     }
 
@@ -1065,7 +1189,7 @@ class FetchGroup {
     // But the fetch above _is_ useless, it does only fetch its inputs, and we wouldn't catch this
     // if we do a raw inclusion check of `selection` into `inputs`
     //
-    // We only care about this problem at the top-level of the selections however, so we does that
+    // We only care about this problem at the top-level of the selections however, so we do that
     // top-level check manually (instead of just calling `this.inputs.contains(this.selection)`)
     // but fallback on `contains` for anything deeper.
 
@@ -1084,9 +1208,39 @@ class FetchGroup {
       return undefined;
     }
 
+    // This condition is specific to the case where we're resolving the _concrete_
+    // `__typename` field of an interface when coming from an interfaceObject type.
+    // i.e. { ... on Product { __typename id }} => { ... on Product { __typename} }
+    // This is usually useless at a glance, but in this case we need to actually
+    // keep this since this is our only path to resolving the concrete `__typename`.
+    const isInterfaceTypeConditionOnInterfaceObject = (
+      selection: Selection
+    ): boolean => {
+      if (selection.kind === "FragmentSelection") {
+        const parentType = selection.element.typeCondition;
+        if (parentType && isInterfaceType(parentType)) {
+          // Lastly, we just need to check that we're coming from a subgraph
+          // that has the type as an interface object in its schema.
+          return this.parents().some((p) => {
+            const typeInParent = this.dependencyGraph.subgraphSchemas
+              .get(p.group.subgraphName)
+              ?.type(parentType.name);
+            return typeInParent && isInterfaceObjectType(typeInParent);
+          });
+        }
+      }
+      return false;
+    };
+
     const inputSelections = this.inputs.selectionSets().flatMap((s) => s.selections());
     // Checks that every selection is contained in the input selections.
-    return this.selection.selections().every((selection) => {
+    const isUseless = this.selection.selections().every((selection) => {
+      // If we're coming from an interfaceObject _to_ an interface, we're
+      // "resolving" the concrete type of the interface and don't want to treat
+      // this as useless.
+      if (isInterfaceTypeConditionOnInterfaceObject(selection)) {
+        return false;
+      }
       const conditionInSupergraph = conditionInSupergraphIfInterfaceObject(selection);
       if (!conditionInSupergraph) {
         // We're not in the @interfaceObject case described above. We just check that an input selection contains the
@@ -1127,6 +1281,9 @@ class FetchGroup {
       return implementationInputSelections.length > 0
         && implementationInputSelections.every((input) => input.selectionSet.contains(subSelectionSet));
     });
+
+    this.isKnownUseful = !isUseless;
+    return isUseless;
   }
 
   /**
@@ -1486,23 +1643,6 @@ function genAliasName(baseName: string, unavailableNames: Map<string, any>): str
   return candidate;
 }
 
-function typesCanBeMerged(t1: Type, t2: Type): boolean {
-  // This essentially follows the beginning of https://spec.graphql.org/draft/#SameResponseShape().
-  // That is, the types cannot be merged unless:
-  // - they have the same nullability and "list-ability", potentially recursively.
-  // - their base type is either both composite, or are the same type.
-  if (isNonNullType(t1)) {
-    return isNonNullType(t2) ? typesCanBeMerged(t1.ofType, t2.ofType) : false;
-  }
-  if (isListType(t1)) {
-    return isListType(t2) ? typesCanBeMerged(t1.ofType, t2.ofType) : false;
-  }
-  if (isCompositeType(t1)) {
-    return isCompositeType(t2);
-  }
-  return sameType(t1, t2);
-}
-
 type SelectionSetAtPath = {
   path: string[],
   selections: SelectionSet,
@@ -1621,7 +1761,6 @@ function withFieldAliased(selectionSet: SelectionSet, aliases: FieldToAlias[]): 
 }
 
 class DeferredInfo {
-
   private constructor(
     readonly label: string,
     readonly path: GroupPath,
@@ -1861,6 +2000,112 @@ class DeferTracking {
         return info;
       })
       : [];
+  }
+}
+
+/**
+ * UnhandledGroups is used while processing fetch groups in dependency order to track group for which
+ * one of the parent has been processed/handled but which has other parents. So it is a set of
+ * groups and for each group which parent(s) remains to be processed before the group itself can be
+ * processed.
+ */
+type UnhandledGroups = [FetchGroup, UnhandledParentRelations][];
+type UnhandledParentRelations = ParentRelation[];
+
+function printUnhandled(u: UnhandledGroups): string {
+  return '[' + u.map(([g, relations]) =>
+    `${g.index} (missing: [${relations.map((r) => r.group.index).join(', ')}])`
+  ).join(', ') + ']';
+}
+
+/*
+ * Used during the processing of fetch groups in dependency order.
+ */
+class ProcessingState {
+  private constructor(
+    // Groups that can be handled (because all their parents/dependencies have been processed before).
+    readonly next: readonly FetchGroup[],
+    // Groups that needs some parents/dependencies to be processed first because they can be themselves.
+    // Note that we make sure that this never hold group with no "edges".
+    readonly unhandled: UnhandledGroups,
+  ) {
+  }
+
+  static empty(): ProcessingState {
+    return new ProcessingState([], []);
+  }
+
+  static forChildrenOfProcessedGroup(processed: FetchGroup, children: FetchGroup[]): ProcessingState {
+    const ready: FetchGroup[] = [];
+    const unhandled: UnhandledGroups = [];
+    for (const c of children) {
+      const parents = c.parents();
+      if (parents.length === 1) {
+        // The parent we have processed is the only one parent of that children; we can handle the children
+        ready.push(c);
+      } else {
+        unhandled.push([c, parents.filter((p) => p.group !== processed)]);
+      }
+    }
+    return new ProcessingState(ready, unhandled);
+  }
+
+  static ofReadyGroups(groups: readonly FetchGroup[]): ProcessingState {
+    return new ProcessingState(groups, []);
+  }
+
+  withOnlyUnhandled(): ProcessingState {
+    return new ProcessingState([], this.unhandled);
+  }
+
+  mergeWith(that: ProcessingState): ProcessingState {
+    const next: FetchGroup[] = this.next.concat(that.next.filter((g) => !this.next.includes(g)));
+    const unhandled: UnhandledGroups = [];
+
+    const thatUnhandled = that.unhandled.concat();
+    for (const [g, edges] of this.unhandled) {
+      const newEdges = this.mergeRemaingsAndRemoveIfFound(g, edges, thatUnhandled);
+      if (newEdges.length == 0) {
+        if (!next.includes(g)) {
+          next.push(g);
+        }
+      } else {
+        unhandled.push([g, newEdges])
+      }
+    }
+    // Anything remaining in `thatUnhandled` are groups that were not in `this` at all.
+    unhandled.push(...thatUnhandled);
+    return new ProcessingState(next, unhandled);
+  }
+
+  private mergeRemaingsAndRemoveIfFound(group: FetchGroup, inEdges: UnhandledParentRelations, otherGroups: UnhandledGroups): UnhandledParentRelations {
+    const idx = otherGroups.findIndex(g => g[0] === group);
+    if (idx < 0) {
+      return inEdges;
+    } else {
+      const otherEdges = otherGroups[idx][1];
+      otherGroups.splice(idx, 1);
+      // The uhandled are the one that are unhandled on both side.
+      return inEdges.filter(e => otherEdges.includes(e))
+    }
+  }
+
+  updateForProcessedGroups(processed: readonly FetchGroup[]): ProcessingState {
+    const next: FetchGroup[] = this.next.concat();
+    const unhandled: UnhandledGroups = [];
+    for (const [g, edges] of this.unhandled) {
+      // Remove any of the processed groups from the unhandled edges of that group.
+      // And if there is no remaining edge, that group can be handled.
+      const newEdges = edges.filter((edge) => !processed.includes(edge.group));
+      if (newEdges.length === 0) {
+        if (!next.includes(g)) {
+          next.push(g);
+        }
+      } else {
+        unhandled.push([g, newEdges]);
+      }
+    }
+    return new ProcessingState(next, unhandled);
   }
 }
 
@@ -2235,13 +2480,16 @@ class FetchDependencyGraph {
     }
 
     if (group.isUseless()) {
-      // In general, removing a group is a bit tricky because we need to deal with the fact
-      // that the group can have multiple parents and children and no break the "path in parent"
-      // in all those cases. To keep thing relatively easily, we only handle the following
-      // cases (other cases will remain non-optimal, but hopefully this handle all the cases
-      // we care about in practice):
-      //   1. if the group has no children. In which case we can just remove it with no ceremony.
-      //   2. if the group has only a single parent and we have a path to that parent.
+      // In general, removing a group is a bit tricky because we need to deal
+      // with the fact that the group can have multiple parents, and we don't
+      // have the "path in parent" in all cases. To keep thing relatively
+      // easily, we only handle the following cases (other cases will remain
+      // non-optimal, but hopefully this handle all the cases we care about in
+      // practice):
+      //   1. if the group has no children. In which case we can just remove it
+      //      with no ceremony.
+      //   2. if the group has only a single parent and we have a path to that
+      //      parent.
       if (group.children().length === 0) {
         this.remove(group);
       } else {
@@ -2417,7 +2665,7 @@ class FetchDependencyGraph {
     handledConditions: Conditions,
   ): {
     main: TProcessed,
-    unhandled: UnhandledGroups,
+    state: ProcessingState,
     deferredGroups: SetMultiMap<string, FetchGroup>,
   } {
     const conditions = updatedConditions(group.conditions(), handledConditions);
@@ -2425,35 +2673,33 @@ class FetchDependencyGraph {
     const { children, deferredGroups } = this.extractChildrenAndDeferredDependencies(group);
     const processed = processor.onFetchGroup(group, newHandledConditions);
     if (children.length == 0) {
-      return { main: processor.onConditions(conditions, processed), unhandled: [], deferredGroups };
+      return { main: processor.onConditions(conditions, processed), state: ProcessingState.empty(), deferredGroups };
     }
 
-    const groupIsOnlyParentOfAllChildren = children.every(g => g.parents().length === 1);
-    if (groupIsOnlyParentOfAllChildren) {
-      // We process the children as if they were parallel roots (they are from `processed`
+    const state = ProcessingState.forChildrenOfProcessedGroup(group, children);
+    if (state.next.length > 0) {
+      // We process the ready children as if they were parallel roots (they are from `processed`
       // in a way), and then just add process at the beginning of the sequence.
       const {
         mainSequence,
-        unhandled,
+        newState,
         deferredGroups: allDeferredGroups,
       } = this.processRootMainGroups({
         processor,
-        rootGroups: children,
+        state,
         rootsAreParallel: true,
         initialDeferredGroups: deferredGroups,
         handledConditions: newHandledConditions,
       });
       return {
         main: processor.onConditions(conditions, processor.reduceSequence([processed].concat(mainSequence))),
-        unhandled,
+        state: newState,
         deferredGroups: allDeferredGroups,
       };
     } else {
-      // We return just the group, with all other groups to be handled after, but remembering that
-      // this group edge has been handled.
       return {
         main: processor.onConditions(conditions, processed),
-        unhandled: children.map(g => [g, g.parents().filter((p) => p.group !== group)]),
+        state,
         deferredGroups,
       };
     }
@@ -2461,61 +2707,34 @@ class FetchDependencyGraph {
 
   private processGroups<TProcessed, TDeferred>(
     processor: FetchGroupProcessor<TProcessed, TDeferred>,
-    groups: readonly FetchGroup[],
+    state: ProcessingState,
     processInParallel: boolean,
-    remaining: UnhandledGroups,
     handledConditions: Conditions,
   ): {
     processed: TProcessed,
-    next: FetchGroup[],
-    unhandled: UnhandledGroups,
+    newState: ProcessingState,
     deferredGroups: SetMultiMap<string, FetchGroup>,
   } {
     const processedNodes: TProcessed[] = [];
     const allDeferredGroups = new SetMultiMap<string, FetchGroup>();
-    let remainingNext = remaining;
-    let toHandleNext: FetchGroup[] = [];
-    for (const group of groups) {
-      const { main, deferredGroups, unhandled } = this.processGroup(processor, group, handledConditions);
+    let newState = state.withOnlyUnhandled();
+    for (const group of state.next) {
+      const { main, deferredGroups, state: stateAfterGroup } = this.processGroup(processor, group, handledConditions);
       processedNodes.push(main);
       allDeferredGroups.addAll(deferredGroups);
-      const [canHandle, newRemaining] = this.mergeRemainings(remainingNext, unhandled);
-      toHandleNext = toHandleNext.concat(canHandle);
-      remainingNext = newRemaining;
+      newState = newState.mergeWith(stateAfterGroup);
     }
+
+    // Note that `newState` is the merged result of everything after each individual group (anything that was _only_ depending
+    // on it), but the fact that groups themselves (`state.next`) have been handled has not necessarily be taking into
+    // account yet, so we do it below. Also note that this must be done outside of the `for` loop above, because any
+    // group that dependend on multiple of the input groups of this function must not be handled _within_ this function
+    // but rather after it, and this is what ensures it.
     return {
       processed: processInParallel ? processor.reduceParallel(processedNodes) : processor.reduceSequence(processedNodes),
-      next: toHandleNext,
-      unhandled: remainingNext,
+      newState: newState.updateForProcessedGroups(state.next),
       deferredGroups: allDeferredGroups,
     };
-  }
-
-  private mergeRemainings(r1: UnhandledGroups, r2: UnhandledGroups): [FetchGroup[], UnhandledGroups] {
-    const unhandled: UnhandledGroups = [];
-    const toHandle: FetchGroup[] = [];
-    for (const [g, edges] of r1) {
-      const newEdges = this.mergeRemaingsAndRemoveIfFound(g, edges, r2);
-      if (newEdges.length == 0) {
-        toHandle.push(g);
-      } else {
-        unhandled.push([g, newEdges])
-      }
-    }
-    unhandled.push(...r2);
-    return [toHandle, unhandled];
-  }
-
-  private mergeRemaingsAndRemoveIfFound(group: FetchGroup, inEdges: UnhandledParentRelations, otherGroups: UnhandledGroups): UnhandledParentRelations {
-    const idx = otherGroups.findIndex(g => g[0] === group);
-    if (idx < 0) {
-      return inEdges;
-    } else {
-      const otherEdges = otherGroups[idx][1];
-      otherGroups.splice(idx, 1);
-      // The uhandled are the one that are unhandled on both side.
-      return inEdges.filter(e => otherEdges.includes(e))
-    }
   }
 
   /**
@@ -2524,41 +2743,37 @@ class FetchDependencyGraph {
    */
   private processRootMainGroups<TProcessed, TDeferred>({
     processor,
-    rootGroups,
+    state,
     rootsAreParallel,
     initialDeferredGroups,
     handledConditions,
   }: {
     processor: FetchGroupProcessor<TProcessed, TDeferred>,
-    rootGroups: readonly FetchGroup[]
+    state: ProcessingState,
     rootsAreParallel: boolean,
     initialDeferredGroups?: SetMultiMap<string, FetchGroup>,
     handledConditions: Conditions,
   }): {
     mainSequence: TProcessed[],
-    unhandled: UnhandledGroups,
+    newState: ProcessingState,
     deferredGroups: SetMultiMap<string, FetchGroup>,
   } {
-    let nextGroups = rootGroups;
-    let remainingNext: UnhandledGroups = [];
     const mainSequence: TProcessed[] = [];
     const allDeferredGroups = initialDeferredGroups
       ? new SetMultiMap<string, FetchGroup>(initialDeferredGroups)
       : new SetMultiMap<string, FetchGroup>();
     let processInParallel = rootsAreParallel;
-    while (nextGroups.length > 0) {
-      const { processed, next, unhandled, deferredGroups } = this.processGroups(processor, nextGroups, processInParallel, remainingNext, handledConditions);
+    while (state.next.length > 0) {
+      const { processed, newState, deferredGroups } = this.processGroups(processor, state, processInParallel, handledConditions);
       // After the root groups, handled on the first iteration, we can process everything in parallel.
       processInParallel = true;
       mainSequence.push(processed);
-      const [canHandle, newRemaining] = this.mergeRemainings(remainingNext, unhandled);
-      remainingNext = newRemaining;
-      nextGroups = canHandle.concat(next);
+      state = newState;
       allDeferredGroups.addAll(deferredGroups);
     }
     return {
       mainSequence,
-      unhandled: remainingNext,
+      newState: state,
       deferredGroups: allDeferredGroups,
     };
   }
@@ -2584,10 +2799,14 @@ class FetchDependencyGraph {
   } {
     const {
       mainSequence,
-      unhandled,
+      newState,
       deferredGroups,
-    } = this.processRootMainGroups({ processor, rootsAreParallel, rootGroups, handledConditions });
-    assert(unhandled.length == 0, () => `Root groups ${rootGroups} should have no remaining groups unhandled, but got ${unhandled}`);
+    } = this.processRootMainGroups({ processor, rootsAreParallel, state: ProcessingState.ofReadyGroups(rootGroups), handledConditions });
+    assert(newState.next.length === 0, () => `Should not have left some ready groups, but got ${newState.next}`);
+    assert(
+      newState.unhandled.length == 0,
+      () => `Root groups:\n${rootGroups.map((g) => ` - ${g}`).join('\n')}\nshould have no remaining groups unhandled, but got: ${printUnhandled(newState.unhandled)}`
+    );
     const allDeferredGroups = new SetMultiMap<string, FetchGroup>();
     if (otherDeferGroups) {
       allDeferredGroups.addAll(otherDeferGroups);
@@ -2748,13 +2967,25 @@ type PlanningParameters<RV extends Vertex> = {
   root: RV,
   inconsistentAbstractTypesRuntimes: Set<string>,
   config: Concrete<QueryPlannerConfig>,
+  overrideConditions: Map<string, boolean>,
+}
+
+interface BuildQueryPlanOptions {
+  /**
+   * A set of labels which will be used _during query planning_ to
+   * enable/disable edges with a matching label in their override condition.
+   * Edges with override conditions require their label to be present or absent
+   * from this set in order to be traversable. These labels enable the
+   * progressive @override feature.
+   */
+  overrideConditions?: Map<string, boolean>,
 }
 
 export class QueryPlanner {
   private readonly config: Concrete<QueryPlannerConfig>;
   private readonly federatedQueryGraph: QueryGraph;
   private _lastGeneratedPlanStatistics: PlanningStatistics | undefined;
-
+  private _defaultOverrideConditions: Map<string, boolean> = new Map();
   // A set of the names of interface types for which at least one subgraph use an @interfaceObject to abstract
   // that interface.
   private readonly interfaceTypesWithInterfaceObjects = new Set<string>();
@@ -2763,15 +2994,16 @@ export class QueryPlanner {
   private readonly inconsistentAbstractTypesRuntimes = new Set<string>();
 
   constructor(
-    public readonly supergraphSchema: Schema,
+    public readonly supergraph: Supergraph,
     config?: QueryPlannerConfig
   ) {
     this.config = enforceQueryPlannerConfigDefaults(config);
     // Validating post default-setting to catch any fat-fingering of the defaults themselves.
     validateQueryPlannerConfig(this.config);
-    this.federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, true);
+    this.federatedQueryGraph = buildFederatedQueryGraph(supergraph, true);
     this.collectInterfaceTypesWithInterfaceObjects();
     this.collectInconsistentAbstractTypesRuntimes();
+    this.collectAllOverrideLabels();
 
     if (this.config.debug.bypassPlannerForSingleSubgraph && this.config.incrementalDelivery.enableDefer) {
       throw new Error(`Cannot use the "debug.bypassPlannerForSingleSubgraph" query planner option when @defer support is enabled`);
@@ -2784,7 +3016,7 @@ export class QueryPlanner {
       return !!typeInSchema && isInterfaceObjectType(typeInSchema);
     }
 
-    for (const itfType of this.supergraphSchema.interfaceTypes()) {
+    for (const itfType of this.supergraph.schema.interfaceTypes()) {
       if (mapValues(this.federatedQueryGraph.sources).some((s) => isInterfaceObject(itfType.name, s))) {
         this.interfaceTypesWithInterfaceObjects.add(itfType.name);
       }
@@ -2818,7 +3050,7 @@ export class QueryPlanner {
       return false;
     }
 
-    for (const type of this.supergraphSchema.types()) {
+    for (const type of this.supergraph.schema.types()) {
       if (!isAbstractType(type)) {
         continue;
       }
@@ -2829,7 +3061,18 @@ export class QueryPlanner {
     }
   }
 
-  buildQueryPlan(operation: Operation): QueryPlan {
+  private collectAllOverrideLabels() {
+    // inspect every join__field directive application in the supergraph and collect all `overrideLabel` argument values
+    this._defaultOverrideConditions = new Map(
+      this.supergraph.schema.directives()
+        .find((d) => d.name === 'join__field')?.applications()
+        .map((application) => application.arguments().overrideLabel)
+        .filter(Boolean)
+        .map(label => [label, false])
+    );
+  }
+
+  buildQueryPlan(operation: Operation, options?: BuildQueryPlanOptions): QueryPlan {
     if (operation.selectionSet.isEmpty()) {
       return { kind: 'QueryPlan' };
     }
@@ -2874,7 +3117,6 @@ export class QueryPlanner {
     // going to expand everything during the algorithm anyway. We'll re-optimize subgraph fetches with fragments
     // later if possible (which is why we saved them above before expansion).
     operation = operation.expandAllFragments();
-    operation = operation.trimUnsatisfiableBranches();
     operation = withoutIntrospection(operation);
     operation = this.withSiblingTypenameOptimizedAway(operation);
 
@@ -2909,8 +3151,17 @@ export class QueryPlanner {
       assignedDeferLabels,
     });
 
+    // Default all override conditions to false (not overridden) in case any
+    // aren't provided by the caller
+    const overrideConditions = new Map(this._defaultOverrideConditions);
+    if (options?.overrideConditions) {
+      for (const [label, value] of options.overrideConditions) {
+        overrideConditions.set(label, value);
+      }
+    }
+
     const parameters: PlanningParameters<RootVertex> = {
-      supergraphSchema: this.supergraphSchema,
+      supergraphSchema: this.supergraph.schema,
       federatedQueryGraph: this.federatedQueryGraph,
       operation,
       processor,
@@ -2918,6 +3169,7 @@ export class QueryPlanner {
       statistics,
       inconsistentAbstractTypesRuntimes: this.inconsistentAbstractTypesRuntimes,
       config: this.config,
+      overrideConditions,
     }
 
     let rootNode: PlanNode | SubscriptionNode | undefined;
@@ -3910,7 +4162,7 @@ function computeGroupsForTree(
             deferContext: updatedDeferContext
           };
           if (conditions) {
-            // We have some @requires.
+            // We have @requires or some other dependency to create groups for.
             const requireResult = handleRequires(
               dependencyGraph,
               edge,
@@ -4097,7 +4349,7 @@ function typeAtPath(parentType: CompositeType, path: OperationPath): CompositeTy
   let type = parentType;
   for (const element of path) {
     if (element.kind === 'Field') {
-      const fieldType = baseType(type.field(element.name)?.type!);
+      const fieldType = baseType(type.field(element.name)!.type!);
       assert(isCompositeType(fieldType), () => `Invalid call fro ${path} starting at ${parentType}: ${element.definition.coordinate} is not composite`);
       type = fieldType;
     } else if (element.typeCondition) {
@@ -4325,7 +4577,24 @@ function handleRequires(
       subgraphName: group.subgraphName,
       mergeAt: path.inResponse(),
     });
-    newGroup.addParents(createdGroups.map((group) => ({ group })));
+    newGroup.addParents(
+      createdGroups.map((group) => ({
+        group,
+        // Usually, computing the path of our new group into the created groups
+        // is not entirely trivial, but there is at least the relatively common
+        // case where the 2 groups we look at have:
+        // 1) the same `mergeAt`, and
+        // 2) the same parentType; in that case, we can basically infer those 2
+        //    groups apply at the same "place" and so the "path in parent" is
+        //    empty. TODO: it should probably be possible to generalize this by
+        //    checking the `mergeAt` plus analyzing the selection but that
+        //    warrants some reflection...
+        path: sameMergeAt(group.mergeAt, newGroup.mergeAt)
+          && sameType(group.parentType, newGroup.parentType)
+          ? []
+          : undefined,
+      })),
+    );
     addPostRequireInputs(
       dependencyGraph,
       path,
@@ -4410,7 +4679,7 @@ function inputsForRequire(
       assert(supergraphItfType && isInterfaceType(supergraphItfType), () => `Type ${entityType} should be an interface in the supergraph`);
       // Note: we are rebasing on another schema below, but we also known that we're working on a full expanded
       // selection set (no spread), so passing undefined is actually correct.
-      keyConditionAsInput = keyConditionAsInput.rebaseOn(supergraphItfType, undefined);
+      keyConditionAsInput = keyConditionAsInput.rebaseOn({ parentType: supergraphItfType, fragments: undefined, errorIfCannotRebase: true });
     }
     fullSelectionSet.updates().add(keyConditionAsInput);
 

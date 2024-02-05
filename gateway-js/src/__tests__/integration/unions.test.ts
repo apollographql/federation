@@ -1,5 +1,8 @@
 import gql from 'graphql-tag';
-import { astSerializer, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  astSerializer,
+  queryPlanSerializer,
+} from 'apollo-federation-integration-testsuite';
 import { execute } from '../execution-utils';
 
 expect.addSnapshotSerializer(astSerializer);
@@ -24,35 +27,32 @@ it('handles multiple union type conditions that share a response name (media)', 
     }
   `;
 
-  const { queryPlan, errors } = await execute(
-    { query },
-    [
-      {
-        name: 'contentService',
-        typeDefs: gql`
-          extend type Query {
-            content: Content
-          }
-          union Content = Audio | Video
-          type Audio {
-            media: AudioURL
-          }
-          type AudioURL {
-            url: String
-          }
-          type Video {
-            media: VideoAspectRatio
-          }
-          type VideoAspectRatio {
-            aspectRatio: String
-          }
-        `,
-        resolvers: {
-          Query: {},
-        },
+  const { queryPlan, errors } = await execute({ query }, [
+    {
+      name: 'contentService',
+      typeDefs: gql`
+        extend type Query {
+          content: Content
+        }
+        union Content = Audio | Video
+        type Audio {
+          media: AudioURL
+        }
+        type AudioURL {
+          url: String
+        }
+        type Video {
+          media: VideoAspectRatio
+        }
+        type VideoAspectRatio {
+          aspectRatio: String
+        }
+      `,
+      resolvers: {
+        Query: {},
       },
-    ],
-  );
+    },
+  ]);
 
   expect(errors).toBeUndefined();
   expect(queryPlan).toMatchInlineSnapshot(`

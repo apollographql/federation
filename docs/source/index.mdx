@@ -1,140 +1,43 @@
 ---
 title: Introduction to Apollo Federation
-description: Combine GraphQL APIs into a unified supergraph
+subtitle: Learn how to combine your GraphQL APIs into a unified supergraph
+description: Learn how Apollo Federation can help you declaratively combine your GraphQL APIs into a unified, federated supergraph using a microservices architecture
 ---
 
-**Apollo Federation** is a powerful, open architecture for creating a **supergraph** that combines multiple GraphQL APIs:
+## What is Apollo Federation?
+
+**Apollo Federation** lets you declaratively combine multiple GraphQL APIs into a single, federated graph. This federated graph enables clients to interact with multiple APIs through a single request.
+
+A client makes a request to the single entry point of the federated graph called the **router**. The router intelligently orchestrates and distributes the request across your APIs and returns a unified response. For a client, the request and response cycle of querying the router looks the same as querying any GraphQL server.
 
 ```mermaid
 graph LR;
   clients(Clients);
-  subgraph "Supergraph";
-  gateway([Router]);
-  serviceA[Users<br/>subgraph];
-  serviceB[Products<br/>subgraph];
-  gateway --- serviceA & serviceB;
-  end;
-  clients -.- gateway;
+  router([Router]);
+  serviceA[GraphQL API <br/>A];
+  serviceB[GraphQL API <br/>B];
+  serviceC[GraphQL API <br/>C];
+  router --- serviceA & serviceB & serviceC;
+  clients -.- router;
   class clients secondary;
 ```
-
-With federation, you can responsibly share ownership of your supergraph across any number of teams and services.  And even if you currently only have _one_ GraphQL API, Apollo Federation is essential for scaling that API as you grow your features, user base, and organization.
-
-[Apollo GraphOS](/graphos/) provides a managed mode for Apollo Federation, which helps you modify and grow your supergraph without any downtime.
-
-<div>
-  <ButtonLink
-    colorScheme="indigo"
-    href="./quickstart/setup/"
-    mr="4"
-  >
-    Get started with Federation
-  </ButtonLink>
-  <Button
-    as="a"
-    href="#how-it-works"
-  >
-    Learn more
-  </Button>
-</div>
-
-## How it works
-
-In a federated architecture, your individual GraphQL APIs are called **subgraphs**, and they're composed into a **supergraph**. By querying your supergraph's router, clients can fetch data from all of your subgraphs with a single request:
-
-```mermaid
-graph LR;
-  clients(Clients);
-  subgraph "Supergraph";
-  gateway([Router]);
-  serviceA[Users<br/>subgraph];
-  serviceB[Products<br/>subgraph];
-  gateway --- serviceA & serviceB;
-  end;
-  clients -.- gateway;
-  class clients secondary;
-```
-
-The **router** serves as the public access point for your supergraph. It receives incoming GraphQL operations and intelligently routes them across your subgraphs. To clients, this looks exactly the same as querying any other GraphQL server—no client-side configuration is required.
-
-> Apollo Federation does not currently support [GraphQL subscription operations](https://www.apollographql.com/docs/react/data/subscriptions/).
-
-### Combining subgraph schemas
-
-Like any other GraphQL API, each subgraph has its own schema:
-
-<CodeColumns>
-
-```graphql title="Users subgraph"
-type User {
-  id: ID!
-  name: String!
-}
-```
-
-```graphql title="Products subgraph"
-type Product {
-  upc: String!
-  inStock: Boolean!
-}
-```
-
-</CodeColumns>
-
-To communicate with all of your subgraphs, the router uses a special **supergraph schema** that _combines_ these subgraph schemas.
-
-Supergraph schemas are created via a process called **composition**. Composition takes all of your subgraph schemas and intelligently combines them into _one_ schema for your router:
-
-```graphql title="Supergraph schema (simplified)"
-type User {
-  id: ID!
-  name: String!
-}
-
-type Product {
-  upc: String!
-  inStock: Boolean!
-}
-```
-
-> A real supergraph schema includes additional information that tells your router _which_ subgraph is responsible for _which_ types and fields. [Learn more about composition.](./federated-types/composition/)
-
-### Server instances
-
-In a federated architecture, each subgraph instance is a GraphQL service that's queried _only_ by the router. The router is a separate service that exposes a GraphQL endpoint to external clients. Clients query the router, and the router then queries individual subgraphs to obtain, combine, and return results:
-
-```mermaid
-graph LR;
-  clients(Clients);
-  subgraph "Supergraph";
-  gateway([Router]);
-  serviceA[Users<br/>subgraph];
-  serviceB[Products<br/>subgraph];
-  gateway --- serviceA & serviceB;
-  end;
-  clients -.- gateway;
-  class clients secondary;
-```
-
-**The router** is one of the following:
-
-- [The Apollo Router](https://www.apollographql.com/docs/router/) (recommended): a high-performance, precompiled Rust executable
-    - If you're getting started with federation, we recommend [creating a **cloud supergraph**](/graphos/quickstart/cloud/) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages your router for you!
-- An instance of Apollo Server using special extensions from the [`@apollo/gateway`](/apollo-server/using-federation/api/apollo-gateway) library
-
-**Subgraphs** can each use any [subgraph-compatible GraphQL server library](./building-supergraphs/supported-subgraphs/).
-
-- This includes Apollo Server using special extensions from the [`@apollo/subgraph`](/apollo-server/using-federation/api/apollo-subgraph) library.
-- Different subgraphs in the same supergraph can use different server libraries.
-
 
 ## Benefits of federation
 
-### Unify your graph
+### Microservices architecture
 
-Often when an organization first adopts GraphQL, multiple teams do so independently. Each team sets up a GraphQL server that provides the data used by that team:
+Apollo Federation lets API teams operate in a [microservices architecture](https://www.atlassian.com/microservices/microservices-architecture/microservices-vs-monolith) while exposing a unified GraphQL API to clients. Understanding these concepts can help you get the most out of federation.
 
-<p style="margin-bottom: 0">❌</p>
+<Tip>
+
+- Learn more about the [considerations and benefits of GraphQL](https://www.apollographql.com/docs/intro/benefits).
+- Learn more about the [considerations and benefits of microservices architecture](https://aws.amazon.com/compare/the-difference-between-monolithic-and-microservices-architecture/).
+
+</Tip>
+
+### Preserve client simplicity and performance
+
+A client may need to make multiple requests when interacting with multiple non-federated GraphQL APIs. This can happen when an organization adopting GraphQL  has multiple teams developing APIs independently. Each team sets up a GraphQL API that provides the data used by that team. For example, a travel app may have separate GraphQL APIs for users, flights, and hotels:
 
 ```mermaid
 graph RL;
@@ -145,228 +48,114 @@ graph RL;
   end;
 
   subgraph " ";
-    databaseB[(Product<br/>data)];
-    serviceB[Products API];
+    databaseB[(Flight<br/>data)];
+    serviceB[Flights API];
     databaseB --- serviceB;
   end;
 
-  clients(Clients);
-  serviceA & serviceB -.- clients;
-  class clients secondary;
-```
-
-But with an architecture like this, a client might need to communicate with _multiple_ APIs to fetch all of the data it needs. This diminishes a powerful advantage of GraphQL over traditional REST APIs.
-
-Instead, your organization should expose a [unified supergraph](https://principledgraphql.com/integrity) that lets clients fetch _all_ of the data that they need from a single endpoint:
-
-<p style="margin-bottom: 0">✅</p>
-
-```mermaid
-graph LR;
-  clients(Clients);
-  subgraph "Supergraph";
-  gateway([Router]);
-  serviceA[Users<br/>subgraph];
-  serviceB[Products<br/>subgraph];
-  gateway --- serviceA & serviceB;
+  subgraph " ";
+    databaseC[(Hotel<br/>data)];
+    serviceC[Hotels API];
+    databaseC --- serviceC;
   end;
-  clients -.- gateway;
+
+  clients(Clients);
+  serviceA & serviceB & serviceC -.- clients;
   class clients secondary;
 ```
 
-By unifying your supergraph with Apollo Federation, teams can continue to own and develop their subgraphs independently, and clients can fetch data from _all_ of those subgraphs with a single query.
-
-### Break up monolithic code
-
-It can be challenging to represent an entire enterprise-scale graph with a monolithic GraphQL server. Performance might degrade as your users and features increase, and teams across your organization are all committing changes to the same application:
-
-<p style="margin-bottom: 0">❌</p>
-
-```mermaid
-flowchart TB;
-  teamA{Users<br/>team};
-  teamB{Flights<br/>team};
-  teamC{Hotels<br/>team};
-  teamD{Billing<br/>team};
-  teamE{Bookings<br/>team};
-  server(["Monolith<br/>GraphQL server"]);
-  teamA & teamB & teamC & teamD & teamE -.- server;
-  class teamA,teamB,teamC,teamD,teamE tertiary;
-```
-
-With a supergraph, you can reduce performance _and_ productivity bottlenecks simultaneously. Each team can maintain their own subgraph(s) independently, and your supergraph's router serves primarily to _route_ incoming operations, not to resolve each of them completely.
-
-<p style="margin-bottom: 0">✅</p>
-
-```mermaid
-graph TB;
-  teamA{Users<br/>team};
-  teamB{Flights<br/>team};
-  teamC{Hotels<br/>team};
-  teamD{Billing<br/>team};
-  teamE{Bookings<br/>team};
-  serviceA[Users<br/>subgraph];
-  serviceB[Flights<br/>subgraph];
-  serviceC[Hotels<br/>subgraph];
-  serviceD[Billing<br/>subgraph];
-  serviceE[Bookings<br/>subgraph];
-  teamA -.- serviceA;
-  teamB -.- serviceB;
-  teamC -.- serviceC;
-  teamD -.- serviceD;
-  teamE -.- serviceE;
-  gateway([Router]);
-  serviceA & serviceB & serviceC & serviceD & serviceE --- gateway;
-  maintainers{Graph<br/>team};
-  gateway -.- maintainers;
-  class teamA,teamB,teamC,teamD,teamE,maintainers tertiary;
-```
-
-In this structure, the "graph team" might be a separate team that's dedicated to maintaining your router as part of back-end infrastructure, or it might be a "meta team" that includes representatives from other teams that maintain subgraphs.
-
-### Adopt incrementally
-
-As with the rest of the Apollo platform, you can (and should) adopt Apollo Federation **incrementally**:
-
-* If you currently use a monolithic GraphQL server, you can break its functionality out one subgraph at a time.
-* If you currently use a different federated architecture (such as schema stitching), you can [add federation support to your existing services one at a time](./migrating-from-stitching/).
-
-In both of these cases, all of your clients continue to work throughout your incremental adoption. In fact, clients have no way to distinguish between different graph implementations.
-
-### Separation of concerns
-
-Apollo Federation encourages a design principle called [separation of concerns](https://en.wikipedia.org/wiki/Separation_of_concerns). This enables different teams to work on different products and features within a single graph, without interfering with each other.
-
-#### Limitations of type-based separation
-
-When thinking about how to divide your graph's functionality across subgraphs, it might initially seem logical for each subgraph to own a completely distinct set of types. For example, a Users subgraph would define the entirety of a `User` type, the Products subgraph would define a `Product` type, and so on:
-
-<p style="margin-bottom: 0">❌</p>
-
-<CodeColumns cols="3">
-
-```graphql title="Users subgraph"
-type User {
-  id: ID!
-  name: String
-  reviews: [Review]
-  purchases: [Product]
-}
-```
-
-```graphql title="Products subgraph"
-type Product {
-  id: ID!
-  name: String
-  price: String
-  reviews: [Review]
-}
-```
-
-```graphql title="Reviews subgraph"
-type Review {
-  id: ID!
-  body: String
-  author: User
-  product: Product
-}
-```
-
-</CodeColumns>
-
-Although this separation looks clean, it quickly causes issues. Most commonly, a particular feature (or _concern_) usually spans _multiple_ types, which might belong to different subgraphs.
-
-Consider the `User.purchases` field above. Even though this field belongs to the `User` type, a list of `Product`s should probably be populated by the Products subgraph, _not_ the Users subgraph.
-
-By defining the `User.purchases` field in the Products subgraph instead:
-
-* The subgraph that defines the field is also the subgraph that knows how to populate the field. The Users subgraph might not even have access to the back-end data store that contains product data!
-* The team that manages product data can contain all product-related logic in a single subgraph that they are responsible for.
-
-#### Concern-based separation
-
-The following schema uses Apollo Federation to divide the same set of types and fields across the same three subgraphs:
-
-> Some federation-specific syntax is omitted here for clarity. For details, see [Entities](./entities/).
-
-<p style="margin-bottom: 0">✅</p>
-
-<CodeColumns cols="3">
-
-```graphql title="Users subgraph"
-type User {
-  id: ID!
-  name: String
-}
-```
-
-```graphql title="Products subgraph"
-type Product {
-  id: ID!
-  name: String
-  price: String
-}
-
-type User {
-  id: ID!
-  purchases: [Product]
-}
-```
-
-```graphql title="Reviews subgraph"
-type Review {
-  id: ID!
-  body: String
-  author: User
-  product: Product
-}
-
-type User {
-  id: ID!
-  reviews: [Review]
-}
-
-type Product {
-  id: ID!
-  reviews: [Review]
-}
-```
-
-</CodeColumns>
-
-The difference is that now, each subgraph _mostly_ defines types and fields that it is capable of (and _should_ be responsible for) populating from its back-end data store.
-
-> You'll notice some exceptions to this, such as `Review.product` (which is still defined in the Reviews subgraph even though it requires data from the Products subgraph). Exceptions like this improve data encapsulation (the Products subgraph doesn't really need to know about the `Review` type), and we handle them with powerful federated types called [entities](./entities/).
-
-These resulting schemas provide the best of both worlds:
-
-* An implementation that keeps the code for a given feature in a single subgraph and separated from unrelated concerns
-* A product-centric schema with rich types that reflect the natural way an application developer wants to consume the graph
-
-### Managed federation
-
-Your router can operate in **managed federation** mode, where [Apollo GraphOS](/graphos/) acts as the source of truth for your supergraph's configuration:
+With a single federated graph, you preserve a powerful advantage of GraphQL over traditional REST APIs: the ability to fetch all the data you need in a single request.
 
 ```mermaid
 graph LR;
-  subgraph "Your infrastructure"
-  serviceA[Products<br/>subgraph];
-  serviceB[Reviews<br/>subgraph];
-  gateway([Router]);
-  end
-  subgraph "Apollo GraphOS"
-    registry{{Apollo Schema<br/>Registry}};
-    uplink{{Apollo<br/>Uplink}}
-  end
-  serviceA & serviceB -->|Publishes<br/>schema| registry;
-  registry -->|Updates<br/>supergraph config| uplink;
-  gateway -->|Polls for supergraph changes| uplink;
-  class registry secondary;
-  class uplink secondary;
+  clients(Clients);
+  subgraph supergraph[" "];
+  router([Router]);
+  serviceA[Users API];
+  serviceB[Flights API];
+  serviceC[Hotels API];
+  databaseA[(Users<br/>data)];
+  databaseB[(Flights<br/>data)];
+  databaseC[(Hotels<br/>data)];
+  serviceA --- databaseA;
+  serviceB --- databaseB;
+  serviceC --- databaseC;
+  router --- serviceA & serviceB & serviceC;
+  end;
+  clients -.- router;
+  class clients secondary;
 ```
 
-This mode helps multiple teams working on a supergraph to coordinate when and how to change individual subgraphs. It's recommended for all supergraphs. For more information, read [Managed federation overview](./managed-federation/overview/).
+The router intelligently calls all the APIs it needs to complete requests rather than simply forwarding them.
+For performance and security reasons, clients should only query the router, and only the router should query the constituent APIs.
+No client-side configuration is required.
 
----
+### Design schemas at scale
 
-Ready to try out Apollo Federation? [Jump into the Quickstart](./quickstart/setup/)!
+Some alternative approaches to combining GraphQL APIs impose limits on your schema, like adding namespaces or representing relationships with IDs instead of types. With these approaches, your individual GraphQL API schemas may look unchanged—but the resulting federated schema that clients interact with is more complex. Subsequently, it requires you to make frontend as well as backend changes.
+
+With Apollo Federation, clients can interact with the federated schema as if it were a monolith. Consumers of your API shouldn't know or care that it's implemented as microservices.
+
+### Maintain a single API
+
+With federation, every team contributes directly to the overall federated GraphQL schema. Each team can work independently without needing to maintain multiple API layers. This frees your platform team to focus on the quality of your API rather than keeping it up to date.
+
+
+## Next steps
+
+Before continuing, it's helpful to know some terminology:
+
+- When combining multiple GraphQL APIs, the single, federated graph is called a **supergraph**.
+- In a supergraph, the individual GraphQL APIs are called **subgraphs**.
+
+```mermaid
+graph LR;
+  clients(Clients);
+  router([Router]);
+  subgraph "Supergraph"
+  serviceA[Subgraph <br/>A];
+  serviceB[Subgraph <br/>B];
+  serviceC[Subgraph <br/>C];
+  router --- serviceA & serviceB & serviceC;
+  end
+  clients -.- router;
+  class clients secondary;
+```
+
+Different subgraphs in the same supergraph can use different server implementations and even different programming languages as long as they are [federation-compatible](./building-supergraphs/supported-subgraphs/).
+
+<Tip>
+
+- Learn more about [choosing subgraph libraries](./building-supergraphs/subgraphs-overview#choosing-a-subgraph-library).
+- Learn more about [your router options](./building-supergraphs/router).
+
+</Tip>
+
+### Additional resources
+
+Depending on your goals, you have several options for learning more about federation: 
+- If you're new to federated architecture, this [overview article](https://graphql.com/learn/federated-architecture/) can familiarize the concepts.
+- If you'd like to recap the key concepts of Apollo Federation, the video below gives a great overview.
+
+    <ExpansionPanel title="Watch the video overview">
+
+    <YouTube youTubeId="wRExDdgs6JU" />
+
+    </ExpansionPanel>
+
+- If you learn best by doing, this [interactive course](https://www.apollographql.com/tutorials/voyage-part1) teaches you to build an example supergraph using Apollo Federation.
+
+### Further documentation
+
+Once you're ready to apply federation to your own APIs, these docs sections can help you get started:
+
+- Conceptual overview of [Federated Schemas](./federated-types/overview)
+- [Guide on using Apollo GraphOS](./managed-federation/overview) to automate and manage deployments of your federated schemas (this is also known as **Managed Federation**)
+- Reference materials for:
+  - [Performance considerations](./performance/caching)
+  - [Debugging and metrics](./errors)
+  - [Subgraph specifications](./building-supergraphs/router) for federation-compatibility
+
+### Best practices
+
+Whether your supergraph implementation is already underway or just starting, you can use the [Supergraph Architecture Framework](/graphos/enterprise/supergraph-architecture-framework/) (SAF) to learn about best practices. The SAF includes an assessment to quantify your supergraph's current state and identify areas for improvement.

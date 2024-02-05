@@ -30,7 +30,7 @@ import {
   findCoreSpecVersion,
   isCoreSpecDirectiveApplication,
   removeAllCoreFeatures,
-} from "./coreSpec";
+} from "./specs/coreSpec";
 import { assert, mapValues, MapWithCachedArrays, removeArrayElement } from "./utils";
 import {
   withDefaultValues,
@@ -42,7 +42,7 @@ import {
   argumentsEquals,
   collectVariablesInValue
 } from "./values";
-import { removeInaccessibleElements } from "./inaccessibleSpec";
+import { removeInaccessibleElements } from "./specs/inaccessibleSpec";
 import { printDirectiveDefinition, printSchema } from './print';
 import { sameType } from './types';
 import { addIntrospectionFields, introspectionFieldNames, isIntrospectionName } from "./introspection";
@@ -240,6 +240,10 @@ export function possibleRuntimeTypes(type: CompositeType): readonly ObjectType[]
 }
 
 export function runtimeTypesIntersects(t1: CompositeType, t2: CompositeType): boolean {
+  if (t1 === t2) {
+    return true;
+  }
+
   const rt1 = possibleRuntimeTypes(t1);
   const rt2 = possibleRuntimeTypes(t2);
   for (const obj1 of rt1) {
@@ -557,10 +561,11 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
     args?: TApplicationArgs,
     asFirstDirective: boolean = false,
   ): Directive<TOwnType, TApplicationArgs> {
-    let name: string;
+    let toAdd: Directive<TOwnType, TApplicationArgs>;
     if (typeof nameOrDef === 'string') {
       this.checkUpdate();
-      const def = this.schema().directive(nameOrDef) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), nameOrDef, args);
+      toAdd = new Directive<TOwnType, TApplicationArgs>(nameOrDef, args ?? Object.create(null));
+      const def = this.schema().directive(nameOrDef) ?? this.schema().blueprint.onMissingDirectiveDefinition(this.schema(), toAdd);
       if (!def) {
         throw this.schema().blueprint.onGraphQLJSValidationError(
           this.schema(),
@@ -570,12 +575,10 @@ export abstract class SchemaElement<TOwnType extends SchemaElement<any, TParent>
       if (Array.isArray(def)) {
         throw ErrGraphQLValidationFailed(def);
       }
-      name = nameOrDef;
     } else {
       this.checkUpdate(nameOrDef);
-      name = nameOrDef.name;
+      toAdd = new Directive<TOwnType, TApplicationArgs>(nameOrDef.name, args ?? Object.create(null));
     }
-    const toAdd = new Directive<TOwnType, TApplicationArgs>(name, args ?? Object.create(null));
     Element.prototype['setParent'].call(toAdd, this);
     // TODO: we should typecheck arguments or our TApplicationArgs business is just a lie.
     if (this._appliedDirectives) {
@@ -903,7 +906,7 @@ abstract class BaseExtensionMember<TExtended extends ExtendableElement> extends 
 }
 
 export class SchemaBlueprint {
-  onMissingDirectiveDefinition(_schema: Schema, _name: string, _args?: {[key: string]: any}): DirectiveDefinition | GraphQLError[] | undefined {
+  onMissingDirectiveDefinition(_schema: Schema, _directive: Directive): DirectiveDefinition | GraphQLError[] | undefined {
     // No-op by default, but used for federation.
     return undefined;
   }
@@ -1572,6 +1575,22 @@ export class Schema {
     this.isValidated = false;
   }
 
+  /**
+   * Marks the schema as validated _without running actual validation_.
+   * Should obviously only be called when we know the built schema must be valid.
+   *
+   * Note that if `validate` is called after this, then it will exit immediately without validation as
+   * the schema will have been marked as validated. However, if this schema is further modified, then
+   * `invalidate` will be called, after which `validate` would run validation again.
+   */
+  assumeValid() {
+    this.runWithBuiltInModificationAllowed(() => {
+      addIntrospectionFields(this);
+    });
+
+    this.isValidated = true;
+  }
+
   validate() {
     if (this.isValidated) {
       return;
@@ -1605,9 +1624,7 @@ export class Schema {
     const cloned = new Schema(builtIns ?? this.blueprint);
     copy(this, cloned);
     if (this.isValidated) {
-      // TODO: when we do actual validation, no point in redoing it, but we should
-      // at least call builtIns.onValidation() and set the proper isConstructed/isValidated flags.
-      cloned.validate();
+      cloned.assumeValid();
     }
     return cloned;
   }

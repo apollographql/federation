@@ -492,7 +492,7 @@ export function isValidValue(value: any, argument: ArgumentDefinition<any> | Inp
   return isValidValueApplication(value, argument.type!, argument.defaultValue, variableDefinitions);
 }
 
-function isValidValueApplication(value: any, locationType: InputType, locationDefault: any, variableDefinitions: VariableDefinitions): boolean {
+export function isValidValueApplication(value: any, locationType: InputType, locationDefault: any, variableDefinitions: VariableDefinitions): boolean {
   // Note that this needs to be first, or the recursive call within 'isNonNullType' would break for variables
   if (isVariable(value)) {
     const definition = variableDefinitions.definition(value);

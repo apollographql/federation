@@ -1,4 +1,4 @@
-import { buildSupergraphSchema, extractSubgraphsFromSupergraph, InputObjectType } from "..";
+import { Supergraph, InputObjectType, ObjectType } from "..";
 import { FieldDefinition } from '../definitions';
 
 test('handles types having no fields referenced by other objects in a subgraph correctly', () => {
@@ -95,8 +95,7 @@ test('handles types having no fields referenced by other objects in a subgraph c
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
   expect(subgraphs.size()).toBe(3);
 
   const [a, b, c] = subgraphs.values().map((s) => s.schema);
@@ -202,8 +201,7 @@ test('handles types having no fields referenced by other interfaces in a subgrap
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
   expect(subgraphs.size()).toBe(3);
 
   const [a, b, c] = subgraphs.values().map((s) => s.schema);
@@ -303,8 +301,7 @@ test('handles types having no fields referenced by other unions in a subgraph co
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
   expect(subgraphs.size()).toBe(2);
 
   const [a, b] = subgraphs.values().map((s) => s.schema);
@@ -412,8 +409,7 @@ test('handles types having only some of their fields removed in a subgraph corre
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
   expect(subgraphs.size()).toBe(3);
 
   const [a, b, c] = subgraphs.values().map((s) => s.schema);
@@ -518,8 +514,7 @@ test('handles unions types having no members in a subgraph correctly', () => {
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
   expect(subgraphs.size()).toBe(2);
 
   const [a, b] = subgraphs.values().map((s) => s.schema);
@@ -586,8 +581,7 @@ test('preserves default values of input object fields', () => {
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  const subgraphs = extractSubgraphsFromSupergraph(schema);
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
 
   const subgraph = subgraphs.get('service')
   const inputType = subgraph?.schema.type('Input') as InputObjectType | undefined
@@ -650,8 +644,7 @@ test('throw meaningful error for invalid federation directive fieldSet', () => {
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  expect(() => extractSubgraphsFromSupergraph(schema)).toThrow(
+  expect(() => Supergraph.build(supergraph).subgraphs()).toThrow(
     'Error extracting subgraph "serviceB" from the supergraph: this might be due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n'
     + 'Please try composing your subgraphs with federation 2: this should help precisely pinpoint the problems and, once fixed, generate a correct federation 2 supergraph.\n'
     + '\n'
@@ -737,8 +730,7 @@ test('throw meaningful error for type erased from supergraph due to extending an
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
-  expect(() => extractSubgraphsFromSupergraph(schema)).toThrow(
+  expect(() => Supergraph.build(supergraph).subgraphs()).toThrow(
     'Error extracting subgraphs from the supergraph: this might be due to errors in subgraphs that were mistakenly ignored by federation 0.x versions but are rejected by federation 2.\n'
     + 'Please try composing your subgraphs with federation 2: this should help precisely pinpoint the problems and, once fixed, generate a correct federation 2 supergraph.\n'
     + '\n'
@@ -746,6 +738,83 @@ test('throw meaningful error for type erased from supergraph due to extending an
     + 'Error: Cannot find type "T" in subgraph "serviceB"'
   );
 })
+
+test('types that are empty because of overridden fields are erased', () => {
+  const supergraph = `
+    schema
+      @link(url: "https://specs.apollo.dev/link/v1.0")
+      @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+      @link(url: "https://specs.apollo.dev/tag/v0.3")
+    {
+      query: Query
+    }
+
+    directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+    directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+    directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+    directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+    directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+    directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+
+    directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+    directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
+    input Input
+      @join__type(graph: B)
+    {
+      a: Int! = 1234
+    }
+
+    scalar join__FieldSet
+
+    enum join__Graph {
+      A @join__graph(name: "a", url: "")
+      B @join__graph(name: "b", url: "")
+    }
+
+    scalar link__Import
+
+    enum link__Purpose {
+      """
+      \`SECURITY\` features provide metadata necessary to securely resolve fields.
+      """
+      SECURITY
+
+      """
+      \`EXECUTION\` features provide metadata necessary for operation execution.
+      """
+      EXECUTION
+    }
+
+    type Query
+      @join__type(graph: A)
+    {
+      field: String
+    }
+
+    type User
+    @join__type(graph: A)
+    @join__type(graph: B)
+    {
+      foo: String @join__field(graph: A, override: "b")
+
+      bar: String @join__field(graph: A)
+
+      baz: String @join__field(graph: A)
+    }
+  `;
+
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
+
+  const subgraph = subgraphs.get('b');
+  const userType = subgraph?.schema.type('User') as ObjectType | undefined;
+  expect(userType).toBeUndefined();
+});
 
 it('handles isFinder=true correctly', () => {
   const supergraph = `

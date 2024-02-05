@@ -1,5 +1,5 @@
 import { assert } from "@apollo/federation-internals";
-import { ConditionResolution, ConditionResolver, ExcludedConditions, ExcludedEdges, sameExcludedEdges } from "./graphPath";
+import { ConditionResolution, ConditionResolver, ExcludedConditions, ExcludedDestinations, sameExcludedDestinations } from "./graphPath";
 import { PathContext } from "./pathContext";
 import { Edge, QueryGraph, QueryGraphState } from "./querygraph";
 
@@ -13,8 +13,8 @@ export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionR
   // when we have no excluded edges, we'd only ever use the cache for the first key of every type. However,
   // as the algorithm always try keys in the same order (the order of the edges in the query graph), including
   // the excluded edges we see on the first ever call is actually the proper thing to do.
-  const cache = new QueryGraphState<undefined, [ConditionResolution, ExcludedEdges]>(graph);
-  return (edge: Edge, context: PathContext, excludedEdges: ExcludedEdges, excludedConditions: ExcludedConditions) => {
+  const cache = new QueryGraphState<undefined, [ConditionResolution, ExcludedDestinations]>(graph);
+  return (edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions) => {
     assert(edge.conditions, 'Should not have been called for edge without conditions');
 
     // We don't cache if there is a context or excluded conditions because those would impact the resolution and
@@ -26,18 +26,18 @@ export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionR
     // cached value `pathTree` when the context is not empty. That said, the context is about active @include/@skip and it's not use
     // that commonly, so this is probably not an urgent improvement.
     if (!context.isEmpty() || excludedConditions.length > 0) {
-      return resolver(edge, context, excludedEdges, excludedConditions);
+      return resolver(edge, context, excludedDestinations, excludedConditions);
     }
 
     const cachedResolutionAndExcludedEdges = cache.getEdgeState(edge);
     if (cachedResolutionAndExcludedEdges) {
       const [cachedResolution, forExcludedEdges] = cachedResolutionAndExcludedEdges;
-      return sameExcludedEdges(forExcludedEdges, excludedEdges)
+      return sameExcludedDestinations(forExcludedEdges, excludedDestinations)
         ? cachedResolution
-        : resolver(edge, context, excludedEdges, excludedConditions);
+        : resolver(edge, context, excludedDestinations, excludedConditions);
     } else {
-      const resolution = resolver(edge, context, excludedEdges, excludedConditions);
-      cache.setEdgeState(edge, [resolution, excludedEdges]);
+      const resolution = resolver(edge, context, excludedDestinations, excludedConditions);
+      cache.setEdgeState(edge, [resolution, excludedDestinations]);
       return resolution;
     }
   };

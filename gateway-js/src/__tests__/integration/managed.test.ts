@@ -262,7 +262,7 @@ describe('Managed gateway with explicit UplinkSupergraphManager', () => {
 
       gateway = new ApolloGateway({
         logger,
-        supergraphSdl: uplinkManager
+        supergraphSdl: uplinkManager,
       });
 
       await expect(gateway.load()).resolves.not.toThrow();

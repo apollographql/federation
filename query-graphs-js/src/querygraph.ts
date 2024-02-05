@@ -15,7 +15,6 @@ import {
   baseType,
   SelectionSet,
   isFederationSubgraphSchema,
-  extractSubgraphsFromSupergraph,
   FieldDefinition,
   isCompositeType,
   parseFieldSetArgument,
@@ -34,6 +33,9 @@ import {
   Field,
   selectionSetOfElement,
   SelectionSetUpdates,
+  Supergraph,
+  NamedSchemaElement,
+  validateSupergraph,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution, InterfaceObjectFakeDownCast } from './transition';
@@ -61,6 +63,13 @@ export function isFederatedGraphRootType(type: NamedType) {
  */
 export class Vertex {
   hasReachableCrossSubgraphEdges: boolean = false;
+  // @provides works by creating duplicates of the vertex/type involved in the provides and adding the provided
+  // edges only to those copy. This means that with @provides, you can have more than one vertex per-type-and-subgraph
+  // in a query graph. Which is fined, but this `provideId` allows to distinguish if a vertex was created as part of
+  // this @provides duplication or not. The value of this field has no other meaning than to be unique per-@provide,
+  // and so all the vertex copied for a given @provides application will have the same `provideId`. Overall, this
+  // mostly exists for debugging visualization.
+  provideId: number | undefined;
 
   constructor(
     /** Index used for this vertex in the query graph it is part of. */
@@ -75,7 +84,8 @@ export class Vertex {
   ) {}
 
   toString(): string {
-    return `${this.type}(${this.source})`;
+    const label = `${this.type}(${this.source})`;
+    return this.provideId ? `${label}-${this.provideId}` : label;
   }
 }
 
@@ -106,6 +116,11 @@ function toRootVertex(vertex: Vertex, rootKind: SchemaRootKind): RootVertex {
 
 export function isRootVertex(vertex: Vertex): vertex is RootVertex {
   return vertex instanceof RootVertex;
+}
+
+export interface OverrideCondition {
+  label: string;
+  condition: boolean;
 }
 
 /**
@@ -155,6 +170,14 @@ export class Edge {
      * Outside of keys, @requires also rely on conditions.
      */
     conditions?: SelectionSet,
+    /**
+     * Edges can require that an override condition (provided during query
+     * planning) be met in order to be taken. This is used for progressive
+     * @override, where (at least) 2 subgraphs can resolve the same field, but
+     * one of them has an @override with a label. If the override condition
+     * matches the query plan parameters, this edge can be taken.
+     */
+    public overrideCondition?: OverrideCondition,
   ) {
     this._conditions = conditions;
   }
@@ -186,7 +209,16 @@ export class Edge {
     if (this.transition instanceof SubgraphEnteringTransition && !this._conditions) {
       return "";
     }
-    return this._conditions ? `${this._conditions} ⊢ ${this.transition}` : this.transition.toString();
+
+    let conditionsString = (this._conditions ?? '').toString();
+    if (this.overrideCondition) {
+      if (conditionsString.length) conditionsString += ', ';
+      conditionsString += `${this.overrideCondition.label} = ${this.overrideCondition.condition}`;
+    }
+    // we had at least some condition, add the turnstile and spacing
+    if (conditionsString.length) conditionsString += ' ⊢ ';
+
+    return conditionsString + this.transition.toString();
   }
 
   withNewHead(newHead: Vertex): Edge {
@@ -195,7 +227,8 @@ export class Edge {
       newHead,
       this.tail,
       this.transition,
-      this._conditions
+      this._conditions,
+      this.overrideCondition,
     );
   }
 
@@ -207,6 +240,12 @@ export class Edge {
 
   isKeyOrRootTypeEdgeToSelf(): boolean {
     return this.head === this.tail && (this.transition.kind === 'KeyResolution' || this.transition.kind === 'RootTypeResolution');
+  }
+
+  satisfiesOverrideConditions(conditionsToCheck: Map<string, boolean>) {
+    if (!this.overrideCondition) return true;
+    const { label, condition } = this.overrideCondition;
+    return conditionsToCheck.has(label) ? conditionsToCheck.get(label) === condition : false;
   }
 
   toString(): string {
@@ -508,23 +547,28 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
  *
  * @param name - the name to use for the created graph and as "source" name for the schema.
  * @param schema - the schema for which to build the query graph.
+ * @param overrideLabelsByCoordinate - A Map of coordinate -> override label to apply to the query graph.
+ *   Additional "virtual" edges will be created for progressively overridden fields in order to ensure that
+ *   all possibilities are considered during query planning.
  * @returns the query graph corresponding to `schema` "API" (in the sense that no federation
  *   directives are taken into account by this method in the building of the query graph).
  */
-export function buildQueryGraph(name: string, schema: Schema): QueryGraph {
-  return buildGraphInternal(name, schema, false);
+export function buildQueryGraph(name: string, schema: Schema, overrideLabelsByCoordinate?: Map<string, string>): QueryGraph {
+  return buildGraphInternal(name, schema, false, undefined, overrideLabelsByCoordinate);
 }
 
 function buildGraphInternal(
   name: string,
   schema: Schema,
   addAdditionalAbstractTypeEdges: boolean,
-  supergraphSchema?: Schema
+  supergraphSchema?: Schema,
+  overrideLabelsByCoordinate?: Map<string, string>,
 ): QueryGraph {
   const builder = new GraphBuilderFromSchema(
     name,
     schema,
     supergraphSchema ? { apiSchema: supergraphSchema.toAPISchema(), isFed1: isFed1Supergraph(supergraphSchema) } : undefined,
+    overrideLabelsByCoordinate,
   );
   for (const rootType of schema.schemaDefinition.roots()) {
     builder.addRecursivelyFromRoot(rootType.rootKind, rootType.type);
@@ -551,8 +595,22 @@ function buildGraphInternal(
   *  pass a schema that directly corresponds to the supergraph API.
  * @returns the built query graph.
  */
-export function buildSupergraphAPIQueryGraph(supergraph: Schema): QueryGraph {
-  return buildQueryGraph("supergraph", supergraph.toAPISchema());
+export function buildSupergraphAPIQueryGraph(supergraph: Supergraph): QueryGraph {
+  const apiSchema = supergraph.apiSchema();
+
+  const overrideLabelsByCoordinate = new Map<string, string>();
+  const joinFieldApplications = validateSupergraph(supergraph.schema)[1]
+    .fieldDirective(supergraph.schema).applications();
+  for (const application of joinFieldApplications) {
+    const overrideLabel = application.arguments().overrideLabel;
+    if (overrideLabel) {
+      overrideLabelsByCoordinate.set(
+        (application.parent as FieldDefinition<any>).coordinate,
+        overrideLabel
+      );
+    }
+  }
+  return buildQueryGraph("supergraph", apiSchema, overrideLabelsByCoordinate);
 }
 
 /**
@@ -563,21 +621,19 @@ export function buildSupergraphAPIQueryGraph(supergraph: Schema): QueryGraph {
  *
  * @see QueryGraph
  *
- * @param supergraph - the schema of the supergraph for which to build the query graph.
- *   The provided schema _must_ be a "supergraph" as generated by composition merging,
- *   one that includes join spec directives in particular.
+ * @param supergraph - the supergraph for which to build the query graph.
  * @param forQueryPlanning - whether the build query graph is built for query planning (if
  *   so, it will include some additional edges that don't impact validation but allow
  *   to generate more efficient query plans).
  * @returns the built federated query graph.
  */
-export function buildFederatedQueryGraph(supergraph: Schema, forQueryPlanning: boolean): QueryGraph {
-  const subgraphs = extractSubgraphsFromSupergraph(supergraph);
+export function buildFederatedQueryGraph(supergraph: Supergraph, forQueryPlanning: boolean): QueryGraph {
+  const subgraphs = supergraph.subgraphs();
   const graphs = [];
   for (const subgraph of subgraphs) {
-    graphs.push(buildGraphInternal(subgraph.name, subgraph.schema, forQueryPlanning, supergraph));
+    graphs.push(buildGraphInternal(subgraph.name, subgraph.schema, forQueryPlanning, supergraph.schema));
   }
-  return federateSubgraphs(supergraph, graphs);
+  return federateSubgraphs(supergraph.schema, graphs);
 }
 
 function federatedProperties(subgraphs: QueryGraph[]) : [number, Set<SchemaRootKind>, Schema[]] {
@@ -742,7 +798,59 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
       }
     );
   }
+
+  /**
+   * Handling progressive overrides here. For each progressive @override
+   * application (with a label), we want to update the edges to the overridden
+   * field within the "to" and "from" subgraphs with their respective override
+   * condition (the label and a T/F value). The "from" subgraph will have an
+   * override condition of `false`, whereas the "to" subgraph will have an
+   * override condition of `true`.
+   */
+  const subgraphsByName = new Map(subgraphs.map((s) => [s.name, s]));
+  for (const [i, toSubgraph] of subgraphs.entries()) {
+    const subgraphSchema = schemas[i];
+    const subgraphMetadata = federationMetadata(subgraphSchema);
+    assert(subgraphMetadata, `Subgraph ${i} is not a valid federation subgraph`);
+
+    for (const application of subgraphMetadata.overrideDirective().applications()) {
+      const { from, label } = application.arguments();
+      if (!label) continue;
+      const fromSubgraph = subgraphsByName.get(from);
+      assert(fromSubgraph, () => `Subgraph ${from} not found`);
+
+      function updateEdgeWithOverrideCondition(subgraph: QueryGraph, label: string, condition: boolean) {
+        const field = application.parent;
+        assert(field instanceof NamedSchemaElement, () => `@override should have been on a field, got ${field}`);
+        const typeName = field.parent.name;
+
+        const [vertex, ...unexpectedAdditionalVertices] = subgraph.verticesForType(typeName);
+        assert(vertex && unexpectedAdditionalVertices.length === 0, () => `Subgraph ${subgraph.name} should have exactly one vertex for type ${typeName}`);
+
+        const subgraphEdges = subgraph.outEdges(vertex);
+        for (const edge of subgraphEdges) {
+          if (
+            edge.transition.kind === "FieldCollection"
+            && edge.transition.definition.name === field.name
+          ) {
+            const head = copyPointers[subgraphs.indexOf(subgraph)].copiedVertex(vertex);
+            const copiedEdge = builder.edge(head, edge.index);
+
+            copiedEdge.overrideCondition = {
+              label,
+              condition,
+            };
+          }
+        }
+      }
+
+      updateEdgeWithOverrideCondition(toSubgraph, label, true);
+      updateEdgeWithOverrideCondition(fromSubgraph, label, false);
+    }
+  }
+
   // Now we handle @provides
+  let provideId = 0;
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
     const subgraphMetadata = federationMetadata(subgraphSchema);
@@ -758,6 +866,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
           const field = e.transition.definition;
           assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const providesApplication of field.appliedDirectivesOf(providesDirective)) {
+            ++provideId;
             const fieldType = baseType(field.type!);
             assert(isCompositeType(fieldType), () => `Invalid @provide on field "${field}" whose type "${fieldType}" is not a composite type`)
             const provided = parseFieldSetArgument({ parentType: fieldType, directive: providesApplication });
@@ -768,9 +877,9 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
             const copiedEdge = builder.edge(head, e.index);
             // We make a copy of the `fieldType` vertex (with all the same edges), and we change this particular edge to point to the
             // new copy. From that, we can add all the provides edges to the copy.
-            const copiedTail = builder.makeCopy(tail);
+            const copiedTail = builder.makeCopy(tail, provideId);
             builder.updateEdgeTail(copiedEdge, copiedTail);
-            addProvidesEdges(subgraphSchema, builder, copiedTail, provided);
+            addProvidesEdges(subgraphSchema, builder, copiedTail, provided, provideId);
           }
         }
         return true; // Always traverse edges
@@ -778,7 +887,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
     );
   }
 
-  // We now ned to finish handling @interfaceObject types. More precisely, there is cases where only a/some implementation(s)
+  // We now need to finish handling @interfaceObject types. More precisely, there is cases where only a/some implementation(s)
   // of a interface are queried, and that could apply to an interface that is an @interfaceObject in some sugraph. Consider
   // the following example:
   // ```graphql
@@ -812,7 +921,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
   //
   // Long story short, to solve this, we create edges from @interfaceObject types to themselves for every implementation
   // types of the interface: those edges will be taken when we try to take a `... on B` condition, and those edge
-  // have __typename has a condition, forcing to find __typename in another subgraph first.
+  // have __typename as a condition, forcing to find __typename in another subgraph first.
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
     const subgraphMetadata = federationMetadata(subgraphSchema);
@@ -834,7 +943,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
   return builder.build(FEDERATED_GRAPH_ROOT_SOURCE);
 }
 
-function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, provided: SelectionSet) {
+function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, provided: SelectionSet, provideId: number) {
   const stack: [Vertex, SelectionSet][] = [[from, provided]];
   const source = from.source;
   while (stack.length > 0) {
@@ -849,7 +958,7 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
           // If this is a leaf field, then we don't really have anything to do. Otherwise, we need to copy
           // the tail and continue propagating the provides from there.
           if (selection.selectionSet) {
-            const copiedTail = builder.makeCopy(existingEdge.tail);
+            const copiedTail = builder.makeCopy(existingEdge.tail, provideId);
             builder.updateEdgeTail(existingEdge, copiedTail);
             stack.push([copiedTail, selection.selectionSet]);
           }
@@ -862,7 +971,7 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
           // If the field is a leaf, then just create the new edge and we're done. Othewise, we
           // should copy the vertex (unless we just created it), add the edge and continue.
           if (selection.selectionSet) {
-            const copiedTail = existingTail ? builder.makeCopy(existingTail) : newTail;
+            const copiedTail = existingTail ? builder.makeCopy(existingTail, provideId) : newTail;
             builder.addEdge(v, copiedTail, new FieldCollection(fieldDef, true));
             stack.push([copiedTail, selection.selectionSet]);
           } else {
@@ -877,7 +986,7 @@ function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, p
           // @provides shouldn't have validated in the first place (another way to put it is, contrary to fields, there is no way currently
           // to mark a full type as @external).
           assert(existingEdge, () => `Shouldn't have ${selection} with no corresponding edge on ${v} (edges are: [${builder.edges(v)}])`);
-          const copiedTail = builder.makeCopy(existingEdge.tail);
+          const copiedTail = builder.makeCopy(existingEdge.tail, provideId);
           builder.updateEdgeTail(existingEdge, copiedTail);
           stack.push([copiedTail, selection.selectionSet!]);
         } else {
@@ -920,10 +1029,10 @@ class GraphBuilder {
     return this.rootVertices.get(kind);
   }
 
-  addEdge(head: Vertex, tail: Vertex, transition: Transition, conditions?: SelectionSet) {
+  addEdge(head: Vertex, tail: Vertex, transition: Transition, conditions?: SelectionSet, overrideCondition?: OverrideCondition) {
     const headOutEdges = this.outEdges[head.index];
     const tailInEdges = this.inEdges[tail.index];
-    const edge = new Edge(headOutEdges.length, head, tail, transition, conditions);
+    const edge = new Edge(headOutEdges.length, head, tail, transition, conditions, overrideCondition);
     headOutEdges.push(edge);
     tailInEdges.push(edge);
 
@@ -1032,10 +1141,13 @@ class GraphBuilder {
    * Creates a new vertex that is a full copy of the provided one, including having the same out-edge, but with no incoming edges.
    *
    * @param vertex - the vertex to copy.
+   * @param provideId - if the vertex is copied for the sake of a `@provides`, an id that identify that provide and will be set on
+   *   the newly copied vertex.
    * @returns the newly created copy.
    */
-  makeCopy(vertex: Vertex): Vertex {
+  makeCopy(vertex: Vertex, provideId?: number): Vertex {
     const newVertex = this.createNewVertex(vertex.type, vertex.source, this.sources.get(vertex.source)!);
+    newVertex.provideId = provideId;
     newVertex.hasReachableCrossSubgraphEdges = vertex.hasReachableCrossSubgraphEdges;
     for (const edge of this.outEdges[vertex.index]) {
       this.addEdge(newVertex, edge.tail, edge.transition, edge.conditions);
@@ -1051,7 +1163,7 @@ class GraphBuilder {
    * @returns the newly created edge that, as of this method returning, replaces `edge`.
    */
   updateEdgeTail(edge: Edge, newTail: Vertex): Edge {
-    const newEdge = new Edge(edge.index, edge.head, newTail, edge.transition, edge.conditions);
+    const newEdge = new Edge(edge.index, edge.head, newTail, edge.transition, edge.conditions, edge.overrideCondition);
     this.outEdges[edge.head.index][edge.index] = newEdge;
     // For in-edge, we need to remove the edge from the inputs of the previous tail,
     // and add it to the new tail.
@@ -1092,10 +1204,10 @@ class GraphBuilderFromSchema extends GraphBuilder {
     private readonly name: string,
     private readonly schema: Schema,
     private readonly supergraph?: { apiSchema: Schema, isFed1: boolean },
+    private readonly overrideLabelsByCoordinate?: Map<string, string>,
   ) {
     super();
-    this.isFederatedSubgraph = isFederationSubgraphSchema(schema);
-    assert(!this.isFederatedSubgraph || supergraph, `Missing supergraph schema for building the federated subgraph graph`);
+    this.isFederatedSubgraph = !!supergraph && isFederationSubgraphSchema(schema);
   }
 
   private hasDirective(elt: FieldDefinition<any> | NamedType, directiveFct: (metadata: FederationMetadata) => DirectiveDefinition): boolean {
@@ -1187,7 +1299,19 @@ class GraphBuilderFromSchema extends GraphBuilder {
 
   private addEdgeForField(field: FieldDefinition<any>, head: Vertex) {
     const tail = this.addTypeRecursively(field.type!);
-    this.addEdge(head, tail, new FieldCollection(field));
+    const overrideLabel = this.overrideLabelsByCoordinate?.get(field.coordinate);
+    if (overrideLabel) {
+      this.addEdge(head, tail, new FieldCollection(field), undefined, {
+        label: overrideLabel,
+        condition: true,
+      });
+      this.addEdge(head, tail, new FieldCollection(field), undefined, {
+        label: overrideLabel,
+        condition: false,
+      });
+    } else {
+      this.addEdge(head, tail, new FieldCollection(field));
+    }
   }
 
   private isDirectlyProvidedByType(type: ObjectType, fieldName: string) {

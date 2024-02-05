@@ -71,6 +71,9 @@ import {
   FeatureVersion,
   FEDERATION_VERSIONS,
   InaccessibleSpecDefinition,
+  LinkDirectiveArgs,
+  sourceIdentity,
+  FeatureUrl,
   isFederationDirectiveDefinedInSchema,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
@@ -93,6 +96,7 @@ type FieldMergeContextProperties = {
   usedOverridden: boolean,
   unusedOverridden: boolean,
   overrideWithUnknownTarget: boolean,
+  overrideLabel: string | undefined,
 }
 
 // for each source, specify additional properties that validate functions can set
@@ -100,7 +104,13 @@ class FieldMergeContext {
   _props: FieldMergeContextProperties[];
 
   constructor(sources: unknown[]) {
-    this._props = (new Array(sources.length)).fill(true).map(_ => ({ usedOverridden: false, unusedOverridden: false, overrideWithUnknownTarget: false}));
+    this._props = (
+      new Array(sources.length)).fill(true).map(_ => ({
+        usedOverridden: false,
+        unusedOverridden: false,
+        overrideWithUnknownTarget: false,
+        overrideLabel: undefined,
+      }));
   }
 
   isUsedOverridden(idx: number) {
@@ -115,6 +125,10 @@ class FieldMergeContext {
     return this._props[idx].overrideWithUnknownTarget;
   }
 
+  overrideLabel(idx: number) {
+    return this._props[idx].overrideLabel;
+  }
+
   setUsedOverridden(idx: number) {
     this._props[idx].usedOverridden = true;
   }
@@ -125,6 +139,10 @@ class FieldMergeContext {
 
   setOverrideWithUnknownTarget(idx: number) {
     this._props[idx].overrideWithUnknownTarget = true;
+  }
+
+  setOverrideLabel(idx: number, label: string) {
+    this._props[idx].overrideLabel = label;
   }
 
   some(predicate: (props: FieldMergeContextProperties) => boolean): boolean {
@@ -259,6 +277,11 @@ type EnumTypeUsage = {
   },
 }
 
+interface OverrideArgs {
+  from: string;
+  label?: string;
+}
+
 class Merger {
   readonly names: readonly string[];
   readonly subgraphsSchema: readonly Schema[];
@@ -280,6 +303,8 @@ class Merger {
   private linkSpec: CoreSpecDefinition;
   private inaccessibleSpec: InaccessibleSpecDefinition;
   private latestFedVersionUsed: FeatureVersion;
+  private joinDirectiveIdentityURLs = new Set<string>();
+  private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.latestFedVersionUsed = this.getLatestFederationVersionUsed();
@@ -298,9 +323,24 @@ class Merger {
       (error: GraphQLError) => { this.errors.push(error); },
       (hint: CompositionHint) => { this.hints.push(hint); },
     );
-    this.subgraphsSchema = subgraphs.values().map(subgraph => subgraph.schema);
+
+    this.subgraphsSchema = subgraphs.values().map(({ schema }) => {
+      if (!this.schemaToImportNameToFeatureUrl.has(schema)) {
+        this.schemaToImportNameToFeatureUrl.set(
+          schema,
+          this.computeMapFromImportNameToIdentityUrl(schema),
+        );
+      }
+      return schema;
+    });
+
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
     this.appliedDirectivesToMerge = [];
+
+    [ // Represent any applications of directives imported from these spec URLs
+      // using @join__directive in the merged supergraph.
+      sourceIdentity,
+    ].forEach(url => this.joinDirectiveIdentityURLs.add(url));
   }
 
   private getLatestFederationVersionUsed(): FeatureVersion {
@@ -333,7 +373,7 @@ class Merger {
     return this.joinSpec.populateGraphEnum(this.merged, this.subgraphs);
   }
 
-  private validateAndMaybeAddSpec({feature, name, definitionsPerSubgraph, compositionSpec}: CoreDirectiveInSubgraphs) {
+  private validateAndMaybeAddSpec({url, name, definitionsPerSubgraph, compositionSpec}: CoreDirectiveInSubgraphs) {
     // Not composition specification means that it shouldn't be composed.
     if (!compositionSpec) {
       return;
@@ -351,7 +391,7 @@ class Merger {
       } else if (nameInSupergraph !== directive.name) {
         this.mismatchReporter.reportMismatchError(
           ERRORS.LINK_IMPORT_NAME_MISMATCH,
-          `The "@${name}" directive (from ${feature}) is imported with mismatched name between subgraphs: it is imported as `,
+          `The "@${name}" directive (from ${url}) is imported with mismatched name between subgraphs: it is imported as `,
           directive,
           this.subgraphs.values().map((s) => definitionsPerSubgraph.get(s.name)),
           (def) => `"@${def.name}"`,
@@ -366,7 +406,9 @@ class Merger {
       const specInSupergraph = compositionSpec.supergraphSpecification(this.latestFedVersionUsed);
       const errors = this.linkSpec.applyFeatureToSchema(this.merged, specInSupergraph, nameInSupergraph === specInSupergraph.url.name ? undefined : nameInSupergraph, specInSupergraph.defaultCorePurpose);
       assert(errors.length === 0, "We shouldn't have errors adding the join spec to the (still empty) supergraph schema");
-      const argumentsMerger = compositionSpec.argumentsMerger?.call(null, this.merged);
+      const feature = this.merged?.coreFeatures?.getByIdentity(specInSupergraph.url.identity);
+      assert(feature, 'Should have found the feature we just added');
+      const argumentsMerger = compositionSpec.argumentsMerger?.call(null, this.merged, feature);
       if (argumentsMerger instanceof GraphQLError) {
         // That would mean we made a mistake in the declaration of a hard-coded directive, so we just throw right away so this can be caught and corrected.
         throw argumentsMerger;
@@ -722,6 +764,7 @@ class Merger {
     this.mergeDescription(sources, dest);
     this.addJoinType(sources, dest);
     this.recordAppliedDirectivesToMerge(sources, dest);
+    this.addJoinDirectiveDirectives(sources, dest);
     switch (dest.kind) {
       case 'ScalarType':
         // Since we don't handle applied directives yet, we have nothing specific to do for scalars.
@@ -1042,7 +1085,7 @@ class Merger {
     return this.metadata(sourceIdx).isFieldShareable(field);
   }
 
-  private getOverrideDirective(sourceIdx: number, field: FieldDefinition<any>): Directive<any> | undefined {
+  private getOverrideDirective(sourceIdx: number, field: FieldDefinition<any>): Directive<any, OverrideArgs> | undefined {
     // Check the directive on the field, then on the enclosing type.
     const metadata = this.metadata(sourceIdx);
     const overrideDirective = metadata.isFed2Schema() ? metadata.overrideDirective() : undefined;
@@ -1097,7 +1140,7 @@ class Merger {
       isInterfaceField?: boolean,
       isInterfaceObject?: boolean,
       interfaceObjectAbstractingFields?: FieldDefinition<any>[],
-      overrideDirective?: Directive<FieldDefinition<any>>,
+      overrideDirective?: Directive<FieldDefinition<any>, OverrideArgs>,
     };
 
     type ReduceResultType = {
@@ -1142,7 +1185,9 @@ class Merger {
     // for each subgraph that has an @override directive, check to see if any errors or hints should be surfaced
     subgraphsWithOverride.forEach((subgraphName) => {
       const { overrideDirective, idx, isInterfaceObject, isInterfaceField } = subgraphMap[subgraphName];
-      const overridingSubgraphASTNode = overrideDirective?.sourceAST ? addSubgraphToASTNode(overrideDirective.sourceAST, subgraphName) : undefined;
+      if (!overrideDirective) return;
+
+      const overridingSubgraphASTNode = overrideDirective.sourceAST ? addSubgraphToASTNode(overrideDirective.sourceAST, subgraphName) : undefined;
       if (isInterfaceField) {
         this.errors.push(ERRORS.OVERRIDE_ON_INTERFACE.err(
           `@override cannot be used on field "${dest.coordinate}" on subgraph "${subgraphName}": @override is not supported on interface type fields.`,
@@ -1159,7 +1204,7 @@ class Merger {
         return;
       }
 
-      const sourceSubgraphName = overrideDirective?.arguments()?.from;
+      const sourceSubgraphName = overrideDirective.arguments().from;
       if (!this.names.includes(sourceSubgraphName)) {
         result.setOverrideWithUnknownTarget(idx);
         const suggestions = suggestionList(sourceSubgraphName, this.names);
@@ -1167,12 +1212,13 @@ class Merger {
         this.hints.push(new CompositionHint(
           HINTS.FROM_SUBGRAPH_DOES_NOT_EXIST,
           `Source subgraph "${sourceSubgraphName}" for field "${dest.coordinate}" on subgraph "${subgraphName}" does not exist.${extraMsg}`,
+          dest,
           overridingSubgraphASTNode,
         ));
       } else if (sourceSubgraphName === subgraphName) {
         this.errors.push(ERRORS.OVERRIDE_FROM_SELF_ERROR.err(
           `Source and destination subgraphs "${sourceSubgraphName}" are the same for overridden field "${dest.coordinate}"`,
-          { nodes: overrideDirective?.sourceAST },
+          { nodes: overrideDirective.sourceAST },
         ));
       } else if (subgraphsWithOverride.includes(sourceSubgraphName)) {
         this.errors.push(ERRORS.OVERRIDE_SOURCE_HAS_OVERRIDE.err(
@@ -1183,6 +1229,7 @@ class Merger {
         this.hints.push(new CompositionHint(
           HINTS.OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
           `Field "${dest.coordinate}" on subgraph "${subgraphName}" no longer exists in the from subgraph. The @override directive can be removed.`,
+          dest,
           overridingSubgraphASTNode,
         ));
       } else {
@@ -1225,6 +1272,7 @@ class Merger {
             this.hints.push(new CompositionHint(
               HINTS.OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
               `Field "${dest.coordinate}" on subgraph "${subgraphName}" is not resolved anymore by the from subgraph (it is marked "@external" in "${sourceSubgraphName}"). The @override directive can be removed.`,
+              dest,
               overridingSubgraphASTNode,
             ));
           } else if (this.metadata(fromIdx).isFieldUsed(fromField)) {
@@ -1232,6 +1280,7 @@ class Merger {
             this.hints.push(new CompositionHint(
               HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
               `Field "${dest.coordinate}" on subgraph "${sourceSubgraphName}" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
+              dest,
               overriddenSubgraphASTNode,
             ));
           } else {
@@ -1239,8 +1288,38 @@ class Merger {
             this.hints.push(new CompositionHint(
               HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
               `Field "${dest.coordinate}" on subgraph "${sourceSubgraphName}" is overridden. Consider removing it.`,
+              dest,
               overriddenSubgraphASTNode,
             ));
+          }
+
+          // capture an override label if it exists
+          const overrideLabel = overrideDirective.arguments().label;
+          if (overrideLabel) {
+            const labelRegex = /^[a-zA-Z][a-zA-Z0-9_\-:./]*$/;
+            // Enforce that the label matches the following pattern: percent(x)
+            // where x is a float between 0 and 100 with no more than 8 decimal places
+            const percentRegex = /^percent\((\d{1,2}(\.\d{1,8})?|100)\)$/;
+            if (labelRegex.test(overrideLabel)) {
+              result.setOverrideLabel(idx, overrideLabel);
+              result.setOverrideLabel(fromIdx, overrideLabel);
+            } else if (percentRegex.test(overrideLabel)) {
+              const parts = percentRegex.exec(overrideLabel);
+              if (parts) {
+                const percent = parseFloat(parts[1]);
+                if (percent >= 0 && percent <= 100) {
+                  result.setOverrideLabel(idx, overrideLabel);
+                  result.setOverrideLabel(fromIdx, overrideLabel);
+                }
+              }
+            }
+
+            if (!result.overrideLabel(idx)) {
+              this.errors.push(ERRORS.OVERRIDE_LABEL_INVALID.err(
+                `Invalid @override label "${overrideLabel}" on field "${dest.coordinate}" on subgraph "${subgraphName}": labels must start with a letter and after that may contain alphanumerics, underscores, minuses, colons, periods, or slashes. Alternatively, labels may be of the form "percent(x)" where x is a float between 0-100 inclusive.`,
+                { nodes: overridingSubgraphASTNode }
+              ));
+            }
           }
         }
       }
@@ -1354,6 +1433,7 @@ class Merger {
       this.validateExternalFields(sources, dest, allTypesEqual);
     }
     this.addJoinField({ sources, dest, allTypesEqual, mergeContext });
+    this.addJoinDirectiveDirectives(sources, dest);
   }
 
   private validateFieldSharing(sources: FieldOrUndefinedArray, dest: FieldDefinition<ObjectType>, mergeContext: FieldMergeContext) {
@@ -1512,7 +1592,7 @@ class Merger {
     if (!allTypesEqual) {
       return true;
     }
-    if (mergeContext.some(({ usedOverridden }) => usedOverridden)) {
+    if (mergeContext.some(({ usedOverridden, overrideLabel }) => usedOverridden || !!overrideLabel)) {
       return true;
     }
 
@@ -1565,7 +1645,8 @@ class Merger {
     for (const [idx, source] of sources.entries()) {
       const usedOverridden = mergeContext.isUsedOverridden(idx);
       const unusedOverridden = mergeContext.isUnusedOverridden(idx);
-      if (!source || unusedOverridden) {
+      const overrideLabel = mergeContext.overrideLabel(idx);
+      if (!source || (unusedOverridden && !overrideLabel)) {
         continue;
       }
 
@@ -1582,6 +1663,7 @@ class Merger {
         type: allTypesEqual ? undefined : source.type?.toString(),
         external: external ? true : undefined,
         usedOverridden: usedOverridden ? true : undefined,
+        overrideLabel: mergeContext.overrideLabel(idx),
         isFinder,
       });
     }
@@ -1973,6 +2055,7 @@ class Merger {
       this.hints.push(new CompositionHint(
         HINTS.UNUSED_ENUM_TYPE,
         `Enum type "${dest}" is defined but unused. It will be included in the supergraph with all the values appearing in any subgraph ("as if" it was only used as an output type).`,
+        dest
       ));
     }
 
@@ -2050,6 +2133,7 @@ class Merger {
           message: `Value "${value}" of enum type "${dest}" will not be part of the supergraph as it is not defined in all the subgraphs defining "${dest}": `,
           supergraphElement: dest,
           subgraphElements: sources,
+          targetedElement: value,
           elementToString: (type) => type.value(value.name) ? 'yes' : 'no',
           supergraphElementPrinter: (_, subgraphs) => `"${value}" is defined in ${subgraphs}`,
           otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
@@ -2060,7 +2144,7 @@ class Merger {
         value.remove();
       }
     } else if (position === 'Output') {
-      this.hintOnInconsistentOutputEnumValue(sources, dest, value.name);
+      this.hintOnInconsistentOutputEnumValue(sources, dest, value);
     }
   }
 
@@ -2087,8 +2171,9 @@ class Merger {
   private hintOnInconsistentOutputEnumValue(
     sources: (EnumType | undefined)[],
     dest: EnumType,
-    valueName: string
+    value: EnumValue,
   ) {
+    const valueName: string = value.name
     for (const source of sources) {
       // As soon as we find a subgraph that has the type but not the member, we hint.
       if (source && !source.value(valueName)) {
@@ -2097,6 +2182,7 @@ class Merger {
           message: `Value "${valueName}" of enum type "${dest}" has been added to the supergraph but is only defined in a subset of the subgraphs defining "${dest}": `,
           supergraphElement: dest,
           subgraphElements: sources,
+          targetedElement: value,
           elementToString: type => type.value(valueName) ? 'yes' : 'no',
           supergraphElementPrinter: (_, subgraphs) => `"${valueName}" is defined in ${subgraphs}`,
           otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
@@ -2495,6 +2581,7 @@ class Merger {
           this.mismatchReporter.pushHint(new CompositionHint(
             HINTS.MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
             `Directive @${name} is applied to "${(dest as any)['coordinate'] ?? dest}" in multiple subgraphs with different arguments. Merging strategies used by arguments: ${info.argumentsMerger}`,
+            undefined,
           ));
         } else {
           const idx = indexOfMax(counts);
@@ -2564,6 +2651,113 @@ class Merger {
       // Because we rename all root type in subgraphs to their default names, we shouldn't ever have incompatibilities here.
       assert(!isIncompatible, () => `Should not have incompatible root type for ${rootKind}`);
     }
+    this.addJoinDirectiveDirectives(sources, dest);
+  }
+
+  private shouldUseJoinDirectiveForURL(url: FeatureUrl | undefined): boolean {
+    return Boolean(
+      url &&
+      this.joinDirectiveIdentityURLs.has(url.identity)
+    );
+  }
+
+  private computeMapFromImportNameToIdentityUrl(
+    schema: Schema,
+  ): Map<string, FeatureUrl> {
+    // For each @link directive on the schema definition, store its normalized
+    // identity url in a Map, reachable from all its imported names.
+    const map = new Map<string, FeatureUrl>();
+    for (const linkDirective of schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')) {
+      const { url, import: imports } = linkDirective.arguments();
+      const parsedUrl = FeatureUrl.maybeParse(url);
+      if (parsedUrl && imports) {
+        for (const i of imports) {
+          if (typeof i === 'string') {
+            map.set(i, parsedUrl);
+          } else {
+            map.set(i.as ?? i.name, parsedUrl);
+          }
+        }
+      }
+    }
+    return map;
+  }
+
+  // This method gets called at various points during the merge to allow
+  // subgraph directive applications to be reflected (unapplied) in the
+  // supergraph, using the @join__directive(graphs,name,args) directive.
+  private addJoinDirectiveDirectives(
+    sources: (SchemaElement<any, any> | undefined)[],
+    dest: SchemaElement<any, any>,
+  ) {
+    const joinsByDirectiveName: {
+      [directiveName: string]: Array<{
+        graphs: string[];
+        args: Record<string, any>;
+      }>
+    } = Object.create(null);
+
+    for (const [idx, source] of sources.entries()) {
+      if (!source) continue;
+      const graph = this.joinSpecName(idx);
+
+      // We compute this map only once per subgraph, as it takes time
+      // proportional to the size of the schema.
+      const linkImportIdentityURLMap =
+        this.schemaToImportNameToFeatureUrl.get(source.schema());
+      if (!linkImportIdentityURLMap) continue;
+
+      for (const directive of source.appliedDirectives) {
+        let shouldIncludeAsJoinDirective = false;
+
+        if (directive.name === 'link') {
+          const { url } = directive.arguments();
+          const parsedUrl = FeatureUrl.maybeParse(url);
+          if (typeof url === 'string' && parsedUrl) {
+            shouldIncludeAsJoinDirective =
+              this.shouldUseJoinDirectiveForURL(parsedUrl);
+          }
+        } else {
+          // To be consistent with other code accessing
+          // linkImportIdentityURLMap, we ensure directive names start with a
+          // leading @.
+          const nameWithAtSymbol =
+            directive.name.startsWith('@') ? directive.name : '@' + directive.name;
+          shouldIncludeAsJoinDirective = this.shouldUseJoinDirectiveForURL(
+            linkImportIdentityURLMap.get(nameWithAtSymbol),
+          );
+        }
+
+        if (shouldIncludeAsJoinDirective) {
+          const existingJoins = (joinsByDirectiveName[directive.name] ??= []);
+          let found = false;
+          for (const existingJoin of existingJoins) {
+            if (valueEquals(existingJoin.args, directive.arguments())) {
+              existingJoin.graphs.push(graph);
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            existingJoins.push({
+              graphs: [graph],
+              args: directive.arguments(),
+            });
+          }
+        }
+      }
+    }
+
+    const joinDirective = this.joinSpec.directiveDirective(this.merged);
+    Object.keys(joinsByDirectiveName).forEach(directiveName => {
+      joinsByDirectiveName[directiveName].forEach(join => {
+        dest.applyDirective(joinDirective, {
+          graphs: join.graphs,
+          name: directiveName,
+          args: join.args,
+        });
+      });
+    });
   }
 
   private filterSubgraphs(predicate: (schema: Schema) => boolean): string[] {

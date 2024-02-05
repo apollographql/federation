@@ -914,13 +914,6 @@ Scenario: deduplicates fields / selections regardless of adjacency and type cond
     """
     query {
       body {
-        ... on Image {
-          ... on Text {
-            attributes {
-              bold
-            }
-          }
-        }
         ... on Body {
           ... on Text {
             attributes {
@@ -964,9 +957,6 @@ Scenario: deduplicates fields / selections regardless of adjacency and type cond
 
     query {
       body {
-        ... on Image {
-          ...TextFragment
-        }
         ... on Body {
           ...TextFragment
         }

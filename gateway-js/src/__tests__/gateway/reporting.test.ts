@@ -92,22 +92,19 @@ describe('reporting', () => {
         return 'ok';
       });
 
-    services = await startSubgraphsAndGateway(
-      fixtures,
-      {
-        gatewayServerConfig: {
-          apollo: {
-            key: 'service:foo:bar',
-            graphRef: 'foo@current',
-          },
-          plugins: [
-            ApolloServerPluginUsageReporting({
-              sendReportsImmediately: true,
-            }),
-          ],
+    services = await startSubgraphsAndGateway(fixtures, {
+      gatewayServerConfig: {
+        apollo: {
+          key: 'service:foo:bar',
+          graphRef: 'foo@current',
         },
-      }
-    );
+        plugins: [
+          ApolloServerPluginUsageReporting({
+            sendReportsImmediately: true,
+          }),
+        ],
+      },
+    });
   });
 
   afterEach(async () => {
@@ -134,9 +131,12 @@ describe('reporting', () => {
     `;
 
     const result = await toPromise(
-      execute(createHttpLink({ uri: services.gatewayUrl, fetch: fetch as any }), {
-        query,
-      }),
+      execute(
+        createHttpLink({ uri: services.gatewayUrl, fetch: fetch as any }),
+        {
+          query,
+        },
+      ),
     );
     expect(result).toMatchInlineSnapshot(`
       Object {

@@ -1,13 +1,25 @@
 import gql from 'graphql-tag';
-import { getFederatedTestingSchema, ServiceDefinitionModule } from './execution-utils';
-import { Operation, parseOperation, Schema } from "@apollo/federation-internals";
+import {
+  getFederatedTestingSchema,
+  ServiceDefinitionModule,
+} from './execution-utils';
+import {
+  Operation,
+  parseOperation,
+  Schema,
+} from '@apollo/federation-internals';
 import { QueryPlan } from '@apollo/query-planner';
 import { LocalGraphQLDataSource } from '../datasources';
-import { GatewayExecutionResult, GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
+import {
+  GatewayExecutionResult,
+  GatewayGraphQLRequestContext,
+} from '@apollo/server-gateway-interface';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
 
-function buildRequestContext(variables: Record<string, any>): GatewayGraphQLRequestContext {
+function buildRequestContext(
+  variables: Record<string, any>,
+): GatewayGraphQLRequestContext {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   return {
@@ -30,7 +42,9 @@ async function executePlan(
   const apiSchema = schema.toAPISchema();
   const operationContext = buildOperationContext({
     schema: apiSchema.toGraphQLJSSchema(),
-    operationDocument: gql`${operation.toString()}`,
+    operationDocument: gql`
+      ${operation.toString()}
+    `,
   });
   return executeQueryPlan(
     queryPlan,
@@ -67,20 +81,29 @@ describe('handling of introspection queries', () => {
       `,
     },
   ];
-  const { serviceMap, schema, queryPlanner} = getFederatedTestingSchema(typeDefs);
+  const { serviceMap, schema, queryPlanner } =
+    getFederatedTestingSchema(typeDefs);
 
   it('it handles aliases on introspection fields', async () => {
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       {
         myAlias: __type(name: "T1") {
           kind
           name
         }
       }
-    `);
+    `,
+    );
 
     const queryPlan = queryPlanner.buildQueryPlan(operation);
-    const response = await executePlan(queryPlan, operation, schema, serviceMap);
+    const response = await executePlan(
+      queryPlan,
+      operation,
+      schema,
+      serviceMap,
+    );
     expect(response.errors).toBeUndefined();
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -93,17 +116,25 @@ describe('handling of introspection queries', () => {
   });
 
   it('it handles aliases inside introspection fields', async () => {
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       {
         __type(name: "T1") {
           myKind: kind
           name
         }
       }
-    `);
+    `,
+    );
 
     const queryPlan = queryPlanner.buildQueryPlan(operation);
-    const response = await executePlan(queryPlan, operation, schema, serviceMap);
+    const response = await executePlan(
+      queryPlan,
+      operation,
+      schema,
+      serviceMap,
+    );
     expect(response.errors).toBeUndefined();
     expect(response.data).toMatchInlineSnapshot(`
       Object {
@@ -116,17 +147,26 @@ describe('handling of introspection queries', () => {
   });
 
   it('it handles variables passed to introspection fields', async () => {
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       query ($name: String!) {
         __type(name: $name) {
           kind
           name
         }
       }
-    `);
+    `,
+    );
 
     const queryPlan = queryPlanner.buildQueryPlan(operation);
-    const response = await executePlan(queryPlan, operation, schema, serviceMap, { name: "T1" });
+    const response = await executePlan(
+      queryPlan,
+      operation,
+      schema,
+      serviceMap,
+      { name: 'T1' },
+    );
     expect(response.errors).toBeUndefined();
     expect(response.data).toMatchInlineSnapshot(`
       Object {

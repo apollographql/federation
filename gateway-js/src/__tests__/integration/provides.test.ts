@@ -12,7 +12,7 @@ it('does not have to go to another service when field is given', async () => {
     }
   `;
 
-  const { data, queryPlan } = await execute( {
+  const { data, queryPlan } = await execute({
     query,
   });
 
@@ -63,11 +63,30 @@ it('does not load fields provided even when going to other service', async () =>
 
   expect(data).toEqual({
     topReviews: [
-      { author: { username: '@ada', name: { first: 'Ada', last: 'Lovelace' } } },
-      { author: { username: '@ada', name: { first: 'Ada', last: 'Lovelace' } } },
-      { author: { username: '@complete', name: { first: 'Alan', last: 'Turing' } } },
-      { author: { username: '@complete', name: { first: 'Alan', last: 'Turing' } } },
-      { author: { username: '@complete', name: { first: 'Alan', last: 'Turing' } } },
+      {
+        author: { username: '@ada', name: { first: 'Ada', last: 'Lovelace' } },
+      },
+      {
+        author: { username: '@ada', name: { first: 'Ada', last: 'Lovelace' } },
+      },
+      {
+        author: {
+          username: '@complete',
+          name: { first: 'Alan', last: 'Turing' },
+        },
+      },
+      {
+        author: {
+          username: '@complete',
+          name: { first: 'Alan', last: 'Turing' },
+        },
+      },
+      {
+        author: {
+          username: '@complete',
+          name: { first: 'Alan', last: 'Turing' },
+        },
+      },
     ],
   });
 

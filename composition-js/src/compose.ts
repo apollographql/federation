@@ -10,6 +10,7 @@ import {
   upgradeSubgraphsIfNecessary,
   SubtypingRule,
   assert,
+  Supergraph,
 } from "@apollo/federation-internals";
 import { GraphQLError } from "graphql";
 import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/query-graphs";
@@ -35,9 +36,7 @@ export interface CompositionSuccess {
 
 export interface CompositionOptions {
   sdlPrintOptions?: PrintOptions;
-
-
-  allowedFieldTypeMergingSubtypingRules?: SubtypingRule[]
+  allowedFieldTypeMergingSubtypingRules?: SubtypingRule[];
 }
 
 function validateCompositionOptions(options: CompositionOptions) {
@@ -65,10 +64,13 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
     return { errors: mergeResult.errors };
   }
 
-  const supergraphSchema = mergeResult.supergraph;
-  const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraphSchema);
-  const federatedQueryGraph = buildFederatedQueryGraph(supergraphSchema, false);
-  const { errors, hints } = validateGraphComposition(supergraphSchema, supergraphQueryGraph, federatedQueryGraph);
+  // We pass `null` for the `supportedFeatures` to disable the feature support validation. Validating feature support
+  // is useful when executing/handling a supergraph, but here we're just validating the supergraph we've just created,
+  // and there is no reason to error due to an unsupported feature.
+  const supergraph = new Supergraph(mergeResult.supergraph, null);
+  const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
+  const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
+  const { errors, hints } = validateGraphComposition(supergraph.schema, supergraphQueryGraph, federatedQueryGraph);
   if (errors) {
     return { errors };
   }
@@ -77,7 +79,7 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
   let supergraphSdl;
   try {
     supergraphSdl = printSchema(
-      supergraphSchema,
+      supergraph.schema,
       options.sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions),
     );
   } catch (err) {
@@ -85,7 +87,7 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
   }
 
   return {
-    schema: supergraphSchema,
+    schema: supergraph.schema,
     supergraphSdl,
     hints: mergeResult.hints.concat(hints ?? []),
   };

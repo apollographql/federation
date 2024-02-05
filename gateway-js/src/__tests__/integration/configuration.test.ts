@@ -201,9 +201,9 @@ describe('gateway startup errors', () => {
     }
 
     const expected =
-      "A valid schema couldn't be composed. The following composition errors were found:\n"
-    + '	[accounts] On type "User", for @key(fields: "id"): Cannot query field "id" on type "User" (the field should either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).\n'
-    + '	[accounts] On type "Account", for @key(fields: "id"): Cannot query field "id" on type "Account" (the field should either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).'
+      "A valid schema couldn't be composed. The following composition errors were found:\n" +
+      '	[accounts] On type "User", for @key(fields: "id"): Cannot query field "id" on type "User" (the field should either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).\n' +
+      '	[accounts] On type "Account", for @key(fields: "id"): Cannot query field "id" on type "Account" (the field should either be added to this subgraph or, if it should not be resolved by this subgraph, you need to add it to this subgraph with @external).';
     expect(err.message).toBe(expected);
   });
 });
@@ -352,7 +352,7 @@ describe('deprecation warnings', () => {
 
     try {
       await gateway.load();
-    // gateway will throw since we're not providing an actual service list, disregard
+      // gateway will throw since we're not providing an actual service list, disregard
     } catch {}
 
     expect(logger.warn).toHaveBeenCalledWith(

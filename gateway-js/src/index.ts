@@ -41,7 +41,14 @@ import {
   SupergraphManager,
 } from './config';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { OpenTelemetrySpanNames, tracer } from './utilities/opentelemetry';
+import {
+  OpenTelemetrySpanNames,
+  tracer,
+  requestContextSpanAttributes,
+  operationContextSpanAttributes,
+  recordExceptions,
+  OpenTelemetryAttributeNames
+} from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
   IntrospectAndCompose,
@@ -50,10 +57,10 @@ import {
   LocalCompose,
 } from './supergraphManagers';
 import {
-  buildSupergraphSchema,
   operationFromDocument,
   Schema,
   ServiceDefinition,
+  Supergraph,
 } from '@apollo/federation-internals';
 import { getDefaultLogger } from './logger';
 import {GatewayInterface, GatewayUnsubscriber, GatewayGraphQLRequestContext, GatewayExecutionResult} from '@apollo/server-gateway-interface';
@@ -507,7 +514,7 @@ export class ApolloGateway implements GatewayInterface {
     // In the case that it throws, the gateway will:
     //   * on initial load, throw the error
     //   * on update, log the error and don't update
-    const { supergraphSchema, supergraphSdl } = this.createSchemaFromSupergraphSdl(
+    const { supergraph, supergraphSdl } = this.createSchemaFromSupergraphSdl(
       result.supergraphSdl,
     );
 
@@ -521,14 +528,14 @@ export class ApolloGateway implements GatewayInterface {
 
     this.compositionId = result.id;
     this.supergraphSdl = supergraphSdl;
-    this.supergraphSchema = supergraphSchema.toGraphQLJSSchema();
+    this.supergraphSchema = supergraph.schema.toGraphQLJSSchema();
 
     if (!supergraphSdl) {
       this.logger.error(
         "A valid schema couldn't be composed. Falling back to previous schema.",
       );
     } else {
-      this.updateWithSchemaAndNotify(supergraphSchema, supergraphSdl);
+      this.updateWithSchemaAndNotify(supergraph, supergraphSdl);
 
       if (this.experimental_didUpdateSupergraph) {
         this.experimental_didUpdateSupergraph(
@@ -553,15 +560,15 @@ export class ApolloGateway implements GatewayInterface {
   //       ensure we do not forget to update some of that state, and to avoid scenarios where
   //       concurrently executing code sees partially-updated state.
   private updateWithSchemaAndNotify(
-    coreSchema: Schema,
-    coreSupergraphSdl: string,
+    supergraph: Supergraph,
+    supergraphSdl: string,
     // Once we remove the deprecated onSchemaChange() method, we can remove this.
     legacyDontNotifyOnSchemaChangeListeners: boolean = false,
   ): void {
     this.queryPlanStore.clear();
-    this.apiSchema = coreSchema.toAPISchema();
+    this.apiSchema = supergraph.apiSchema();
     this.schema = addExtensions(this.apiSchema.toGraphQLJSSchema());
-    this.queryPlanner = new QueryPlanner(coreSchema, this.config.queryPlannerConfig);
+    this.queryPlanner = new QueryPlanner(supergraph, this.config.queryPlannerConfig);
 
     // Notify onSchemaChange listeners of the updated schema
     if (!legacyDontNotifyOnSchemaChangeListeners) {
@@ -583,7 +590,7 @@ export class ApolloGateway implements GatewayInterface {
       try {
         listener({
           apiSchema: this.schema!,
-          coreSupergraphSdl,
+          coreSupergraphSdl: supergraphSdl,
         });
       } catch (e) {
         this.logger.error(
@@ -629,16 +636,17 @@ export class ApolloGateway implements GatewayInterface {
 
   private serviceListFromSupergraphSdl(
     supergraphSdl: string,
-  ): Omit<ServiceDefinition, 'typeDefs'>[] {
-    return buildSupergraphSchema(supergraphSdl)[1];
+  ): readonly Omit<ServiceDefinition, 'typeDefs'>[] {
+    return Supergraph.build(supergraphSdl).subgraphsMetadata();
   }
 
   private createSchemaFromSupergraphSdl(supergraphSdl: string) {
-    const [schema, serviceList] = buildSupergraphSchema(supergraphSdl);
-    this.createServices(serviceList);
+    const validateSupergraph = this.config.validateSupergraph ?? process.env.NODE_ENV !== 'production';
+    const supergraph = Supergraph.build(supergraphSdl, { validateSupergraph });
+    this.createServices(supergraph.subgraphsMetadata());
 
     return {
-      supergraphSchema: schema,
+      supergraph,
       supergraphSdl,
     };
   }
@@ -704,7 +712,7 @@ export class ApolloGateway implements GatewayInterface {
         });
   }
 
-  private createServices(services: ServiceEndpointDefinition[]) {
+  private createServices(services: readonly ServiceEndpointDefinition[]) {
     for (const serviceDef of services) {
       this.getOrCreateDataSource(serviceDef);
     }
@@ -744,13 +752,9 @@ export class ApolloGateway implements GatewayInterface {
   public executor = async (
     requestContext: GatewayGraphQLRequestContext,
   ): Promise<GatewayExecutionResult> => {
-    const spanAttributes = requestContext.operationName
-      ? { operationName: requestContext.operationName }
-      : {};
-
     return tracer.startActiveSpan(
       OpenTelemetrySpanNames.REQUEST,
-      { attributes: spanAttributes },
+      { attributes: requestContextSpanAttributes(requestContext, this.config.telemetry) },
       async (span) => {
         try {
           const { request, document, queryHash } = requestContext;
@@ -763,6 +767,8 @@ export class ApolloGateway implements GatewayInterface {
             operationName: request.operationName,
           });
 
+          span.setAttributes(operationContextSpanAttributes(operationContext));
+
           // No need to build a query plan if we know the request is invalid beforehand
           // In the future, this should be controlled by the requestPipeline
           const validationErrors = this.validateIncomingRequest(
@@ -771,6 +777,7 @@ export class ApolloGateway implements GatewayInterface {
           );
 
           if (validationErrors.length > 0) {
+            recordExceptions(span, validationErrors, this.config.telemetry);
             span.setStatus({ code: SpanStatusCode.ERROR });
             return { errors: validationErrors };
           }
@@ -779,6 +786,14 @@ export class ApolloGateway implements GatewayInterface {
           if (!queryPlan) {
             queryPlan = tracer.startActiveSpan(
               OpenTelemetrySpanNames.PLAN,
+              requestContext.operationName
+                ? {
+                    attributes: {
+                      [OpenTelemetryAttributeNames.GRAPHQL_OPERATION_NAME]:
+                        requestContext.operationName,
+                    },
+                  }
+                : {},
               (span) => {
                 try {
                   const operation = operationFromDocument(
@@ -789,6 +804,7 @@ export class ApolloGateway implements GatewayInterface {
                   // TODO(#631): Can we be sure the query planner has been initialized here?
                   return this.queryPlanner!.buildQueryPlan(operation);
                 } catch (err) {
+                  recordExceptions(span, [err], this.config.telemetry);
                   span.setStatus({ code: SpanStatusCode.ERROR });
                   throw err;
                 } finally {
@@ -830,6 +846,7 @@ export class ApolloGateway implements GatewayInterface {
             operationContext,
             this.supergraphSchema!,
             this.apiSchema!,
+            this.config.telemetry
           );
 
           const shouldShowQueryPlan =
@@ -857,6 +874,13 @@ export class ApolloGateway implements GatewayInterface {
           }
 
           if (shouldShowQueryPlan) {
+            const queryPlanFormat =
+              request.http &&
+              request.http.headers &&
+              request.http.headers.has('Apollo-Query-Plan-Experimental-Format')
+                ? request.http.headers.get('Apollo-Query-Plan-Experimental-Format')
+                : 'prettified'
+
             // TODO: expose the query plan in a more flexible JSON format in the future
             // and rename this to `queryPlan`. Playground should cutover to use the new
             // option once we've built a way to print that representation.
@@ -865,14 +889,21 @@ export class ApolloGateway implements GatewayInterface {
             // still want to respond to Playground with something truthy since it depends
             // on this to decide that query plans are supported by this gateway.
             response.extensions = {
-              __queryPlanExperimental: serializedQueryPlan || true,
+              __queryPlanExperimental:
+                queryPlanFormat === 'prettified'
+                  ? serializedQueryPlan || true
+                  : queryPlanFormat === 'internal'
+                      ? queryPlan
+                      : true
             };
           }
           if (response.errors) {
+            recordExceptions(span, response.errors, this.config.telemetry);
             span.setStatus({ code: SpanStatusCode.ERROR });
           }
           return response;
         } catch (err) {
+          recordExceptions(span, [err], this.config.telemetry);
           span.setStatus({ code: SpanStatusCode.ERROR });
           throw err;
         } finally {
@@ -901,10 +932,12 @@ export class ApolloGateway implements GatewayInterface {
         );
 
         if (errors) {
+          recordExceptions(span, errors, this.config.telemetry);
           span.setStatus({ code: SpanStatusCode.ERROR });
         }
         return errors || [];
       } catch (err) {
+        recordExceptions(span, [err], this.config.telemetry);
         span.setStatus({ code: SpanStatusCode.ERROR });
         throw err;
       } finally {

@@ -1,4 +1,4 @@
-import { FEDERATION2_LINK_WITH_FULL_IMPORTS } from '..';
+import { FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS, printSchema } from '..';
 import { ObjectType } from '../definitions';
 import { buildSubgraph, Subgraphs } from '../federation';
 import { UpgradeChangeID, UpgradeResult, upgradeSubgraphsIfNecessary } from '../schemaUpgrader';
@@ -92,7 +92,7 @@ test('upgrade complex schema', () => {
 
   expect(res.subgraphs?.get('s1')?.toString()).toMatchString(`
     schema
-      ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+      ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
     {
       query: Query
     }
@@ -148,7 +148,7 @@ test('update federation directive non-string arguments', () => {
 
   expect(res.subgraphs?.get('s')?.toString()).toMatchString(`
     schema
-      ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+      ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
     {
       query: Query
     }
@@ -285,3 +285,44 @@ test('handles the addition of @shareable when an @external is used on a type', (
   expect((s1Upgraded.schema.type('T') as ObjectType).field('x')?.hasAppliedDirective('shareable')).toBe(true);
 
 })
+
+test("fully upgrades a schema with no @link directive", () => {
+  const subgraph = buildSubgraph(
+    "subgraph",
+    "",
+    `#graphql
+    type Query {
+      hello: String
+    }
+  `
+  );
+
+  const subgraphs = new Subgraphs();
+  subgraphs.add(subgraph);
+  const result = upgradeSubgraphsIfNecessary(subgraphs);
+  // Note: this test mostly exists for dev awareness. By design, this will
+  // always require updating when the fed spec version is updated, so hopefully
+  // you're reading this comment. Existing schemas which don't include a @link
+  // directive usage will be upgraded to the latest version of the federation
+  // spec. The downstream effect of this auto-upgrading behavior is:
+  //
+  // GraphOS users who select the new build track you're going to introduce will
+  // immediately start composing with the latest specs without having to update
+  // their @link federation spec version in any of their subgraphs. For this to
+  // be ok, they need to first update to a router version which supports
+  // whatever changes you've introduced in the new spec version. Take care to
+  // ensure that things are released in the correct order.
+  //
+  // Ideally, in the future we ensure that GraphOS users are on a version of
+  // router that supports the build pipeline they're upgrading to, but that
+  // mechanism isn't in place yet.
+  // - Trevor
+  expect(printSchema(result.subgraphs!.get("subgraph")!.schema!)).toContain(
+`schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])
+{
+  query: Query
+}`
+  );
+});

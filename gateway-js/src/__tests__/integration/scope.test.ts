@@ -343,7 +343,7 @@ describe('scope', () => {
     `);
   });
 
-  it("merges nested conditions when possible", async () => {
+  it('merges nested conditions when possible', async () => {
     const query = `#graphql
     query GetProducts {
       topProducts {

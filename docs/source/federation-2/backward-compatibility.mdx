@@ -130,6 +130,54 @@ type ProductDimensions {
 
 This `@requires` directive should _break_ composition because it depends on subfields of `ProductDimensions` that _don't exist_ (`length` and `depth`).
 
+#### Invalid `@provides` directives
+
+A subgraph can annotate an entity field with the [`@provides` directive](/federation/federated-types/federated-directives/#provides) to indicate that the subgraph can resolve entity fields normally marked as `@external` on its own.
+
+<p style="margin-bottom: 0">✅</p>
+
+```graphql title="Subgraph A"
+type Product @key(fields: "id") {
+  id: ID!
+  info: ProductInfo @external
+}
+
+type ProductInfo {
+  name: String! @external
+  inStock: Boolean! @external
+}
+
+type Query {
+  outOfStockProducts: [Product!]! @provides(fields: "info { name }")
+  discontinuedProducts: [Product!]!
+}
+```
+
+In the above example, Subgraph A can resolve the `Product.info.name` field  when accessed through the `outOfStockProducts` query. Any other path to `Product.info.name` results in an additional subgraph call.
+
+Federation 1 _incorrectly_ allows `@provides` usage like the following:
+
+<p style="margin-bottom: 0">❌</p>
+
+```graphql title="Subgraph A"
+type Product @key(fields: "id") {
+  id: ID!
+  info: ProductInfo @external
+}
+
+type ProductInfo {
+  name: String! @external
+  inStock: Boolean! @external
+}
+
+type Query {
+  outOfStockProducts: [Product!]! @provides(fields: "info")
+  discontinuedProducts: [Product!]!
+}
+```
+
+The above `@provides` directives usage should _break_ composition because it does not specify which subfields of `ProductInfo` it can resolve. This is correctly caught and surfaced as an error in Federation v2 but Federation v1 incorrectly allows this usage.
+
 </ExpansionPanel>
 
 

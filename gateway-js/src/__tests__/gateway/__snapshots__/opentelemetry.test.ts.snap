@@ -5,7 +5,10 @@ exports[`opentelemetry receives spans on fetch failure 1`] = `
   {
     "name": "gateway.request",
     "attributes": {
-      "operationName": "GetProduct"
+      "operationName": "GetProduct",
+      "graphql.operation.name": "GetProduct",
+      "graphql.document": "#graphql\\n    query GetProduct($upc: String!) {\\n      product(upc: $upc) {\\n        name\\n      }\\n    }\\n    ",
+      "graphql.operation.type": "query"
     },
     "children": [
       {
@@ -18,7 +21,9 @@ exports[`opentelemetry receives spans on fetch failure 1`] = `
       },
       {
         "name": "gateway.plan",
-        "attributes": {},
+        "attributes": {
+          "graphql.operation.name": "GetProduct"
+        },
         "children": [],
         "status": {
           "code": 0
@@ -64,7 +69,10 @@ exports[`opentelemetry with local data receives spans on plan failure 1`] = `
   {
     "name": "gateway.request",
     "attributes": {
-      "operationName": "GetProduct"
+      "operationName": "GetProduct",
+      "graphql.operation.name": "GetProduct",
+      "graphql.document": "#graphql\\n      subscription GetProduct($upc: String!) {\\n        product(upc: $upc) {\\n          name\\n        }\\n      }\\n    ",
+      "graphql.operation.type": "subscription"
     },
     "children": [
       {
@@ -77,7 +85,9 @@ exports[`opentelemetry with local data receives spans on plan failure 1`] = `
       },
       {
         "name": "gateway.plan",
-        "attributes": {},
+        "attributes": {
+          "graphql.operation.name": "GetProduct"
+        },
         "children": [],
         "status": {
           "code": 2
@@ -96,7 +106,10 @@ exports[`opentelemetry with local data receives spans on success 1`] = `
   {
     "name": "gateway.request",
     "attributes": {
-      "operationName": "GetProduct"
+      "operationName": "GetProduct",
+      "graphql.operation.name": "GetProduct",
+      "graphql.document": "#graphql\\n      query GetProduct($upc: String!) {\\n        product(upc: $upc) {\\n          name\\n        }\\n      }\\n    ",
+      "graphql.operation.type": "query"
     },
     "children": [
       {
@@ -109,7 +122,9 @@ exports[`opentelemetry with local data receives spans on success 1`] = `
       },
       {
         "name": "gateway.plan",
-        "attributes": {},
+        "attributes": {
+          "graphql.operation.name": "GetProduct"
+        },
         "children": [],
         "status": {
           "code": 0
@@ -175,7 +190,36 @@ exports[`opentelemetry with local data receives spans on validation failure 1`] 
   {
     "name": "gateway.request",
     "attributes": {
-      "operationName": "InvalidVariables"
+      "operationName": "InvalidVariables",
+      "graphql.operation.name": "InvalidVariables",
+      "graphql.document": "#graphql\\n      query InvalidVariables($first: Int!, $second: Int!) {\\n        topReviews(first: $first) {\\n          body\\n        }\\n      }",
+      "graphql.operation.type": "query"
+    },
+    "children": [
+      {
+        "name": "gateway.validate",
+        "attributes": {},
+        "children": [],
+        "status": {
+          "code": 2
+        }
+      }
+    ],
+    "status": {
+      "code": 2
+    }
+  }
+]
+`;
+
+exports[`opentelemetry with local data with includeDocument set to false does not include the source document 1`] = `
+[
+  {
+    "name": "gateway.request",
+    "attributes": {
+      "operationName": "InvalidVariables",
+      "graphql.operation.name": "InvalidVariables",
+      "graphql.operation.type": "query"
     },
     "children": [
       {

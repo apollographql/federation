@@ -12,9 +12,6 @@
   ],
   "sidebar": {
     "Introduction": "/",
-    "Changelog": "/federation-versions",
-    "Interactive tutorial": "https://www.apollographql.com/tutorials/voyage-part1",
-    "Demo app": "https://github.com/apollographql/supergraph-demo-fed2",
     "Quickstart": {
       "1️⃣ Project setup": "/quickstart/setup",
       "2️⃣ Composition in Apollo Studio": "/quickstart/studio-composition",
@@ -67,6 +64,7 @@
       "Changes from Federation 1": "/federation-2/new-in-federation-2",
       "Steps to move": "/federation-2/moving-to-federation-2",
       "Backward compatibility": "/federation-2/backward-compatibility"
-    }
+    },
+    "Changelog": "/federation-versions"
   }
 }

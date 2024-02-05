@@ -1,6 +1,10 @@
 import { execute } from '../execution-utils';
 
-import { astSerializer, fed2gql as gql, queryPlanSerializer } from 'apollo-federation-integration-testsuite';
+import {
+  astSerializer,
+  fed2gql as gql,
+  queryPlanSerializer,
+} from 'apollo-federation-integration-testsuite';
 
 expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
@@ -823,7 +827,7 @@ describe('unions', () => {
 });
 
 describe("doesn't result in duplicate fetches", () => {
-  it("when exploding types", async () => {
+  it('when exploding types', async () => {
     const query = `#graphql
       query {
         topProducts {
@@ -1045,7 +1049,7 @@ describe("doesn't result in duplicate fetches", () => {
     `);
   });
 
-it("when including the same nested fields under different type conditions", async () => {
+  it('when including the same nested fields under different type conditions', async () => {
     const query = `#graphql
       query {
         topProducts {
@@ -1245,8 +1249,8 @@ it("when including the same nested fields under different type conditions", asyn
     `);
   });
 
-it('when including multiple nested fields to the same service under different type conditions', async () => {
-  const query = `#graphql
+  it('when including multiple nested fields to the same service under different type conditions', async () => {
+    const query = `#graphql
     query {
       topProducts {
         ... on Book {
@@ -1479,10 +1483,10 @@ it('when including multiple nested fields to the same service under different ty
         },
       }
     `);
-});
+  });
 
-it('when exploding types through multiple levels', async () => {
-  const query = `#graphql
+  it('when exploding types through multiple levels', async () => {
+    const query = `#graphql
     query {
       productsByCategory {
         name
@@ -1506,90 +1510,90 @@ it('when exploding types through multiple levels', async () => {
     }
   `;
 
-  const { queryPlan, errors } = await execute({ query }, [
-    {
-      name: 'accounts',
-      typeDefs: gql`
-        type User @key(fields: "id") {
-          id: ID!
-          name: String
-          username: String @shareable
-        }
-      `,
-    },
-    {
-      name: 'products',
-      typeDefs: gql`
-        type Book implements Product @key(fields: "isbn") {
-          isbn: String!
-          title: String
-          year: Int
-          name: String
-          price: Int
-        }
+    const { queryPlan, errors } = await execute({ query }, [
+      {
+        name: 'accounts',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            name: String
+            username: String @shareable
+          }
+        `,
+      },
+      {
+        name: 'products',
+        typeDefs: gql`
+          type Book implements Product @key(fields: "isbn") {
+            isbn: String!
+            title: String
+            year: Int
+            name: String
+            price: Int
+          }
 
-        type Furniture implements Product @key(fields: "sku") {
-          sku: String!
-          name: String
-          price: Int
-          weight: Int
-        }
+          type Furniture implements Product @key(fields: "sku") {
+            sku: String!
+            name: String
+            price: Int
+            weight: Int
+          }
 
-        interface Product {
-          name: String
-          price: Int
-        }
+          interface Product {
+            name: String
+            price: Int
+          }
 
-        extend type Query {
-          productsByCategory: [ProductCategory]
-        }
+          extend type Query {
+            productsByCategory: [ProductCategory]
+          }
 
-        interface ProductCategory {
-          name: String!
-        }
+          interface ProductCategory {
+            name: String!
+          }
 
-        type BookCategory implements ProductCategory {
-          name: String!
-          items: [Book]
-        }
+          type BookCategory implements ProductCategory {
+            name: String!
+            items: [Book]
+          }
 
-        type FurnitureCategory implements ProductCategory {
-          name: String!
-          items: [Furniture]
-        }
-      `,
-    },
-    {
-      name: 'reviews',
-      typeDefs: gql`
-        extend type Book implements Product @key(fields: "isbn") {
-          isbn: String! @external
-          reviews: [Review]
-        }
-        extend type Furniture implements Product @key(fields: "sku") {
-          sku: String! @external
-          reviews: [Review]
-        }
-        extend interface Product {
-          reviews: [Review]
-        }
-        type Review @key(fields: "id") {
-          id: ID!
-          body: String
-          author: User @provides(fields: "username")
-          product: Product
-        }
-        extend type User @key(fields: "id") {
-          id: ID! @external
-          username: String @external
-          reviews: [Review]
-        }
-      `,
-    },
-  ]);
+          type FurnitureCategory implements ProductCategory {
+            name: String!
+            items: [Furniture]
+          }
+        `,
+      },
+      {
+        name: 'reviews',
+        typeDefs: gql`
+          extend type Book implements Product @key(fields: "isbn") {
+            isbn: String! @external
+            reviews: [Review]
+          }
+          extend type Furniture implements Product @key(fields: "sku") {
+            sku: String! @external
+            reviews: [Review]
+          }
+          extend interface Product {
+            reviews: [Review]
+          }
+          type Review @key(fields: "id") {
+            id: ID!
+            body: String
+            author: User @provides(fields: "username")
+            product: Product
+          }
+          extend type User @key(fields: "id") {
+            id: ID! @external
+            username: String @external
+            reviews: [Review]
+          }
+        `,
+      },
+    ]);
 
-  expect(errors).toBeUndefined();
-  expect(queryPlan).toMatchInlineSnapshot(`
+    expect(errors).toBeUndefined();
+    expect(queryPlan).toMatchInlineSnapshot(`
     QueryPlan {
       Sequence {
         Fetch(service: "products") {
@@ -1643,9 +1647,9 @@ it('when exploding types through multiple levels', async () => {
       },
     }
   `);
-});
+  });
 
-it("when including the same nested fields under different type conditions that are split between services", async () => {
+  it('when including the same nested fields under different type conditions that are split between services', async () => {
     const query = `#graphql
       query {
         topProducts {

@@ -42,7 +42,7 @@ describe('constructing requests', () => {
       },
       incomingRequestContext: {
         context: { userId: 2 },
-      } as GatewayGraphQLRequestContext<{userId: number}>,
+      } as GatewayGraphQLRequestContext<{ userId: number }>,
       context: { userId: 2 },
     });
 

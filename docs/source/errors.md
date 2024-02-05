@@ -66,6 +66,7 @@ The following errors might be raised during composition:
 | `ONLY_INACCESSIBLE_CHILDREN` | A type visible in the API schema has only @inaccessible children. | 2.0.0 |  |
 | `OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE` | The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires. | 2.0.0 |  |
 | `OVERRIDE_FROM_SELF_ERROR` | Field with `@override` directive has "from" location that references its own subgraph. | 2.0.0 |  |
+| `OVERRIDE_LABEL_INVALID` | The @override directive `label` argument must match the pattern /^[a-zA-Z][a-zA-Z0-9_-:./]*$/ or /^percent((d{1,2}(.d{1,8})?|100))$/ | 2.7.0 |  |
 | `OVERRIDE_ON_INTERFACE` | The @override directive cannot be used on the fields of an interface type. | 2.3.0 |  |
 | `OVERRIDE_SOURCE_HAS_OVERRIDE` | Field which is overridden to another subgraph is also marked @override. | 2.0.0 |  |
 | `PROVIDES_DIRECTIVE_IN_FIELDS_ARG` | The `fields` argument of a `@provides` directive includes some directive applications. This is not supported | 2.1.0 |  |
@@ -90,6 +91,25 @@ The following errors might be raised during composition:
 | `ROOT_SUBSCRIPTION_USED` | A subgraph's schema defines a type with the name `subscription`, while also specifying a _different_ type name as the root query object. This is not allowed. | 0.x |  |
 | `SATISFIABILITY_ERROR` | Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs. | 2.0.0 |  |
 | `SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES` | A shareable field return type has mismatched possible runtime types in the subgraphs in which the field is declared. As shared fields must resolve the same way in all subgraphs, this is almost surely a mistake. | 2.0.0 |  |
+| `SOURCE_API_HTTP_BASE_URL_INVALID` | The `@sourceAPI` directive must specify a valid http.baseURL | 2.7.0 |  |
+| `SOURCE_API_NAME_INVALID` | Each `@sourceAPI` directive must take a unique and valid name as an argument | 2.7.0 |  |
+| `SOURCE_API_PROTOCOL_INVALID` | Each `@sourceAPI` directive must specify exactly one of the known protocols | 2.7.0 |  |
+| `SOURCE_FEDERATION_VERSION_REQUIRED` | Schemas using `@source{API,Type,Field}` directives must @link-import v2.7 or later of federation | 2.7.1 |  |
+| `SOURCE_FIELD_API_ERROR` | The `api` argument of the `@sourceField` directive must match a valid `@sourceAPI` name | 2.7.0 |  |
+| `SOURCE_FIELD_HTTP_BODY_INVALID` | If `@sourceField` specifies http.body, it must be a valid `JSONSelection` matching available arguments and fields | 2.7.0 |  |
+| `SOURCE_FIELD_HTTP_METHOD_INVALID` | The `@sourceField` directive must specify at most one of `http.{GET,POST,PUT,PATCH,DELETE}` | 2.7.0 |  |
+| `SOURCE_FIELD_HTTP_PATH_INVALID` | The `@sourceField` directive must specify a valid URL template for `http.{GET,POST,PUT,PATCH,DELETE}` | 2.7.0 |  |
+| `SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD` | The `@sourceField` directive must be applied to a field of the `Query` or `Mutation` types, or of an entity type | 2.7.0 |  |
+| `SOURCE_FIELD_PROTOCOL_INVALID` | If `@sourceField` specifies a protocol, it must match the corresponding `@sourceAPI` protocol | 2.7.0 |  |
+| `SOURCE_FIELD_SELECTION_INVALID` | The `selection` argument of the `@sourceField` directive must be a valid `JSONSelection` that outputs fields of the GraphQL type | 2.7.0 |  |
+| `SOURCE_HTTP_HEADERS_INVALID` | The `http.headers` argument of `@source*` directives must specify valid HTTP headers | 2.7.0 |  |
+| `SOURCE_TYPE_API_ERROR` | The `api` argument of the `@sourceType` directive must match a valid `@sourceAPI` name | 2.7.0 |  |
+| `SOURCE_TYPE_HTTP_BODY_INVALID` | If the `@sourceType` specifies `http.body`, it must be a valid `JSONSelection` | 2.7.0 |  |
+| `SOURCE_TYPE_HTTP_METHOD_INVALID` | The `@sourceType` directive must specify exactly one of `http.GET` or `http.POST` | 2.7.0 |  |
+| `SOURCE_TYPE_HTTP_PATH_INVALID` | The `@sourceType` directive must specify a valid URL template for `http.GET` or `http.POST` | 2.7.0 |  |
+| `SOURCE_TYPE_ON_NON_OBJECT_OR_NON_ENTITY` | The `@sourceType` directive must be applied to an object or interface type that also has `@key` | 2.7.0 |  |
+| `SOURCE_TYPE_PROTOCOL_INVALID` | The `@sourceType` directive must specify the same protocol as its corresponding `@sourceAPI` | 2.7.0 |  |
+| `SOURCE_TYPE_SELECTION_INVALID` | The `selection` argument of the `@sourceType` directive must be a valid `JSONSelection` that outputs fields of the GraphQL type | 2.0.0 |  |
 | `TYPE_DEFINITION_INVALID` | A built-in or federation type has an invalid definition in the schema. | 2.0.0 |  |
 | `TYPE_KIND_MISMATCH` | A type has the same name in different subgraphs, but a different kind. For instance, one definition is an object type but another is an interface. | 2.0.0 | Replaces: `VALUE_TYPE_KIND_MISMATCH`, `EXTENSION_OF_WRONG_KIND`, `ENUM_MISMATCH_TYPE` |
 | `TYPE_WITH_ONLY_UNUSED_EXTERNAL` | A federation 1 schema has a composite type comprised only of unused external fields. Note that this error can _only_ be raised for federation 1 schema as federation 2 schema do not allow unused external fields (and errors with code EXTERNAL_UNUSED will be raised in that case). But when federation 1 schema are automatically migrated to federation 2 ones, unused external fields are automatically removed, and in rare case this can leave a type empty. If that happens, an error with this code will be raised | 2.0.0 |  |

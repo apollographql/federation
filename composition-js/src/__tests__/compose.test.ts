@@ -1,14 +1,16 @@
 import {
   asFed2SubgraphDocument,
   assert,
+  AuthenticatedSpecDefinition,
   buildSubgraph,
   defaultPrintOptions,
-  FEDERATION2_LINK_WITH_FULL_IMPORTS,
+  FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS,
   inaccessibleIdentity,
   InputObjectType,
   isObjectType,
   ObjectType,
   orderPrintedDefinitions,
+  printDirectiveDefinition,
   printSchema,
   printType,
 } from '@apollo/federation-internals';
@@ -74,9 +76,11 @@ describe('composition', () => {
         query: Query
       }
 
+      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
+
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, isFinder: Boolean = false) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, isFinder: Boolean = false) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
@@ -94,6 +98,8 @@ describe('composition', () => {
         V1 @join__enumValue(graph: SUBGRAPH2)
         V2 @join__enumValue(graph: SUBGRAPH2)
       }
+
+      scalar join__DirectiveArguments
 
       scalar join__FieldSet
 
@@ -222,9 +228,11 @@ describe('composition', () => {
         query: Query
       }
 
+      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
+
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, isFinder: Boolean = false) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, isFinder: Boolean = false) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
@@ -242,6 +250,8 @@ describe('composition', () => {
         V1 @join__enumValue(graph: SUBGRAPH2)
         V2 @join__enumValue(graph: SUBGRAPH2)
       }
+
+      scalar join__DirectiveArguments
 
       scalar join__FieldSet
 
@@ -482,7 +492,7 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
       {
         query: Query
       }
@@ -499,7 +509,7 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
       {
         query: Query
       }
@@ -554,7 +564,7 @@ describe('composition', () => {
     // Of course, the federation directives should be rebuilt in the extracted subgraphs.
     expect(subgraphs.get('subgraphA')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
       {
         query: Query
       }
@@ -573,7 +583,7 @@ describe('composition', () => {
 
     expect(subgraphs.get('subgraphB')!.toString()).toMatchString(`
       schema
-        ${FEDERATION2_LINK_WITH_FULL_IMPORTS}
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
       {
         query: Query
       }
@@ -4006,6 +4016,1195 @@ describe('composition', () => {
 
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
       assertCompositionSuccess(result);
+    });
+  });
+
+  describe('@authenticated', () => {
+    it('comprehensive locations', () => {
+      const onObject = {
+        typeDefs: gql`
+          type Query {
+            object: AuthenticatedObject!
+          }
+
+          type AuthenticatedObject @authenticated {
+            field: Int!
+          }
+        `,
+        name: 'on-object',
+      };
+
+      const onInterface = {
+        typeDefs: gql`
+          type Query {
+            interface: AuthenticatedInterface!
+          }
+
+          interface AuthenticatedInterface @authenticated {
+            field: Int!
+          }
+        `,
+        name: 'on-interface',
+      };
+
+      const onInterfaceObject = {
+        typeDefs: gql`
+          type AuthenticatedInterfaceObject
+            @interfaceObject
+            @key(fields: "id")
+            @authenticated
+          {
+            id: String!
+          }
+        `,
+        name: 'on-interface-object',
+      }
+
+      const onScalar = {
+        typeDefs: gql`
+          scalar AuthenticatedScalar @authenticated
+
+          # This needs to exist in at least one other subgraph from where it's defined
+          # as an @interfaceObject (so arbitrarily adding it here). We don't actually
+          # apply @authenticated to this one since we want to see it propagate even
+          # when it's not applied in all locations.
+          interface AuthenticatedInterfaceObject @key(fields: "id") {
+            id: String!
+          }
+        `,
+        name: 'on-scalar',
+      };
+
+      const onEnum = {
+        typeDefs: gql`
+          enum AuthenticatedEnum @authenticated {
+            A
+            B
+          }
+        `,
+        name: 'on-enum',
+      };
+
+      const onRootField = {
+        typeDefs: gql`
+          type Query {
+            authenticatedRootField: Int! @authenticated
+          }
+        `,
+        name: 'on-root-field',
+      };
+
+      const onObjectField = {
+        typeDefs: gql`
+          type Query {
+            objectWithField: ObjectWithAuthenticatedField!
+          }
+
+          type ObjectWithAuthenticatedField {
+            field: Int! @authenticated
+          }
+        `,
+        name: 'on-object-field',
+      };
+
+      const onEntityField = {
+        typeDefs: gql`
+          type Query {
+            entityWithField: EntityWithAuthenticatedField!
+          }
+
+          type EntityWithAuthenticatedField @key(fields: "id") {
+            id: ID!
+            field: Int! @authenticated
+          }
+        `,
+        name: 'on-entity-field',
+      };
+
+      const result = composeAsFed2Subgraphs([
+        onObject,
+        onInterface,
+        onInterfaceObject,
+        onScalar,
+        onEnum,
+        onRootField,
+        onObjectField,
+        onEntityField,
+      ]);
+      assertCompositionSuccess(result);
+
+      const authenticatedElements = [
+        "AuthenticatedObject",
+        "AuthenticatedInterface",
+        "AuthenticatedInterfaceObject",
+        "AuthenticatedScalar",
+        "AuthenticatedEnum",
+        "Query.authenticatedRootField",
+        "ObjectWithAuthenticatedField.field",
+        "EntityWithAuthenticatedField.field",
+      ];
+
+      for (const element of authenticatedElements) {
+        expect(
+          result.schema
+            .elementByCoordinate(element)
+            ?.hasAppliedDirective("authenticated")
+        ).toBeTruthy();
+      }
+    });
+
+    it('@authenticated has correct definition in the supergraph', () => {
+      const a = {
+        typeDefs: gql`
+          type Query {
+            x: Int @authenticated
+          }
+        `,
+        name: 'a',
+      };
+
+      const result = composeAsFed2Subgraphs([a]);
+      assertCompositionSuccess(result);
+      expect(result.schema.coreFeatures?.getByIdentity(AuthenticatedSpecDefinition.identity)?.url.toString()).toBe(
+        "https://specs.apollo.dev/authenticated/v0.1"
+      );
+      expect(printDirectiveDefinition(result.schema.directive('authenticated')!)).toMatchString(`
+        directive @authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+      `);
+    });
+
+    it('applies @authenticated on types as long as it is used once', () => {
+      const a1 = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+          type A @key(fields: "id") @authenticated {
+            id: String!
+            a1: String
+          }
+        `,
+        name: 'a1',
+      };
+      const a2 = {
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: String!
+            a2: String
+          }
+        `,
+        name: 'a2',
+      };
+
+      // checking composition in either order (not sure if this is necessary but
+      // it's not hurting anything)
+      const result1 = composeAsFed2Subgraphs([a1, a2]);
+      const result2 = composeAsFed2Subgraphs([a2, a1]);
+      assertCompositionSuccess(result1);
+      assertCompositionSuccess(result2);
+
+      expect(result1.schema.type('A')?.hasAppliedDirective('authenticated')).toBeTruthy();
+      expect(result2.schema.type('A')?.hasAppliedDirective('authenticated')).toBeTruthy();
+    });
+
+    it('validation error on incompatible directive definition', () => {
+      const invalidDefinition = {
+        typeDefs: gql`
+          directive @authenticated on ENUM_VALUE
+
+          type Query {
+            a: Int
+          }
+
+          enum E {
+            A @authenticated
+          }
+        `,
+        name: 'invalidDefinition',
+      };
+      const result = composeAsFed2Subgraphs([invalidDefinition]);
+      expect(errors(result)[0]).toEqual([
+        "DIRECTIVE_DEFINITION_INVALID",
+        "[invalidDefinition] Invalid definition for directive \"@authenticated\": \"@authenticated\" should have locations FIELD_DEFINITION, OBJECT, INTERFACE, SCALAR, ENUM, but found (non-subset) ENUM_VALUE",
+      ]);
+    });
+
+    it('validation error on invalid application', () => {
+      const invalidApplication = {
+        typeDefs: gql`
+          type Query {
+            a: Int
+          }
+
+          enum E {
+            A @authenticated
+          }
+        `,
+        name: 'invalidApplication',
+      };
+      const result = composeAsFed2Subgraphs([invalidApplication]);
+      expect(errors(result)[0]).toEqual([
+        "INVALID_GRAPHQL",
+        "[invalidApplication] Directive \"@authenticated\" may not be used on ENUM_VALUE.",
+      ]);
+    });
+  });
+
+  // @requiresScopes and @policy behave exactly the same way, and so all tests should be equally applicable to both directives
+  describe('@requiresScopes and @policy', () => {
+    const testsToRun = [
+      { directiveName: '@requiresScopes', argName: 'scopes', argType: 'requiresScopes__Scope', fedType: 'federation__Scope', identity: 'https://specs.apollo.dev/requiresScopes' },
+      { directiveName: '@policy', argName: 'policies', argType: 'policy__Policy', fedType: 'federation__Policy', identity: 'https://specs.apollo.dev/policy' },
+    ]
+    it.each(testsToRun)('comprehensive locations', ({ directiveName, argName }) => {
+      const onObject = {
+        typeDefs: gql`
+          type Query {
+            object: ScopedObject!
+          }
+
+          type ScopedObject ${directiveName}(${argName}: ["object"]) {
+            field: Int!
+          }
+        `,
+        name: 'on-object',
+      };
+
+      const onInterface = {
+        typeDefs: gql`
+          type Query {
+            interface: ScopedInterface!
+          }
+
+          interface ScopedInterface ${directiveName}(${argName}: ["interface"]) {
+            field: Int!
+          }
+        `,
+        name: 'on-interface',
+      };
+
+      const onInterfaceObject = {
+        typeDefs: gql`
+          type ScopedInterfaceObject
+            @interfaceObject
+            @key(fields: "id")
+            ${directiveName}(${argName}: ["interfaceObject"])
+          {
+            id: String!
+          }
+        `,
+        name: 'on-interface-object',
+      }
+
+      const onScalar = {
+        typeDefs: gql`
+          scalar ScopedScalar ${directiveName}(${argName}: ["scalar"])
+
+          # This needs to exist in at least one other subgraph from where it's defined
+          # as an @interfaceObject (so arbitrarily adding it here). We don't actually
+          # apply ${directiveName} to this one since we want to see it propagate even
+          # when it's not applied in all locations.
+          interface ScopedInterfaceObject @key(fields: "id") {
+            id: String!
+          }
+        `,
+        name: 'on-scalar',
+      };
+
+      const onEnum = {
+        typeDefs: gql`
+          enum ScopedEnum ${directiveName}(${argName}: ["enum"]) {
+            A
+            B
+          }
+        `,
+        name: 'on-enum',
+      };
+
+      const onRootField = {
+        typeDefs: gql`
+          type Query {
+            scopedRootField: Int! ${directiveName}(${argName}: ["rootField"])
+          }
+        `,
+        name: 'on-root-field',
+      };
+
+      const onObjectField = {
+        typeDefs: gql`
+          type Query {
+            objectWithField: ObjectWithScopedField!
+          }
+
+          type ObjectWithScopedField {
+            field: Int! ${directiveName}(${argName}: ["objectField"])
+          }
+        `,
+        name: 'on-object-field',
+      };
+
+      const onEntityField = {
+        typeDefs: gql`
+          type Query {
+            entityWithField: EntityWithScopedField!
+          }
+
+          type EntityWithScopedField @key(fields: "id") {
+            id: ID!
+            field: Int! ${directiveName}(${argName}: ["entityField"])
+          }
+        `,
+        name: 'on-entity-field',
+      };
+
+      const result = composeAsFed2Subgraphs([
+        onObject,
+        onInterface,
+        onInterfaceObject,
+        onScalar,
+        onEnum,
+        onRootField,
+        onObjectField,
+        onEntityField,
+      ]);
+      assertCompositionSuccess(result);
+
+      const scopedElements = [
+        "ScopedObject",
+        "ScopedInterface",
+        "ScopedInterfaceObject",
+        "ScopedScalar",
+        "ScopedEnum",
+        "Query.scopedRootField",
+        "ObjectWithScopedField.field",
+        "EntityWithScopedField.field",
+      ];
+
+      for (const element of scopedElements) {
+        expect(
+          result.schema
+            .elementByCoordinate(element)
+            ?.hasAppliedDirective(directiveName.slice(1))
+        ).toBeTruthy();
+      }
+    });
+
+    it.each(testsToRun)('applies directive on types as long as it is used once', ({ directiveName, argName }) => {
+      const a1 = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+          type A @key(fields: "id") ${directiveName}(${argName}: ["a"]) {
+            id: String!
+            a1: String
+          }
+        `,
+        name: 'a1',
+      };
+      const a2 = {
+        typeDefs: gql`
+          type A @key(fields: "id") {
+            id: String!
+            a2: String
+          }
+        `,
+        name: 'a2',
+      };
+
+      // checking composition in either order (not sure if this is necessary but
+      // it's not hurting anything)
+      const result1 = composeAsFed2Subgraphs([a1, a2]);
+      const result2 = composeAsFed2Subgraphs([a2, a1]);
+      assertCompositionSuccess(result1);
+      assertCompositionSuccess(result2);
+
+      expect(result1.schema.type('A')?.hasAppliedDirective(directiveName.slice(1))).toBeTruthy();
+      expect(result2.schema.type('A')?.hasAppliedDirective(directiveName.slice(1))).toBeTruthy();
+    });
+
+    it.each(testsToRun)('merges ${directiveName} lists (simple union)', ({ directiveName, argName }) => {
+      const a1 = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+
+          type A ${directiveName}(${argName}: ["a"]) @key(fields: "id") {
+            id: String!
+            a1: String
+          }
+        `,
+        name: 'a1',
+      };
+      const a2 = {
+        typeDefs: gql`
+          type A ${directiveName}(${argName}: ["b"]) @key(fields: "id") {
+            id: String!
+            a2: String
+          }
+        `,
+        name: 'a2',
+      };
+
+      const result = composeAsFed2Subgraphs([a1, a2]);
+      assertCompositionSuccess(result);
+      expect(
+        result.schema.type('A')
+          ?.appliedDirectivesOf(directiveName.slice(1))
+          ?.[0]?.arguments()?.[argName]).toStrictEqual(['a', 'b']
+      );
+    });
+
+    it.each(testsToRun)('merges ${directiveName} lists (deduplicates intersecting scopes)', ({ directiveName, argName }) => {
+      const a1 = {
+        typeDefs: gql`
+          type Query {
+            a: A
+          }
+
+          type A ${directiveName}(${argName}: ["a", "b"]) @key(fields: "id") {
+            id: String!
+            a1: String
+          }
+        `,
+        name: 'a1',
+      };
+      const a2 = {
+        typeDefs: gql`
+          type A ${directiveName}(${argName}: ["b", "c"]) @key(fields: "id") {
+            id: String!
+            a2: String
+          }
+        `,
+        name: 'a2',
+      };
+
+      const result = composeAsFed2Subgraphs([a1, a2]);
+      assertCompositionSuccess(result);
+      expect(
+        result.schema.type('A')
+          ?.appliedDirectivesOf(directiveName.slice(1))
+          ?.[0]?.arguments()?.[argName]).toStrictEqual(['a', 'b', 'c']
+      );
+    });
+
+    it.each(testsToRun)('${directiveName} has correct definition in the supergraph', ({ directiveName, argName, argType, identity }) => {
+      const a = {
+        typeDefs: gql`
+          type Query {
+            x: Int ${directiveName}(${argName}: ["a", "b"])
+          }
+        `,
+        name: 'a',
+      };
+
+      const result = composeAsFed2Subgraphs([a]);
+      assertCompositionSuccess(result);
+      expect(result.schema.coreFeatures?.getByIdentity(identity)?.url.toString()).toBe(
+        `https://specs.apollo.dev/${directiveName.slice(1)}/v0.1`
+      );
+      expect(printDirectiveDefinition(result.schema.directive(directiveName.slice(1))!)).toMatchString(`
+        directive ${directiveName}(${argName}: [[${argType}!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+      `);
+    });
+
+    it.each(testsToRun)('composes with existing `Scope` scalar definitions in subgraphs', ({ directiveName, argName }) => {
+      const a = {
+        typeDefs: gql`
+          scalar Scope
+          type Query {
+            x: Int ${directiveName}(${argName}: ["a", "b"])
+          }
+        `,
+        name: 'a',
+      };
+
+      const b = {
+        typeDefs: gql`
+          scalar Scope @specifiedBy(url: "not-the-apollo-spec")
+          type Query {
+            y: Int ${directiveName}(${argName}: ["a", "b"])
+          }
+        `,
+        name: 'b',
+      };
+
+      const result = composeAsFed2Subgraphs([a, b]);
+      assertCompositionSuccess(result);
+    });
+
+    describe('validation errors', () => {
+      it.each(testsToRun)('on incompatible directive location', ({ directiveName, argName, fedType }) => {
+        const invalidDefinition = {
+          typeDefs: gql`
+            scalar ${fedType}
+            directive ${directiveName}(${argName}: [[${fedType}!]!]!) on ENUM_VALUE
+
+            type Query {
+              a: Int
+            }
+
+            enum E {
+              A ${directiveName}(${argName}: [])
+            }
+          `,
+          name: 'invalidDefinition',
+        };
+        const result = composeAsFed2Subgraphs([invalidDefinition]);
+        expect(errors(result)[0]).toEqual([
+          "DIRECTIVE_DEFINITION_INVALID",
+          `[invalidDefinition] Invalid definition for directive \"${directiveName}\": \"${directiveName}\" should have locations FIELD_DEFINITION, OBJECT, INTERFACE, SCALAR, ENUM, but found (non-subset) ENUM_VALUE`,
+        ]);
+      });
+
+      it.each(testsToRun)('on incompatible args', ({ directiveName, argName, fedType }) => {
+        const invalidDefinition = {
+          typeDefs: gql`
+            scalar ${fedType}
+            directive ${directiveName}(${argName}: [${fedType}]!) on FIELD_DEFINITION
+
+            type Query {
+              a: Int
+            }
+
+            enum E {
+              A ${directiveName}(${argName}: [])
+            }
+          `,
+          name: 'invalidDefinition',
+        };
+        const result = composeAsFed2Subgraphs([invalidDefinition]);
+        expect(errors(result)[0]).toEqual([
+          "DIRECTIVE_DEFINITION_INVALID",
+          `[invalidDefinition] Invalid definition for directive \"${directiveName}\": argument \"${argName}\" should have type \"[[${fedType}!]!]!\" but found type \"[${fedType}]!\"`,
+        ]);
+      });
+
+      it.each(testsToRun)('on invalid application', ({ directiveName, argName }) => {
+        const invalidApplication = {
+          typeDefs: gql`
+            type Query {
+              a: Int
+            }
+
+            enum E {
+              A ${directiveName}(${argName}: [])
+            }
+          `,
+          name: 'invalidApplication',
+        };
+        const result = composeAsFed2Subgraphs([invalidApplication]);
+        expect(errors(result)[0]).toEqual([
+          "INVALID_GRAPHQL",
+          `[invalidApplication] Directive \"${directiveName}\" may not be used on ENUM_VALUE.`,
+        ]);
+      });
+    });
+  });
+
+  it('existing @authenticated directive with fed 1', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        directive @authenticated(scope: [String!]) repeatable on FIELD_DEFINITION
+
+        extend type Foo @key(fields: "id") {
+          id: ID!
+          protected: String @authenticated(scope: ["foo"])
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type Query {
+          foo: Foo
+        }
+
+        type Foo @key(fields: "id") {
+          id: ID!
+          name: String!
+        }
+        `,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([]);
+    const { schema } = result;
+    expect(schema).toBeDefined();
+    assert(schema, 'schema does not exist');
+    const authenticatedDirectiveExists = schema.directives().find(d => d.name === 'authenticated');
+    expect(authenticatedDirectiveExists).toBeUndefined();
+  });
+});
+
+describe('@source* directives', () => {
+  const schemaA = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.7", import: [
+        "@key"
+        "@shareable"
+      ])
+      @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+        "@sourceAPI"
+        "@sourceType"
+        "@sourceField"
+      ])
+      @sourceAPI(
+        name: "A"
+        http: { baseURL: "https://api.a.com/v1" }
+      )
+
+    type Query {
+      resources: [Resource!]! @sourceField(
+        api: "A"
+        http: { GET: "/resources" }
+      ) @shareable
+    }
+
+    type Resource @key(fields: "id") @sourceType(
+      api: "A"
+      http: { GET: "/resources/{id}" }
+      selection: "id description"
+    ) {
+      id: ID!
+      description: String!
+    }
+  `;
+
+  const schemaB = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.7", import: [
+        "@key"
+        "@shareable"
+      ])
+      @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+        "@sourceAPI"
+        "@sourceType"
+        "@sourceField"
+      ])
+      @sourceAPI(
+        name: "A"
+        http: { baseURL: "https://api.a.com/v1" }
+      )
+
+    type Query {
+      resources: [Resource!]! @sourceField(
+        api: "A"
+        http: { GET: "/resources" }
+      ) @shareable
+    }
+
+    type Resource @key(fields: "id") {
+      id: ID!
+    }
+  `;
+
+  const schemaC = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.7", import: [
+        "@key"
+        "@shareable"
+      ])
+      @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+        "@sourceAPI"
+        "@sourceType"
+        "@sourceField"
+      ])
+      @sourceAPI(
+        name: "A"
+        http: { baseURL: "https://api.a.com/v1" }
+      )
+
+    type Resource @key(fields: "id") @sourceType(
+      api: "A"
+      http: { GET: "/resources/{id}" }
+      selection: "id creationDate"
+    ) {
+      id: ID!
+      creationDate: String!
+    }
+  `;
+
+  it('single subgraph composition', () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: schemaA,
+    };
+    const result = composeServices([subgraphA]);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+    expect(printed).toContain(
+`schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/join/v0.4", for: EXECUTION)
+  @join__directive(graphs: [SUBGRAPHA], name: "link", args: {url: "https://specs.apollo.dev/source/v0.1", import: ["@sourceAPI", "@sourceType", "@sourceField"]})
+  @join__directive(graphs: [SUBGRAPHA], name: "sourceAPI", args: {name: "A", http: {baseURL: "https://api.a.com/v1"}})
+{
+  query: Query
+}`);
+
+    expect(printed).toContain(
+      `directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION`
+    );
+
+    expect(printed).toContain(
+`type Query
+  @join__type(graph: SUBGRAPHA)
+{
+  resources: [Resource!]! @join__directive(graphs: [SUBGRAPHA], name: "sourceField", args: {api: "A", http: {GET: "/resources"}})
+}`
+    );
+
+    expect(printed).toContain(
+`type Resource
+  @join__type(graph: SUBGRAPHA, key: "id")
+  @join__directive(graphs: [SUBGRAPHA], name: "sourceType", args: {api: "A", http: {GET: "/resources/{id}"}, selection: "id description"})
+{
+  id: ID!
+  description: String!
+}`
+    );
+  });
+
+  it('subgraphA and subgraphB composition', () => {
+    const result = composeServices([
+      {
+        name: 'subgraphA',
+        typeDefs: schemaA,
+      },
+      {
+        name: 'subgraphB',
+        typeDefs: schemaB,
+      },
+    ]);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+
+    expect(printed).toContain(
+`schema
+  @link(url: \"https://specs.apollo.dev/link/v1.0\")
+  @link(url: \"https://specs.apollo.dev/join/v0.4\", for: EXECUTION)
+  @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB], name: \"link\", args: {url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]})
+  @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB], name: \"sourceAPI\", args: {name: \"A\", http: {baseURL: \"https://api.a.com/v1\"}})
+{
+  query: Query
+}`
+    );
+
+    expect(printed).toContain(
+`type Query
+  @join__type(graph: SUBGRAPHA)
+  @join__type(graph: SUBGRAPHB)
+{
+  resources: [Resource!]! @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB], name: \"sourceField\", args: {api: \"A\", http: {GET: \"/resources\"}})
+}`
+    );
+
+    expect(printed).toContain(
+`type Resource
+  @join__type(graph: SUBGRAPHA, key: \"id\")
+  @join__type(graph: SUBGRAPHB, key: \"id\")
+  @join__directive(graphs: [SUBGRAPHA], name: \"sourceType\", args: {api: \"A\", http: {GET: \"/resources/{id}\"}, selection: \"id description\"})
+{
+  id: ID!
+  description: String! @join__field(graph: SUBGRAPHA)
+}`
+    );
+  });
+
+  it('subgraphA and subgraphC composition', () => {
+    const result = composeServices([
+      {
+        name: 'subgraphA',
+        typeDefs: schemaA,
+      },
+      {
+        name: 'subgraphC',
+        typeDefs: schemaC,
+      },
+    ]);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+
+    expect(printed).toContain(
+`schema
+  @link(url: \"https://specs.apollo.dev/link/v1.0\")
+  @link(url: \"https://specs.apollo.dev/join/v0.4\", for: EXECUTION)
+  @join__directive(graphs: [SUBGRAPHA, SUBGRAPHC], name: \"link\", args: {url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]})
+  @join__directive(graphs: [SUBGRAPHA, SUBGRAPHC], name: \"sourceAPI\", args: {name: \"A\", http: {baseURL: \"https://api.a.com/v1\"}})
+{
+  query: Query
+}`
+    );
+
+    expect(printed).toContain(
+`type Query
+  @join__type(graph: SUBGRAPHA)
+  @join__type(graph: SUBGRAPHC)
+{
+  resources: [Resource!]! @join__field(graph: SUBGRAPHA) @join__directive(graphs: [SUBGRAPHA], name: \"sourceField\", args: {api: \"A\", http: {GET: \"/resources\"}})
+}`
+    );
+
+    expect(printed).toContain(
+`type Resource
+  @join__type(graph: SUBGRAPHA, key: \"id\")
+  @join__type(graph: SUBGRAPHC, key: \"id\")
+  @join__directive(graphs: [SUBGRAPHA], name: \"sourceType\", args: {api: \"A\", http: {GET: \"/resources/{id}\"}, selection: \"id description\"})
+  @join__directive(graphs: [SUBGRAPHC], name: \"sourceType\", args: {api: \"A\", http: {GET: \"/resources/{id}\"}, selection: \"id creationDate\"})
+{
+  id: ID!
+  description: String! @join__field(graph: SUBGRAPHA)
+  creationDate: String! @join__field(graph: SUBGRAPHC)
+}`
+    );
+  });
+
+  it('subgraphB and subgraphC composition', () => {
+    const result = composeServices([
+      {
+        name: 'subgraphB',
+        typeDefs: schemaB,
+      },
+      {
+        name: 'subgraphC',
+        typeDefs: schemaC,
+      },
+    ]);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+
+    expect(printed).toContain(
+`schema
+  @link(url: \"https://specs.apollo.dev/link/v1.0\")
+  @link(url: \"https://specs.apollo.dev/join/v0.4\", for: EXECUTION)
+  @join__directive(graphs: [SUBGRAPHB, SUBGRAPHC], name: \"link\", args: {url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]})
+  @join__directive(graphs: [SUBGRAPHB, SUBGRAPHC], name: \"sourceAPI\", args: {name: \"A\", http: {baseURL: \"https://api.a.com/v1\"}})
+{
+  query: Query
+}`);
+
+    expect(printed).toContain(
+`type Query
+  @join__type(graph: SUBGRAPHB)
+  @join__type(graph: SUBGRAPHC)
+{
+  resources: [Resource!]! @join__field(graph: SUBGRAPHB) @join__directive(graphs: [SUBGRAPHB], name: \"sourceField\", args: {api: \"A\", http: {GET: \"/resources\"}})
+}`
+    );
+
+    expect(printed).toContain(
+`type Resource
+  @join__type(graph: SUBGRAPHB, key: \"id\")
+  @join__type(graph: SUBGRAPHC, key: \"id\")
+  @join__directive(graphs: [SUBGRAPHC], name: \"sourceType\", args: {api: \"A\", http: {GET: \"/resources/{id}\"}, selection: \"id creationDate\"})
+{
+  id: ID!
+  creationDate: String! @join__field(graph: SUBGRAPHC)
+}`
+    );
+  });
+
+  it('subgraphA, subgraphB, and subgraphC composition', () => {
+    const result = composeServices([
+      {
+        name: 'subgraphA',
+        typeDefs: schemaA,
+      },
+      {
+        name: 'subgraphB',
+        typeDefs: schemaB,
+      },
+      {
+        name: 'subgraphC',
+        typeDefs: schemaC,
+      },
+    ]);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+
+    expect(printed).toContain(
+`schema
+  @link(url: \"https://specs.apollo.dev/link/v1.0\")
+  @link(url: \"https://specs.apollo.dev/join/v0.4\", for: EXECUTION)
+  @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB, SUBGRAPHC], name: \"link\", args: {url: \"https://specs.apollo.dev/source/v0.1\", import: [\"@sourceAPI\", \"@sourceType\", \"@sourceField\"]})
+  @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB, SUBGRAPHC], name: \"sourceAPI\", args: {name: \"A\", http: {baseURL: \"https://api.a.com/v1\"}})
+{
+  query: Query
+}`
+    );
+
+    expect(printed).toContain(
+`type Query
+  @join__type(graph: SUBGRAPHA)
+  @join__type(graph: SUBGRAPHB)
+  @join__type(graph: SUBGRAPHC)
+{
+  resources: [Resource!]! @join__field(graph: SUBGRAPHA) @join__field(graph: SUBGRAPHB) @join__directive(graphs: [SUBGRAPHA, SUBGRAPHB], name: \"sourceField\", args: {api: \"A\", http: {GET: \"/resources\"}})
+}`
+    );
+
+    expect(printed).toContain(
+`type Resource
+  @join__type(graph: SUBGRAPHA, key: \"id\")
+  @join__type(graph: SUBGRAPHB, key: \"id\")
+  @join__type(graph: SUBGRAPHC, key: \"id\")
+  @join__directive(graphs: [SUBGRAPHA], name: \"sourceType\", args: {api: \"A\", http: {GET: \"/resources/{id}\"}, selection: \"id description\"})
+  @join__directive(graphs: [SUBGRAPHC], name: \"sourceType\", args: {api: \"A\", http: {GET: \"/resources/{id}\"}, selection: \"id creationDate\"})
+{
+  id: ID!
+  description: String! @join__field(graph: SUBGRAPHA)
+  creationDate: String! @join__field(graph: SUBGRAPHC)
+}`
+    )
+  });
+
+  describe('validation errors', () => {
+    const goodSchema = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key"])
+        @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+          "@sourceAPI"
+          "@sourceType"
+          "@sourceField"
+        ])
+        @sourceAPI(
+          name: "A"
+          http: { baseURL: "https://api.a.com/v1" }
+        )
+      {
+        query: Query
+      }
+
+      type Query {
+        resources: [Resource!]! @sourceField(
+          api: "A"
+          http: { GET: "/resources" }
+        )
+      }
+
+      type Resource @key(fields: "id") @sourceType(
+        api: "A"
+        http: { GET: "/resources/{id}" }
+        selection: "id description"
+      ) {
+        id: ID!
+        description: String!
+      }
+    `;
+
+    // TODO Test the following errors using badSchema:
+    // - [x] SOURCE_FEDERATION_VERSION_REQUIRED,
+    // - [x] SOURCE_API_NAME_INVALID,
+    // - [x] SOURCE_API_PROTOCOL_INVALID,
+    // - [x] SOURCE_API_HTTP_BASE_URL_INVALID,
+    // - [x] SOURCE_HTTP_HEADERS_INVALID,
+    // - [x] SOURCE_TYPE_API_ERROR,
+    // - [x] SOURCE_TYPE_PROTOCOL_INVALID,
+    // - [x] SOURCE_TYPE_HTTP_METHOD_INVALID,
+    // - [ ] SOURCE_TYPE_HTTP_PATH_INVALID,
+    // - [ ] SOURCE_TYPE_HTTP_BODY_INVALID,
+    // - [x] SOURCE_TYPE_ON_NON_OBJECT_OR_NON_ENTITY,
+    // - [ ] SOURCE_TYPE_SELECTION_INVALID,
+    // - [x] SOURCE_FIELD_API_ERROR,
+    // - [ ] SOURCE_FIELD_PROTOCOL_INVALID,
+    // - [x] SOURCE_FIELD_HTTP_METHOD_INVALID,
+    // - [ ] SOURCE_FIELD_HTTP_PATH_INVALID,
+    // - [ ] SOURCE_FIELD_HTTP_BODY_INVALID,
+    // - [ ] SOURCE_FIELD_SELECTION_INVALID,
+    // - [x] SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD,
+
+    const badSchema = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key"])
+        @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+          "@sourceAPI"
+          "@sourceType"
+          "@sourceField"
+        ])
+        @sourceAPI(
+          name: "A?!" # Should be valid GraphQL identifier
+          http: { baseURL: "https://api.a.com/v1" }
+        )
+        @sourceAPI(
+          name: "Bogus"
+          http: {
+            baseURL: "not a url"
+            headers: [
+              { name: "i n v a l i d", value: "header value", as: "re|named" }
+            ]
+          }
+        )
+        @sourceAPI(
+          name: "NoProtocol"
+        )
+      {
+        query: Query
+      }
+
+      type Query {
+        resources: [Resource!]! @sourceField(
+          api: "A"
+          http: {
+            GET: "/resources"
+            DELETE: "/resources"
+          }
+        )
+      }
+
+      type Resource @key(fields: "id") @sourceType(
+        api: "A"
+        http: { GET: "/resources/{id}" }
+        selection: "id description"
+      )
+      @sourceType(
+        api: "Bogus"
+        http: {
+          GET: "/resources/{id}"
+          POST: "/resources"
+        }
+        selection: "id"
+      ) {
+        id: ID!
+        description: String!
+      }
+
+      type NonEntity @sourceType(
+        api: "A"
+        # http: { GET: "/nonentities/{id}" }
+        selection: "id some_field"
+      ) {
+        id: ID!
+        someField: String! @sourceField(
+          api: "A"
+          selection: ".some_field"
+        )
+      }
+    `;
+
+    it('good schema composes without validation errors', () => {
+      const result = composeServices([{
+        name: 'good',
+        typeDefs: goodSchema,
+      }]);
+      expect(result.errors ?? []).toEqual([]);
+    });
+
+    it('bad schema composes with validation errors', () => {
+      const result = composeServices([{
+        name: 'bad',
+        typeDefs: badSchema,
+      }]);
+
+      const messages = result.errors!.map(e => e.message);
+
+      expect(messages).toContain(
+        '[bad] Schemas that @link to https://specs.apollo.dev/source must also @link to federation version v2.7 or later (found v2.5)'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceAPI(name: "A?!") must specify name using only [a-zA-Z0-9-_] characters'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceAPI must specify one protocol from the set {http}'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceType specifies unknown api A'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceField specifies unknown api A'
+      );
+
+      try {
+        new URL('not a url');
+        throw new Error('should have thrown');
+      } catch (e) {
+        expect(messages).toContain(
+          // Different versions of Node.js stringify the URL error differently,
+          // so we avoid hard-coding that part of the expected error.
+          `[bad] @sourceAPI http.baseURL \"not a url\" must be valid URL (error: ${e.message})`
+        );
+      }
+
+      expect(messages).toContain(
+        '[bad] @sourceAPI header {\"name\":\"i n v a l i d\",\"value\":\"header value\",\"as\":\"re|named\"} specifies invalid name'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceAPI header {\"name\":\"i n v a l i d\",\"value\":\"header value\",\"as\":\"re|named\"} specifies invalid \'as\' name'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceType must specify exactly one of http.GET or http.POST'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceField allows at most one of http.{GET,POST,PUT,PATCH,DELETE}'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceType must be applied to an entity type that also has a @key directive'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceType must specify same http argument as corresponding @sourceAPI for api A'
+      );
+
+      expect(messages).toContain(
+        '[bad] @sourceField must be applied to root Query or Mutation field or field of entity type'
+      );
+    });
+
+    const renamedSchema = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key"])
+        @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+          { name: "@sourceAPI", as: "@api" }
+          { name: "@sourceType", as: "@type" }
+          { name: "@sourceField", as: "@field" }
+        ])
+        @api(
+          name: "not an identifier"
+          http: { baseURL: "https://api.a.com/v1" }
+        )
+      {
+        query: Query
+      }
+
+      type Query {
+        resources: [Resource!]! @field(
+          api: "not an identifier"
+          http: { GET: "/resources" }
+        )
+      }
+
+      type Resource @key(fields: "id") @type(
+        api: "not an identifier"
+        http: { GET: "/resources/{id}" }
+        selection: "id description"
+      ) {
+        id: ID!
+        description: String!
+      }
+    `;
+
+    it('can handle the @source* directives being renamed', () => {
+      const result = composeServices([{
+        name: 'renamed',
+        typeDefs: renamedSchema,
+      }]);
+
+      const messages = result.errors!.map(e => e.message);
+
+      expect(messages).toContain(
+        '[renamed] @api(name: "not an identifier") must specify name using only [a-zA-Z0-9-_] characters'
+      );
     });
   });
 });
