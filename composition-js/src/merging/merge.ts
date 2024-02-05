@@ -74,6 +74,8 @@ import {
   LinkDirectiveArgs,
   sourceIdentity,
   FeatureUrl,
+  CoreFeature,
+  Subgraph,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -343,18 +345,55 @@ class Merger {
   }
 
   private getLatestFederationVersionUsed(): FeatureVersion {
-    const latestVersion =  this.subgraphs.values().reduce((latest: FeatureVersion | undefined, subgraph) => {
-      const version = subgraph.metadata()?.federationFeature()?.url?.version;
-      if (!latest) {
-        return version;
-      }
-      if (!version) {
-        return latest;
-      }
-      return latest >= version ? latest : version;
-    }, undefined);
-    return latestVersion ?? FEDERATION_VERSIONS.latest().version;
+    const versions = this.subgraphs.values()
+                        .map((s) => this.getLatestFederationVersionUsedInSubgraph(s))
+                        .filter(isDefined);
+
+    return FeatureVersion.max(versions) ?? FEDERATION_VERSIONS.latest().version;
   }
+
+  private getLatestFederationVersionUsedInSubgraph(subgraph: Subgraph): FeatureVersion | undefined {
+    const linkedFederationVersion = subgraph.metadata()?.federationFeature()?.url.version;
+    if (!linkedFederationVersion) {
+      return undefined;
+    }
+
+    // Check if any of the directives imply a newer version of federation than is explicitly linked
+    const versionsFromFeatures: FeatureVersion[] = [];
+    for (const feature of subgraph.schema.coreFeatures?.allFeatures() ?? []) {
+      const version = feature.minimumFederationVersion();
+      if (version) {
+        versionsFromFeatures.push(version);
+      }
+    }
+    const impliedFederationVersion = FeatureVersion.max(versionsFromFeatures);
+    if (!impliedFederationVersion?.satisfies(linkedFederationVersion) || linkedFederationVersion >= impliedFederationVersion) {
+      return linkedFederationVersion;
+    }
+
+    // If some of the directives are causing an implicit upgrade, put one in the hint
+    let featureCausingUpgrade: CoreFeature | undefined;
+    for (const feature of subgraph.schema.coreFeatures?.allFeatures() ?? []) {
+      if (feature.minimumFederationVersion() == impliedFederationVersion) {
+        featureCausingUpgrade = feature;
+        break;
+      }
+    }
+
+    if (featureCausingUpgrade) {
+      this.hints.push(new CompositionHint(
+        HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+        `Subgraph ${subgraph.name} has been implicitly upgraded from federation ${linkedFederationVersion} to ${impliedFederationVersion}`,
+        featureCausingUpgrade.directive.definition,
+        featureCausingUpgrade.directive.sourceAST ?
+          addSubgraphToASTNode(featureCausingUpgrade.directive.sourceAST, subgraph.name) :
+          undefined
+      ));
+    }
+
+    return impliedFederationVersion;
+  }
+
 
   private prepareSupergraph(): Map<string, string> {
     // TODO: we will soon need to look for name conflicts for @core and @join with potentially user-defined directives and
@@ -1265,6 +1304,8 @@ class Merger {
           // if the field being overridden is used, then we need to add an @external directive
           assert(fromField, 'fromField should not be undefined');
           const overriddenSubgraphASTNode = fromField.sourceAST ? addSubgraphToASTNode(fromField.sourceAST, sourceSubgraphName) : undefined;
+          const overrideLabel = overrideDirective.arguments().label;
+          const overriddenFieldIsReferenced = !!this.metadata(fromIdx).isFieldUsed(fromField);
           if (this.isExternal(fromIdx, fromField)) {
             // The from field is explicitly marked external by the user (which means it is "used" and cannot be completely
             // removed) so the @override can be removed.
@@ -1274,26 +1315,30 @@ class Merger {
               dest,
               overridingSubgraphASTNode,
             ));
-          } else if (this.metadata(fromIdx).isFieldUsed(fromField)) {
+          } else if (overriddenFieldIsReferenced) {
             result.setUsedOverridden(fromIdx);
-            this.hints.push(new CompositionHint(
-              HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
-              `Field "${dest.coordinate}" on subgraph "${sourceSubgraphName}" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
-              dest,
-              overriddenSubgraphASTNode,
-            ));
+            if (!overrideLabel) {
+              this.hints.push(new CompositionHint(
+                HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
+                  `Field "${dest.coordinate}" on subgraph "${sourceSubgraphName}" is overridden. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s), but consider marking it @external explicitly or removing it along with its references.`,
+                  dest,
+                  overriddenSubgraphASTNode,
+                )
+              );
+            }
           } else {
             result.setUnusedOverridden(fromIdx);
-            this.hints.push(new CompositionHint(
-              HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
-              `Field "${dest.coordinate}" on subgraph "${sourceSubgraphName}" is overridden. Consider removing it.`,
-              dest,
-              overriddenSubgraphASTNode,
-            ));
+            if (!overrideLabel) {
+              this.hints.push(new CompositionHint(
+                HINTS.OVERRIDDEN_FIELD_CAN_BE_REMOVED,
+                `Field "${dest.coordinate}" on subgraph "${sourceSubgraphName}" is overridden. Consider removing it.`,
+                dest,
+                overriddenSubgraphASTNode,
+              ));
+            }
           }
 
           // capture an override label if it exists
-          const overrideLabel = overrideDirective.arguments().label;
           if (overrideLabel) {
             const labelRegex = /^[a-zA-Z][a-zA-Z0-9_\-:./]*$/;
             // Enforce that the label matches the following pattern: percent(x)
@@ -1319,6 +1364,17 @@ class Merger {
                 { nodes: overridingSubgraphASTNode }
               ));
             }
+
+            const message = overriddenFieldIsReferenced
+              ? `Field "${dest.coordinate}" on subgraph "${sourceSubgraphName}" is currently being migrated via progressive @override. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s). Once the migration is complete, consider marking it @external explicitly or removing it along with its references.`
+              : `Field "${dest.coordinate}" is currently being migrated with progressive @override. Once the migration is complete, remove the field from subgraph "${sourceSubgraphName}".`;
+
+            this.hints.push(new CompositionHint(
+              HINTS.OVERRIDE_MIGRATION_IN_PROGRESS,
+              message,
+              dest,
+              overriddenSubgraphASTNode,
+            ));
           }
         }
       }
