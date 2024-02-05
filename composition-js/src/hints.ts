@@ -163,6 +163,12 @@ const OVERRIDE_DIRECTIVE_CAN_BE_REMOVED = makeCodeDefinition({
   description: 'Field with @override directive no longer exists in source subgraph, the directive can be safely removed',
 });
 
+const OVERRIDE_MIGRATION_IN_PROGRESS = makeCodeDefinition({
+  code: 'OVERRIDE_MIGRATION_IN_PROGRESS',
+  level: HintLevel.INFO,
+  description: 'Field is currently being migrated with progressive @override. Once the migration is complete, remove the field from the original subgraph.',
+});
+
 const UNUSED_ENUM_TYPE = makeCodeDefinition({
   code: 'UNUSED_ENUM_TYPE',
   level: HintLevel.DEBUG,
@@ -228,6 +234,7 @@ export const HINTS = {
   FROM_SUBGRAPH_DOES_NOT_EXIST,
   OVERRIDDEN_FIELD_CAN_BE_REMOVED,
   OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
+  OVERRIDE_MIGRATION_IN_PROGRESS,
   UNUSED_ENUM_TYPE,
   INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
   MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
