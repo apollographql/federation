@@ -31,7 +31,8 @@ import {
   findCoreSpecVersion,
   isCoreSpecDirectiveApplication,
   removeAllCoreFeatures,
-} from "./specs/coreSpec";
+  removeInaccessibleElements,
+} from "./specs";
 import { assert, mapValues, MapWithCachedArrays, removeArrayElement } from "./utils";
 import {
   withDefaultValues,
@@ -43,7 +44,6 @@ import {
   argumentsEquals,
   collectVariablesInValue
 } from "./values";
-import { removeInaccessibleElements } from "./specs/inaccessibleSpec";
 import { printDirectiveDefinition, printSchema } from './print';
 import { sameType } from './types';
 import { addIntrospectionFields, introspectionFieldNames, isIntrospectionName } from "./introspection";
@@ -1185,6 +1185,11 @@ export type SchemaConfig = {
   cacheAST?: boolean,
 }
 
+import type { FederationMetadata } from "./federation";
+export function federationMetadata(schema: Schema): FederationMetadata | undefined {
+  return schema['_federationMetadata'];
+}
+
 export class Schema {
   private _schemaDefinition: SchemaDefinition;
   private readonly _builtInTypes = new MapWithCachedArrays<string, NamedType>();
@@ -1192,6 +1197,7 @@ export class Schema {
   private readonly _builtInDirectives = new MapWithCachedArrays<string, DirectiveDefinition>();
   private readonly _directives = new MapWithCachedArrays<string, DirectiveDefinition>();
   private _coreFeatures?: CoreFeatures;
+  private _federationMetadata?: import('./federation').FederationMetadata;
   private isConstructed: boolean = false;
   public isValidated: boolean = false;
 

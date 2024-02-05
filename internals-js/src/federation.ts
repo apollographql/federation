@@ -27,6 +27,7 @@ import {
   SchemaElement,
   sourceASTs,
   UnionType,
+  federationMetadata,
 } from "./definitions";
 import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -49,7 +50,6 @@ import {
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { parseSelectionSet, SelectionSet } from './operations';
-import { TAG_VERSIONS } from "./specs/tagSpec";
 import {
   errorCodeDef,
   ErrorCodeDefinition,
@@ -63,6 +63,7 @@ import { computeShareables } from "./precompute";
 import {
   CoreSpecDefinition,
   FeatureVersion,
+  TAG_VERSIONS,
   LINK_VERSIONS,
   LinkDirectiveArgs,
   linkDirectiveDefaultName,
@@ -71,25 +72,21 @@ import {
   CoreImport,
   extractCoreFeatureImports,
   CoreOrLinkDirectiveArgs,
-} from "./specs/coreSpec";
-import {
   FEDERATION_VERSIONS,
   federationIdentity,
   FederationDirectiveName,
   FederationTypeName,
   FEDERATION1_TYPES,
   FEDERATION1_DIRECTIVES,
-} from "./specs/federationSpec";
+  joinIdentity,
+  SourceAPIDirectiveArgs,
+  SourceFieldDirectiveArgs,
+  SourceTypeDirectiveArgs,
+} from "./specs";
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
 import { coreFeatureDefinitionIfKnown, validateKnownFeatures } from "./knownCoreFeatures";
-import { joinIdentity } from "./specs/joinSpec";
-import {
-  SourceAPIDirectiveArgs,
-  SourceFieldDirectiveArgs,
-  SourceTypeDirectiveArgs,
-} from "./specs/sourceSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -960,9 +957,8 @@ export class FederationBlueprint extends SchemaBlueprint {
   }
 
   onConstructed(schema: Schema) {
-    const existing = federationMetadata(schema);
-    if (!existing) {
-      (schema as any)['_federationMetadata'] = new FederationMetadata(schema);
+    if (!schema['_federationMetadata']) {
+      schema['_federationMetadata'] = new FederationMetadata(schema);
     }
   }
 
@@ -1315,9 +1311,9 @@ export function printSubgraphNames(names: string[]): string {
   );
 }
 
-export function federationMetadata(schema: Schema): FederationMetadata | undefined {
-  return (schema as any)['_federationMetadata'];
-}
+// For backwards compatibility, since this module used to declare and export the
+// federationMetadata function.
+export { federationMetadata }
 
 export function isFederationSubgraphSchema(schema: Schema): boolean {
   return !!federationMetadata(schema);

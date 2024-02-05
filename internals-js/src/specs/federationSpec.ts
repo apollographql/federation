@@ -3,7 +3,18 @@ import {
   NonNullType,
   Schema,
 } from "../definitions";
-import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
+import {
+  FeatureDefinition,
+  FeatureDefinitions,
+  FeatureUrl,
+  FeatureVersion,
+  TAG_VERSIONS,
+  INACCESSIBLE_VERSIONS,
+  AUTHENTICATED_VERSIONS,
+  REQUIRES_SCOPES_VERSIONS,
+  POLICY_VERSIONS,
+  SOURCE_VERSIONS,
+} from "./index";
 import {
   ArgumentSpecification,
   createDirectiveSpecification,
@@ -11,14 +22,7 @@ import {
 } from "../directiveAndTypeSpecification";
 import { DirectiveLocation } from "graphql";
 import { assert } from "../utils";
-import { TAG_VERSIONS } from "./tagSpec";
-import { federationMetadata } from "../federation";
 import { registerKnownFeature } from "../knownCoreFeatures";
-import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
-import { AUTHENTICATED_VERSIONS } from "./authenticatedSpec";
-import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
-import { POLICY_VERSIONS } from './policySpec';
-import { SOURCE_VERSIONS } from './sourceSpec';
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -101,9 +105,8 @@ const legacyFederationDirectives = [
 export const FEDERATION1_TYPES = legacyFederationTypes;
 export const FEDERATION1_DIRECTIVES = legacyFederationDirectives;
 
-
 function fieldSetType(schema: Schema): InputType {
-  const metadata = federationMetadata(schema);
+  const metadata = schema['_federationMetadata'];
   assert(metadata, `The schema is not a federation subgraph`);
   return new NonNullType(metadata.fieldSetType());
 }

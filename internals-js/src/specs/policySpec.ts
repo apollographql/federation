@@ -5,7 +5,7 @@ import {
   FeatureDefinitions,
   FeatureUrl,
   FeatureVersion,
-} from "./coreSpec";
+} from "./index";
 import { ListType, NonNullType } from "../definitions";
 import { createDirectiveSpecification, createScalarTypeSpecification } from "../directiveAndTypeSpecification";
 import { registerKnownFeature } from "../knownCoreFeatures";

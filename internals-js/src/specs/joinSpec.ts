@@ -1,5 +1,5 @@
 import { DirectiveLocation, GraphQLError } from 'graphql';
-import { CorePurpose, FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
+import { CorePurpose, FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./index";
 import {
   DirectiveDefinition,
   EnumType,
@@ -8,7 +8,7 @@ import {
   NonNullType,
   ListType,
 } from "../definitions";
-import { Subgraph, Subgraphs } from "../federation";
+import type { Subgraph, Subgraphs } from "../federation";
 import { registerKnownFeature } from '../knownCoreFeatures';
 import { MultiMap } from "../utils";
 
