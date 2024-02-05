@@ -27,6 +27,7 @@ import {
   CoreSpecDefinition,
   extractCoreFeatureImports,
   FeatureUrl,
+  FeatureVersion,
   findCoreSpecVersion,
   isCoreSpecDirectiveApplication,
   removeAllCoreFeatures,
@@ -53,6 +54,7 @@ import { validateSchema } from "./validate";
 import { createDirectiveSpecification, createScalarTypeSpecification, DirectiveSpecification, TypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
 import { aggregateError, ERRORS, withModifiedErrorMessage } from "./error";
+import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
 
 const validationErrorCode = 'GraphQLValidationFailed';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'The schema is not a valid GraphQL schema.';
@@ -1013,6 +1015,10 @@ export class CoreFeature {
   typeNameInSchema(name: string): string {
     const elementImport = this.imports.find((i) => i.name === name);
     return elementImport ? (elementImport.as ?? name) : this.nameInSchema + '__' + name;
+  }
+
+  minimumFederationVersion(): FeatureVersion | undefined {
+    return coreFeatureDefinitionIfKnown(this.url)?.minimumFederationVersion;
   }
 }
 

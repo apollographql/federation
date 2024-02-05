@@ -147,14 +147,12 @@ export class SourceSpecDefinition extends FeatureDefinition {
     return this.directive<SourceFieldDirectiveArgs>(schema, 'sourceField')!;
   }
 
-  private getSourceDirectives(schema: Schema, errors: GraphQLError[]) {
+  private getSourceDirectives(schema: Schema) {
     const result: {
       sourceAPI?: DirectiveDefinition<SourceAPIDirectiveArgs>;
       sourceType?: DirectiveDefinition<SourceTypeDirectiveArgs>;
       sourceField?: DirectiveDefinition<SourceFieldDirectiveArgs>;
     } = {};
-
-    let federationVersion: FeatureVersion | undefined;
 
     schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')
       .forEach(linkDirective => {
@@ -175,24 +173,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
             }
           });
         }
-        if (featureUrl && featureUrl.name === 'federation') {
-          federationVersion = featureUrl.version;
-        }
       });
-
-    if (result.sourceAPI || result.sourceType || result.sourceField) {
-      // Since this subgraph uses at least one of the @source{API,Type,Field}
-      // directives, it must also use v2.7 or later of federation.
-      if (!federationVersion || federationVersion.lt(this.minimumFederationVersion)) {
-        errors.push(ERRORS.SOURCE_FEDERATION_VERSION_REQUIRED.err(
-          `Schemas that @link to ${
-            sourceIdentity
-          } must also @link to federation version ${
-            this.minimumFederationVersion
-          } or later (found ${federationVersion})`,
-        ));
-      }
-    }
 
     return result;
   }
@@ -203,7 +184,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
       sourceAPI,
       sourceType,
       sourceField,
-    } = this.getSourceDirectives(schema, errors);
+    } = this.getSourceDirectives(schema);
 
     if (!(sourceAPI || sourceType || sourceField)) {
       // If none of the @source* directives are present, nothing needs

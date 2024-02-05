@@ -74,6 +74,8 @@ import {
   LinkDirectiveArgs,
   sourceIdentity,
   FeatureUrl,
+  CoreFeature,
+  Subgraph,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -343,18 +345,55 @@ class Merger {
   }
 
   private getLatestFederationVersionUsed(): FeatureVersion {
-    const latestVersion =  this.subgraphs.values().reduce((latest: FeatureVersion | undefined, subgraph) => {
-      const version = subgraph.metadata()?.federationFeature()?.url?.version;
-      if (!latest) {
-        return version;
-      }
-      if (!version) {
-        return latest;
-      }
-      return latest >= version ? latest : version;
-    }, undefined);
-    return latestVersion ?? FEDERATION_VERSIONS.latest().version;
+    const versions = this.subgraphs.values()
+                        .map((s) => this.getLatestFederationVersionUsedInSubgraph(s))
+                        .filter(isDefined);
+
+    return FeatureVersion.max(versions) ?? FEDERATION_VERSIONS.latest().version;
   }
+
+  private getLatestFederationVersionUsedInSubgraph(subgraph: Subgraph): FeatureVersion | undefined {
+    const linkedFederationVersion = subgraph.metadata()?.federationFeature()?.url.version;
+    if (!linkedFederationVersion) {
+      return undefined;
+    }
+
+    // Check if any of the directives imply a newer version of federation than is explicitly linked
+    const versionsFromFeatures: FeatureVersion[] = [];
+    for (const feature of subgraph.schema.coreFeatures?.allFeatures() ?? []) {
+      const version = feature.minimumFederationVersion();
+      if (version) {
+        versionsFromFeatures.push(version);
+      }
+    }
+    const impliedFederationVersion = FeatureVersion.max(versionsFromFeatures);
+    if (!impliedFederationVersion?.satisfies(linkedFederationVersion) || linkedFederationVersion >= impliedFederationVersion) {
+      return linkedFederationVersion;
+    }
+
+    // If some of the directives are causing an implicit upgrade, put one in the hint
+    let featureCausingUpgrade: CoreFeature | undefined;
+    for (const feature of subgraph.schema.coreFeatures?.allFeatures() ?? []) {
+      if (feature.minimumFederationVersion() == impliedFederationVersion) {
+        featureCausingUpgrade = feature;
+        break;
+      }
+    }
+
+    if (featureCausingUpgrade) {
+      this.hints.push(new CompositionHint(
+        HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+        `Subgraph ${subgraph.name} has been implicitly upgraded from federation ${linkedFederationVersion} to ${impliedFederationVersion}`,
+        featureCausingUpgrade.directive.definition,
+        featureCausingUpgrade.directive.sourceAST ?
+          addSubgraphToASTNode(featureCausingUpgrade.directive.sourceAST, subgraph.name) :
+          undefined
+      ));
+    }
+
+    return impliedFederationVersion;
+  }
+
 
   private prepareSupergraph(): Map<string, string> {
     // TODO: we will soon need to look for name conflicts for @core and @join with potentially user-defined directives and

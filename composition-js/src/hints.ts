@@ -205,6 +205,13 @@ const INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN = makeCodeDefinition({
   description: 'Indicates that a @shareable field returns different sets of runtime types in the different subgraphs in which it is defined.',
 });
 
+const IMPLICITLY_UPGRADED_FEDERATION_VERSION = makeCodeDefinition({
+  code: 'IMPLICITLY_UPGRADED_FEDERATION_VERSION',
+  level: HintLevel.INFO,
+  description: 'Indicates that a directive requires a higher federation version than is explicitly linked.'
+    + ' In this case, the supergraph uses the federation version required by the directive.'
+});
+
 export const HINTS = {
   INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
   INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE,
@@ -234,6 +241,7 @@ export const HINTS = {
   DIRECTIVE_COMPOSITION_INFO,
   DIRECTIVE_COMPOSITION_WARN,
   INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN,
+  IMPLICITLY_UPGRADED_FEDERATION_VERSION,
 }
 
 export class CompositionHint {
