@@ -6,8 +6,9 @@ import {
   HINTS,
 } from '../hints';
 import { MergeResult, mergeSubgraphs } from '../merging';
-import { composeAsFed2Subgraphs } from './testHelper';
+import { assertCompositionSuccess, composeAsFed2Subgraphs } from './testHelper';
 import { formatExpectedToMatchReceived } from './matchers/toMatchString';
+import { composeServices } from '../compose';
 
 function mergeDocuments(...documents: DocumentNode[]): MergeResult {
   const subgraphs = new Subgraphs();
@@ -1177,3 +1178,121 @@ describe('when shared field has intersecting but non equal runtime types in diff
     );
   });
 });
+
+describe('when a directive causes an implicit federation version upgrade', () => {
+  const olderFederationSchema = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key"])
+
+    type Query {
+      a: String!
+    }
+  `;
+
+  const newerFederationSchema = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key"])
+
+    type Query {
+      b: String!
+    }
+  `;
+
+  const autoUpgradedSchema = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@shareable"])
+      @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+        "@sourceAPI"
+        "@sourceType"
+        "@sourceField"
+      ])
+      @sourceAPI(
+        name: "A"
+        http: { baseURL: "https://api.a.com/v1" }
+      )
+      {
+        query: Query
+      }
+
+    type Query @shareable {
+      resources: [Resource!]! @sourceField(
+        api: "A"
+        http: { GET: "/resources" }
+      )
+    }
+
+    type Resource @shareable @key(fields: "id") @sourceType(
+      api: "A"
+      http: { GET: "/resources/{id}" }
+      selection: "id description"
+    ) {
+      id: ID!
+      description: String!
+    }
+  `;
+
+  it('should hint that the version was upgraded to satisfy directive requirements', () => {
+    const result = composeServices([
+      {
+        name: 'already-newest',
+        typeDefs: newerFederationSchema,
+      },
+      {
+        name: 'old-but-not-upgraded',
+        typeDefs: olderFederationSchema,
+      },
+      {
+        name: 'upgraded',
+        typeDefs: autoUpgradedSchema,
+      }
+    ]);
+
+    assertCompositionSuccess(result);
+    expect(result).toRaiseHint(
+      HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+      'Subgraph upgraded has been implicitly upgraded from federation v2.5 to v2.7',
+      '@link'
+    );
+  });
+
+  it('should show separate hints for each upgraded subgraph', () => {
+    const result = composeServices([
+      {
+        name: 'upgraded-1',
+        typeDefs: autoUpgradedSchema,
+      },
+      {
+        name: 'upgraded-2',
+        typeDefs: autoUpgradedSchema
+      },
+    ]);
+
+    assertCompositionSuccess(result);
+    expect(result).toRaiseHint(
+      HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+      'Subgraph upgraded-1 has been implicitly upgraded from federation v2.5 to v2.7',
+      '@link'
+    );
+    expect(result).toRaiseHint(
+      HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+      'Subgraph upgraded-2 has been implicitly upgraded from federation v2.5 to v2.7',
+      '@link'
+    );
+  });
+
+  it('should not raise hints if the only upgrade is caused by a link directly to the federation spec', () => {
+    const result = composeServices([
+      {
+        name: 'already-newest',
+        typeDefs: newerFederationSchema,
+      },
+      {
+        name: 'old-but-not-upgraded',
+        typeDefs: olderFederationSchema,
+      },
+    ]);
+
+    assertCompositionSuccess(result);
+    expect(result).toNotRaiseHints();
+  });
+})
