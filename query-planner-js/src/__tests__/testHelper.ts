@@ -6,13 +6,17 @@ expect.addSnapshotSerializer(astSerializer);
 expect.addSnapshotSerializer(queryPlanSerializer);
 
 export function composeAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
-  return composeAndCreatePlannerWithOptions(services, {});
+  return composeAndCreatePlannerWithOptions(services, {}, false);
 }
 
-export function composeAndCreatePlannerWithOptions(services: ServiceDefinition[], config: QueryPlannerConfig): [Schema, QueryPlanner] {
-  const compositionResults = composeServices(
-    services.map((s) => ({ ...s, typeDefs: asFed2SubgraphDocument(s.typeDefs) }))
-  );
+export function composeFed2SubgraphsAndCreatePlanner(...services: ServiceDefinition[]): [Schema, QueryPlanner] {
+  return composeAndCreatePlannerWithOptions(services, {}, true);
+}
+
+export function composeAndCreatePlannerWithOptions(services: ServiceDefinition[], config: QueryPlannerConfig, isFed2Subgraph: boolean = false): [Schema, QueryPlanner] {
+  const updatedServices = isFed2Subgraph ? services : services.map((s) => ({ ...s, typeDefs: asFed2SubgraphDocument(s.typeDefs) }));
+
+  const compositionResults = composeServices(updatedServices);
   expect(compositionResults.errors).toBeUndefined();
   return [
     compositionResults.schema!.toAPISchema(),
