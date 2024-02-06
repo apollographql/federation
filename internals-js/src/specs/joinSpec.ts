@@ -154,6 +154,9 @@ export class JoinSpecDefinition extends FeatureDefinition {
 
       //progressive override
       joinField.addArgument('overrideLabel', schema.stringType());
+
+      // finder
+      joinField.addArgument('isFinder', schema.booleanType(), false);
     }
 
     if (this.isV01()) {

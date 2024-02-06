@@ -24,7 +24,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.5"
+            url: "https://specs.apollo.dev/federation/v2.7"
             import: ["@key", "@finder"]
           )
 
@@ -60,7 +60,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.5"
+            url: "https://specs.apollo.dev/federation/v2.7"
             import: ["@key", "@finder"]
           )
 
@@ -88,7 +88,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.5"
+            url: "https://specs.apollo.dev/federation/v2.7"
             import: ["@key", "@finder"]
           )
 
@@ -120,7 +120,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.5"
+            url: "https://specs.apollo.dev/federation/v2.7"
             import: ["@key", "@finder"]
           )
 
@@ -148,7 +148,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.5"
+            url: "https://specs.apollo.dev/federation/v2.7"
             import: ["@key", "@finder"]
           )
 
@@ -176,7 +176,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.5"
+            url: "https://specs.apollo.dev/federation/v2.7"
             import: ["@key", "@finder"]
           )
 
@@ -203,7 +203,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.5"
+            url: "https://specs.apollo.dev/federation/v2.7"
             import: ["@key", "@finder"]
           )
 
@@ -230,7 +230,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.5"
+            url: "https://specs.apollo.dev/federation/v2.7"
             import: ["@key", "@finder"]
           )
 
@@ -257,7 +257,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.5"
+            url: "https://specs.apollo.dev/federation/v2.7"
             import: ["@key", "@finder"]
           )
 
@@ -282,7 +282,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.5"
+            url: "https://specs.apollo.dev/federation/v2.7"
             import: ["@key", "@finder"]
           )
 
@@ -309,7 +309,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.5"
+            url: "https://specs.apollo.dev/federation/v2.7"
             import: ["@key", "@finder"]
           )
 
@@ -340,7 +340,7 @@ describe("composing graphs with @finder", () => {
       typeDefs: gql`
         extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.5"
+            url: "https://specs.apollo.dev/federation/v2.7"
             import: ["@key", "@finder"]
           )
 

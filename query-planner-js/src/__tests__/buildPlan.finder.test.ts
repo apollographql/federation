@@ -1,12 +1,16 @@
 import gql from 'graphql-tag';
-import { composeAndCreatePlanner } from './testHelper';
-import { operationFromDocument } from '@apollo/federation-internals';
+import { composeServices } from '@apollo/composition';
+import { QueryPlanner } from '@apollo/query-planner';
+import { Supergraph, operationFromDocument } from '@apollo/federation-internals';
 
 describe('finder query plan tests', () => {
   test('finder for a single field', () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@finder"])
+
         type Query {
           allUsers: [User]
           me: User!
@@ -22,6 +26,9 @@ describe('finder query plan tests', () => {
     const subgraph2 = {
       name: 'Subgraph2',
       typeDefs: gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@finder"])
+
         type Query {
           getUser(id: ID!): User @finder
         }
@@ -33,7 +40,13 @@ describe('finder query plan tests', () => {
       `,
     };
 
-    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const result = composeServices([subgraph1, subgraph2]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.build(result.supergraphSdl!)),
+    ];
+
     const operation = operationFromDocument(
       api,
       gql`
@@ -108,7 +121,12 @@ describe('finder query plan tests', () => {
       `,
     };
 
-    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const result = composeServices([subgraph1, subgraph2]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.build(result.supergraphSdl!)),
+    ];
     const operation = operationFromDocument(
       api,
       gql`
@@ -184,7 +202,12 @@ describe('finder query plan tests', () => {
       `,
     };
 
-    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const result = composeServices([subgraph1, subgraph2]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.build(result.supergraphSdl!)),
+    ];
     const operation = operationFromDocument(
       api,
       gql`

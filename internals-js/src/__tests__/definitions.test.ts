@@ -113,7 +113,7 @@ expect.extend({
 });
 
 test('building a simple schema programatically', () => {
-  const schema = newEmptyFederation2Schema();
+  const schema = newEmptyFederation2Schema({});
   const queryType = schema.schemaDefinition.setRoot('query', schema.addType(new ObjectType('Query'))).type;
   const typeA = schema.addType(new ObjectType('A'));
   const key = federationMetadata(schema)!.keyDirective();

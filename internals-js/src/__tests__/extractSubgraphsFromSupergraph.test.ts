@@ -1,4 +1,4 @@
-import { Supergraph, InputObjectType, ObjectType } from "..";
+import { Supergraph, InputObjectType, ObjectType, FEDERATION_VERSIONS } from "..";
 import { FieldDefinition } from '../definitions';
 import { extractSubgraphsFromSupergraph } from '../extractSubgraphsFromSupergraph';
 
@@ -877,7 +877,7 @@ it('handles isFinder=true correctly', () => {
     }
   `;
 
-  const schema = buildSupergraphSchema(supergraph)[0];
+  const schema = Supergraph.build(supergraph, { autoUpgradeVersion: FEDERATION_VERSIONS.latest().version }).schema;
   const subgraphs = extractSubgraphsFromSupergraph(schema);
   expect(subgraphs.size()).toBe(2);
   const [a, b] = subgraphs.values().map((s) => s.schema);

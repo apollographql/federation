@@ -174,6 +174,11 @@ export class FederationSpecDefinition extends FeatureDefinition {
 
     if (version.gte(new FeatureVersion(2, 7))) {
       this.registerSubFeature(SOURCE_VERSIONS.find(new FeatureVersion(0, 1))!);
+
+      this.registerDirective(createDirectiveSpecification({
+        name: FederationDirectiveName.FINDER,
+        locations: [DirectiveLocation.FIELD_DEFINITION],
+      }));
     }
   }
 }

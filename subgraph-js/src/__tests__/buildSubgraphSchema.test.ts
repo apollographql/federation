@@ -1343,7 +1343,7 @@ describe('buildSubgraphSchema', () => {
       );
     });
 
-    it('expands federation 2.5 correctly', async () => {
+    it('expands federation 2.3 correctly', async () => {
       // For 2.5, we expect in everything from 2.2 plus:
       // - the @interfaceObject directive
       // - the @tag directive to additionally have the SCHEMA location
@@ -1357,7 +1357,7 @@ describe('buildSubgraphSchema', () => {
         }
 
         extend schema
-          @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key"])
+          @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key"])
 
         directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
@@ -1382,8 +1382,6 @@ describe('buildSubgraphSchema', () => {
         directive @federation__composeDirective(name: String) repeatable on SCHEMA
 
         directive @federation__interfaceObject on OBJECT
-
-        directive @federation__finder on FIELD_DEFINITION
 
         type Query {
           x: Int

@@ -984,7 +984,7 @@ describe("composition involving @override directive", () => {
 
         directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-        directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+        directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, isFinder: Boolean = false) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
         directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 

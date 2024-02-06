@@ -89,6 +89,7 @@ export class Supergraph {
     readonly schema: Schema,
     supportedFeatures: Set<string> | null = DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES,
     private readonly shouldValidate: boolean = true,
+    autoUpgradeVersion?: FeatureVersion,
   ) {
     const [coreFeatures] = validateSupergraph(schema);
 
@@ -102,16 +103,16 @@ export class Supergraph {
       schema.assumeValid();
     }
 
-    this.containedSubgraphs = extractSubgraphsNamesAndUrlsFromSupergraph(schema);
+    this.containedSubgraphs = extractSubgraphsNamesAndUrlsFromSupergraph(schema, autoUpgradeVersion);
   }
 
-  static build(supergraphSdl: string | DocumentNode, options?: { supportedFeatures?: Set<string>, validateSupergraph?: boolean }) {
+  static build(supergraphSdl: string | DocumentNode, options?: { supportedFeatures?: Set<string>, validateSupergraph?: boolean, autoUpgradeVersion?: FeatureVersion }) {
     // We delay validation because `checkFeatureSupport` in the constructor gives slightly more useful errors if, say, 'for' is used with core v0.1.
     const schema = typeof supergraphSdl === 'string'
       ? buildSchema(supergraphSdl, { validate: false })
       : buildSchemaFromAST(supergraphSdl, { validate: false });
 
-    return new Supergraph(schema, options?.supportedFeatures, options?.validateSupergraph);
+    return new Supergraph(schema, options?.supportedFeatures, options?.validateSupergraph, options?.autoUpgradeVersion);
   }
 
   /**
