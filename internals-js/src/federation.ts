@@ -1316,7 +1316,7 @@ function findUnusedNamedForLinkDirective(schema: Schema): string | undefined {
   }
 }
 
-export function setSchemaAsFed2Subgraph(schema: Schema, requestedVersion?: FeatureVersion) {
+export function setSchemaAsFed2Subgraph(schema: Schema) {
   let core = schema.coreFeatures;
   let spec: CoreSpecDefinition;
   if (core) {
@@ -1336,12 +1336,11 @@ export function setSchemaAsFed2Subgraph(schema: Schema, requestedVersion?: Featu
   }
 
   assert(!core.getByIdentity(federationSpec.identity), 'Schema already set as a federation subgraph');
-  const requestedSpecDef = requestedVersion && FEDERATION_VERSIONS.find(requestedVersion);
   schema.schemaDefinition.applyDirective(
     core.coreItself.nameInSchema,
     {
       url: federationSpec.url.toString(),
-      import: (requestedSpecDef ?? autoExpandedFederationSpec).directiveSpecs().map((spec) => `@${spec.name}`),
+      import: autoExpandedFederationSpec.directiveSpecs().map((spec) => `@${spec.name}`),
     }
   );
   const errors = completeSubgraphSchema(schema);
@@ -1503,15 +1502,9 @@ export function buildSubgraph(
   return subgraph.validate();
 }
 
-export function newEmptyFederation2Schema({
-  config,
-  version,
-}: {
-  config?: SchemaConfig,
-  version?: FeatureVersion,
-}): Schema {
+export function newEmptyFederation2Schema(config?: SchemaConfig): Schema {
   const schema = new Schema(new FederationBlueprint(true), config);
-  setSchemaAsFed2Subgraph(schema, version);
+  setSchemaAsFed2Subgraph(schema);
   return schema;
 }
 

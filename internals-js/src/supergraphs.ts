@@ -89,7 +89,6 @@ export class Supergraph {
     readonly schema: Schema,
     supportedFeatures: Set<string> | null = DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES,
     private readonly shouldValidate: boolean = true,
-    autoUpgradeVersion?: FeatureVersion,
   ) {
     const [coreFeatures] = validateSupergraph(schema);
 
@@ -103,7 +102,7 @@ export class Supergraph {
       schema.assumeValid();
     }
 
-    this.containedSubgraphs = extractSubgraphsNamesAndUrlsFromSupergraph(schema, autoUpgradeVersion);
+    this.containedSubgraphs = extractSubgraphsNamesAndUrlsFromSupergraph(schema);
   }
 
   static build(supergraphSdl: string | DocumentNode, options?: { supportedFeatures?: Set<string>, validateSupergraph?: boolean, autoUpgradeVersion?: FeatureVersion }) {
@@ -112,7 +111,7 @@ export class Supergraph {
       ? buildSchema(supergraphSdl, { validate: false })
       : buildSchemaFromAST(supergraphSdl, { validate: false });
 
-    return new Supergraph(schema, options?.supportedFeatures, options?.validateSupergraph, options?.autoUpgradeVersion);
+    return new Supergraph(schema, options?.supportedFeatures, options?.validateSupergraph);
   }
 
   /**

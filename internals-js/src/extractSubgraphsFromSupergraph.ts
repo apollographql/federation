@@ -40,7 +40,7 @@ import { parseSelectionSet } from "./operations";
 import fs from 'fs';
 import path from 'path';
 import { validateStringContainsBoolean } from "./utils";
-import { FEDERATION_VERSIONS, errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
+import { errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
 
 function filteredTypes(
   supergraph: Schema,
@@ -53,13 +53,13 @@ function filteredTypes(
   return supergraph.types().filter(t => !joinSpec.isSpecType(t) && !coreSpec.isSpecType(t));
 }
 
-export function extractSubgraphsNamesAndUrlsFromSupergraph(supergraph: Schema, autoUpgradeVersion?: FeatureVersion): {name: string, url: string}[] {
+export function extractSubgraphsNamesAndUrlsFromSupergraph(supergraph: Schema): {name: string, url: string}[] {
   const [_, joinSpec] = validateSupergraph(supergraph);
-  const [subgraphs] = collectEmptySubgraphs(supergraph, joinSpec, autoUpgradeVersion);
+  const [subgraphs] = collectEmptySubgraphs(supergraph, joinSpec);
   return subgraphs.values().map(subgraph => {return { name: subgraph.name, url: subgraph.url }});
 }
 
-function collectEmptySubgraphs(supergraph: Schema, joinSpec: JoinSpecDefinition, autoUpgradeVersion?: FeatureVersion): [Subgraphs, Map<string, string>] {
+function collectEmptySubgraphs(supergraph: Schema, joinSpec: JoinSpecDefinition): [Subgraphs, Map<string, string>] {
   const subgraphs = new Subgraphs();
   const graphDirective = joinSpec.graphDirective(supergraph);
   const graphEnum = joinSpec.graphEnum(supergraph);
@@ -70,7 +70,7 @@ function collectEmptySubgraphs(supergraph: Schema, joinSpec: JoinSpecDefinition,
       throw new Error(`Value ${value} of join__Graph enum has no @join__graph directive`);
     }
     const info = graphApplications[0].arguments();
-    const subgraph = new Subgraph(info.name, info.url, newEmptyFederation2Schema({ version: autoUpgradeVersion }));
+    const subgraph = new Subgraph(info.name, info.url, newEmptyFederation2Schema());
     subgraphs.add(subgraph);
     graphEnumNameToSubgraphName.set(value.name, info.name);
   }
@@ -198,7 +198,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtra
   const isFed1 = joinSpec.version.equals(new FeatureVersion(0, 1));
   try {
     // We first collect the subgraphs (creating an empty schema that we'll populate next for each).
-    const [subgraphs, graphEnumNameToSubgraphName] = collectEmptySubgraphs(supergraph, joinSpec, FEDERATION_VERSIONS.latest().version);
+    const [subgraphs, graphEnumNameToSubgraphName] = collectEmptySubgraphs(supergraph, joinSpec);
 
     const getSubgraph = (application: Directive<any, { graph?: string }>): Subgraph | undefined => {
       const graph = application.arguments().graph;
