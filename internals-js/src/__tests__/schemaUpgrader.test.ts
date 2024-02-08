@@ -1,4 +1,4 @@
-import { FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS, printSchema } from '..';
+import { FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS_UPGRADED, printSchema } from '..';
 import { ObjectType } from '../definitions';
 import { buildSubgraph, Subgraphs } from '../federation';
 import { UpgradeChangeID, UpgradeResult, upgradeSubgraphsIfNecessary } from '../schemaUpgrader';
@@ -92,7 +92,7 @@ test('upgrade complex schema', () => {
 
   expect(res.subgraphs?.get('s1')?.toString()).toMatchString(`
     schema
-      ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+      ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS_UPGRADED}
     {
       query: Query
     }
@@ -148,7 +148,7 @@ test('update federation directive non-string arguments', () => {
 
   expect(res.subgraphs?.get('s')?.toString()).toMatchString(`
     schema
-      ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+      ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS_UPGRADED}
     {
       query: Query
     }
@@ -320,7 +320,7 @@ test("fully upgrades a schema with no @link directive", () => {
   expect(printSchema(result.subgraphs!.get("subgraph")!.schema!)).toContain(
 `schema
   @link(url: "https://specs.apollo.dev/link/v1.0")
-  @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])
+  @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])
 {
   query: Query
 }`
