@@ -163,6 +163,12 @@ const OVERRIDE_DIRECTIVE_CAN_BE_REMOVED = makeCodeDefinition({
   description: 'Field with @override directive no longer exists in source subgraph, the directive can be safely removed',
 });
 
+const OVERRIDE_MIGRATION_IN_PROGRESS = makeCodeDefinition({
+  code: 'OVERRIDE_MIGRATION_IN_PROGRESS',
+  level: HintLevel.INFO,
+  description: 'Field is currently being migrated with progressive @override. Once the migration is complete, remove the field from the original subgraph.',
+});
+
 const UNUSED_ENUM_TYPE = makeCodeDefinition({
   code: 'UNUSED_ENUM_TYPE',
   level: HintLevel.DEBUG,
@@ -199,6 +205,13 @@ const INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN = makeCodeDefinition({
   description: 'Indicates that a @shareable field returns different sets of runtime types in the different subgraphs in which it is defined.',
 });
 
+const IMPLICITLY_UPGRADED_FEDERATION_VERSION = makeCodeDefinition({
+  code: 'IMPLICITLY_UPGRADED_FEDERATION_VERSION',
+  level: HintLevel.INFO,
+  description: 'Indicates that a directive requires a higher federation version than is explicitly linked.'
+    + ' In this case, the supergraph uses the federation version required by the directive.'
+});
+
 export const HINTS = {
   INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
   INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE,
@@ -221,12 +234,14 @@ export const HINTS = {
   FROM_SUBGRAPH_DOES_NOT_EXIST,
   OVERRIDDEN_FIELD_CAN_BE_REMOVED,
   OVERRIDE_DIRECTIVE_CAN_BE_REMOVED,
+  OVERRIDE_MIGRATION_IN_PROGRESS,
   UNUSED_ENUM_TYPE,
   INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
   MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS,
   DIRECTIVE_COMPOSITION_INFO,
   DIRECTIVE_COMPOSITION_WARN,
   INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN,
+  IMPLICITLY_UPGRADED_FEDERATION_VERSION,
 }
 
 export class CompositionHint {

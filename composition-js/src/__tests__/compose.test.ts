@@ -5102,10 +5102,6 @@ describe('@source* directives', () => {
       const messages = result.errors!.map(e => e.message);
 
       expect(messages).toContain(
-        '[bad] Schemas that @link to https://specs.apollo.dev/source must also @link to federation version v2.7 or later (found v2.5)'
-      );
-
-      expect(messages).toContain(
         '[bad] @sourceAPI(name: "A?!") must specify name using only [a-zA-Z0-9-_] characters'
       );
 
