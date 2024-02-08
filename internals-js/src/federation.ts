@@ -105,9 +105,6 @@ const federationSpec = (version?: FeatureVersion): FederationSpecDefinition => {
 // directive from v2 definitions, we will continue expanding other directives (up to v2.4) to ensure backwards compatibility.
 const autoExpandedFederationSpec = federationSpec(new FeatureVersion(2, 4));
 
-// For subgraphs that don't explicitly specify a federation version, we need a version number to link in the upgraded schema.
-const autoUpgradedFederationSpec = federationSpec(new FeatureVersion(2, 6));
-
 const latestFederationSpec = federationSpec();
 
 // We don't let user use this as a subgraph name. That allows us to use it in `query graphs` to name the source of roots
@@ -1221,7 +1218,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema, useLatest: boolean = fal
     assert(core, 'Schema should now be a core schema');
   }
 
-  const fedSpec = useLatest ? latestFederationSpec : autoUpgradedFederationSpec;
+  const fedSpec = useLatest ? latestFederationSpec : autoExpandedFederationSpec;
 
   assert(!core.getByIdentity(fedSpec.identity), 'Schema already set as a federation subgraph');
   schema.schemaDefinition.applyDirective(
@@ -1248,7 +1245,7 @@ export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apo
 export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 
 // This is the federation @link for tests that go through the SchemaUpgrader.
-export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS_UPGRADED = '@link(url: "https://specs.apollo.dev/federation/v2.6", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
+export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS_UPGRADED = '@link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 
 /**
  * Given a document that is assumed to _not_ be a fed2 schema (it does not have a `@link` to the federation spec),
