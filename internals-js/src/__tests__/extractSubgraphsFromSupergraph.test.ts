@@ -1,4 +1,4 @@
-import { Supergraph, InputObjectType, ObjectType, FEDERATION_VERSIONS } from "..";
+import { Supergraph, InputObjectType, ObjectType, FEDERATION_VERSIONS, printSchema } from "..";
 import { FieldDefinition } from '../definitions';
 import { extractSubgraphsFromSupergraph } from '../extractSubgraphsFromSupergraph';
 
@@ -883,7 +883,8 @@ it('handles isFinder=true correctly', () => {
   const [a, b] = subgraphs.values().map((s) => s.schema);
   expect(a.type('User')).toBeDefined();
   expect(b.type('User')).toBeUndefined();
-  const finderApplications = a.directive('finder')?.applications();
+  const finderApplications = a.directive('federation__finder')?.applications();
+  console.log(printSchema(a));
   expect(finderApplications?.length).toBe(1);
   console.log(finderApplications?.[0].parent);
   expect((finderApplications?.[0].parent as FieldDefinition<any>).coordinate).toBe('Query.user');
