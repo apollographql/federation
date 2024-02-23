@@ -10,35 +10,8 @@ export type Scalars = {
   Boolean: boolean;
   Int: number;
   Float: number;
-  /** ISO 8601, extended format with nanoseconds, Zulu (or "[+-]seconds" as a string or number relative to now) */
   Timestamp: any;
 };
-
-export type ApiMonitoringReport = {
-  endedAt: Scalars['Timestamp'];
-  error: Error;
-  request: Request;
-  response?: InputMaybe<Response>;
-  startedAt: Scalars['Timestamp'];
-  /** Tags can include things like version and package name */
-  tags?: InputMaybe<Array<Scalars['String']>>;
-};
-
-/** Input type for providing error details in field arguments. */
-export type Error = {
-  /** The error code. */
-  code: ErrorCode;
-  /** The error message. */
-  message?: InputMaybe<Scalars['String']>;
-};
-
-export enum ErrorCode {
-  ConnectionFailed = 'CONNECTION_FAILED',
-  InvalidBody = 'INVALID_BODY',
-  Other = 'OTHER',
-  Timeout = 'TIMEOUT',
-  UnexpectedResponse = 'UNEXPECTED_RESPONSE'
-}
 
 export type FetchError = {
   __typename?: 'FetchError';
@@ -61,11 +34,6 @@ export enum FetchErrorCode {
   UnknownRef = 'UNKNOWN_REF'
 }
 
-export type HttpHeader = {
-  name: Scalars['String'];
-  value?: InputMaybe<Scalars['String']>;
-};
-
 export type Message = {
   __typename?: 'Message';
   body: Scalars['String'];
@@ -77,16 +45,6 @@ export enum MessageLevel {
   Info = 'INFO',
   Warn = 'WARN'
 }
-
-export type Mutation = {
-  __typename?: 'Mutation';
-  reportError: Scalars['Boolean'];
-};
-
-
-export type MutationReportErrorArgs = {
-  report?: InputMaybe<ApiMonitoringReport>;
-};
 
 /** A chunk of persisted queries */
 export type PersistedQueriesChunk = {
@@ -111,7 +69,6 @@ export type PersistedQueriesResult = {
 
 export type Query = {
   __typename?: 'Query';
-  _empty?: Maybe<Scalars['String']>;
   /** Fetch the persisted queries for a router. */
   persistedQueries: PersistedQueriesResponse;
   /** Fetch the configuration for a router. */
@@ -139,18 +96,6 @@ export type QueryRouterEntitlementsArgs = {
   apiKey: Scalars['String'];
   ifAfterId?: InputMaybe<Scalars['ID']>;
   ref: Scalars['String'];
-};
-
-export type Request = {
-  body?: InputMaybe<Scalars['String']>;
-  headers?: InputMaybe<Array<HttpHeader>>;
-  url: Scalars['String'];
-};
-
-export type Response = {
-  body?: InputMaybe<Scalars['String']>;
-  headers?: InputMaybe<Array<HttpHeader>>;
-  httpStatusCode: Scalars['Int'];
 };
 
 export type RouterConfigResponse = FetchError | RouterConfigResult | Unchanged;
@@ -214,10 +159,3 @@ export type SupergraphSdlQueryVariables = Exact<{
 
 
 export type SupergraphSdlQuery = { __typename?: 'Query', routerConfig: { __typename: 'FetchError', code: FetchErrorCode, message: string } | { __typename: 'RouterConfigResult', id: string, minDelaySeconds: number, supergraphSdl: string } | { __typename: 'Unchanged' } };
-
-export type OobReportMutationVariables = Exact<{
-  input?: InputMaybe<ApiMonitoringReport>;
-}>;
-
-
-export type OobReportMutation = { __typename?: 'Mutation', reportError: boolean };
