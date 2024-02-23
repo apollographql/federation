@@ -672,7 +672,7 @@ describe("composition involving @override directive", () => {
     expect(result.errors).toBeDefined();
     expect(errors(result)).toContainEqual([
       "OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE",
-      `@override cannot be used on field "T.u" on subgraph "Subgraph1" since "T.u" on "Subgraph1" is marked with directive "@provides"`,
+      `@override cannot be used on field "T.u" on subgraph "Subgraph1" since "T.u" on "Subgraph2" is marked with directive "@provides"`,
     ]);
   });
 
@@ -718,7 +718,7 @@ describe("composition involving @override directive", () => {
     expect(result.errors).toBeDefined();
     expect(errors(result)).toContainEqual([
       "OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE",
-      `@override cannot be used on field "T.u" on subgraph "Subgraph1" since "T.u" on "Subgraph1" is marked with directive "@requires"`,
+      `@override cannot be used on field "T.u" on subgraph "Subgraph1" since "T.u" on "Subgraph2" is marked with directive "@requires"`,
     ]);
   });
 

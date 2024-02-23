@@ -1154,7 +1154,7 @@ class Merger {
          return {
            result: true,
            conflictingDirective: directive,
-           subgraph: subgraphName,
+           subgraph: this.names[fromIdx],
          };
        }
     }
