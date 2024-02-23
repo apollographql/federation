@@ -2,7 +2,6 @@ import { GraphQLError } from 'graphql';
 import retry from 'async-retry';
 import { AbortController } from "node-abort-controller";
 import { SupergraphSdlUpdate } from '../../config';
-import { submitOutOfBandReportIfConfigured } from './outOfBandReporter';
 import { SupergraphSdlQuery } from '../../__generated__/graphqlTypes';
 import type {
   FetcherResponse,
@@ -58,7 +57,6 @@ export async function loadSupergraphSdlFromUplinks({
   graphRef,
   apiKey,
   endpoints,
-  errorReportingEndpoint,
   fetcher,
   compositionId,
   maxRetries,
@@ -69,7 +67,6 @@ export async function loadSupergraphSdlFromUplinks({
   graphRef: string;
   apiKey: string;
   endpoints: string[];
-  errorReportingEndpoint: string | undefined,
   fetcher: Fetcher;
   compositionId: string | null;
   maxRetries: number,
@@ -86,7 +83,6 @@ export async function loadSupergraphSdlFromUplinks({
         graphRef,
         apiKey,
         endpoint: endpoints[roundRobinSeed++ % endpoints.length],
-        errorReportingEndpoint,
         fetcher,
         requestTimeoutMs,
         compositionId,
@@ -106,7 +102,6 @@ export async function loadSupergraphSdlFromStorage({
   graphRef,
   apiKey,
   endpoint,
-  errorReportingEndpoint,
   fetcher,
   requestTimeoutMs,
   compositionId,
@@ -115,7 +110,6 @@ export async function loadSupergraphSdlFromStorage({
   graphRef: string;
   apiKey: string;
   endpoint: string;
-  errorReportingEndpoint?: string;
   fetcher: Fetcher;
   requestTimeoutMs: number;
   compositionId: string | null;
@@ -150,29 +144,15 @@ export async function loadSupergraphSdlFromStorage({
 
   logger.debug(`🔧 Fetching ${graphRef} supergraph schema from ${endpoint} ifAfterId ${compositionId}`);
 
-  const startTime = new Date();
   let result: FetcherResponse;
   try {
     result = await fetcher(endpoint, requestDetails);
   } catch (e) {
-    const endTime = new Date();
-
-    await submitOutOfBandReportIfConfigured({
-      error: e,
-      requestEndpoint: endpoint,
-      requestBody,
-      endpoint: errorReportingEndpoint,
-      startedAt: startTime,
-      endedAt: endTime,
-      fetcher,
-    });
-
     throw new UplinkFetcherError(fetchErrorMsg + (e.message ?? e));
   } finally {
     clearTimeout(signal);
   }
 
-  const endTime = new Date();
   let response: SupergraphSdlQueryResult;
 
   if (result.ok || result.status === 400) {
@@ -191,16 +171,6 @@ export async function loadSupergraphSdlFromStorage({
       );
     }
   } else {
-    await submitOutOfBandReportIfConfigured({
-      error: new UplinkFetcherError(fetchErrorMsg + result.status + ' ' + result.statusText),
-      requestEndpoint: endpoint,
-      requestBody,
-      endpoint: errorReportingEndpoint,
-      response: result,
-      startedAt: startTime,
-      endedAt: endTime,
-      fetcher,
-    });
     throw new UplinkFetcherError(fetchErrorMsg + result.status + ' ' + result.statusText);
   }
 
