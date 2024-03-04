@@ -445,6 +445,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
   }
 
   key(): string {
+    // TODO[igni]: double check this
     if (!this.computedKey) {
       // The key is such that 2 fragments with the same key within a selection set gets merged together. So the type-condition
       // is include, but so are the directives.

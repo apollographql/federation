@@ -1,6 +1,8 @@
 import { QueryPlanner } from '@apollo/query-planner';
 import {
   assert,
+  CompositeType,
+  FragmentElement,
   ListType,
   OperationElement,
   operationFromDocument,
@@ -8263,6 +8265,14 @@ describe('Type Condition field merging', () => {
       },
     } as OperationElement);
 
+    // This is the interesting bit, we'll add a Fragment:
+    // ... on MovieResult
+    const fragment = new FragmentElement(
+      api.type('SearchResult') as CompositeType,
+      'MovieResult',
+    );
+    groupPath = groupPath.add(fragment);
+
     // process ID
     const element = {
       kind: 'Field',
@@ -8293,6 +8303,14 @@ describe('Type Condition field merging', () => {
       },
     } as OperationElement);
 
+    // This is the interesting bit, we'll add a Fragment:
+    // ... on MovieResult
+    const fragment = new FragmentElement(
+      api.type('SearchResult') as CompositeType,
+      'MovieResult',
+    );
+    groupPath = groupPath.add(fragment);
+
     // process ID
     const element = {
       kind: 'Field',
@@ -8304,11 +8322,11 @@ describe('Type Condition field merging', () => {
       },
     } as OperationElement;
 
-    const expectedPath = ['search', '@', 'id'] as ResponsePath;
+    const expectedPath = ['search', '@', '[MovieResult]', 'id'] as ResponsePath;
     expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
   });
 
-  test('does not eagerly merge fields on different type conditions', () => {
+  test('does eagerly merge fields on different type conditions if flag is absent', () => {
     const operation = operationFromDocument(
       api,
       gql`
@@ -8320,6 +8338,17 @@ describe('Type Condition field merging', () => {
               sections {
                 ... on EntityCollectionSection {
                   id
+                  artwork(params: $movieParams)
+                }
+              }
+            }
+            ... on ArticleResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $articleParams)
+                  title
                 }
               }
             }
@@ -8329,7 +8358,7 @@ describe('Type Condition field merging', () => {
     );
 
     const plan = queryPlanner.buildQueryPlan(operation, {
-      typeConditionedFetching: true,
+      typeConditionedFetching: false,
     });
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
@@ -8339,69 +8368,50 @@ describe('Type Condition field merging', () => {
               search {
                 __typename
                 ... on MovieResult {
-                  __typename
                   id
                   sections {
                     __typename
                     ... on EntityCollectionSection {
-                      id
                       __typename
+                      id
                     }
                   }
                 }
                 ... on ArticleResult {
-                  __typename
                   id
                   sections {
                     __typename
                     ... on EntityCollectionSection {
-                      id
                       __typename
+                      id
                     }
                   }
                 }
               }
             }
-          }
-          Parallel {
-            Flatten(path: "search.@|MovieResult.sections.@") {
-              Fetch(service: "artworkSubgraph") {
-                {
-                  ... on EntityCollectionSection {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
-                    artwork(params: $movieParams)
-                  }
+          },
+          Flatten(path: "search.@.sections.@") {
+            Fetch(service: "artworkSubgraph") {
+              {
+                ... on EntityCollectionSection {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on EntityCollectionSection {
+                  artwork(params: $movieParams)
+                  title
                 }
               }
-            }
-            Flatten(path: "search.@|ArticleResult.sections.@") {
-              Fetch(service: "artworkSubgraph") {
-                {
-                  ... on EntityCollectionSection {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
-                    title
-                    artwork(params: $articleParams)
-                  }
-                }
-              }
-            }
-          }
-        }
+            },
+          },
+        },
       }
     `);
   });
 
-  test('does not eagerly merge fields on different type conditions', () => {
+  test('does not eagerly merge fields on different type conditions if flag is present', () => {
     const operation = operationFromDocument(
       api,
       gql`
@@ -8436,72 +8446,70 @@ describe('Type Condition field merging', () => {
       typeConditionedFetching: true,
     });
     expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Sequence {
-        Fetch(service: "searchSubgraph") {
-          {
-            search {
-              __typename
-              ... on MovieResult {
+      QueryPlan {
+        Sequence {
+          Fetch(service: "searchSubgraph") {
+            {
+              search {
                 __typename
-                id
-                sections {
-                  __typename
-                  ... on EntityCollectionSection {
-                    id
+                ... on MovieResult {
+                  id
+                  sections {
                     __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
+                    }
+                  }
+                }
+                ... on ArticleResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
+                    }
                   }
                 }
               }
-              ... on ArticleResult {
-                __typename
-                id
-                sections {
-                  __typename
+            }
+          },
+          Parallel {
+            Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
                   ... on EntityCollectionSection {
-                    id
                     __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $movieParams)
                   }
                 }
-              }
-            }
-          }
-        }
-        Parallel {
-          Flatten(path: "search.@|MovieResult.sections.@") {
-            Fetch(service: "artworkSubgraph") {
-              {
-                ... on EntityCollectionSection {
-                  __typename
-                  id
+              },
+            },
+            Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $articleParams)
+                    title
+                  }
                 }
-              } =>
-              {
-                ... on EntityCollectionSection {
-                  artwork(params: $movieParams)
-                }
-              }
-            }
-          }
-          Flatten(path: "search.@|ArticleResult.sections.@") {
-            Fetch(service: "artworkSubgraph") {
-              {
-                ... on EntityCollectionSection {
-                  __typename
-                  id
-                }
-              } =>
-              {
-                ... on EntityCollectionSection {
-                  title
-                  artwork(params: $articleParams)
-                }
-              }
-            }
-          }
-        }
+              },
+            },
+          },
+        },
       }
-    }
-  `);
+    `);
   });
 });

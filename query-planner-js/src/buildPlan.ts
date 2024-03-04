@@ -1819,8 +1819,12 @@ export class GroupPath {
 
   // TODO[igni]: make it private again once everything works
   /* private */ updatedResponsePath(element: OperationElement) {
-    // TODO[igni]: Augment the path to express type conditions
-    //  [A, B, ...]
+    // TODO[igni]: learn proper casting + test against interface
+    if (this.typeConditionedFetching && element.kind === 'FragmentElement' && !!element.typeCondition) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const newPath = this.responsePath.concat(`[${element.typeCondition!.name}]`);
+      return newPath;
+    }
     if (element.kind !== 'Field') {
       return this.responsePath;
     }
