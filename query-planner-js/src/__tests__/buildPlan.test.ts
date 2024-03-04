@@ -4208,7 +4208,28 @@ describe('Named fragments preservation', () => {
     `;
 
       expect(plan).toMatchInlineSnapshot(
-        reuseQueryFragments ? withReuse : withoutReuse,
+        `
+        ${reuseQueryFragments ? withReuse : withoutReuse}
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                a1 {
+                  ...Selection
+                }
+                a2 {
+                  ...Selection
+                }
+              }
+            }
+
+            fragment Selection on A {
+              x
+              y
+            }
+          },
+        }
+      `,
       );
     },
   );
@@ -4630,9 +4651,7 @@ describe('Named fragments preservation', () => {
         },
       }
     `;
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
-      expectedPlan,
-    );
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(expectedPlan);
 
     // We very slighly modify the operation to add an artificial indirection within `IFrag`.
     // This does not really change the query, and should result in the same plan, but
@@ -7491,35 +7510,35 @@ test('correctly generate plan built from some non-individually optimal branch op
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
-   QueryPlan {
-     Sequence {
-       Fetch(service: "Subgraph2") {
-         {
-           t {
-             __typename
-             id
-           }
-         }
-       },
-       Flatten(path: "t") {
-         Fetch(service: "Subgraph3") {
-           {
-             ... on T {
-               __typename
-               id
+       QueryPlan {
+         Sequence {
+           Fetch(service: "Subgraph2") {
+             {
+               t {
+                 __typename
+                 id
+               }
              }
-           } =>
-           {
-             ... on T {
-               y
-               x
-             }
-           }
+           },
+           Flatten(path: "t") {
+             Fetch(service: "Subgraph3") {
+               {
+                 ... on T {
+                   __typename
+                   id
+                 }
+               } =>
+               {
+                 ... on T {
+                   y
+                   x
+                 }
+               }
+             },
+           },
          },
-       },
-     },
-   }
-  `);
+       }
+    `);
 });
 
 test('does not error on some complex fetch group dependencies', () => {
@@ -7912,75 +7931,75 @@ describe('@requires references external field indirectly', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Sequence {
-        Fetch(service: "A") {
-          {
-            u {
-              __typename
-              k1 {
-                id
-              }
-            }
+          QueryPlan {
+            Sequence {
+              Fetch(service: "A") {
+                {
+                  u {
+                    __typename
+                    k1 {
+                      id
+                    }
+                  }
+                }
+              },
+              Flatten(path: "u") {
+                Fetch(service: "B") {
+                  {
+                    ... on U {
+                      __typename
+                      k1 {
+                        id
+                      }
+                    }
+                  } =>
+                  {
+                    ... on U {
+                      k2
+                    }
+                  }
+                },
+              },
+              Flatten(path: "u") {
+                Fetch(service: "C") {
+                  {
+                    ... on U {
+                      __typename
+                      k2
+                    }
+                  } =>
+                  {
+                    ... on U {
+                      v {
+                        v
+                      }
+                    }
+                  }
+                },
+              },
+              Flatten(path: "u") {
+                Fetch(service: "B") {
+                  {
+                    ... on U {
+                      __typename
+                      v {
+                        v
+                      }
+                      k1 {
+                        id
+                      }
+                    }
+                  } =>
+                  {
+                    ... on U {
+                      f
+                    }
+                  }
+                },
+              },
+            },
           }
-        },
-        Flatten(path: "u") {
-          Fetch(service: "B") {
-            {
-              ... on U {
-                __typename
-                k1 {
-                  id
-                }
-              }
-            } =>
-            {
-              ... on U {
-                k2
-              }
-            }
-          },
-        },
-        Flatten(path: "u") {
-          Fetch(service: "C") {
-            {
-              ... on U {
-                __typename
-                k2
-              }
-            } =>
-            {
-              ... on U {
-                v {
-                  v
-                }
-              }
-            }
-          },
-        },
-        Flatten(path: "u") {
-          Fetch(service: "B") {
-            {
-              ... on U {
-                __typename
-                v {
-                  v
-                }
-                k1 {
-                  id
-                }
-              }
-            } =>
-            {
-              ... on U {
-                f
-              }
-            }
-          },
-        },
-      },
-    }
-    `);
+        `);
   });
 });
 
@@ -8458,6 +8477,375 @@ describe('Type Condition field merging', () => {
                     __typename
                     ... on EntityCollectionSection {
                       __typename
+                      id
+                    }
+                  }
+                }
+                ... on ArticleResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
+                    }
+                  }
+                }
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $movieParams)
+                  }
+                }
+              },
+            },
+            Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $articleParams)
+                    title
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  test('does not eagerly merge fields on different type conditions if flag is present', () => {
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query Search($movieParams: String, $articleParams: String) {
+          search {
+            __typename
+            ... on MovieResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $movieParams)
+                }
+              }
+            }
+            ... on ArticleResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $articleParams)
+                  title
+                }
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation, {
+      typeConditionedFetching: true,
+    });
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "searchSubgraph") {
+            {
+              search {
+                __typename
+                ... on MovieResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
+                    }
+                  }
+                }
+                ... on ArticleResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
+                    }
+                  }
+                }
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $movieParams)
+                  }
+                }
+              },
+            },
+            Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $articleParams)
+                    title
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  const subgraph3 = {
+    name: 'searchSubgraph',
+    typeDefs: gql`
+      type Query {
+        search: [SearchResult]
+      }
+
+      union Section = EntityCollectionSection | GallerySection
+
+      interface SearchResult @key(fields: "id") {
+        id: ID!
+        sections: [Section]
+      }
+
+      interface VideoResult implements SearchResult @key(fields: "id") {
+        id: ID!
+        sections: [Section]
+      }
+
+      type MovieResult implements VideoResult & SearchResult
+        @key(fields: "id") {
+        id: ID!
+        sections: [Section]
+      }
+
+      type SeriesResult implements VideoResult & SearchResult
+        @key(fields: "id") {
+        id: ID!
+        sections: [Section]
+      }
+
+      type ArticleResult implements SearchResult @key(fields: "id") {
+        id: ID!
+        sections: [Section]
+      }
+
+      type EntityCollectionSection @key(fields: "id") {
+        id: ID!
+      }
+
+      type GallerySection @key(fields: "id") {
+        id: ID!
+      }
+    `,
+  };
+
+  test('does not eagerly merge fields on different type conditions if flag is present with interface', () => {
+    const [api2, queryPlanner2] = composeAndCreatePlanner(subgraph3, subgraph2);
+
+    const operation = operationFromDocument(
+      api2,
+      gql`
+        query Search($movieParams: String, $articleParams: String) {
+          search {
+            __typename
+            ... on MovieResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $movieParams)
+                }
+              }
+            }
+            ... on ArticleResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $articleParams)
+                  title
+                }
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner2.buildQueryPlan(operation, {
+      typeConditionedFetching: true,
+    });
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "searchSubgraph") {
+            {
+              search {
+                __typename
+                ... on MovieResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
+                    }
+                  }
+                }
+                ... on ArticleResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
+                    }
+                  }
+                }
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $movieParams)
+                  }
+                }
+              },
+            },
+            Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $articleParams)
+                    title
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
+
+    const operation2 = operationFromDocument(
+      api2,
+      gql`
+        query Search($movieParams: String, $articleParams: String) {
+          search {
+            __typename
+            ... on VideoResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                }
+              }
+            }
+            ... on MovieResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $movieParams)
+                }
+              }
+            }
+            ... on ArticleResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $articleParams)
+                  title
+                }
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    const plan2 = queryPlanner2.buildQueryPlan(operation2, {
+      typeConditionedFetching: true,
+    });
+    expect(plan2).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "searchSubgraph") {
+            {
+              search {
+                __typename
+                ... on MovieResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
+                    }
+                  }
+                }
+                ... on SeriesResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
                       id
                     }
                   }
