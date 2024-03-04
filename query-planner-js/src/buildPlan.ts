@@ -740,7 +740,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     this.bestPlan = [best.graph, best.tree, cost];
   }
 
-  // TODO[igni]: this will be a fun one
+  // TODO: this will be a fun one
   private cost(dependencyGraph: FetchDependencyGraph): number {
     const { main, deferred } = dependencyGraph.process(this.costFunction, this.rootKind);
     return deferred.length === 0
@@ -1769,7 +1769,7 @@ function filterOperationPath(path: OperationPath, schema: Schema): OperationPath
   }).filter(isDefined);
 }
 
-// TODO[igni]: remove export once everything works
+// TODO: remove export once everything works
 export class GroupPath {
   private constructor(
     private readonly fullPath: OperationPath,
@@ -1817,9 +1817,9 @@ export class GroupPath {
     );
   }
 
-  // TODO[igni]: make it private again once everything works
+  // TODO: make it private again once everything works
   /* private */ updatedResponsePath(element: OperationElement) {
-    // TODO[igni]: learn proper casting + test against interface
+    // TODO: learn proper casting + test against interface
     if (this.typeConditionedFetching && element.kind === 'FragmentElement' && !!element.typeCondition) {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const newPath = this.responsePath.concat(`[${element.typeCondition!.name}]`);
