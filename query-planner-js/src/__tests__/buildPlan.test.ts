@@ -7491,35 +7491,35 @@ test('correctly generate plan built from some non-individually optimal branch op
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
-       QueryPlan {
-         Sequence {
-           Fetch(service: "Subgraph2") {
-             {
-               t {
-                 __typename
-                 id
-               }
+   QueryPlan {
+     Sequence {
+       Fetch(service: "Subgraph2") {
+         {
+           t {
+             __typename
+             id
+           }
+         }
+       },
+       Flatten(path: "t") {
+         Fetch(service: "Subgraph3") {
+           {
+             ... on T {
+               __typename
+               id
              }
-           },
-           Flatten(path: "t") {
-             Fetch(service: "Subgraph3") {
-               {
-                 ... on T {
-                   __typename
-                   id
-                 }
-               } =>
-               {
-                 ... on T {
-                   y
-                   x
-                 }
-               }
-             },
-           },
+           } =>
+           {
+             ... on T {
+               y
+               x
+             }
+           }
          },
-       }
-    `);
+       },
+     },
+   }
+  `);
 });
 
 test('does not error on some complex fetch group dependencies', () => {
@@ -7912,75 +7912,75 @@ describe('@requires references external field indirectly', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-          QueryPlan {
-            Sequence {
-              Fetch(service: "A") {
-                {
-                  u {
-                    __typename
-                    k1 {
-                      id
-                    }
-                  }
-                }
-              },
-              Flatten(path: "u") {
-                Fetch(service: "B") {
-                  {
-                    ... on U {
-                      __typename
-                      k1 {
-                        id
-                      }
-                    }
-                  } =>
-                  {
-                    ... on U {
-                      k2
-                    }
-                  }
-                },
-              },
-              Flatten(path: "u") {
-                Fetch(service: "C") {
-                  {
-                    ... on U {
-                      __typename
-                      k2
-                    }
-                  } =>
-                  {
-                    ... on U {
-                      v {
-                        v
-                      }
-                    }
-                  }
-                },
-              },
-              Flatten(path: "u") {
-                Fetch(service: "B") {
-                  {
-                    ... on U {
-                      __typename
-                      v {
-                        v
-                      }
-                      k1 {
-                        id
-                      }
-                    }
-                  } =>
-                  {
-                    ... on U {
-                      f
-                    }
-                  }
-                },
-              },
-            },
+    QueryPlan {
+      Sequence {
+        Fetch(service: "A") {
+          {
+            u {
+              __typename
+              k1 {
+                id
+              }
+            }
           }
-        `);
+        },
+        Flatten(path: "u") {
+          Fetch(service: "B") {
+            {
+              ... on U {
+                __typename
+                k1 {
+                  id
+                }
+              }
+            } =>
+            {
+              ... on U {
+                k2
+              }
+            }
+          },
+        },
+        Flatten(path: "u") {
+          Fetch(service: "C") {
+            {
+              ... on U {
+                __typename
+                k2
+              }
+            } =>
+            {
+              ... on U {
+                v {
+                  v
+                }
+              }
+            }
+          },
+        },
+        Flatten(path: "u") {
+          Fetch(service: "B") {
+            {
+              ... on U {
+                __typename
+                v {
+                  v
+                }
+                k1 {
+                  id
+                }
+              }
+            } =>
+            {
+              ... on U {
+                f
+              }
+            }
+          },
+        },
+      },
+    }
+    `);
   });
 });
 
@@ -8446,71 +8446,71 @@ describe('Type Condition field merging', () => {
       typeConditionedFetching: true,
     });
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "searchSubgraph") {
-            {
-              search {
-                __typename
-                ... on MovieResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
+            QueryPlan {
+              Sequence {
+                Fetch(service: "searchSubgraph") {
+                  {
+                    search {
                       __typename
-                      id
+                      ... on MovieResult {
+                        id
+                        sections {
+                          __typename
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        }
+                      }
+                      ... on ArticleResult {
+                        id
+                        sections {
+                          __typename
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        }
+                      }
                     }
                   }
-                }
-                ... on ArticleResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
-                    }
-                  }
-                }
-              }
+                },
+                Parallel {
+                  Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
+                    Fetch(service: "artworkSubgraph") {
+                      {
+                        ... on EntityCollectionSection {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on EntityCollectionSection {
+                          artwork(params: $movieParams)
+                        }
+                      }
+                    },
+                  },
+                  Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
+                    Fetch(service: "artworkSubgraph") {
+                      {
+                        ... on EntityCollectionSection {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on EntityCollectionSection {
+                          artwork(params: $articleParams)
+                          title
+                        }
+                      }
+                    },
+                  },
+                },
+              },
             }
-          },
-          Parallel {
-            Flatten(path: "search.@.[MovieResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
-                {
-                  ... on EntityCollectionSection {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
-                    artwork(params: $movieParams)
-                  }
-                }
-              },
-            },
-            Flatten(path: "search.@.[ArticleResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
-                {
-                  ... on EntityCollectionSection {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
-                    artwork(params: $articleParams)
-                    title
-                  }
-                }
-              },
-            },
-          },
-        },
-      }
-    `);
+        `);
   });
 
   test('does not eagerly merge fields on different type conditions if flag is present', () => {
@@ -8548,71 +8548,71 @@ describe('Type Condition field merging', () => {
       typeConditionedFetching: true,
     });
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "searchSubgraph") {
-            {
-              search {
-                __typename
-                ... on MovieResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
+            QueryPlan {
+              Sequence {
+                Fetch(service: "searchSubgraph") {
+                  {
+                    search {
                       __typename
-                      id
+                      ... on MovieResult {
+                        id
+                        sections {
+                          __typename
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        }
+                      }
+                      ... on ArticleResult {
+                        id
+                        sections {
+                          __typename
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        }
+                      }
                     }
                   }
-                }
-                ... on ArticleResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
-                    }
-                  }
-                }
-              }
+                },
+                Parallel {
+                  Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
+                    Fetch(service: "artworkSubgraph") {
+                      {
+                        ... on EntityCollectionSection {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on EntityCollectionSection {
+                          artwork(params: $movieParams)
+                        }
+                      }
+                    },
+                  },
+                  Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
+                    Fetch(service: "artworkSubgraph") {
+                      {
+                        ... on EntityCollectionSection {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on EntityCollectionSection {
+                          artwork(params: $articleParams)
+                          title
+                        }
+                      }
+                    },
+                  },
+                },
+              },
             }
-          },
-          Parallel {
-            Flatten(path: "search.@.[MovieResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
-                {
-                  ... on EntityCollectionSection {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
-                    artwork(params: $movieParams)
-                  }
-                }
-              },
-            },
-            Flatten(path: "search.@.[ArticleResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
-                {
-                  ... on EntityCollectionSection {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
-                    artwork(params: $articleParams)
-                    title
-                  }
-                }
-              },
-            },
-          },
-        },
-      }
-    `);
+        `);
   });
 
   const subgraph3 = {
@@ -8698,71 +8698,71 @@ describe('Type Condition field merging', () => {
       typeConditionedFetching: true,
     });
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "searchSubgraph") {
-            {
-              search {
-                __typename
-                ... on MovieResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
+            QueryPlan {
+              Sequence {
+                Fetch(service: "searchSubgraph") {
+                  {
+                    search {
                       __typename
-                      id
+                      ... on MovieResult {
+                        id
+                        sections {
+                          __typename
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        }
+                      }
+                      ... on ArticleResult {
+                        id
+                        sections {
+                          __typename
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        }
+                      }
                     }
                   }
-                }
-                ... on ArticleResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
-                    }
-                  }
-                }
-              }
+                },
+                Parallel {
+                  Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
+                    Fetch(service: "artworkSubgraph") {
+                      {
+                        ... on EntityCollectionSection {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on EntityCollectionSection {
+                          artwork(params: $movieParams)
+                        }
+                      }
+                    },
+                  },
+                  Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
+                    Fetch(service: "artworkSubgraph") {
+                      {
+                        ... on EntityCollectionSection {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on EntityCollectionSection {
+                          artwork(params: $articleParams)
+                          title
+                        }
+                      }
+                    },
+                  },
+                },
+              },
             }
-          },
-          Parallel {
-            Flatten(path: "search.@.[MovieResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
-                {
-                  ... on EntityCollectionSection {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
-                    artwork(params: $movieParams)
-                  }
-                }
-              },
-            },
-            Flatten(path: "search.@.[ArticleResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
-                {
-                  ... on EntityCollectionSection {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
-                    artwork(params: $articleParams)
-                    title
-                  }
-                }
-              },
-            },
-          },
-        },
-      }
-    `);
+        `);
   });
 
   test('does not eagerly merge fields on different type conditions if flag is present with interface and condition on interface', () => {
@@ -8809,79 +8809,79 @@ describe('Type Condition field merging', () => {
       typeConditionedFetching: true,
     });
     expect(plan2).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "searchSubgraph") {
-            {
-              search {
-                __typename
-                ... on MovieResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
+            QueryPlan {
+              Sequence {
+                Fetch(service: "searchSubgraph") {
+                  {
+                    search {
                       __typename
-                      id
+                      ... on MovieResult {
+                        id
+                        sections {
+                          __typename
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        }
+                      }
+                      ... on SeriesResult {
+                        id
+                        sections {
+                          __typename
+                          ... on EntityCollectionSection {
+                            id
+                          }
+                        }
+                      }
+                      ... on ArticleResult {
+                        id
+                        sections {
+                          __typename
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        }
+                      }
                     }
                   }
-                }
-                ... on SeriesResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      id
-                    }
-                  }
-                }
-                ... on ArticleResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
-                    }
-                  }
-                }
-              }
+                },
+                Parallel {
+                  Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
+                    Fetch(service: "artworkSubgraph") {
+                      {
+                        ... on EntityCollectionSection {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on EntityCollectionSection {
+                          artwork(params: $movieParams)
+                        }
+                      }
+                    },
+                  },
+                  Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
+                    Fetch(service: "artworkSubgraph") {
+                      {
+                        ... on EntityCollectionSection {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on EntityCollectionSection {
+                          artwork(params: $articleParams)
+                          title
+                        }
+                      }
+                    },
+                  },
+                },
+              },
             }
-          },
-          Parallel {
-            Flatten(path: "search.@.[MovieResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
-                {
-                  ... on EntityCollectionSection {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
-                    artwork(params: $movieParams)
-                  }
-                }
-              },
-            },
-            Flatten(path: "search.@.[ArticleResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
-                {
-                  ... on EntityCollectionSection {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
-                    artwork(params: $articleParams)
-                    title
-                  }
-                }
-              },
-            },
-          },
-        },
-      }
-    `);
+        `);
   });
 });
