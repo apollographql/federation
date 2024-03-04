@@ -378,6 +378,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
   private stack: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][];
   private readonly closedBranches: ClosedBranch<RV>[] = [];
   private readonly optionsLimit: number | null;
+  private readonly typeConditionedFetching: boolean;
 
   constructor(
     readonly parameters: PlanningParameters<RV>,
@@ -391,6 +392,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     excludedConditions: ExcludedConditions = [],
   ) {
     const { root, federatedQueryGraph } = parameters;
+    this.typeConditionedFetching = parameters.typeConditionedFetching || false;
     this.isTopLevel = isRootVertex(root);
     this.optionsLimit = parameters.config.debug?.pathsLimit;
     this.conditionResolver = cachingConditionResolver(
@@ -738,6 +740,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     this.bestPlan = [best.graph, best.tree, cost];
   }
 
+  // TODO[igni]: this will be a fun one
   private cost(dependencyGraph: FetchDependencyGraph): number {
     const { main, deferred } = dependencyGraph.process(this.costFunction, this.rootKind);
     return deferred.length === 0
@@ -747,8 +750,8 @@ class QueryPlanningTraversal<RV extends Vertex> {
 
   private updatedDependencyGraph(dependencyGraph: FetchDependencyGraph, tree: OpPathTree<RV>): FetchDependencyGraph {
     return isRootPathTree(tree)
-      ? computeRootFetchGroups(dependencyGraph, tree, this.rootKind)
-      : computeNonRootFetchGroups(dependencyGraph, tree, this.rootKind);
+      ? computeRootFetchGroups(dependencyGraph, tree, this.rootKind, this.typeConditionedFetching)
+      : computeNonRootFetchGroups(dependencyGraph, tree, this.rootKind, this.typeConditionedFetching);
   }
 
   private resolveConditionPlan(edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions): ConditionResolution {
@@ -1772,11 +1775,12 @@ export class GroupPath {
     private readonly fullPath: OperationPath,
     private readonly pathInGroup: OperationPath,
     private readonly responsePath: ResponsePath,
+    private readonly typeConditionedFetching: boolean,
   ) {
   }
 
-  static empty(): GroupPath {
-    return new GroupPath([], [], []);
+  static empty(typeConditionedFetching: boolean): GroupPath {
+    return new GroupPath([], [], [], typeConditionedFetching);
   }
 
   inGroup(): OperationPath {
@@ -1796,6 +1800,7 @@ export class GroupPath {
       this.fullPath,
       newGroupContext,
       this.responsePath,
+      this.typeConditionedFetching,
     );
   }
 
@@ -1808,6 +1813,7 @@ export class GroupPath {
       // implements it (in the supergraph).
       concatOperationPaths(pathOfGroupInParent, filterOperationPath(this.pathInGroup, parentSchema)),
       this.responsePath,
+      this.typeConditionedFetching,
     );
   }
 
@@ -1835,6 +1841,7 @@ export class GroupPath {
       this.fullPath.concat(element),
       this.pathInGroup.concat(element),
       this.updatedResponsePath(element),
+      this.typeConditionedFetching,
     );
   }
 
@@ -2904,6 +2911,7 @@ type PlanningParameters<RV extends Vertex> = {
   inconsistentAbstractTypesRuntimes: Set<string>,
   config: Concrete<QueryPlannerConfig>,
   overrideConditions: Map<string, boolean>,
+  typeConditionedFetching: boolean,
 }
 
 interface BuildQueryPlanOptions {
@@ -3114,6 +3122,7 @@ export class QueryPlanner {
       statistics,
       inconsistentAbstractTypesRuntimes: this.inconsistentAbstractTypesRuntimes,
       config: this.config,
+      typeConditionedFetching: options?.typeConditionedFetching || false,
       overrideConditions,
     }
 
@@ -3537,7 +3546,7 @@ function computeRootSerialDependencyGraph(
       // }
       // then we should _not_ merge the 2 `mut1` fields (contrarily to what happens on queried fields).
       prevPaths = prevPaths.concat(newPaths);
-      prevDepGraph = computeRootFetchGroups(FetchDependencyGraph.create(supergraphSchema, federatedQueryGraph, startingFetchId, rootType), prevPaths, root.rootKind);
+      prevDepGraph = computeRootFetchGroups(FetchDependencyGraph.create(supergraphSchema, federatedQueryGraph, startingFetchId, rootType), prevPaths, root.rootKind, parameters.typeConditionedFetching);
     } else {
       startingFetchId = prevDepGraph.nextFetchId();
       graphs.push(prevDepGraph);
@@ -3798,7 +3807,7 @@ function samePathsInParents(first: OperationPath | undefined, second: OperationP
   return !!second && sameOperationPaths(first, second);
 }
 
-function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpRootPathTree, rootKind: SchemaRootKind): FetchDependencyGraph {
+function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpRootPathTree, rootKind: SchemaRootKind, typeConditionedFetching: boolean): FetchDependencyGraph {
   // The root of the pathTree is one of the "fake" root of the subgraphs graph, which belongs to no subgraph but points to each ones.
   // So we "unpack" the first level of the tree to find out our top level groups (and initialize our stack).
   // Note that we can safely ignore the triggers of that first level as it will all be free transition, and we know we cannot have conditions.
@@ -3808,18 +3817,18 @@ function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree:
     // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
     const rootType = edge.tail.type as ObjectType;
     const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType });
-    computeGroupsForTree(dependencyGraph, child, group, GroupPath.empty(), emptyDeferContext);
+    computeGroupsForTree(dependencyGraph, child, group, GroupPath.empty(typeConditionedFetching), emptyDeferContext);
   }
   return dependencyGraph;
 }
 
-function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpPathTree, rootKind: SchemaRootKind): FetchDependencyGraph {
+function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpPathTree, rootKind: SchemaRootKind, typeConditionedFetching: boolean): FetchDependencyGraph {
   const subgraphName = pathTree.vertex.source;
   // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
   const rootType = pathTree.vertex.type;
   assert(isCompositeType(rootType), () => `Should not have condition on non-selectable type ${rootType}`);
   const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType} );
-  computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(), emptyDeferContext);
+  computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(typeConditionedFetching), emptyDeferContext);
   return dependencyGraph;
 }
 

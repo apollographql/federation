@@ -50,6 +50,17 @@ export type QueryPlannerConfig = {
     enableDefer?: boolean,
   }
 
+  /**
+   * Enables type conditioned fetching.
+   * This flag is a workaround, which may yield significant
+   * performance degradation when computing query plans,
+   * and increase query plan size.
+   *
+   * If you aren't aware of this flag, you probably don't need it.
+   * Defaults to false (meaning that the @defer are ignored).
+   */
+  typeConditionedFetching?: boolean,
+
   cache?: QueryPlanCache,
 
   /**
@@ -60,7 +71,7 @@ export type QueryPlannerConfig = {
   debug?: {
     /**
      * If used and the supergraph is built from a single subgraph, then user queries do not go through the
-     * normal query planning and instead a fetch to the one subgraph is built directly from the input query. 
+     * normal query planning and instead a fetch to the one subgraph is built directly from the input query.
      */
     bypassPlannerForSingleSubgraph?: boolean,
 
@@ -68,7 +79,7 @@ export type QueryPlannerConfig = {
      * Query planning is an exploratory process. Depending on the specificities and feature used by
      * subgraphs, there could exist may different theoretical valid (if not always efficient) plans
      * for a given query, and at a high level, the query planner generates those possible choices,
-     * evaluate them, and return the best one. In some complex cases however, the number of 
+     * evaluate them, and return the best one. In some complex cases however, the number of
      * theoretically possible plans can be very large, and to keep query planning time acceptable,
      * the query planner cap the maximum number of plans it evaluates. This config allows to configure
      * that cap. Note if planning a query hits that cap, then the planner will still always return a
@@ -92,7 +103,7 @@ export type QueryPlannerConfig = {
      * each constituent object type. The number of options generated in this computation can grow
      * large if the schema or query are sufficiently complex, and that will increase the time spent
      * planning.
-     * 
+     *
      * This config allows specifying a per-path limit to the number of options considered. If any
      * path's options exceeds this limit, query planning will abort and the operation will fail.
      *
@@ -123,6 +134,7 @@ export function enforceQueryPlannerConfigDefaults(
       pathsLimit: null,
       ...config?.debug,
     },
+    typeConditionedFetching: false,
   };
 }
 

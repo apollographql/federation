@@ -8218,7 +8218,7 @@ describe('Type Condition field merging', () => {
   const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
 
   test('yields correct response path for regular fields', () => {
-    const groupPath = GroupPath.empty();
+    const groupPath = GroupPath.empty(false);
     const element = {
       kind: 'Field',
       responseName: function () {
@@ -8233,7 +8233,7 @@ describe('Type Condition field merging', () => {
   });
 
   test('yields correct response path for list fields', () => {
-    const groupPath = GroupPath.empty();
+    const groupPath = GroupPath.empty(false);
     const element = {
       kind: 'Field',
       responseName: function () {
@@ -8245,6 +8245,66 @@ describe('Type Condition field merging', () => {
       },
     } as OperationElement;
     const expectedPath = ['search', '@'] as ResponsePath;
+    expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
+  });
+
+  test('does not add type condition check if the planner flag is not passed', () => {
+    let groupPath = GroupPath.empty(false);
+
+    // Add 'search' '@' to the path
+    groupPath = groupPath.add({
+      kind: 'Field',
+      responseName: function () {
+        return 'search';
+      },
+      definition: {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        type: new ListType(api.type('SearchResult')!),
+      },
+    } as OperationElement);
+
+    // process ID
+    const element = {
+      kind: 'Field',
+      responseName: function () {
+        return 'id';
+      },
+      definition: {
+        type: api.type('ID'),
+      },
+    } as OperationElement;
+
+    const expectedPath = ['search', '@', 'id'] as ResponsePath;
+    expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
+  });
+
+  test('does add type condition check if the planner flag is passed', () => {
+    let groupPath = GroupPath.empty(true);
+
+    // Add 'search' '@' to the path
+    groupPath = groupPath.add({
+      kind: 'Field',
+      responseName: function () {
+        return 'search';
+      },
+      definition: {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        type: new ListType(api.type('SearchResult')!),
+      },
+    } as OperationElement);
+
+    // process ID
+    const element = {
+      kind: 'Field',
+      responseName: function () {
+        return 'id';
+      },
+      definition: {
+        type: api.type('ID'),
+      },
+    } as OperationElement;
+
+    const expectedPath = ['search', '@', 'id'] as ResponsePath;
     expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
   });
 
@@ -8260,17 +8320,6 @@ describe('Type Condition field merging', () => {
               sections {
                 ... on EntityCollectionSection {
                   id
-                  artwork(params: $movieParams)
-                }
-              }
-            }
-            ... on ArticleResult {
-              id
-              sections {
-                ... on EntityCollectionSection {
-                  id
-                  artwork(params: $articleParams)
-                  title
                 }
               }
             }
@@ -8350,5 +8399,109 @@ describe('Type Condition field merging', () => {
         }
       }
     `);
+  });
+
+  test('does not eagerly merge fields on different type conditions', () => {
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query Search($movieParams: String, $articleParams: String) {
+          search {
+            __typename
+            ... on MovieResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $movieParams)
+                }
+              }
+            }
+            ... on ArticleResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $articleParams)
+                  title
+                }
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation, {
+      typeConditionedFetching: true,
+    });
+    expect(plan).toMatchInlineSnapshot(`
+    QueryPlan {
+      Sequence {
+        Fetch(service: "searchSubgraph") {
+          {
+            search {
+              __typename
+              ... on MovieResult {
+                __typename
+                id
+                sections {
+                  __typename
+                  ... on EntityCollectionSection {
+                    id
+                    __typename
+                  }
+                }
+              }
+              ... on ArticleResult {
+                __typename
+                id
+                sections {
+                  __typename
+                  ... on EntityCollectionSection {
+                    id
+                    __typename
+                  }
+                }
+              }
+            }
+          }
+        }
+        Parallel {
+          Flatten(path: "search.@|MovieResult.sections.@") {
+            Fetch(service: "artworkSubgraph") {
+              {
+                ... on EntityCollectionSection {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on EntityCollectionSection {
+                  artwork(params: $movieParams)
+                }
+              }
+            }
+          }
+          Flatten(path: "search.@|ArticleResult.sections.@") {
+            Fetch(service: "artworkSubgraph") {
+              {
+                ... on EntityCollectionSection {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on EntityCollectionSection {
+                  title
+                  artwork(params: $articleParams)
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `);
   });
 });
