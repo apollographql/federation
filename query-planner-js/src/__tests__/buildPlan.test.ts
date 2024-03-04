@@ -4651,7 +4651,9 @@ describe('Named fragments preservation', () => {
         },
       }
     `;
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(expectedPlan);
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
+      expectedPlan,
+    );
 
     // We very slighly modify the operation to add an artificial indirection within `IFrag`.
     // This does not really change the query, and should result in the same plan, but
@@ -8902,5 +8904,5 @@ describe('Type Condition field merging', () => {
         },
       }
     `);
-  })
+  });
 });
