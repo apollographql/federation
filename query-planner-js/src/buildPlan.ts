@@ -1766,7 +1766,8 @@ function filterOperationPath(path: OperationPath, schema: Schema): OperationPath
   }).filter(isDefined);
 }
 
-class GroupPath {
+// TODO[igni]: remove export once everything works
+export class GroupPath {
   private constructor(
     private readonly fullPath: OperationPath,
     private readonly pathInGroup: OperationPath,
@@ -1810,7 +1811,10 @@ class GroupPath {
     );
   }
 
-  private updatedResponsePath(element: OperationElement) {
+  // TODO[igni]: make it private again once everything works
+  /* private */ updatedResponsePath(element: OperationElement) {
+    // TODO[igni]: Augment the path to express type conditions
+    //  [A, B, ...]
     if (element.kind !== 'Field') {
       return this.responsePath;
     }

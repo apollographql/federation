@@ -1,18 +1,26 @@
 import { QueryPlanner } from '@apollo/query-planner';
 import {
   assert,
+  ListType,
+  OperationElement,
   operationFromDocument,
   ServiceDefinition,
   Supergraph,
 } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
-import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
+import {
+  FetchNode,
+  FlattenNode,
+  ResponsePath,
+  SequenceNode,
+} from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
 import {
   composeAndCreatePlanner,
   composeAndCreatePlannerWithOptions,
 } from './testHelper';
 import { enforceQueryPlannerConfigDefaults } from '../config';
+import { GroupPath } from '../buildPlan';
 
 describe('shareable root fields', () => {
   test('can use same root operation from multiple subgraphs in parallel', () => {
@@ -8157,10 +8165,9 @@ describe('handles fragments with directive conditions', () => {
 });
 
 describe('Type Condition field merging', () => {
-  test('does not eagerly merge fields on different type conditions', () => {
-    const subgraph1 = {
-      name: 'searchSubgraph',
-      typeDefs: gql`
+  const subgraph1 = {
+    name: 'searchSubgraph',
+    typeDefs: gql`
       type Query {
         search: [SearchResult]
       }
@@ -8185,12 +8192,12 @@ describe('Type Condition field merging', () => {
       type GallerySection @key(fields: "id") {
         id: ID!
       }
-      `,
-    };
+    `,
+  };
 
-    const subgraph2 = {
-      name: 'artworkSubgraph',
-      typeDefs: gql`
+  const subgraph2 = {
+    name: 'artworkSubgraph',
+    typeDefs: gql`
       type Query {
         me: String
       }
@@ -8205,13 +8212,46 @@ describe('Type Condition field merging', () => {
         id: ID!
         artwork(params: String): String
       }
-      `,
-    };
+    `,
+  };
 
-    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+
+  test('yields correct response path for regular fields', () => {
+    const groupPath = GroupPath.empty();
+    const element = {
+      kind: 'Field',
+      responseName: function () {
+        return 'me';
+      },
+      definition: {
+        type: api.type('String'),
+      },
+    } as OperationElement;
+    const expectedPath = ['me'] as ResponsePath;
+    expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
+  });
+
+  test('yields correct response path for list fields', () => {
+    const groupPath = GroupPath.empty();
+    const element = {
+      kind: 'Field',
+      responseName: function () {
+        return 'search';
+      },
+      definition: {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        type: new ListType(api.type('SearchResult')!),
+      },
+    } as OperationElement;
+    const expectedPath = ['search', '@'] as ResponsePath;
+    expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
+  });
+
+  test('does not eagerly merge fields on different type conditions', () => {
     const operation = operationFromDocument(
-        api,
-        gql`
+      api,
+      gql`
         query Search($movieParams: String, $articleParams: String) {
           search {
             __typename
@@ -8239,7 +8279,9 @@ describe('Type Condition field merging', () => {
       `,
     );
 
-    const plan = queryPlanner.buildQueryPlan(operation, {typeConditionedFetching: true});
+    const plan = queryPlanner.buildQueryPlan(operation, {
+      typeConditionedFetching: true,
+    });
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
