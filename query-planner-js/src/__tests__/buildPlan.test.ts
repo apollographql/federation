@@ -4119,121 +4119,140 @@ describe('Named fragments preservation', () => {
     `);
   });
 
-  it.each([true, false])(
-    'respects query planner option "reuseQueryFragments=%p"',
-    (reuseQueryFragments: boolean) => {
-      const subgraph1 = {
-        name: 'Subgraph1',
-        typeDefs: gql`
-          type Query {
-            t: T
-          }
+  it('respects query planner option "reuseQueryFragments=true"', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
 
-          type T {
-            a1: A
-            a2: A
-          }
+        type T {
+          a1: A
+          a2: A
+        }
 
-          type A {
-            x: Int
-            y: Int
-          }
-        `,
-      };
-
-      const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
-        [subgraph1],
-        { reuseQueryFragments },
-      );
-      const operation = operationFromDocument(
-        api,
-        gql`
-          query {
-            t {
-              a1 {
-                ...Selection
-              }
-              a2 {
-                ...Selection
-              }
-            }
-          }
-
-          fragment Selection on A {
-            x
-            y
-          }
-        `,
-      );
-
-      const plan = queryPlanner.buildQueryPlan(operation);
-      const withReuse = `
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            t {
-              a1 {
-                ...Selection
-              }
-              a2 {
-                ...Selection
-              }
-            }
-          }
-
-          fragment Selection on A {
-            x
-            y
-          }
-        },
-      }
-    `;
-      const withoutReuse = `
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            t {
-              a1 {
-                x
-                y
-              }
-              a2 {
-                x
-                y
-              }
-            }
-          }
-        },
-      }
-    `;
-
-      expect(plan).toMatchInlineSnapshot(
-        `
-        ${reuseQueryFragments ? withReuse : withoutReuse}
-        QueryPlan {
-          Fetch(service: "Subgraph1") {
-            {
-              t {
-                a1 {
-                  ...Selection
-                }
-                a2 {
-                  ...Selection
-                }
-              }
-            }
-
-            fragment Selection on A {
-              x
-              y
-            }
-          },
+        type A {
+          x: Int
+          y: Int
         }
       `,
-      );
-    },
-  );
+    };
 
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      [subgraph1],
+      { reuseQueryFragments: true },
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            a1 {
+              ...Selection
+            }
+            a2 {
+              ...Selection
+            }
+          }
+        }
+
+        fragment Selection on A {
+          x
+          y
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              a1 {
+                ...Selection
+              }
+              a2 {
+                ...Selection
+              }
+            }
+          }
+
+          fragment Selection on A {
+            x
+            y
+          }
+        },
+      }
+    `);
+  });
+
+  it('respects query planner option "reuseQueryFragments=false"', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T {
+          a1: A
+          a2: A
+        }
+
+        type A {
+          x: Int
+          y: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      [subgraph1],
+      { reuseQueryFragments: false },
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            a1 {
+              ...Selection
+            }
+            a2 {
+              ...Selection
+            }
+          }
+        }
+
+        fragment Selection on A {
+          x
+          y
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              a1 {
+                x
+                y
+              }
+              a2 {
+                x
+                y
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
   it('works with nested fragments when only the nested fragment gets preserved', () => {
     const subgraph1 = {
       name: 'Subgraph1',
@@ -4341,20 +4360,20 @@ describe('Named fragments preservation', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            t {
-              id
-              ... on T @include(if: $if) {
-                a
-                b
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                id
+                ... on T @include(if: $if) {
+                  a
+                  b
+                }
               }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 
   it('preserves directives when fragment is re-used', () => {
@@ -4477,25 +4496,25 @@ describe('Named fragments preservation', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            i1 {
-              __typename
-              ... on T {
-                b
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              i1 {
+                __typename
+                ... on T {
+                  b
+                }
+              }
+              i2 {
+                __typename
+                ... on T {
+                  b
+                }
               }
             }
-            i2 {
-              __typename
-              ... on T {
-                b
-              }
-            }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 
   it('handles fragment rebasing in a subgraph where some subtyping relation differs', () => {
@@ -4588,69 +4607,69 @@ describe('Named fragments preservation', () => {
     );
 
     const expectedPlan = `
-      QueryPlan {
-        Sequence {
-          Fetch(service: "Subgraph2") {
-            {
-              outer1 {
-                __typename
-                ...OuterFrag
-                id
-              }
-              outer2 {
-                __typename
-                ...OuterFrag
-                id
-              }
+    QueryPlan {
+      Sequence {
+        Fetch(service: "Subgraph2") {
+          {
+            outer1 {
+              __typename
+              ...OuterFrag
+              id
             }
+            outer2 {
+              __typename
+              ...OuterFrag
+              id
+            }
+          }
 
-            fragment OuterFrag on Outer {
-              inner {
-                v {
-                  x
-                }
+          fragment OuterFrag on Outer {
+            inner {
+              v {
+                x
               }
             }
-          },
-          Parallel {
-            Flatten(path: "outer1") {
-              Fetch(service: "Subgraph1") {
-                {
-                  ... on Outer {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on Outer {
-                    v {
-                      x
-                    }
+          }
+        },
+        Parallel {
+          Flatten(path: "outer1") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on Outer {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on Outer {
+                  v {
+                    x
                   }
                 }
-              },
+              }
             },
-            Flatten(path: "outer2") {
-              Fetch(service: "Subgraph1") {
-                {
-                  ... on Outer {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on Outer {
-                    v {
-                      x
-                    }
+          },
+          Flatten(path: "outer2") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on Outer {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on Outer {
+                  v {
+                    x
                   }
                 }
-              },
+              }
             },
           },
         },
-      }
-    `;
+      },
+    }
+  `;
     expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
       expectedPlan,
     );
@@ -4868,63 +4887,63 @@ describe('Named fragments preservation', () => {
     );
 
     const expectedPlan = `
-      QueryPlan {
-        Sequence {
-          Fetch(service: "Subgraph2") {
-            {
-              outer1 {
-                __typename
-                ...OuterFrag
-                id
-              }
-              outer2 {
-                __typename
-                ...OuterFrag
-                id
-              }
+    QueryPlan {
+      Sequence {
+        Fetch(service: "Subgraph2") {
+          {
+            outer1 {
+              __typename
+              ...OuterFrag
+              id
             }
+            outer2 {
+              __typename
+              ...OuterFrag
+              id
+            }
+          }
 
-            fragment OuterFrag on Outer {
-              inner {
-                v
-              }
+          fragment OuterFrag on Outer {
+            inner {
+              v
             }
-          },
-          Parallel {
-            Flatten(path: "outer1") {
-              Fetch(service: "Subgraph1") {
-                {
-                  ... on Outer {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on Outer {
-                    v
-                  }
+          }
+        },
+        Parallel {
+          Flatten(path: "outer1") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on Outer {
+                  __typename
+                  id
                 }
-              },
+              } =>
+              {
+                ... on Outer {
+                  v
+                }
+              }
             },
-            Flatten(path: "outer2") {
-              Fetch(service: "Subgraph1") {
-                {
-                  ... on Outer {
-                    __typename
-                    id
-                  }
-                } =>
-                {
-                  ... on Outer {
-                    v
-                  }
+          },
+          Flatten(path: "outer2") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on Outer {
+                  __typename
+                  id
                 }
-              },
+              } =>
+              {
+                ... on Outer {
+                  v
+                }
+              }
             },
           },
         },
-      }
-    `;
+      },
+    }
+  `;
     expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
       expectedPlan,
     );
@@ -5126,50 +5145,50 @@ test('works with key chains', () => {
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Sequence {
-        Fetch(service: "Subgraph1") {
-          {
-            t {
-              __typename
-              id1
-            }
-          }
-        },
-        Flatten(path: "t") {
-          Fetch(service: "Subgraph2") {
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
             {
-              ... on T {
+              t {
                 __typename
                 id1
               }
-            } =>
-            {
-              ... on T {
-                id2
-              }
             }
           },
-        },
-        Flatten(path: "t") {
-          Fetch(service: "Subgraph3") {
-            {
-              ... on T {
-                __typename
-                id2
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  id1
+                }
+              } =>
+              {
+                ... on T {
+                  id2
+                }
               }
-            } =>
-            {
-              ... on T {
-                x
-                y
+            },
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph3") {
+              {
+                ... on T {
+                  __typename
+                  id2
+                }
+              } =>
+              {
+                ... on T {
+                  x
+                  y
+                }
               }
-            }
+            },
           },
         },
-      },
-    }
-  `);
+      }
+    `);
 });
 
 describe('__typename handling', () => {
@@ -5203,17 +5222,17 @@ describe('__typename handling', () => {
 
     let plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            t {
-              foo: __typename
-              x
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                foo: __typename
+                x
+              }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
 
     operation = operationFromDocument(
       api,
@@ -5230,18 +5249,18 @@ describe('__typename handling', () => {
 
     plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            t {
-              __typename
-              foo: __typename
-              x
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                foo: __typename
+                x
+              }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 
   it('does not needlessly consider options for __typename', () => {
@@ -5316,37 +5335,37 @@ describe('__typename handling', () => {
       1,
     );
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "Subgraph1") {
-            {
-              s {
-                __typename
-                id
-              }
-            }
-          },
-          Flatten(path: "s") {
-            Fetch(service: "Subgraph2") {
+        QueryPlan {
+          Sequence {
+            Fetch(service: "Subgraph1") {
               {
-                ... on S {
+                s {
                   __typename
                   id
                 }
-              } =>
-              {
-                ... on S {
-                  t {
-                    __typename
-                    x
-                  }
-                }
               }
             },
+            Flatten(path: "s") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on S {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on S {
+                    t {
+                      __typename
+                      x
+                    }
+                  }
+                }
+              },
+            },
           },
-        },
-      }
-    `);
+        }
+      `);
 
     // Almost the same test, but we artificially create a case where the result set
     // for `s` has a __typename alongside just an inline fragments. This should
@@ -5377,38 +5396,38 @@ describe('__typename handling', () => {
       1,
     );
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "Subgraph1") {
-            {
-              s {
-                __typename
-                id
-              }
-            }
-          },
-          Flatten(path: "s") {
-            Fetch(service: "Subgraph2") {
+        QueryPlan {
+          Sequence {
+            Fetch(service: "Subgraph1") {
               {
-                ... on S {
+                s {
                   __typename
                   id
                 }
-              } =>
-              {
-                ... on S {
-                  __typename
-                  t {
-                    __typename
-                    x
-                  }
-                }
               }
             },
+            Flatten(path: "s") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on S {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on S {
+                    __typename
+                    t {
+                      __typename
+                      x
+                    }
+                  }
+                }
+              },
+            },
           },
-        },
-      }
-    `);
+        }
+      `);
   });
 });
 
@@ -5449,21 +5468,21 @@ describe('mutations', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "Subgraph2") {
-            {
-              m2
-            }
+        QueryPlan {
+          Sequence {
+            Fetch(service: "Subgraph2") {
+              {
+                m2
+              }
+            },
+            Fetch(service: "Subgraph1") {
+              {
+                m1
+              }
+            },
           },
-          Fetch(service: "Subgraph1") {
-            {
-              m1
-            }
-          },
-        },
-      }
-    `);
+        }
+      `);
   });
 });
 
@@ -5524,39 +5543,39 @@ describe('interface type-explosion', () => {
     // to be able to find field `y`. Make sure that happens.
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "Subgraph1") {
-            {
-              i {
-                __typename
-                ... on T {
-                  __typename
-                  id
-                }
-              }
-            }
-          },
-          Flatten(path: "i") {
-            Fetch(service: "Subgraph2") {
+        QueryPlan {
+          Sequence {
+            Fetch(service: "Subgraph1") {
               {
-                ... on T {
+                i {
                   __typename
-                  id
-                }
-              } =>
-              {
-                ... on T {
-                  s {
-                    y
+                  ... on T {
+                    __typename
+                    id
                   }
                 }
               }
             },
+            Flatten(path: "i") {
+              Fetch(service: "Subgraph2") {
+                {
+                  ... on T {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on T {
+                    s {
+                      y
+                    }
+                  }
+                }
+              },
+            },
           },
-        },
-      }
-    `);
+        }
+      `);
   });
 
   test('skip type-explosion early if unnecessary', () => {
@@ -5620,19 +5639,19 @@ describe('interface type-explosion', () => {
     // we get is the _only_ one evaluated.
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            i {
-              __typename
-              s {
-                y
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              i {
+                __typename
+                s {
+                  y
+                }
               }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
     expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount).toBe(
       1,
     );
@@ -5705,25 +5724,25 @@ describe('merged abstract types handling', () => {
     // Type `A` can be returned by `u` and is a `I` *in the supergraph* but not in `Subgraph1`, so need to
     // type-explode `I` in the query to `Subgraph1` so it doesn't exclude `A`.
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            u {
-              __typename
-              ... on A {
-                v
-              }
-              ... on B {
-                v
-              }
-              ... on C {
-                v
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              u {
+                __typename
+                ... on A {
+                  v
+                }
+                ... on B {
+                  v
+                }
+                ... on C {
+                  v
+                }
               }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 
   test('union/interface interaction, but no need to type-explode', () => {
@@ -5784,20 +5803,20 @@ describe('merged abstract types handling', () => {
     // operation is resolved by `Subgraph1`, it cannot ever return a A, and so
     // there is need to type-explode `I` in this query.
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            u {
-              __typename
-              ... on I {
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              u {
                 __typename
-                v
+                ... on I {
+                  __typename
+                  v
+                }
               }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 
   test('interface/union interaction', () => {
@@ -5859,19 +5878,19 @@ describe('merged abstract types handling', () => {
     // Type `A` can be returned by `i` and is a `U` *in the supergraph* but not in `Subgraph1`, so need to
     // type-explode `U` in the query to `Subgraph1` so it doesn't exclude `A`.
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            i {
-              __typename
-              ... on A {
-                v
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              i {
+                __typename
+                ... on A {
+                  v
+                }
               }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 
   test('interface/union interaction, but no need to type-explode', () => {
@@ -5935,16 +5954,16 @@ describe('merged abstract types handling', () => {
     // Here, `A` is a `I` in the supergraph while not in `Subgraph1`, and since the `i` operation is resolved by
     // `Subgraph1`, it cannot ever return a A. And so we can skip the whole `... on U` sub-selection.
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            i {
-              __typename
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              i {
+                __typename
+              }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 
   test('interface/interface interaction', () => {
@@ -6008,25 +6027,25 @@ describe('merged abstract types handling', () => {
     // Type `A` can be returned by `i1` and is a `I2` *in the supergraph* but not in `Subgraph1`, so need to
     // type-explode `I2` in the query to `Subgraph1` so it doesn't exclude `A`.
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            i1 {
-              __typename
-              ... on A {
-                v
-              }
-              ... on B {
-                v
-              }
-              ... on C {
-                v
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              i1 {
+                __typename
+                ... on A {
+                  v
+                }
+                ... on B {
+                  v
+                }
+                ... on C {
+                  v
+                }
               }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 
   test('interface/interface interaction, but no need to type-explode', () => {
@@ -6092,20 +6111,20 @@ describe('merged abstract types handling', () => {
     // there is need to type-explode `I2` in this query (even if `Subgraph1` would
     // otherwise not include `A` from a `... on I2`).
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            i1 {
-              __typename
-              ... on I2 {
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              i1 {
                 __typename
-                v
+                ... on I2 {
+                  __typename
+                  v
+                }
               }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 
   test('union/union interaction', () => {
@@ -6164,19 +6183,19 @@ describe('merged abstract types handling', () => {
     // Type `A` can be returned by `u1` and is a `U2` *in the supergraph* but not in `Subgraph1`, so need to
     // type-explode `U2` in the query to `Subgraph1` so it doesn't exclude `A`.
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            u1 {
-              __typename
-              ... on A {
-                v
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              u1 {
+                __typename
+                ... on A {
+                  v
+                }
               }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 
   test('union/union interaction, but no need to type-explode', () => {
@@ -6235,16 +6254,16 @@ describe('merged abstract types handling', () => {
     // Similar case than in the `interface/union` case: the whole `... on U2` sub-selection happens to be
     // unsatisfiable in practice.
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            u1 {
-              __typename
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              u1 {
+                __typename
+              }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 });
 
@@ -6315,16 +6334,16 @@ test('handles spread unions correctly', () => {
   // Subgraph 1, `C` is not a part of the union `U` and so a spread for `C` inside `u` is invalid
   // GraphQL.
   expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Fetch(service: "Subgraph1") {
-        {
-          u {
-            __typename
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            u {
+              __typename
+            }
           }
-        }
-      },
-    }
-  `);
+        },
+      }
+    `);
 });
 
 test('handles case of key chains in parallel requires', () => {
@@ -6397,77 +6416,77 @@ test('handles case of key chains in parallel requires', () => {
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Sequence {
-        Fetch(service: "Subgraph1") {
-          {
-            t {
-              __typename
-              ... on T1 {
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
                 __typename
-                id1
-              }
-              ... on T2 {
-                __typename
-                id
-                y
-              }
-            }
-          }
-        },
-        Parallel {
-          Sequence {
-            Flatten(path: "t") {
-              Fetch(service: "Subgraph2") {
-                {
-                  ... on T1 {
-                    __typename
-                    id1
-                  }
-                } =>
-                {
-                  ... on T1 {
-                    id2
-                  }
+                ... on T1 {
+                  __typename
+                  id1
                 }
-              },
-            },
-            Flatten(path: "t") {
-              Fetch(service: "Subgraph3") {
-                {
-                  ... on T1 {
-                    __typename
-                    id2
-                  }
-                } =>
-                {
-                  ... on T1 {
-                    x
-                  }
-                }
-              },
-            },
-          },
-          Flatten(path: "t") {
-            Fetch(service: "Subgraph3") {
-              {
                 ... on T2 {
                   __typename
                   id
                   y
                 }
-              } =>
-              {
-                ... on T2 {
-                  z
-                }
               }
+            }
+          },
+          Parallel {
+            Sequence {
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph2") {
+                  {
+                    ... on T1 {
+                      __typename
+                      id1
+                    }
+                  } =>
+                  {
+                    ... on T1 {
+                      id2
+                    }
+                  }
+                },
+              },
+              Flatten(path: "t") {
+                Fetch(service: "Subgraph3") {
+                  {
+                    ... on T1 {
+                      __typename
+                      id2
+                    }
+                  } =>
+                  {
+                    ... on T1 {
+                      x
+                    }
+                  }
+                },
+              },
+            },
+            Flatten(path: "t") {
+              Fetch(service: "Subgraph3") {
+                {
+                  ... on T2 {
+                    __typename
+                    id
+                    y
+                  }
+                } =>
+                {
+                  ... on T2 {
+                    z
+                  }
+                }
+              },
             },
           },
         },
-      },
-    }
-  `);
+      }
+    `);
 });
 
 test('handles types with no common supertype at the same "mergeAt"', () => {
@@ -6540,52 +6559,52 @@ test('handles types with no common supertype at the same "mergeAt"', () => {
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Sequence {
-        Fetch(service: "Subgraph1") {
-          {
-            t {
-              __typename
-              ... on T1 {
-                sub {
-                  __typename
-                  id
-                }
-              }
-              ... on T2 {
-                sub {
-                  __typename
-                  id
-                }
-              }
-            }
-          }
-        },
-        Flatten(path: "t.sub") {
-          Fetch(service: "Subgraph2") {
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
             {
-              ... on Foo {
+              t {
                 __typename
-                id
-              }
-              ... on Bar {
-                __typename
-                id
-              }
-            } =>
-            {
-              ... on Foo {
-                y
-              }
-              ... on Bar {
-                y
+                ... on T1 {
+                  sub {
+                    __typename
+                    id
+                  }
+                }
+                ... on T2 {
+                  sub {
+                    __typename
+                    id
+                  }
+                }
               }
             }
           },
+          Flatten(path: "t.sub") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on Foo {
+                  __typename
+                  id
+                }
+                ... on Bar {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on Foo {
+                  y
+                }
+                ... on Bar {
+                  y
+                }
+              }
+            },
+          },
         },
-      },
-    }
-  `);
+      }
+    `);
 });
 
 test('does not error out handling fragments when interface subtyping is involved', () => {
@@ -6651,20 +6670,20 @@ test('does not error out handling fragments when interface subtyping is involved
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Fetch(service: "Subgraph1") {
-        {
-          a {
-            b {
-              __typename
-              v2
-              v1
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            a {
+              b {
+                __typename
+                v2
+                v1
+              }
             }
           }
-        }
-      },
-    }
-  `);
+        },
+      }
+    `);
 });
 
 describe('named fragments', () => {
@@ -6727,20 +6746,20 @@ describe('named fragments', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            parent {
-              __typename
-              childs {
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              parent {
                 __typename
-                id
+                childs {
+                  __typename
+                  id
+                }
               }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 
   test('another mix of fragments indirection and unions', () => {
@@ -6979,19 +6998,19 @@ describe('named fragments', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            t1 {
-              other {
-                __typename
-                id
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              t1 {
+                other {
+                  __typename
+                  id
+                }
               }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 
   test('can reuse fragments in subgraph where they only partially apply in root fetch', () => {
@@ -7319,19 +7338,19 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            t {
-              v1
-              v2
-              v3
-              v4
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                v1
+                v2
+                v3
+                v4
+              }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
 
     const stats = queryPlanner.lastGeneratedPlanStatistics();
     expect(stats?.evaluatedPlanCount).toBe(16);
@@ -7367,19 +7386,19 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
     // the code to keep the order more consistent (say, if we ever rewrite said code :)),
     // then this wouldn't be the worst thing either.
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            t {
-              v2
-              v3
-              v4
-              v1
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                v2
+                v3
+                v4
+                v1
+              }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
 
     const stats = queryPlanner.lastGeneratedPlanStatistics();
     expect(stats?.evaluatedPlanCount).toBe(1);
@@ -7407,19 +7426,19 @@ describe('`debug.maxEvaluatedPlans` configuration', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "Subgraph1") {
-          {
-            t {
-              v1
-              v4
-              v2
-              v3
+        QueryPlan {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                v1
+                v4
+                v2
+                v3
+              }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
 
     const stats = queryPlanner.lastGeneratedPlanStatistics();
     // Note that in this particular example, since we have binary choices only and due to the way
@@ -7512,35 +7531,35 @@ test('correctly generate plan built from some non-individually optimal branch op
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
-       QueryPlan {
-         Sequence {
-           Fetch(service: "Subgraph2") {
-             {
-               t {
-                 __typename
-                 id
-               }
-             }
-           },
-           Flatten(path: "t") {
-             Fetch(service: "Subgraph3") {
+         QueryPlan {
+           Sequence {
+             Fetch(service: "Subgraph2") {
                {
-                 ... on T {
+                 t {
                    __typename
                    id
                  }
-               } =>
-               {
-                 ... on T {
-                   y
-                   x
-                 }
                }
              },
+             Flatten(path: "t") {
+               Fetch(service: "Subgraph3") {
+                 {
+                   ... on T {
+                     __typename
+                     id
+                   }
+                 } =>
+                 {
+                   ... on T {
+                     y
+                     x
+                   }
+                 }
+               },
+             },
            },
-         },
-       }
-    `);
+         }
+      `);
 });
 
 test('does not error on some complex fetch group dependencies', () => {
@@ -7641,44 +7660,44 @@ test('does not error on some complex fetch group dependencies', () => {
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Sequence {
-        Fetch(service: "Subgraph2") {
-          {
-            me {
-              p {
-                __typename
-                id
-              }
-            }
-          }
-        },
-        Flatten(path: "me.p") {
-          Fetch(service: "Subgraph3") {
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
             {
-              ... on Props {
-                __typename
-                id
-              }
-            } =>
-            {
-              ... on Props {
-                v0
-                t {
-                  v1 {
-                    x
-                  }
-                  v2 {
-                    x
-                  }
+              me {
+                p {
+                  __typename
+                  id
                 }
               }
             }
           },
+          Flatten(path: "me.p") {
+            Fetch(service: "Subgraph3") {
+              {
+                ... on Props {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on Props {
+                  v0
+                  t {
+                    v1 {
+                      x
+                    }
+                    v2 {
+                      x
+                    }
+                  }
+                }
+              }
+            },
+          },
         },
-      },
-    }
-  `);
+      }
+    `);
 });
 
 test('does not evaluate plans relying on a key field to fetch that same field', () => {
@@ -7732,34 +7751,34 @@ test('does not evaluate plans relying on a key field to fetch that same field', 
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Sequence {
-        Fetch(service: "Subgraph1") {
-          {
-            t {
-              __typename
-              otherId
-            }
-          }
-        },
-        Flatten(path: "t") {
-          Fetch(service: "Subgraph2") {
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
             {
-              ... on T {
+              t {
                 __typename
                 otherId
               }
-            } =>
-            {
-              ... on T {
-                id
-              }
             }
           },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  otherId
+                }
+              } =>
+              {
+                ... on T {
+                  id
+                }
+              }
+            },
+          },
         },
-      },
-    }
-  `);
+      }
+    `);
 
   // This is the main thing this test exists for: making sure we only evaluate a
   // single plan for this example. And while it may be hard to see what other
@@ -7830,20 +7849,20 @@ test('avoid considering indirect paths from the root when a more direct one exis
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Fetch(service: "Subgraph2") {
-        {
-          t {
-            a0: v1
-            a1: v1
-            a2: v1
-            id
-            v0
+      QueryPlan {
+        Fetch(service: "Subgraph2") {
+          {
+            t {
+              a0: v1
+              a1: v1
+              a2: v1
+              id
+              v0
+            }
           }
-        }
-      },
-    }
-  `);
+        },
+      }
+    `);
 
   // As said above, we legit have 2 options for `id` and `v0`, and we cannot know which are best before we evaluate the
   // plans completely. But for the multiple `v1`, we should recognize that going through the 1st subgraph (and taking a
@@ -7933,75 +7952,75 @@ describe('@requires references external field indirectly', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-          QueryPlan {
-            Sequence {
-              Fetch(service: "A") {
-                {
-                  u {
-                    __typename
-                    k1 {
-                      id
-                    }
-                  }
-                }
-              },
-              Flatten(path: "u") {
-                Fetch(service: "B") {
+            QueryPlan {
+              Sequence {
+                Fetch(service: "A") {
                   {
-                    ... on U {
+                    u {
                       __typename
                       k1 {
                         id
                       }
                     }
-                  } =>
-                  {
-                    ... on U {
-                      k2
-                    }
                   }
                 },
-              },
-              Flatten(path: "u") {
-                Fetch(service: "C") {
-                  {
-                    ... on U {
-                      __typename
-                      k2
-                    }
-                  } =>
-                  {
-                    ... on U {
-                      v {
-                        v
+                Flatten(path: "u") {
+                  Fetch(service: "B") {
+                    {
+                      ... on U {
+                        __typename
+                        k1 {
+                          id
+                        }
+                      }
+                    } =>
+                    {
+                      ... on U {
+                        k2
                       }
                     }
-                  }
+                  },
+                },
+                Flatten(path: "u") {
+                  Fetch(service: "C") {
+                    {
+                      ... on U {
+                        __typename
+                        k2
+                      }
+                    } =>
+                    {
+                      ... on U {
+                        v {
+                          v
+                        }
+                      }
+                    }
+                  },
+                },
+                Flatten(path: "u") {
+                  Fetch(service: "B") {
+                    {
+                      ... on U {
+                        __typename
+                        v {
+                          v
+                        }
+                        k1 {
+                          id
+                        }
+                      }
+                    } =>
+                    {
+                      ... on U {
+                        f
+                      }
+                    }
+                  },
                 },
               },
-              Flatten(path: "u") {
-                Fetch(service: "B") {
-                  {
-                    ... on U {
-                      __typename
-                      v {
-                        v
-                      }
-                      k1 {
-                        id
-                      }
-                    }
-                  } =>
-                  {
-                    ... on U {
-                      f
-                    }
-                  }
-                },
-              },
-            },
-          }
-        `);
+            }
+          `);
   });
 });
 
@@ -8068,23 +8087,23 @@ describe('handles fragments with directive conditions', () => {
 
     const queryPlan = queryPlanner.buildQueryPlan(operation);
     expect(queryPlan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Fetch(service: "A") {
-          {
-            i {
-              __typename
-              _id
-              ... on T1 @test {
-                id
-              }
-              ... on T2 @test {
-                id
+        QueryPlan {
+          Fetch(service: "A") {
+            {
+              i {
+                __typename
+                _id
+                ... on T1 @test {
+                  id
+                }
+                ... on T2 @test {
+                  id
+                }
               }
             }
-          }
-        },
-      }
-    `);
+          },
+        }
+      `);
   });
 
   test('nested fragment with interseting parent type and directive condition', () => {
@@ -8185,724 +8204,736 @@ describe('handles fragments with directive conditions', () => {
       }
     `);
   });
-});
+  // });
 
-describe('Type Condition field merging', () => {
-  const subgraph1 = {
-    name: 'searchSubgraph',
-    typeDefs: gql`
-      type Query {
-        search: [SearchResult]
-      }
+  describe('Type Condition field merging', () => {
+    const subgraph1 = {
+      name: 'searchSubgraph',
+      typeDefs: gql`
+        type Query {
+          search: [SearchResult]
+        }
 
-      union SearchResult = MovieResult | ArticleResult
-      union Section = EntityCollectionSection | GallerySection
+        union SearchResult = MovieResult | ArticleResult
+        union Section = EntityCollectionSection | GallerySection
 
-      type MovieResult @key(fields: "id") {
-        id: ID!
-        sections: [Section]
-      }
+        type MovieResult @key(fields: "id") {
+          id: ID!
+          sections: [Section]
+        }
 
-      type ArticleResult @key(fields: "id") {
-        id: ID!
-        sections: [Section]
-      }
+        type ArticleResult @key(fields: "id") {
+          id: ID!
+          sections: [Section]
+        }
 
-      type EntityCollectionSection @key(fields: "id") {
-        id: ID!
-      }
+        type EntityCollectionSection @key(fields: "id") {
+          id: ID!
+        }
 
-      type GallerySection @key(fields: "id") {
-        id: ID!
-      }
-    `,
-  };
-
-  const subgraph2 = {
-    name: 'artworkSubgraph',
-    typeDefs: gql`
-      type Query {
-        me: String
-      }
-
-      type EntityCollectionSection @key(fields: "id") {
-        id: ID!
-        title: String
-        artwork(params: String): String
-      }
-
-      type GallerySection @key(fields: "id") {
-        id: ID!
-        artwork(params: String): String
-      }
-    `,
-  };
-
-  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
-
-  test('yields correct response path for regular fields', () => {
-    const groupPath = GroupPath.empty(false);
-    const element = {
-      kind: 'Field',
-      responseName: function () {
-        return 'me';
-      },
-      definition: {
-        type: api.type('String'),
-      },
-    } as OperationElement;
-    const expectedPath = ['me'] as ResponsePath;
-    expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
-  });
-
-  test('yields correct response path for list fields', () => {
-    const groupPath = GroupPath.empty(false);
-    const element = {
-      kind: 'Field',
-      responseName: function () {
-        return 'search';
-      },
-      definition: {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        type: new ListType(api.type('SearchResult')!),
-      },
-    } as OperationElement;
-    const expectedPath = ['search', '@'] as ResponsePath;
-    expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
-  });
-
-  test('does not add type condition check if the planner flag is not passed', () => {
-    let groupPath = GroupPath.empty(false);
-
-    // Add 'search' '@' to the path
-    groupPath = groupPath.add({
-      kind: 'Field',
-      responseName: function () {
-        return 'search';
-      },
-      definition: {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        type: new ListType(api.type('SearchResult')!),
-      },
-    } as OperationElement);
-
-    // This is the interesting bit, we'll add a Fragment:
-    // ... on MovieResult
-    const fragment = new FragmentElement(
-      api.type('SearchResult') as CompositeType,
-      'MovieResult',
-    );
-    groupPath = groupPath.add(fragment);
-
-    // process ID
-    const element = {
-      kind: 'Field',
-      responseName: function () {
-        return 'id';
-      },
-      definition: {
-        type: api.type('ID'),
-      },
-    } as OperationElement;
-
-    const expectedPath = ['search', '@', 'id'] as ResponsePath;
-    expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
-  });
-
-  test('does add type condition check if the planner flag is passed', () => {
-    let groupPath = GroupPath.empty(true);
-
-    // Add 'search' '@' to the path
-    groupPath = groupPath.add({
-      kind: 'Field',
-      responseName: function () {
-        return 'search';
-      },
-      definition: {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        type: new ListType(api.type('SearchResult')!),
-      },
-    } as OperationElement);
-
-    // This is the interesting bit, we'll add a Fragment:
-    // ... on MovieResult
-    const fragment = new FragmentElement(
-      api.type('SearchResult') as CompositeType,
-      'MovieResult',
-    );
-    groupPath = groupPath.add(fragment);
-
-    // process ID
-    const element = {
-      kind: 'Field',
-      responseName: function () {
-        return 'id';
-      },
-      definition: {
-        type: api.type('ID'),
-      },
-    } as OperationElement;
-
-    const expectedPath = ['search', '@', '[MovieResult]', 'id'] as ResponsePath;
-    expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
-  });
-
-  test('does eagerly merge fields on different type conditions if flag is absent', () => {
-    const operation = operationFromDocument(
-      api,
-      gql`
-        query Search($movieParams: String, $articleParams: String) {
-          search {
-            __typename
-            ... on MovieResult {
-              id
-              sections {
-                ... on EntityCollectionSection {
-                  id
-                  artwork(params: $movieParams)
-                }
-              }
-            }
-            ... on ArticleResult {
-              id
-              sections {
-                ... on EntityCollectionSection {
-                  id
-                  artwork(params: $articleParams)
-                  title
-                }
-              }
-            }
-          }
+        type GallerySection @key(fields: "id") {
+          id: ID!
         }
       `,
-    );
+    };
 
-    const plan = queryPlanner.buildQueryPlan(operation, {
-      typeConditionedFetching: false,
-    });
-    expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "searchSubgraph") {
-            {
-              search {
-                __typename
-                ... on MovieResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
-                    }
-                  }
-                }
-                ... on ArticleResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
-                    }
-                  }
-                }
-              }
-            }
-          },
-          Flatten(path: "search.@.sections.@") {
-            Fetch(service: "artworkSubgraph") {
-              {
-                ... on EntityCollectionSection {
-                  __typename
-                  id
-                }
-              } =>
-              {
-                ... on EntityCollectionSection {
-                  artwork(params: $movieParams)
-                  title
-                }
-              }
-            },
-          },
+    const subgraph2 = {
+      name: 'artworkSubgraph',
+      typeDefs: gql`
+        type Query {
+          me: String
+        }
+
+        type EntityCollectionSection @key(fields: "id") {
+          id: ID!
+          title: String
+          artwork(params: String): String
+        }
+
+        type GallerySection @key(fields: "id") {
+          id: ID!
+          artwork(params: String): String
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+
+    test('yields correct response path for regular fields', () => {
+      const groupPath = GroupPath.empty(false);
+      const element = {
+        kind: 'Field',
+        responseName: function () {
+          return 'me';
         },
-      }
-    `);
-  });
-
-  test('does not eagerly merge fields on different type conditions if flag is present', () => {
-    const operation = operationFromDocument(
-      api,
-      gql`
-        query Search($movieParams: String, $articleParams: String) {
-          search {
-            __typename
-            ... on MovieResult {
-              id
-              sections {
-                ... on EntityCollectionSection {
-                  id
-                  artwork(params: $movieParams)
-                }
-              }
-            }
-            ... on ArticleResult {
-              id
-              sections {
-                ... on EntityCollectionSection {
-                  id
-                  artwork(params: $articleParams)
-                  title
-                }
-              }
-            }
-          }
-        }
-      `,
-    );
-
-    const plan = queryPlanner.buildQueryPlan(operation, {
-      typeConditionedFetching: true,
+        definition: {
+          type: api.type('String'),
+        },
+      } as OperationElement;
+      const expectedPath = ['me'] as ResponsePath;
+      expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
     });
-    expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "searchSubgraph") {
-            {
-              search {
-                __typename
-                ... on MovieResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
-                    }
-                  }
-                }
-                ... on ArticleResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
-                    }
-                  }
-                }
-              }
-            }
-          },
-          Parallel {
-            Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
-              Fetch(service: "artworkSubgraph") {
-                {
+
+    test('yields correct response path for list fields', () => {
+      const groupPath = GroupPath.empty(false);
+      const element = {
+        kind: 'Field',
+        responseName: function () {
+          return 'search';
+        },
+        definition: {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          type: new ListType(api.type('SearchResult')!),
+        },
+      } as OperationElement;
+      const expectedPath = ['search', '@'] as ResponsePath;
+      expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
+    });
+
+    test('does not add type condition check if the planner flag is not passed', () => {
+      let groupPath = GroupPath.empty(false);
+
+      // Add 'search' '@' to the path
+      groupPath = groupPath.add({
+        kind: 'Field',
+        responseName: function () {
+          return 'search';
+        },
+        definition: {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          type: new ListType(api.type('SearchResult')!),
+        },
+      } as OperationElement);
+
+      // This is the interesting bit, we'll add a Fragment:
+      // ... on MovieResult
+      const fragment = new FragmentElement(
+        api.type('SearchResult') as CompositeType,
+        'MovieResult',
+      );
+      groupPath = groupPath.add(fragment);
+
+      // process ID
+      const element = {
+        kind: 'Field',
+        responseName: function () {
+          return 'id';
+        },
+        definition: {
+          type: api.type('ID'),
+        },
+      } as OperationElement;
+
+      const expectedPath = ['search', '@', 'id'] as ResponsePath;
+      expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
+    });
+
+    test('does add type condition check if the planner flag is passed', () => {
+      let groupPath = GroupPath.empty(true);
+
+      // Add 'search' '@' to the path
+      groupPath = groupPath.add({
+        kind: 'Field',
+        responseName: function () {
+          return 'search';
+        },
+        definition: {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          type: new ListType(api.type('SearchResult')!),
+        },
+      } as OperationElement);
+
+      // This is the interesting bit, we'll add a Fragment:
+      // ... on MovieResult
+      const fragment = new FragmentElement(
+        api.type('SearchResult') as CompositeType,
+        'MovieResult',
+      );
+      groupPath = groupPath.add(fragment);
+
+      // process ID
+      const element = {
+        kind: 'Field',
+        responseName: function () {
+          return 'id';
+        },
+        definition: {
+          type: api.type('ID'),
+        },
+      } as OperationElement;
+
+      const expectedPath = [
+        'search',
+        '@',
+        '[MovieResult]',
+        'id',
+      ] as ResponsePath;
+      expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
+    });
+
+    test('does eagerly merge fields on different type conditions if flag is absent', () => {
+      const operation = operationFromDocument(
+        api,
+        gql`
+          query Search($movieParams: String, $articleParams: String) {
+            search {
+              __typename
+              ... on MovieResult {
+                id
+                sections {
                   ... on EntityCollectionSection {
-                    __typename
                     id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
                     artwork(params: $movieParams)
                   }
                 }
-              },
-            },
-            Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
-              Fetch(service: "artworkSubgraph") {
-                {
+              }
+              ... on ArticleResult {
+                id
+                sections {
                   ... on EntityCollectionSection {
-                    __typename
                     id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
                     artwork(params: $articleParams)
                     title
                   }
                 }
-              },
-            },
-          },
-        },
-      }
-    `);
-  });
-
-  test('does not eagerly merge fields on different type conditions if flag is present', () => {
-    const operation = operationFromDocument(
-      api,
-      gql`
-        query Search($movieParams: String, $articleParams: String) {
-          search {
-            __typename
-            ... on MovieResult {
-              id
-              sections {
-                ... on EntityCollectionSection {
-                  id
-                  artwork(params: $movieParams)
-                }
-              }
-            }
-            ... on ArticleResult {
-              id
-              sections {
-                ... on EntityCollectionSection {
-                  id
-                  artwork(params: $articleParams)
-                  title
-                }
               }
             }
           }
-        }
-      `,
-    );
+        `,
+      );
 
-    const plan = queryPlanner.buildQueryPlan(operation, {
-      typeConditionedFetching: true,
-    });
-    expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "searchSubgraph") {
-            {
-              search {
-                __typename
-                ... on MovieResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
+      const plan = queryPlanner.buildQueryPlan(operation, {
+        typeConditionedFetching: false,
+      });
+      expect(plan).toMatchInlineSnapshot(`
+              QueryPlan {
+                Sequence {
+                  Fetch(service: "searchSubgraph") {
+                    {
+                      search {
+                        __typename
+                        ... on MovieResult {
+                          id
+                          sections {
+                            __typename
+                            ... on EntityCollectionSection {
+                              __typename
+                              id
+                            }
+                          }
+                        }
+                        ... on ArticleResult {
+                          id
+                          sections {
+                            __typename
+                            ... on EntityCollectionSection {
+                              __typename
+                              id
+                            }
+                          }
+                        }
+                      }
                     }
-                  }
-                }
-                ... on ArticleResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
-                    }
-                  }
-                }
+                  },
+                  Flatten(path: "search.@.sections.@") {
+                    Fetch(service: "artworkSubgraph") {
+                      {
+                        ... on EntityCollectionSection {
+                          __typename
+                          id
+                        }
+                      } =>
+                      {
+                        ... on EntityCollectionSection {
+                          artwork(params: $movieParams)
+                          title
+                        }
+                      }
+                    },
+                  },
+                },
               }
-            }
-          },
-          Parallel {
-            Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
-              Fetch(service: "artworkSubgraph") {
-                {
+          `);
+    });
+
+    test('does not eagerly merge fields on different type conditions if flag is present', () => {
+      const operation = operationFromDocument(
+        api,
+        gql`
+          query Search($movieParams: String, $articleParams: String) {
+            search {
+              __typename
+              ... on MovieResult {
+                id
+                sections {
                   ... on EntityCollectionSection {
-                    __typename
                     id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
                     artwork(params: $movieParams)
                   }
                 }
-              },
-            },
-            Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
-              Fetch(service: "artworkSubgraph") {
-                {
+              }
+              ... on ArticleResult {
+                id
+                sections {
                   ... on EntityCollectionSection {
-                    __typename
                     id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
                     artwork(params: $articleParams)
                     title
                   }
                 }
-              },
-            },
-          },
-        },
-      }
-    `);
-  });
-
-  const subgraph3 = {
-    name: 'searchSubgraph',
-    typeDefs: gql`
-      type Query {
-        search: [SearchResult]
-      }
-
-      union Section = EntityCollectionSection | GallerySection
-
-      interface SearchResult @key(fields: "id") {
-        id: ID!
-        sections: [Section]
-      }
-
-      interface VideoResult implements SearchResult @key(fields: "id") {
-        id: ID!
-        sections: [Section]
-      }
-
-      type MovieResult implements VideoResult & SearchResult
-        @key(fields: "id") {
-        id: ID!
-        sections: [Section]
-      }
-
-      type SeriesResult implements VideoResult & SearchResult
-        @key(fields: "id") {
-        id: ID!
-        sections: [Section]
-      }
-
-      type ArticleResult implements SearchResult @key(fields: "id") {
-        id: ID!
-        sections: [Section]
-      }
-
-      type EntityCollectionSection @key(fields: "id") {
-        id: ID!
-      }
-
-      type GallerySection @key(fields: "id") {
-        id: ID!
-      }
-    `,
-  };
-
-  test('does not eagerly merge fields on different type conditions if flag is present with interface', () => {
-    const [api2, queryPlanner2] = composeAndCreatePlanner(subgraph3, subgraph2);
-
-    const operation = operationFromDocument(
-      api2,
-      gql`
-        query Search($movieParams: String, $articleParams: String) {
-          search {
-            __typename
-            ... on MovieResult {
-              id
-              sections {
-                ... on EntityCollectionSection {
-                  id
-                  artwork(params: $movieParams)
-                }
-              }
-            }
-            ... on ArticleResult {
-              id
-              sections {
-                ... on EntityCollectionSection {
-                  id
-                  artwork(params: $articleParams)
-                  title
-                }
               }
             }
           }
-        }
-      `,
-    );
+        `,
+      );
 
-    const plan = queryPlanner2.buildQueryPlan(operation, {
-      typeConditionedFetching: true,
-    });
-    expect(plan).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "searchSubgraph") {
-            {
-              search {
-                __typename
-                ... on MovieResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
+      const plan = queryPlanner.buildQueryPlan(operation, {
+        typeConditionedFetching: true,
+      });
+      expect(plan).toMatchInlineSnapshot(`
+              QueryPlan {
+                Sequence {
+                  Fetch(service: "searchSubgraph") {
+                    {
+                      search {
+                        __typename
+                        ... on MovieResult {
+                          id
+                          sections {
+                            __typename
+                            ... on EntityCollectionSection {
+                              __typename
+                              id
+                            }
+                          }
+                        }
+                        ... on ArticleResult {
+                          id
+                          sections {
+                            __typename
+                            ... on EntityCollectionSection {
+                              __typename
+                              id
+                            }
+                          }
+                        }
+                      }
                     }
-                  }
-                }
-                ... on ArticleResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
-                    }
-                  }
-                }
+                  },
+                  Parallel {
+                    Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
+                      Fetch(service: "artworkSubgraph") {
+                        {
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        } =>
+                        {
+                          ... on EntityCollectionSection {
+                            artwork(params: $movieParams)
+                          }
+                        }
+                      },
+                    },
+                    Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
+                      Fetch(service: "artworkSubgraph") {
+                        {
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        } =>
+                        {
+                          ... on EntityCollectionSection {
+                            artwork(params: $articleParams)
+                            title
+                          }
+                        }
+                      },
+                    },
+                  },
+                },
               }
-            }
-          },
-          Parallel {
-            Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
-              Fetch(service: "artworkSubgraph") {
-                {
+          `);
+    });
+
+    test('does not eagerly merge fields on different type conditions if flag is present', () => {
+      const operation = operationFromDocument(
+        api,
+        gql`
+          query Search($movieParams: String, $articleParams: String) {
+            search {
+              __typename
+              ... on MovieResult {
+                id
+                sections {
                   ... on EntityCollectionSection {
-                    __typename
                     id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
                     artwork(params: $movieParams)
                   }
                 }
-              },
-            },
-            Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
-              Fetch(service: "artworkSubgraph") {
-                {
+              }
+              ... on ArticleResult {
+                id
+                sections {
                   ... on EntityCollectionSection {
-                    __typename
                     id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
                     artwork(params: $articleParams)
                     title
                   }
                 }
-              },
-            },
-          },
-        },
-      }
-    `);
-  });
-
-  test('does not eagerly merge fields on different type conditions if flag is present with interface and condition on interface', () => {
-    const [api2, queryPlanner2] = composeAndCreatePlanner(subgraph3, subgraph2);
-    const operation2 = operationFromDocument(
-      api2,
-      gql`
-        query Search($movieParams: String, $articleParams: String) {
-          search {
-            __typename
-            ... on VideoResult {
-              id
-              sections {
-                ... on EntityCollectionSection {
-                  id
-                }
-              }
-            }
-            ... on MovieResult {
-              id
-              sections {
-                ... on EntityCollectionSection {
-                  id
-                  artwork(params: $movieParams)
-                }
-              }
-            }
-            ... on ArticleResult {
-              id
-              sections {
-                ... on EntityCollectionSection {
-                  id
-                  artwork(params: $articleParams)
-                  title
-                }
               }
             }
           }
+        `,
+      );
+
+      const plan = queryPlanner.buildQueryPlan(operation, {
+        typeConditionedFetching: true,
+      });
+      expect(plan).toMatchInlineSnapshot(`
+              QueryPlan {
+                Sequence {
+                  Fetch(service: "searchSubgraph") {
+                    {
+                      search {
+                        __typename
+                        ... on MovieResult {
+                          id
+                          sections {
+                            __typename
+                            ... on EntityCollectionSection {
+                              __typename
+                              id
+                            }
+                          }
+                        }
+                        ... on ArticleResult {
+                          id
+                          sections {
+                            __typename
+                            ... on EntityCollectionSection {
+                              __typename
+                              id
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  Parallel {
+                    Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
+                      Fetch(service: "artworkSubgraph") {
+                        {
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        } =>
+                        {
+                          ... on EntityCollectionSection {
+                            artwork(params: $movieParams)
+                          }
+                        }
+                      },
+                    },
+                    Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
+                      Fetch(service: "artworkSubgraph") {
+                        {
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        } =>
+                        {
+                          ... on EntityCollectionSection {
+                            artwork(params: $articleParams)
+                            title
+                          }
+                        }
+                      },
+                    },
+                  },
+                },
+              }
+          `);
+    });
+
+    const subgraph3 = {
+      name: 'searchSubgraph',
+      typeDefs: gql`
+        type Query {
+          search: [SearchResult]
+        }
+
+        union Section = EntityCollectionSection | GallerySection
+
+        interface SearchResult @key(fields: "id") {
+          id: ID!
+          sections: [Section]
+        }
+
+        interface VideoResult implements SearchResult @key(fields: "id") {
+          id: ID!
+          sections: [Section]
+        }
+
+        type MovieResult implements VideoResult & SearchResult
+          @key(fields: "id") {
+          id: ID!
+          sections: [Section]
+        }
+
+        type SeriesResult implements VideoResult & SearchResult
+          @key(fields: "id") {
+          id: ID!
+          sections: [Section]
+        }
+
+        type ArticleResult implements SearchResult @key(fields: "id") {
+          id: ID!
+          sections: [Section]
+        }
+
+        type EntityCollectionSection @key(fields: "id") {
+          id: ID!
+        }
+
+        type GallerySection @key(fields: "id") {
+          id: ID!
         }
       `,
-    );
+    };
 
-    const plan2 = queryPlanner2.buildQueryPlan(operation2, {
-      typeConditionedFetching: true,
-    });
-    expect(plan2).toMatchInlineSnapshot(`
-      QueryPlan {
-        Sequence {
-          Fetch(service: "searchSubgraph") {
-            {
-              search {
-                __typename
-                ... on MovieResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
-                    }
-                  }
-                }
-                ... on SeriesResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      id
-                    }
-                  }
-                }
-                ... on ArticleResult {
-                  id
-                  sections {
-                    __typename
-                    ... on EntityCollectionSection {
-                      __typename
-                      id
-                    }
-                  }
-                }
-              }
-            }
-          },
-          Parallel {
-            Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
-              Fetch(service: "artworkSubgraph") {
-                {
+    test('does not eagerly merge fields on different type conditions if flag is present with interface', () => {
+      const [api2, queryPlanner2] = composeAndCreatePlanner(
+        subgraph3,
+        subgraph2,
+      );
+
+      const operation = operationFromDocument(
+        api2,
+        gql`
+          query Search($movieParams: String, $articleParams: String) {
+            search {
+              __typename
+              ... on MovieResult {
+                id
+                sections {
                   ... on EntityCollectionSection {
-                    __typename
                     id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
                     artwork(params: $movieParams)
                   }
                 }
-              },
-            },
-            Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
-              Fetch(service: "artworkSubgraph") {
-                {
+              }
+              ... on ArticleResult {
+                id
+                sections {
                   ... on EntityCollectionSection {
-                    __typename
                     id
-                  }
-                } =>
-                {
-                  ... on EntityCollectionSection {
                     artwork(params: $articleParams)
                     title
                   }
                 }
-              },
-            },
-          },
-        },
-      }
-    `);
+              }
+            }
+          }
+        `,
+      );
+
+      const plan = queryPlanner2.buildQueryPlan(operation, {
+        typeConditionedFetching: true,
+      });
+      expect(plan).toMatchInlineSnapshot(`
+              QueryPlan {
+                Sequence {
+                  Fetch(service: "searchSubgraph") {
+                    {
+                      search {
+                        __typename
+                        ... on MovieResult {
+                          id
+                          sections {
+                            __typename
+                            ... on EntityCollectionSection {
+                              __typename
+                              id
+                            }
+                          }
+                        }
+                        ... on ArticleResult {
+                          id
+                          sections {
+                            __typename
+                            ... on EntityCollectionSection {
+                              __typename
+                              id
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  Parallel {
+                    Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
+                      Fetch(service: "artworkSubgraph") {
+                        {
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        } =>
+                        {
+                          ... on EntityCollectionSection {
+                            artwork(params: $movieParams)
+                          }
+                        }
+                      },
+                    },
+                    Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
+                      Fetch(service: "artworkSubgraph") {
+                        {
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        } =>
+                        {
+                          ... on EntityCollectionSection {
+                            artwork(params: $articleParams)
+                            title
+                          }
+                        }
+                      },
+                    },
+                  },
+                },
+              }
+          `);
+    });
+
+    test('does not eagerly merge fields on different type conditions if flag is present with interface and condition on interface', () => {
+      const [api2, queryPlanner2] = composeAndCreatePlanner(
+        subgraph3,
+        subgraph2,
+      );
+      const operation2 = operationFromDocument(
+        api2,
+        gql`
+          query Search($movieParams: String, $articleParams: String) {
+            search {
+              __typename
+              ... on VideoResult {
+                id
+                sections {
+                  ... on EntityCollectionSection {
+                    id
+                  }
+                }
+              }
+              ... on MovieResult {
+                id
+                sections {
+                  ... on EntityCollectionSection {
+                    id
+                    artwork(params: $movieParams)
+                  }
+                }
+              }
+              ... on ArticleResult {
+                id
+                sections {
+                  ... on EntityCollectionSection {
+                    id
+                    artwork(params: $articleParams)
+                    title
+                  }
+                }
+              }
+            }
+          }
+        `,
+      );
+
+      const plan2 = queryPlanner2.buildQueryPlan(operation2, {
+        typeConditionedFetching: true,
+      });
+      expect(plan2).toMatchInlineSnapshot(`
+              QueryPlan {
+                Sequence {
+                  Fetch(service: "searchSubgraph") {
+                    {
+                      search {
+                        __typename
+                        ... on MovieResult {
+                          id
+                          sections {
+                            __typename
+                            ... on EntityCollectionSection {
+                              __typename
+                              id
+                            }
+                          }
+                        }
+                        ... on SeriesResult {
+                          id
+                          sections {
+                            __typename
+                            ... on EntityCollectionSection {
+                              id
+                            }
+                          }
+                        }
+                        ... on ArticleResult {
+                          id
+                          sections {
+                            __typename
+                            ... on EntityCollectionSection {
+                              __typename
+                              id
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  Parallel {
+                    Flatten(path: "search.@.[MovieResult].sections.@.[EntityCollectionSection]") {
+                      Fetch(service: "artworkSubgraph") {
+                        {
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        } =>
+                        {
+                          ... on EntityCollectionSection {
+                            artwork(params: $movieParams)
+                          }
+                        }
+                      },
+                    },
+                    Flatten(path: "search.@.[ArticleResult].sections.@.[EntityCollectionSection]") {
+                      Fetch(service: "artworkSubgraph") {
+                        {
+                          ... on EntityCollectionSection {
+                            __typename
+                            id
+                          }
+                        } =>
+                        {
+                          ... on EntityCollectionSection {
+                            artwork(params: $articleParams)
+                            title
+                          }
+                        }
+                      },
+                    },
+                  },
+                },
+              }
+          `);
+    });
   });
 });
