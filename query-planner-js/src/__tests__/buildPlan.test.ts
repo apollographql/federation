@@ -8782,7 +8782,10 @@ describe('Type Condition field merging', () => {
         },
       }
     `);
+  });
 
+  test('does not eagerly merge fields on different type conditions if flag is present with interface and condition on interface', () => {
+    const [api2, queryPlanner2] = composeAndCreatePlanner(subgraph3, subgraph2);
     const operation2 = operationFromDocument(
       api2,
       gql`
@@ -8899,5 +8902,5 @@ describe('Type Condition field merging', () => {
         },
       }
     `);
-  });
+  })
 });
