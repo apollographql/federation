@@ -8166,7 +8166,6 @@ describe('handles fragments with directive conditions', () => {
   });
 });
 
-
 describe('Type Condition field merging', () => {
   const subgraph1 = {
     name: 'searchSubgraph',
@@ -8323,12 +8322,7 @@ describe('Type Condition field merging', () => {
       },
     } as OperationElement;
 
-    const expectedPath = [
-      'search',
-      '@',
-      '[MovieResult]',
-      'id',
-    ] as ResponsePath;
+    const expectedPath = ['search', '@', '[MovieResult]', 'id'] as ResponsePath;
     expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
   });
 
@@ -8668,10 +8662,7 @@ describe('Type Condition field merging', () => {
   };
 
   test('does not eagerly merge fields on different type conditions if flag is present with interface', () => {
-    const [api2, queryPlanner2] = composeAndCreatePlanner(
-      subgraph3,
-      subgraph2,
-    );
+    const [api2, queryPlanner2] = composeAndCreatePlanner(subgraph3, subgraph2);
 
     const operation = operationFromDocument(
       api2,
@@ -8775,10 +8766,7 @@ describe('Type Condition field merging', () => {
   });
 
   test('does not eagerly merge fields on different type conditions if flag is present with interface and condition on interface', () => {
-    const [api2, queryPlanner2] = composeAndCreatePlanner(
-      subgraph3,
-      subgraph2,
-    );
+    const [api2, queryPlanner2] = composeAndCreatePlanner(subgraph3, subgraph2);
     const operation2 = operationFromDocument(
       api2,
       gql`
