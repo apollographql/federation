@@ -1828,8 +1828,9 @@ export class GroupPath {
       this.typeConditions.add(element.typeCondition!.name);
       return this.responsePath;
     } else if (this.typeConditions.size > 0) {
-      // TODO: sort
-      const conditions = `[${Array.from(this.typeConditions.values()).join(',')}]`;
+      const typeConditions = Array.from(this.typeConditions.values());
+      typeConditions.sort();
+      const conditions = `[${typeConditions.join(',')}]`;
       const lastPath = `${this.responsePath.pop()||''}${conditions}`;
       this.responsePath.push(lastPath);
       this.typeConditions.clear();

@@ -8326,6 +8326,52 @@ describe('Type Condition field merging', () => {
     expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
   });
 
+  test('type condition checks are sorted', () => {
+    let groupPath = GroupPath.empty(true);
+
+    // Add 'search' '@' to the path
+    groupPath = groupPath.add({
+      kind: 'Field',
+      responseName: function () {
+        return 'search';
+      },
+      definition: {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        type: new ListType(api.type('SearchResult')!),
+      },
+    } as OperationElement);
+
+    const fragment = new FragmentElement(
+      api.type('SearchResult') as CompositeType,
+      'MovieResult',
+    );
+    groupPath = groupPath.add(fragment);
+
+    const fragment2 = new FragmentElement(
+      api.type('SearchResult') as CompositeType,
+      'ArticleResult',
+    );
+    groupPath = groupPath.add(fragment2);
+
+    // process ID
+    const element = {
+      kind: 'Field',
+      responseName: function () {
+        return 'id';
+      },
+      definition: {
+        type: api.type('ID'),
+      },
+    } as OperationElement;
+
+    const expectedPath = [
+      'search',
+      '@[ArticleResult,MovieResult]',
+      'id',
+    ] as ResponsePath;
+    expect(groupPath.updatedResponsePath(element)).toEqual(expectedPath);
+  });
+
   test('does eagerly merge fields on different type conditions if flag is absent', () => {
     const operation = operationFromDocument(
       api,
@@ -8796,7 +8842,7 @@ describe('Type Condition field merging', () => {
               }
             }
           },
-          Flatten(path: "search.@[ArticleResult,SeriesResult,MovieResult].sections.@[EntityCollectionSection]") {
+          Flatten(path: "search.@[ArticleResult,MovieResult,SeriesResult].sections.@[EntityCollectionSection]") {
             Fetch(service: "artworkSubgraph") {
               {
                 ... on EntityCollectionSection {
