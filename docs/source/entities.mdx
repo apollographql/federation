@@ -3,7 +3,11 @@ title: Entities in Apollo Federation
 description: Resolve types across multiple subgraphs
 ---
 
-> ⚠️ Some details of entity behavior have changed in Federation 2. For a summary of these changes, [see what's new](./federation-2/new-in-federation-2/).
+<Note>
+
+Some details of entity behavior have changed in Federation 2. For a summary of these changes, [see what's new](./federation-2/new-in-federation-2/).
+
+</Note>
 
 In a supergraph, an _entity_ is an object type that can resolve its fields across multiple subgraphs. Each subgraph can contribute different fields to the entity and is responsible for resolving only the fields that it contributes.
 
@@ -30,7 +34,7 @@ type Product @key(fields: "id") {
 
 Entities are a fundamental building block of Apollo Federation that enable subgraphs to adhere to the [separation of concerns principle](./#separation-of-concerns).
 
-> Entities are always _object_ types (never input types, unions, and so on).
+Entities are always _object_ types (never input types, unions, and so on).
 
 ## Defining an entity
 
@@ -57,7 +61,11 @@ The `@key` directive defines an entity's _unique key_, which consists of one or 
 
 In most cases, the `@key` field(s) for the same entity will be the same across subgraphs. For example, if one subgraph uses `id` as the `@key` field for the `Product` entity, other subgraphs should do the same. However, this [isn't strictly required](./entities-advanced#differing-keys-across-subgraphs).
 
-> If coming from a database context, it can be helpful to think of a `@key` as an entity's [primary key](https://en.wikipedia.org/wiki/Primary_key). This term isn't completely accurate for entities since a single entity can have [multiple `@key`s](./entities-advanced#multiple-keys). The field(s) you select for an entity's `@key` must, however, uniquely identify the entity. In that way, `@key`s are similar to [candidate keys](https://en.wikipedia.org/wiki/Candidate_key).
+<Note>
+
+If coming from a database context, it can be helpful to think of a `@key` as an entity's [primary key](https://en.wikipedia.org/wiki/Primary_key). This term isn't completely accurate for entities since a single entity can have [multiple `@key`s](./entities-advanced#multiple-keys). The field(s) you select for an entity's `@key` must, however, uniquely identify the entity. In that way, `@key`s are similar to [candidate keys](https://en.wikipedia.org/wiki/Candidate_key).
+
+</Note>
 
 <CodeColumns>
 
@@ -78,10 +86,10 @@ type Product @key(fields: "id") {
 
 </CodeColumns>
 
-> An entity's `@key` cannot include:
->
-> * Fields that return a union or interface
-> * Fields that take arguments
+An entity's `@key` cannot include:
+
+- Fields that return a union or interface
+- Fields that take arguments
 
 Though not strictly required, it's best to use non-nullable fields for keys. If you use fields that return `null` values, GraphOS may encounter issues resolving the entity.
 
@@ -91,7 +99,11 @@ For more information on advanced key options, like how to define [multiple keys]
 
 The `@key` directive effectively tells the router, "This subgraph can resolve an instance of this entity if you provide its unique key." In order for this to be true, the subgraph needs to define a _reference resolver_ for the entity.
 
-> ⚠️ This section describes how to create reference resolvers in Apollo Server. If you're using another [subgraph-compatible library](./building-supergraphs/supported-subgraphs/), see its documentation for creating reference resolvers (or the equivalent functionality).
+<Note>
+
+This section describes how to create reference resolvers in Apollo Server. If you're using another [subgraph-compatible library](./building-supergraphs/supported-subgraphs/), see its documentation for creating reference resolvers (or the equivalent functionality).
+
+</Note>
 
 For the `Product` entity defined [above](#1-define-a-key), the reference resolver might look like this:
 
@@ -116,11 +128,15 @@ Let's break this example down:
 * A reference resolver is responsible for returning all of the entity fields that this subgraph defines.
     * In this example, the hypothetical `fetchProductByID` function fetches a particular `Product`'s field data based on its `id`.
 
-> ⚠️ A particular reference resolver might be called many times to resolve a single query! It's crucial that reference resolvers account for "N+1" issues (typically via [data loaders](https://github.com/graphql/dataloader)). For details, see [Handling the N+1 problem](./entities-advanced#handling-the-n1-problem).
+<Note>
+
+A particular reference resolver might be called many times to resolve a single query! It's crucial that reference resolvers account for "N+1" issues (typically via [data loaders](https://github.com/graphql/dataloader)). For details, see [Handling the N+1 problem](./entities-advanced#handling-the-n1-problem).
+
+</Note>
 
 Every subgraph that contributes at least one unique field to an entity must define a reference resolver for that entity.
 
-> To learn more about `__resolveReference` in Apollo Server, see the [API docs](/apollo-server/using-federation/api/apollo-subgraph/#__resolvereference).
+To learn more about `__resolveReference` in Apollo Server, see the [API docs](/apollo-server/using-federation/api/apollo-subgraph/#__resolvereference).
 
 ## Contributing entity fields
 
@@ -225,7 +241,11 @@ type Query {
 
 </CodeColumns>
 
-> Notice that the Reviews subgraph [references the `Product` entity without contributing fields](#referencing-an-entity-without-contributing-fields).
+<Note>
+
+Notice that the Reviews subgraph [references the `Product` entity without contributing fields](#referencing-an-entity-without-contributing-fields).
+
+</Note>
 
 The Reviews subgraph defines one entry point into our schema: `Query.latestReviews`. This means that the following query is valid against our router:
 
@@ -247,7 +267,11 @@ Because of this, the router needs to fetch `price` from the Products subgraph in
 
 ### The query plan
 
-> Query plans are automatically generated and carried out by your router. You don't need to write any code related to them.
+<Note>
+
+Query plans are automatically generated and carried out by your router. You don't need to write any code related to them.
+
+</Note>
 
 A query plan is a blueprint for dividing a single incoming operation into one or more operations that are each resolvable by a single subgraph. Your router generates a query plan for each unique operation that it receives from clients.
 
@@ -272,7 +296,11 @@ query {
 
 Notice that this query omits the `Product.price` field but adds the `Product.__typename` field! This is because the router needs representations of each returned `Product` entity for its second query.
 
-> As described in [Define a reference resolver](#2-define-a-reference-resolver), an entity representation is an object that contains the entity's `@key` fields (`id` in this case), plus its `__typename` field.
+<Note>
+
+As described in [Define a reference resolver](#2-define-a-reference-resolver), an entity representation is an object that contains the entity's `@key` fields (`id` in this case), plus its `__typename` field.
+
+</Note>
 
 This first query returns a list of `Review` objects, each containing a `Product` representation. With these representations, the router can execute its second query, this time on the Products subgraph:
 
@@ -320,7 +348,7 @@ These representations are passed individually to the `Product` [reference resolv
 
 Nice! The router can merge this `price` data with the `Product` objects returned by its first query. After doing so, the router returns a single, combined result to the client.
 
-> [Learn more about query plans.](./query-plans/)
+[Learn more about query plans.](./query-plans/)
 
 ## Advanced topics
 

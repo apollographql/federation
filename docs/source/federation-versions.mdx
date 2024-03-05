@@ -5,7 +5,7 @@ description: Understand changes between federation versions
 
 This article describes notable changes and additions introduced in each minor version release of Apollo Federation. Most of these changes involve additions or modifications to [federation-specific directives](./federated-types/federated-directives/).
 
-> For a comprehensive changelog for Apollo Federation and its associated libraries, see [GitHub](https://github.com/apollographql/federation/blob/main/CHANGELOG.md).
+For a comprehensive changelog for Apollo Federation and its associated libraries, see [GitHub](https://github.com/apollographql/federation/blob/main/CHANGELOG.md).
 
 - To use a feature introduced in a particular federation version, make sure your subgraph schema's `@link` directive targets that version (or higher):
 
@@ -17,7 +17,11 @@ This article describes notable changes and additions introduced in each minor ve
 
     The example above must target at least Federation v2.3, because the `@interfaceObject` directive was introduced in that version.
 
-    > ⚠️ Before you increment a subgraph's federation version, update your router and build pipeline! For details, see [Updating your graph safely](/graphos/graphs/updating/).
+    <Note>
+    
+    Before you increment a subgraph's federation version, update your router and build pipeline. For details, see [Updating your graph safely](/graphos/graphs/updating/).
+
+    </Note>
 
 - If you maintain a [subgraph-compatible library](./building-supergraphs/supported-subgraphs/), consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](./subgraph-spec/#subgraph-schema-additions).
 

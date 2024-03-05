@@ -4,7 +4,11 @@ title: Changes from Federation 1 to Federation 2
 
 Apollo Federation 2 provides developer experience improvements to the original specification for Apollo Federation (called _Federation 1_ in these docs). If your organization has an existing Federation 1 graph, this article summarizes the benefits of [moving to Federation 2](./moving-to-federation-2/).
 
-> If you're just getting started with Federation, check out the [Quickstart](../quickstart/setup/).
+<Tip>
+
+If you're just getting started with Federation, check out the [Quickstart](../quickstart/setup/).
+
+</Tip>
 
 ## What isn't changing?
 
@@ -78,7 +82,11 @@ type Book @shareable {
 
 The two `Book` type definitions above differ in terms of the fields they include and the nullability of those fields. Notice also the new [`@shareable`](../federated-types/sharing-types/#using-shareable) directive, which is required to indicate that a field can be resolved by multiple subgraphs.
 
-> Marking a type as `@shareable` (as with `Book` above) is equivalent to marking all of its fields as `@shareable`.
+<Note>
+
+Marking a type as `@shareable` (as with `Book` above) is equivalent to marking all of its fields as `@shareable`.
+
+</Note>
 
 This flexibility is especially helpful when an organization has multiple standalone GraphQL APIs that they want to unify with federation. Such APIs often share some types, and this added flexibility reduces the work required to compose their schemas successfully.
 
@@ -87,7 +95,7 @@ This flexibility is especially helpful when an organization has multiple standal
 * The return type of a shared field can vary in nullability (`String` / `String!`).
 * Types can omit fields that are included in other subgraphs, as long as every field in your supergraph is always resolvable. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
 
-> For details on how these field differences are handled, see [Differing shared fields](../federated-types/sharing-types/#differing-shared-fields).
+For details on how these field differences are handled, see [Differing shared fields](../federated-types/sharing-types/#differing-shared-fields).
 
 ### Enums, unions, and interfaces
 

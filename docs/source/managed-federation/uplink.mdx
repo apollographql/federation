@@ -42,7 +42,11 @@ Whenever a poll request times out or otherwise fails (the default timeout is thi
 
 If you use the `@apollo/gateway` library with managed federation, by default your gateway polls Uplink every ten seconds. Every time it does so, it cycles through Uplink endpoints in round-robin fashion.
 
-> Versions of `@apollo/gateway` prior to v0.45.0 don't support multiple Uplink endpoints and only use the GCP endpoint by default.
+<Note>
+
+Versions of `@apollo/gateway` prior to v0.45.0 don't support multiple Uplink endpoints and only use the GCP endpoint by default.
+
+</Note>
 
 Whenever a poll request fails, the gateway retries that request (again, using round robin). It continues retrying until a request succeeds, or until reaching the defined maximum number of retries.
 
@@ -83,7 +87,7 @@ const gateway = new ApolloGateway({
 
 By default, the gateway retries a single poll request a number of times equal to three times the number of [Uplink URLs](#uplink-urls-advanced) (this is almost always `6` times).
 
-> Even if a particular poll request fails all of its retries, the gateway continues polling as usual at the next interval (with its own set of retries if needed). In the meantime, the gateway continues using its most recently obtained configuration.
+Even if a particular poll request fails all of its retries, the gateway continues polling as usual at the next interval (with its own set of retries if needed). In the meantime, the gateway continues using its most recently obtained configuration.
 
 #### Poll interval
 
@@ -103,7 +107,11 @@ The `pollIntervalInMs` option specifies the polling interval in milliseconds. Th
 
 #### Uplink URLs (advanced)
 
-> ⚠️ Most gateways never need to configure their list of Apollo Uplink URLs. Consult this section only if advised to do so.
+<Note>
+
+Most gateways never need to configure their list of Apollo Uplink URLs. Consult this section only if advised to do so.
+
+</Note>
 
 You can provide a custom list of URLs for the gateway to use when polling Uplink. You can provide this list either in the `ApolloGateway` constructor or as an environment variable.
 

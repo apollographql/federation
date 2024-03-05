@@ -83,9 +83,9 @@ type Review {
 }
 ```
 
-> Subgraph B could have added `Book.reviews` by [contributing the field](../entities#contributing-entity-fields) directly to the entity as usual. However, what if we wanted to add `reviews` to a hundred different entity implementations of `Media`?
->
-> By instead adding entity fields via `@interfaceObject`, we can avoid redefining a hundred entities in Subgraph B (not to mention adding more definitions whenever a new implementing entity is created). [Learn more.](#why-is-interfaceobject-necessary)
+Subgraph B could have added `Book.reviews` by [contributing the field](../entities#contributing-entity-fields) directly to the entity as usual. However, what if we wanted to add `reviews` to a hundred different entity implementations of `Media`?
+
+By instead adding entity fields via `@interfaceObject`, we can avoid redefining a hundred entities in Subgraph B (not to mention adding more definitions whenever a new implementing entity is created). [Learn more.](#why-is-interfaceobject-necessary)
 
 ## Requirements
 
@@ -184,7 +184,11 @@ interface Media @key(fields: "id") {
 
 As it does with any [standard entity](../entities/#1-define-a-key), `@key` indicates "this subgraph can resolve any instance of this type if provided its `@key` fields." This means Subgraph A needs to define a reference resolver for `Media`, just as it would for any other entity.
 
-> The method for defining a reference resolver depends on which [subgraph library](../building-supergraphs/supported-subgraphs/) you use. Some subgraph libraries might use a different term for this functionality. Consult your library's documentation for details.
+<Note>
+
+The method for defining a reference resolver depends on which [subgraph library](../building-supergraphs/supported-subgraphs/) you use. Some subgraph libraries might use a different term for this functionality. Consult your library's documentation for details.
+
+</Note>
 
 Here's an example reference resolver for `Media` if using Apollo Server with the `@apollo/subgraph` library:
 

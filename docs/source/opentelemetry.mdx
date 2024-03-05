@@ -9,9 +9,13 @@ You can configure your gateway, your individual subgraphs, or even a monolothic 
 
 Additionally, the `@apollo/gateway` library provides built-in OpenTelemetry instrumentation to emit [gateway-specific spans](#gateway-specific-spans) for operation traces.
 
-> Apollo Studio does not currently consume OpenTelemetry-formatted data. To push trace data to Studio, see [Federated trace data](./metrics/).
->
-> You should configure OpenTelemetry if you want to push trace data to an OpenTelemetry-compatible system, such as [Zipkin](https://zipkin.io/) or [Jaeger](https://www.jaegertracing.io/).
+<Note>
+
+Apollo Studio does not currently consume OpenTelemetry-formatted data. To push trace data to Studio, see [Federated trace data](./metrics/).
+
+You should configure OpenTelemetry if you want to push trace data to an OpenTelemetry-compatible system, such as [Zipkin](https://zipkin.io/) or [Jaeger](https://www.jaegertracing.io/).
+
+</Note>
 
 ## Setup
 
@@ -169,7 +173,11 @@ Nice! Next, we can modify this code to begin pushing trace data to an external s
 
 Next, let's modify the code in the [previous step](#2-configure-instrumentation) to instead push traces to a locally running instance of [Zipkin](https://zipkin.io/).
 
-> To run Zipkin locally, [see the quickstart](https://zipkin.io/pages/quickstart.html). If you want to use a different tracing system, consult the documentation for that system.
+<Note>
+
+To run Zipkin locally, [see the quickstart](https://zipkin.io/pages/quickstart.html). If you want to use a different tracing system, consult the documentation for that system.
+
+</Note>
 
 First, we need to replace our `ConsoleSpanExporter` (which prints traces to the terminal) with a `ZipkinExporter`, which specifically pushes trace data to a running Zipkin instance.
 
@@ -244,7 +252,11 @@ You can learn more about using the `OTLPTraceExporter` in the [instrumentation d
 
 The `@opentelemetry/instrumentation-graphql` library enables subgraphs and monoliths to emit the following spans as part of [OpenTelemetry traces](https://opentelemetry.io/docs/concepts/data-sources/#traces):
 
-> Reminder: Federated gateways must not install the `@opentelemetry/instrumentation-graphql` library, so these spans are not included in its traces.
+<Note>
+
+Federated gateways must not install the `@opentelemetry/instrumentation-graphql` library, so these spans are not included in its traces.
+
+</Note>
 
 | Name | Description |
 |------|-------------|

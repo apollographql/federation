@@ -156,14 +156,22 @@ Before we can use managed federation with Apollo Studio, we need a Studio accoun
 
 Complete the first two steps of <a href="/studio/getting-started/" target="_blank">Get started with Apollo Studio</a> (**Create your account** and **Create your first graph**), then return here.
 
-> * Make sure the Studio graph you create is a supergraph that uses Federation 2!
-> * For future steps, you'll need the ID of the supergraph you create. Make sure to have it available.
+<Note>
+
+- Make sure the Studio graph you create is a supergraph that uses Federation 2!
+- For future steps, you'll need the ID of the supergraph you create. Make sure to have it available.
+
+</Note>
 
 ### Install the Rover CLI
 
 _Rover_ is Apollo's CLI for managing all kinds of graphs, including subgraphs and supergraphs. We'll use it throughout this quickstart.
 
-> Even if you already have Rover installed, you should update your version now by completing this step.
+<Note>
+
+Even if you already have Rover installed, you should update your version now by completing this step.
+
+</Note>
 
 Install the latest Rover release with the appropriate command for your system:
 
@@ -187,9 +195,13 @@ Complete the first two steps of <a href="/rover/configuring/" target="_blank">Co
 
 As mentioned in [Federation concepts](#federation-concepts), your federated supergraph is represented by a graph router that routes queries to various subgraphs. For this tutorial, we'll use some Apollo-hosted example services as our subgraphs, and we'll set up the Apollo Router in front of them.
 
-> The Apollo Router is a high-performance, precompiled Rust executable that acts as the router for a supergraph.
->
-> Alternatively, Apollo Server can act as your graph router, as documented in [The graph router](../building-supergraphs/router/). This tutorial uses the Apollo Router because it's the recommended default for all new supergraphs (for details, see [Choosing a router library](../building-supergraphs/router/#choosing-a-router-library)).
+<Note>
+
+The Apollo Router is a high-performance, precompiled Rust executable that acts as the router for a supergraph.
+
+Alternatively, Apollo Server can act as your graph router, as documented in [The graph router](../building-supergraphs/router/). This tutorial uses the Apollo Router because it's the recommended default for all new supergraphs (for details, see [Choosing a router library](../building-supergraphs/router/#choosing-a-router-library)).
+
+</Note>
 
 On your development machine, first create a new directory for your router project. Then inside that directory, run the following to install the Apollo Router:
 

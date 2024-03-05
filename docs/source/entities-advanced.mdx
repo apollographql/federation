@@ -50,9 +50,9 @@ type Product @key(fields: "id") @key(fields: "sku") {
   price: Int
 }
 ```
-<blockquote>
+<Note>
 
-Note: If you include multiple sets of `@key` fields, the query planner uses the most efficient set for entity resolution. For example, suppose you allow a type to be identified by `@key(fields: "id")` or `@key(fields: "id sku")`:
+If you include multiple sets of `@key` fields, the query planner uses the most efficient set for entity resolution. For example, suppose you allow a type to be identified by `@key(fields: "id")` or `@key(fields: "id sku")`:
 
 ```graphql {1}
 type Product @key(fields: "id") @key(fields: "id sku") {
@@ -62,7 +62,7 @@ type Product @key(fields: "id") @key(fields: "id sku") {
 
 That means either `id` or (`id` and `sku`) is enough to uniquely identify the entity. Since `id` alone is enough, the query planner will use only that field to resolve the entity, and `@key(fields: "id sku")` is effectively ignored.
 
-</blockquote>
+</Note>
 
 #### Referencing entities with multiple keys
 
@@ -589,13 +589,21 @@ The router provides an interface for coprocessors and rhai scripts to resolve ar
 3. Resolve the labels using your feature flag service (or any other mechanism).
 4. Add the resolved labels to the `apollo_override::labels_to_override` context key.
 
-> Note: The unresolved labels are all labels in the schema that haven't been resolved by the router. They may not all pertain to the incoming operation. As a final step, the router will filter the resolved labels to only those that are relevant to the operation in order to minimize the set of labels contributing to the query plan cache key. It is expected that a coprocessor or rhai script will resolve all labels in the schema, not just those relevant to the operation.
+<Note>
+
+The unresolved labels are all labels in the schema that haven't been resolved by the router. They may not all pertain to the incoming operation. As a final step, the router will filter the resolved labels to only those that are relevant to the operation in order to minimize the set of labels contributing to the query plan cache key. It is expected that a coprocessor or rhai script will resolve all labels in the schema, not just those relevant to the operation.
+
+</Note>
 
 For an example implementation of a coprocessor that resolves labels using LaunchDarkly, see [the example](https://github.com/apollographql/router/tree/main/examples/coprocessor-override-launchdarkly/README.md) in the router repo.
 
 ### Optimizing for fewer deploys with manual composition
 
-> ⚠️ This method requires careful coordination between subgraph and router updates. Without strict control over the order of deployments and schema updates, you might cause an outage. For most use cases, we recommend using the [`@override` method above](#incremental-migration-with-override).
+<Caution>
+
+This method requires careful coordination between subgraph and router updates. Without strict control over the order of deployments and schema updates, you might cause an outage. For most use cases, we recommend using the [`@override` method above](#incremental-migration-with-override).
+
+</Caution>
 
 Using `@override` to migrate entity fields enables us to migrate fields incrementally with zero downtime. However, doing so requires three separate schema publishes. If you're using [manual composition](./federated-types/composition#manually-with-the-rover-cli), each schema change requires redeploying your router. With careful coordination, we can perform the same migration with only a single router redeploy.
 
@@ -658,7 +666,7 @@ Using `@override` to migrate entity fields enables us to migrate fields incremen
 5. Assuming CI completes successfully, deploy an updated version of your router with the new supergraph schema.
     * When this deployment completes, the router begins resolving `Bill` fields in the Billing subgraph instead of the Payments subgraph.
 
-    > ⚠️ While your new router instances are deploying, you will probably have active router instances resolving the `Bill.amount` field in two different ways (with older instances still resolving it from Payments). It's important that the two subgraphs resolve the field in exactly the same way, or your clients might see inconsistent data during this rollover.
+    - While your new router instances are deploying, you will probably have active router instances resolving the `Bill.amount` field in two different ways (with older instances still resolving it from Payments). It's important that the two subgraphs resolve the field in exactly the same way, or your clients might see inconsistent data during this rollover.
 
 6. Deploy the updated version of your Payments subgraph without the migrated field.
     * At this point it's safe to remove this definition, because your router instances are using the Billing subgraph exclusively.
@@ -713,7 +721,11 @@ In this modification of the previous example, `size` and `weight` are now subfie
 
 ### Using `@requires` with fields that take arguments
 
-> This functionality was introduced in Federation `v2.1.2`.
+<Note>
+
+This functionality was introduced in Federation `v2.1.2`.
+
+</Note>
 
 The `@requires` directive can include fields that take arguments, like so:
 
@@ -768,7 +780,11 @@ Common inconsistent resolver behaviors to look out for include:
 
 ### Using `@shareable`
 
-> ⚠️ Before using `@shareable`, see [Ensure resolver consistency](#ensure-resolver-consistency).
+<Note>
+
+Before using `@shareable`, see [Ensure resolver consistency](#ensure-resolver-consistency).
+
+</Note>
 
 The `@shareable` directive indicates that a particular field can be resolved by more than one subgraph:
 
@@ -794,11 +810,19 @@ type Product @key(fields: "id") {
 
 In this example, both the Products and Inventory subgraphs can resolve `Product.name`. This means that a query that includes `Product.name` might be resolvable by fetching from fewer total subgraphs.
 
-> If a field is marked `@shareable` in any subgraph, it must be marked `@shareable` or `@external` in every subgraph that defines it. Otherwise, composition fails.
+<Note>
+
+If a field is marked `@shareable` in any subgraph, it must be marked `@shareable` or `@external` in every subgraph that defines it. Otherwise, composition fails.
+
+</Note>
 
 ### Using `@provides`
 
-> ⚠️ Before using `@provides`, see [Ensure resolver consistency](#ensure-resolver-consistency).
+<Note>
+
+Before using `@provides`, see [Ensure resolver consistency](#ensure-resolver-consistency).
+
+</Note>
 
 The `@provides` directive indicates that a particular field can be resolved by a subgraph at a particular query path. Let's look at an example.
 

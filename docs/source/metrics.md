@@ -31,7 +31,11 @@ To check whether your subgraph library supports federated tracing, see the `FEDE
 
 If your library does support federated tracing, see its documentation to learn how to enable the feature.
 
-> If your subgraph uses Apollo Server with `@apollo/subgraph`, federated tracing is enabled by default. You can customize this behavior with Apollo Server's [inline trace plugin](/apollo-server/api/plugin/inline-trace).
+<Note>
+
+If your subgraph uses Apollo Server with `@apollo/subgraph`, federated tracing is enabled by default. You can customize this behavior with Apollo Server's [inline trace plugin](/apollo-server/api/plugin/inline-trace).
+
+</Note>
 
 ### In the Apollo Router
 
@@ -43,11 +47,19 @@ You can use the `@apollo/server` package's [built-in usage reporting plugin](/ap
 
 These options will cause the Apollo gateway to collect tracing information from the underlying subgraphs and pass them on, along with the query plan, to the Apollo metrics ingress.
 
-> Note: By default, metrics are reported to the `current` GraphOS variant. To change the variant for reporting, set the `APOLLO_GRAPH_VARIANT` environment variable.
+<Note>
+
+By default, metrics are reported to the `current` GraphOS variant. To change the variant for reporting, set the `APOLLO_GRAPH_VARIANT` environment variable.
+
+</Note>
 
 ## How tracing data is exposed from a subgraph
 
-> Note: This section explains how your router communicates with subgraphs around encoded tracing information. It is not necessary to understand in order to enable federated tracing.
+<Note>
+
+This section explains how your router communicates with subgraphs around encoded tracing information. It is not necessary to understand in order to enable federated tracing.
+
+</Note>
 
 Your router inspects the `extensions` field of all subgraph responses for the presence of an `ftv1` field. This field contains a representation of the tracing information for the sub-query that was executed against the subgraph, sent as the Base64 encoding of the [protobuf representation](https://github.com/apollographql/apollo-server/blob/main/packages/usage-reporting-protobuf/src/reports.proto) of the trace.
 

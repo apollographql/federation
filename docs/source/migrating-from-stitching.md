@@ -6,7 +6,11 @@ description: How to move your services to Apollo Federation
 If you have a distributed graph that uses schema stitching, follow the
 steps in this guide to migrate it to use Apollo Federation.
 
-> For a real-world example of an organization benefiting from this migration, see [this blog post](https://www.apollographql.com/blog/announcement/expedia-improved-performance-by-moving-from-schema-stitching-to-apollo-federation/).
+<Tip>
+
+For a real-world example of an organization benefiting from this migration, see [this blog post](https://www.apollographql.com/blog/announcement/expedia-improved-performance-by-moving-from-schema-stitching-to-apollo-federation/).
+
+</Tip>
 
 ## Summary of steps
 
@@ -25,7 +29,7 @@ Here are the high-level steps for migrating to Apollo Federation:
 
 Each step is described in detail below.
 
-> [This GitHub repository](https://github.com/apollographql/federation-migration-example) shows the same project before and after migrating to Apollo Federation from schema stitching.
+[This GitHub repository](https://github.com/apollographql/federation-migration-example) shows the same project before and after migrating to Apollo Federation from schema stitching.
 
 ## Step 1: Add federation support to your subgraphs
 
@@ -69,7 +73,7 @@ We strongly recommend that you register all of your GraphQL schemas with an [ext
 
 Studio can also provide [schema validation](https://www.apollographql.com/docs/studio/managed-federation/overview/#validating-changes-to-the-graph) to ensure that all changes you make to your subgraphs are compatible with your complete graph.
 
-> [Learn more about managed configuration](https://www.apollographql.com/docs/studio/managed-federation/overview/)
+[Learn more about managed configuration](https://www.apollographql.com/docs/studio/managed-federation/overview/)
 
 ## Step 3: Start up an Apollo Server gateway
 

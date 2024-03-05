@@ -2,23 +2,31 @@
 title: Federated schema checks
 ---
 
-> For an introduction to schema checks, see [Schema checks](/graphos/delivery/schema-checks/).
+<Tip>
+
+For an introduction to schema checks, see [Schema checks](/graphos/delivery/schema-checks/).
+
+</Tip>
 
 Whenever you make changes to a subgraph schema, running `rover subgraph check` helps ensure that all your subgraph schemas still compose to a valid supergraph schema. This helps teams work independently on their portion of your federated graph without negatively affecting your users or other teams.
 
 When you run `rover subgraph check` on a particular subgraph, Apollo Studio takes your schema changes and attempts to compose a supergraph schema from all of your registered subgraph schemas.
 
-* If composition succeeds, the result is compared against your most recently registered supergraph schema to confirm that no known clients are affected by the proposed changes.
-* If composition fails, validation ends and results are returned to the user.
+- If composition succeeds, the result is compared against your most recently registered supergraph schema to confirm that no known clients are affected by the proposed changes.
+- If composition fails, validation ends and results are returned to the user.
 
-> Running `rover subgraph check` never updates your current registered supergraph schema.
+<Note>
+
+Running `rover subgraph check` never updates your current registered supergraph schema.
+
+</Note>
 
 ## Handling check failures
 
 There are two types of failures that can occur during validation: failed usage checks and failed composition.
 
-* Failed usage checks are failures due to breaking changes, like removing a field that an active client is querying.
-* Failed composition is a failure due to inability to compose the graph, like missing a required `@key` for an entity.
+- Failed usage checks are failures due to breaking changes, like removing a field that an active client is querying.
+- Failed composition is a failure due to inability to compose the graph, like missing a required `@key` for an entity.
 
 In most cases, you should run `rover subgraph publish` only after a successful run of `rover subgraph check`. However, certain workflows require intentionally publishing a subgraph schema that fails composition (such as [migrating an entity or field between subgraphs](../entities-advanced/#migrating-entities-and-fields)).
 

@@ -103,11 +103,15 @@ Now that we've published our subgraph schemas, Apollo Studio automatically compo
 
 It's time to enable our router to fetch its supergraph schema from Apollo. To do that, we'll need a graph API key that we set as the value of an environment variable.
 
-> ⚠️ API keys are secret credentials. Never share them outside your organization or commit them to version control. Delete and replace API keys that you believe are compromised.
+<Caution>
+
+API keys are secret credentials. Never share them outside your organization or commit them to version control. Delete and replace API keys that you believe are compromised.
+
+</Caution>
 
 1. Obtain a graph API key for your Studio graph by <a href="/studio/api-keys/#graph-api-keys" target="_blank">following these steps</a>. If you have an Enterprise plan, set the API key's role to **Contributor**.
 
-    > Make sure to copy and paste the API key's value somewhere so you can reference it (for security, API keys are not visible in Studio after creation).
+    - Make sure to copy and paste the API key's value somewhere so you can reference it (for security, API keys are not visible in Studio after creation).
 
 2. Paste the following terminal command into your text editor so you can make changes to it:
 
@@ -141,7 +145,11 @@ It's time to enable our router to fetch its supergraph schema from Apollo. To do
 
     </ExpansionPanel>
 
-    > By providing an API key to the router, you also automatically enable federated trace reporting to Apollo Studio, enabling you to view helpful performance metrics. [Learn more about federated traces.](../metrics/)
+  <Note>
+  
+  By providing an API key to the router, you also automatically enable federated trace reporting to Apollo Studio, enabling you to view helpful performance metrics. [Learn more about federated traces.](../metrics/)
+
+  </Note>
 
 4. Optionally, to help you keep track of your router's environment variables, consider setting up a tool like [direnv](https://direnv.net/) so you don't need to set the variables every time you run `./router`.
 

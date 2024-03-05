@@ -6,7 +6,11 @@ import ObtainGraphApiKey from '../../shared/obtain-graph-api-key.mdx';
 
 This article describes how to connect your supergraph to [Apollo GraphOS](/graphos/) to enable managed federation features.
 
-> As with all changes, you should first set up managed federation in a non-production environment, such as staging. To support this, you can create multiple [variants](/graphos/graphs/#variants) of your supergraph in GraphOS Studio. Each variant represents a distinct version of the same graph for different environments.
+<Note>
+
+As with all changes, you should first set up managed federation in a non-production environment, such as staging. To support this, you can create multiple [variants](/graphos/graphs/#variants) of your supergraph in GraphOS Studio. Each variant represents a distinct version of the same graph for different environments.
+
+</Note>
 
 ## 1. Get started
 
@@ -69,7 +73,7 @@ const gateway = new ApolloGateway({
 
 This option is specific to non-managed federation, in which supergraph schema composition is performed via the Rover CLI.
 
-With managed federation, composition can instead be performed by _GraphOS_, where the gateway regularly polls for an updated schema. This enables you to add, remove, and modify your subgraphs without needing to restart your gateway.
+With managed federation, composition can instead be performed by GraphOS, where the gateway regularly polls for an updated schema. This enables you to add, remove, and modify your subgraphs without needing to restart your gateway.
 
 To use managed federation, ensure your `ApolloGateway` constructor doesn't include the `supergraphSdl` argument:
 
@@ -93,7 +97,7 @@ The `--supergraph` option applies in scenarios where the router doesn't retrieve
 
 * **Unmanaged federation**: The Rover CLI composes the supergraph schema and passes the schema's file path to the router via the `--supergraph` option.
 
-For other scenarios where the router retrieves the supergraph schema from Apollo Uplink, _remove_ the `--supergraph` option (but leave `--config` if it's present):
+For other scenarios where the router retrieves the supergraph schema from Apollo Uplink, remove the `--supergraph` option (but leave `--config` if it's present):
 
 ```sh
 ./router --config ./router.yaml

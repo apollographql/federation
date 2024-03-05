@@ -3,9 +3,9 @@ title: Apollo Federation subgraph specification
 description: For adding subgraph support to GraphQL server libraries
 ---
 
-> This content is provided for developers adding federated subgraph support to a GraphQL server library, and for anyone curious about the inner workings of federation. You do not need to read this if you're building a supergraph with existing [subgraph-compatible libraries](./building-supergraphs/supported-subgraphs/), such as Apollo Server.
->
-> Servers that are partially or fully compatible with this specification are tracked in Apollo's [subgraph compatibility repository](https://github.com/apollographql/apollo-federation-subgraph-compatibility).
+This content is provided for developers adding federated subgraph support to a GraphQL server library, and for anyone curious about the inner workings of federation. You do not need to read this if you're building a supergraph with existing [subgraph-compatible libraries](./building-supergraphs/supported-subgraphs/), such as Apollo Server.
+
+Servers that are partially or fully compatible with this specification are tracked in Apollo's [subgraph compatibility repository](https://github.com/apollographql/apollo-federation-subgraph-compatibility).
 
 For a GraphQL service to operate as an Apollo Federation 2 subgraph, it must do all of the following:
 
@@ -19,7 +19,11 @@ Each of these requirements is described in the sections below.
 
 A subgraph must automatically add all of the following definitions to its GraphQL schema. The purpose of each definition is described in [Glossary of schema additions](#glossary-of-schema-additions).
 
-> If your GraphQL server library is code-first instead of schema-first (i.e., it adds schema definitions programmatically instead of via static SDL), use whatever API is appropriate for your library to generate these definitions on startup.
+<Note>
+
+If your GraphQL server library is code-first instead of schema-first (i.e., it adds schema definitions programmatically instead of via static SDL), use whatever API is appropriate for your library to generate these definitions on startup.
+
+</Note>
 
 ```graphql {1-4}
 # ⚠️ This definition must be created dynamically! The union
@@ -102,7 +106,11 @@ The "enhanced" introspection query above differs from [the GraphQL spec's built-
     - The graph router requires these federation-specific directives to perform composition successfully.
 -  If a subgraph server "disables introspection", the enhanced introspection query is still available.
 
-> Note that the `_service` field is not included in the composed supergraph schema. For security reasons, it's intended solely for use by the graph router.
+<Note>
+
+The `_service` field is not included in the composed supergraph schema. For security reasons, it's intended solely for use by the graph router.
+
+</Note>
 
 ### Required resolvers for introspection
 
@@ -184,7 +192,11 @@ The `_Entity` union type is the only schema definition in [Subgraph schema addit
 
 The `_Entity` union must include all entity types that are defined in the subgraph schema, except entities with a `@key` that sets `resolvable: false`.
 
-> If a subgraph defines zero applicable entity types, then it should not define the `_Entity` union.
+<Note>
+
+If a subgraph defines zero applicable entity types, then it should not define the `_Entity` union.
+
+</Note>
 
 #### Example
 
@@ -227,7 +239,11 @@ type Query {
 }
 ```
 
-> If a subgraph doesn't define any entity types, then it should not define the `Query._entities` field.
+<Note>
+
+If a subgraph doesn't define any entity types, then it should not define the `Query._entities` field.
+
+</Note>
 
 The graph router uses this entry point to directly fetch fields of entity objects. It combines those fields with other fields of the same entity that are returned by other subgraphs.
 

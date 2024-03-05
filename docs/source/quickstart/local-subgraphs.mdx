@@ -9,7 +9,11 @@ Our subgraphs can use any GraphQL server library that supports Apollo Federation
 
 ## 1. Configure Apollo Server
 
-> If you're using a GraphQL server besides Apollo Server, consult its documentation to learn how to configure it for use as a subgraph.
+<Note>
+
+If you're using a GraphQL server besides Apollo Server, consult its documentation to learn how to configure it for use as a subgraph.
+
+</Note>
 
 If you have an existing GraphQL API that uses Apollo Server, you can use that server as a subgraph with the `@apollo/subgraph` library. You can get started with [this example server](https://github.com/apollographql/docs-examples/blob/main/apollo-server/v4/getting-started) (which is not yet federated).
 
@@ -40,7 +44,11 @@ const typeDefs = gql`
 
 </MultiCodeBlock>
 
-> We wrap our schema in the `gql` tag to convert it into an AST (i.e., `DocumentNode`). We do this because the [`buildSubgraphSchema`](/apollo-server/using-federation/api/apollo-subgraph/#buildsubgraphschema) function below requires the schema we pass in to be a `DocumentNode` type.
+<Note>
+
+We wrap our schema in the `gql` tag to convert it into an AST (i.e., `DocumentNode`). We do this because the [`buildSubgraphSchema`](/apollo-server/using-federation/api/apollo-subgraph/#buildsubgraphschema) function below requires the schema we pass in to be a `DocumentNode` type.
+
+</Note>
 
 Next, import the `buildSubgraphSchema` function in the file where you initialize `ApolloServer`:
 

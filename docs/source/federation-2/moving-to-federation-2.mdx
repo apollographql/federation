@@ -29,7 +29,11 @@ graph LR;
 
 As with all infrastructure changes, we strongly recommend completing each of these steps with a test instance of your supergraph before performing them in production.
 
-> If you encounter an issue while moving your supergraph to Federation 2, please describe the issue in the [community forums](https://community.apollographql.com/).
+<Note>
+
+If you encounter an issue while moving your supergraph to Federation 2, please describe the issue in the [community forums](https://community.apollographql.com/).
+
+</Note>
 
 ## Step 1: Upgrade your gateway
 
@@ -39,7 +43,11 @@ For your Federation 1 supergraph to support Federation 2, you first need to upgr
     - We recommend moving to the Apollo Router unless you've extended your Node.js gateway with functionality that the Apollo Router doesn't currently support (this is uncommon).
 - Version 2.x of the `@apollo/gateway` library, with version 4.x of Apollo Server
 
-> Both the Apollo Router and `@apollo/gateway` v2.x support Federation 1! You can upgrade to either without making any other changes to your Federation 1 supergraph, and it will work as expected.
+<Note>
+
+Both the Apollo Router and `@apollo/gateway` v2.x support Federation 1. You can upgrade to either without making any other changes to your Federation 1 supergraph, and it will work as expected.
+
+</Note>
 
 ### Moving to the Apollo Router
 
@@ -143,7 +151,11 @@ After you configure these changes, make sure your router is using your newly cre
 
 Your Federation 1 subgraphs are now composed using Federation 2 composition! The natural next question is, "What does this change about the behavior of those subgraphs?" And until the next step, the answer is: nothing!
 
-> If your supergraph is not successfully composing with Federation 2, see [Breaking changes](./backward-compatibility/#breaking-changes) for the most common causes.
+<Note>
+
+If your supergraph is not successfully composing with Federation 2, see [Breaking changes](./backward-compatibility/#breaking-changes) for the most common causes.
+
+</Note>
 
 ## Step 3: Update individual subgraphs
 
@@ -215,7 +227,11 @@ directive @shareable on FIELD_DEFINITION | OBJECT
 
 </ExpansionPanel>
 
-> Some subgraph libraries are "code-first" (they dynamically generate their schema from code) instead of "schema-first" (they use a static schema file). For code-first libraries, manually adding these directive definitions is less straightforward. If you encounter this with your library, please let us know by [submitting an issue](https://github.com/apollographql/apollo-federation-subgraph-compatibility/issues).
+<Note>
+
+Some subgraph libraries are "code-first" (they dynamically generate their schema from code) instead of "schema-first" (they use a static schema file). For code-first libraries, manually adding these directive definitions is less straightforward. If you encounter this with your library, please let us know by [submitting an issue](https://github.com/apollographql/apollo-federation-subgraph-compatibility/issues).
+
+</Note>
 
 Definitions for all Federation 2 directives are available in [this article](../federated-types/federated-directives/). We work with library maintainers to help automatically add these schema definitions in as many subgraph libraries as possible.
 
@@ -265,7 +281,11 @@ type Position {
 
 </CodeColumns>
 
-> You can also apply `@shareable` directly to a type definition (such as `Position` above). This is equivalent to applying `@shareable` to all of that type's fields.
+<Note>
+
+You can also apply `@shareable` directly to a type definition (such as `Position` above). This is equivalent to applying `@shareable` to all of that type's fields.
+
+</Note>
 
 For more details, see [Value types](../federated-types/sharing-types/).
 

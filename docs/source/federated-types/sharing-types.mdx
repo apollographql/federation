@@ -45,7 +45,11 @@ type Position {
 
 Attempting to compose these two subgraph schemas together will [break composition](./composition/#breaking-composition). The router doesn't know which subgraph is responsible for resolving `Position.x` and `Position.y`. To enable multiple subgraphs to resolve these fields, you must first mark that field as [`@shareable`](#using-shareable).
 
-> As an alternative, if you want Subgraphs A and B to resolve different fields of `Position`, you can designate the `Position` type as an [entity](../entities).
+<Note>
+
+As an alternative, if you want Subgraphs A and B to resolve different fields of `Position`, you can designate the `Position` type as an [entity](../entities).
+
+</Note>
 
 ### Using `@shareable`
 
@@ -82,7 +86,11 @@ type Position {
 
 </CodeColumns>
 
-> Marking a type as `@shareable` is equivalent to marking all of its fields as `@shareable`, so the two subgraph definitions above are equivalent.
+<Note>
+
+Marking a type as `@shareable` is equivalent to marking all of its fields as `@shareable`, so the two subgraph definitions above are equivalent.
+
+</Note>
 
 Both subgraphs A and B can now resolve the `x` and `y` fields for the `Position` type, and our subgraph schemas will successfully compose into a supergraph schema.
 
@@ -201,7 +209,11 @@ type Position {
 
 This definition works for querying Subgraph A, because Subgraph A's definition is more restrictive than this (a non-nullable value is always valid for a nullable field). In this case, composition coerces Subgraph A's `Position` fields to satisfy the reduced restrictiveness of Subgraph B.
 
-> Note that Subgraph A's actual subgraph schema is not modified. Within Subgraph A, `x` and `y` remain non-nullable.
+<Note>
+
+Subgraph A's actual subgraph schema is not modified. Within Subgraph A, `x` and `y` remain non-nullable.
+
+</Note>
 
 ### Arguments
 
@@ -419,11 +431,15 @@ type Position @shareable {
 
 </CodeColumns>
 
-> Even if `Position.z` is defined in multiple subgraphs, you only need to apply `@inaccessible` in one subgraph to omit it. In fact, you might want to apply it in only one subgraph to simplify removing it later.
+Even if `Position.z` is defined in multiple subgraphs, you only need to apply `@inaccessible` in one subgraph to omit it. In fact, you might want to apply it in only one subgraph to simplify removing it later.
 
 With the syntax above, composition omits `Position.z` from the generated API schema, and the resulting `Position` type includes only `x` and `y` fields.
 
-> Note that `Position.z` does appear in the supergraph schema, but the API schema enforces which fields clients can include in operations. [Learn more about federated schemas.](./overview/)
+<Note>
+
+Notice that `Position.z` does appear in the supergraph schema, but the API schema enforces which fields clients can include in operations. [Learn more about federated schemas.](./overview/)
+
+</Note>
 
 Whenever you're ready, you can now add `Position.z` to Subgraph B:
 
@@ -512,7 +528,11 @@ interface User {
 
 This can be useful when different subgraphs are responsible for different subsets of a particular set of related types or values.
 
->  You can also use the `enum` type across multiple subgraphs. For details, see [Merging types from multiple subgraphs](composition#enums).
+<Note>
+
+You can also use the `enum` type across multiple subgraphs. For details, see [Merging types from multiple subgraphs](composition#enums).
+
+</Note>
 
 ### Challenges with shared interfaces
 
@@ -589,7 +609,7 @@ To prevent this error, all implementing types across all subgraphs need to be up
 
 Apollo Federation 2.3 introduces a powerful abstraction mechanism for interfaces, enabling you to add interface fields across subgraphs without needing to update every single implementing type.
 
-> [Learn more about entity interfaces.](./interfaces/)
+[Learn more about entity interfaces.](./interfaces/)
 
 ## Input types
 

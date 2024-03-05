@@ -31,7 +31,11 @@ graph LR;
   class studio secondary;
 ```
 
-> Individual subgraphs do not push trace data directly to Studio.
+<Note>
+
+Individual subgraphs do not push trace data directly to Studio.
+
+</Note>
 
 Traces are displayed in Studio in the shape of the query plan, with each unique fetch to a subgraph reporting timing and error data.
 
@@ -41,7 +45,7 @@ Operation-level statistics are still collected for operations sent by clients, a
 
 To enable federated tracing, you [set the `APOLLO_KEY` environment variable](/apollo-server/monitoring/metrics/#connecting-to-graphos) in your gateway's environment. Do not set this environment variable for your subgraph servers.
 
-> If other features require you to set `APOLLO_KEY` in your subgraph servers, [disable usage reporting](/apollo-server/api/plugin/usage-reporting/#disabling-the-plugin) in those servers.
+If other features require you to set `APOLLO_KEY` in your subgraph servers, [disable usage reporting](/apollo-server/api/plugin/usage-reporting/#disabling-the-plugin) in those servers.
 
 Also ensure that all instances of Apollo Server in your graph are using an up-to-date version of the `@apollo/server` library.
 
@@ -66,4 +70,4 @@ View full details at https://studio.apollographql.com/graph/docs-example-graph/s
 
 This command includes a link to an Apollo Studio page that provides additional information about your subgraphs.
 
-> If you're using the [Apollo CLI](https://www.apollographql.com/docs/devtools/cli/), run `apollo service:list` instead.
+If you're using the [Apollo CLI](https://www.apollographql.com/docs/devtools/cli/), run `apollo service:list` instead.

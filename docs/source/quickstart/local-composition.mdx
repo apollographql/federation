@@ -40,7 +40,11 @@ These URLs might theoretically differ. The YAML file also supports providing a s
 
 Now that our configuration file is ready, we can compose our supergraph schema. To do that, we'll use Rover's `supergraph compose` command.
 
-> [Haven't installed the latest version of Rover?](./setup/#install-the-rover-cli)
+<Tip>
+
+[Haven't installed the latest version of Rover?](./setup/#install-the-rover-cli)
+
+</Tip>
 
 From your project directory, run the following command in your terminal:
 
@@ -209,11 +213,15 @@ To provide a Rover-composed supergraph schema to our router, we pass it as a com
 ./router --supergraph=supergraph.graphql
 ```
 
-> For brevity, we're skipping setting the `APOLLO_KEY` environment variable here. It isn't required if you provide your schema with `--supergraph`, however you do need to provide it to enable federated trace reporting.
+<Note>
+
+For brevity, we're skipping setting the `APOLLO_KEY` environment variable here. It isn't required if you provide your schema with `--supergraph`, however you do need to provide it to enable federated trace reporting.
+
+</Note>
 
 This time, the router reads your static supergraph schema from a file. This does not communicate with Apollo Studio, which means it's well suited to local development or CI environments where you don't want to introduce an external dependency.
 
-> [Learn more about router configuration options.](/router/configuration/overview/)
+[Learn more about router configuration options.](/router/configuration/overview/)
 
 ---
 
