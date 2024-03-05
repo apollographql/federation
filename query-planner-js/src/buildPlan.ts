@@ -1776,11 +1776,12 @@ export class GroupPath {
     private readonly pathInGroup: OperationPath,
     private readonly responsePath: ResponsePath,
     private readonly typeConditionedFetching: boolean,
+    private typeConditions: Set<string>
   ) {
   }
 
   static empty(typeConditionedFetching: boolean): GroupPath {
-    return new GroupPath([], [], [], typeConditionedFetching);
+    return new GroupPath([], [], [], typeConditionedFetching, new Set());
   }
 
   inGroup(): OperationPath {
@@ -1801,6 +1802,7 @@ export class GroupPath {
       newGroupContext,
       this.responsePath,
       this.typeConditionedFetching,
+      this.typeConditions,
     );
   }
 
@@ -1814,17 +1816,25 @@ export class GroupPath {
       concatOperationPaths(pathOfGroupInParent, filterOperationPath(this.pathInGroup, parentSchema)),
       this.responsePath,
       this.typeConditionedFetching,
+      this.typeConditions,
     );
   }
 
   // TODO: make it private again once everything works
-  /* private */ updatedResponsePath(element: OperationElement) {
+  /* private */ updatedResponsePath(element: OperationElement): ResponsePath {
     // TODO: learn proper casting + test against interface
     if (this.typeConditionedFetching && element.kind === 'FragmentElement' && !!element.typeCondition) {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const newPath = this.responsePath.concat(`[${element.typeCondition!.name}]`);
-      return newPath;
+      this.typeConditions.add(element.typeCondition!.name);
+      return this.responsePath;
+    } else if (this.typeConditions.size > 0) {
+      // TODO: sort
+      const conditions = `[${Array.from(this.typeConditions.values()).join(',')}]`;
+      const lastPath = `${this.responsePath.pop()||''}${conditions}`;
+      this.responsePath.push(lastPath);
+      this.typeConditions.clear();
     }
+
     if (element.kind !== 'Field') {
       return this.responsePath;
     }
@@ -1846,6 +1856,7 @@ export class GroupPath {
       this.pathInGroup.concat(element),
       this.updatedResponsePath(element),
       this.typeConditionedFetching,
+      this.typeConditions,
     );
   }
 
