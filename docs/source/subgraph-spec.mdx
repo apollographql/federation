@@ -26,7 +26,7 @@ If your GraphQL server library is code-first instead of schema-first (i.e., it a
 </Note>
 
 ```graphql {1-4}
-# ⚠️ This definition must be created dynamically! The union
+# ⚠️ This definition must be created dynamically. The union
 #   must include every object type in the schema that uses
 #   the @key directive (i.e., all federated entities).
 union _Entity
@@ -92,7 +92,7 @@ query {
 
 <Caution>
 
-Apollo strongly recommends against dynamic composition in the graph router! Dynamic composition can cause unexpected downtime if composition fails on router startup. Nevertheless, supporting this use case is still a requirement for subgraph libraries.
+Apollo strongly recommends against dynamic composition in the graph router. Dynamic composition can cause unexpected downtime if composition fails on router startup. Nevertheless, supporting this use case is still a requirement for subgraph libraries.
 
 </Caution>
 

@@ -40,7 +40,7 @@ If you're using Apollo Server as your subgraph library, see [Implementing a subg
 
 Implement any necessary firewall rules, access control lists, or other security measures in your environment to ensure that only your supergraph's router can access your individual subgraphs.
 
-Clients should never query a subgraph directly! Instead, clients should always query your router, which resolves those queries by communicating with your subgraphs.
+Clients should never query a subgraph directly. Instead, clients should always query your router, which resolves those queries by communicating with your subgraphs.
 
 There are many reasons for this:
 

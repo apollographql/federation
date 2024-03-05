@@ -132,7 +132,7 @@ To make `Position.z` shareable, you can do one of the following:
 
 - Mark the entire `extend` declaration with `@shareable`.
 
-    - This strategy requires targeting `v2.2` or later of the Apollo Federation specification in your subgraph schema! Earlier versions do not support applying `@shareable` to the same object type multiple times.
+    - This strategy requires targeting `v2.2` or later of the Apollo Federation specification in your subgraph schema. Earlier versions do not support applying `@shareable` to the same object type multiple times.
 
     ```graphql
     extend schema
@@ -197,7 +197,7 @@ type Position @shareable {
 
 </CodeColumns>
 
-The `x` and `y` fields are non-nullable in Subgraph A, but they're nullable in Subgraph B. This is valid! Composition recognizes that it can use the following definition for `Position` in the supergraph schema:
+The `x` and `y` fields are non-nullable in Subgraph A, but they're nullable in Subgraph B. This is valid. Composition recognizes that it can use the following definition for `Position` in the supergraph schema:
 
 
 ```graphql title="Supergraph schema"
@@ -221,7 +221,7 @@ Arguments for a shared field can differ between subgraphs in certain ways:
 
 * If an argument is required in at least one subgraph, it can be optional in other subgraphs. It cannot be omitted.
 * If an argument is optional in every subgraph where it's defined, it is technically valid to omit it in other subgraphs. However:
-    * ⚠️ If a field argument is omitted from any subgraph, that argument is omitted from the supergraph schema entirely! This means that clients can't provide the argument for that field.
+    * ⚠️ If a field argument is omitted from any subgraph, that argument is omitted from the supergraph schema entirely. This means that clients can't provide the argument for that field.
 
 <p style="margin-bottom: 0">✅</p>
 

@@ -130,7 +130,7 @@ Let's break this example down:
 
 <Note>
 
-A particular reference resolver might be called many times to resolve a single query! It's crucial that reference resolvers account for "N+1" issues (typically via [data loaders](https://github.com/graphql/dataloader)). For details, see [Handling the N+1 problem](./entities-advanced#handling-the-n1-problem).
+A particular reference resolver might be called many times to resolve a single query. It's crucial that reference resolvers account for "N+1" issues (typically via [data loaders](https://github.com/graphql/dataloader)). For details, see [Handling the N+1 problem](./entities-advanced#handling-the-n1-problem).
 
 </Note>
 
@@ -190,7 +190,7 @@ type Review {
 }
 ```
 
-This is possible! However, this subgraph schema is currently invalid because it doesn't define the `Product` entity.
+This is possible. However, this subgraph schema is currently invalid because it doesn't define the `Product` entity.
 
 To fix this, we can add a stub of the `Product` entity to the Reviews schema, like so:
 
@@ -261,7 +261,7 @@ query GetReviewsWithProducts {
 }
 ```
 
-Here we have a problem: this query needs to start its execution in the Reviews subgraph (because that's where `latestReviews` is defined), but that subgraph doesn't know that `Product` entities have a `price` field! Remember, the Reviews subgraph only knows about the `id` field of `Product`.
+Here we have a problem: this query needs to start its execution in the Reviews subgraph (because that's where `latestReviews` is defined), but that subgraph doesn't know that `Product` entities have a `price` field. Remember, the Reviews subgraph only knows about the `id` field of `Product`.
 
 Because of this, the router needs to fetch `price` from the Products subgraph instead. To handle this two-step process, the router generates a _query plan_.
 
@@ -294,7 +294,7 @@ query {
 }
 ```
 
-Notice that this query omits the `Product.price` field but adds the `Product.__typename` field! This is because the router needs representations of each returned `Product` entity for its second query.
+Notice that this query omits the `Product.price` field but adds the `Product.__typename` field. This is because the router needs representations of each returned `Product` entity for its second query.
 
 <Note>
 

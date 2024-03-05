@@ -50,14 +50,14 @@ type Query {
 
 </CodeColumns>
 
-This example is short, but there's a lot to it! Let's break it down:
+This example is short, but there's a lot to it. Let's break it down:
 
 - **Subgraph A** defines the `Media` interface, along with the implementing `Book` entity.
     - The `Media` interface uses the `@key` directive, which makes it an entity interface.
     - This usage requires that all objects implementing `Media` are entities, and that those entities all use the specified `@key`(s).
     - As shown, `Book` is an entity and it does use the single specified `@key`.
 - **Subgraph B** wants to add a `reviews` field to every entity that implements `Media`.
-    - To achieve this, Subgraph B also defines `Media`, but as an object type! [Learn why this is necessary](#why-is-interfaceobject-necessary).
+    - To achieve this, Subgraph B also defines `Media`, but as an object type. [Learn why this is necessary](#why-is-interfaceobject-necessary).
     - Subgraph B applies the `@interfaceObject` directive to `Media`, which indicates that the object corresponds to another subgraph's entity interface.
     - Subgraph B applies the exact same `@key`(s) to `Media` that Subgraph A does, and it also defines all `@key` fields (in this case, just `id`).
     - Subgraph B defines the new `Media.reviews` field.
@@ -228,11 +228,11 @@ type Query {
 
 Subgraph B needs to define a resolver for the new `topRatedMedia` field, along with any other fields that return the `Media` type.
 
-Remember: from the perspective of Subgraph B, `Media` is an object! Therefore, you create resolvers for it using the same sort of logic that you would use for any other object. Subgraph B only needs to be able to resolve the `Media` fields that it knows about (`id` and `reviews`).
+Remember: from the perspective of Subgraph B, `Media` is an object. Therefore, you create resolvers for it using the same sort of logic that you would use for any other object. Subgraph B only needs to be able to resolve the `Media` fields that it knows about (`id` and `reviews`).
 
 ##### Reference resolver
 
-Notice that in Subgraph B, `Media` is an object type with `@key` applied. Therefore, it's a standard entity! As with any entity definition, it also requires a corresponding reference resolver:
+Notice that in Subgraph B, `Media` is an object type with `@key` applied. Therefore, it's a standard entity. As with any entity definition, it also requires a corresponding reference resolver:
 
 ```js
 Media: {
