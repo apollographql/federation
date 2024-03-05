@@ -51,7 +51,7 @@ npm install \
 
 </ExpansionPanel>
 
-**Most importantly, subgraphs and monoliths _must_ install `@opentelemetry/instrumentation-graphql`, and gateways _must not_ install it.**
+Most importantly, subgraphs and monoliths _must_ install `@opentelemetry/instrumentation-graphql`, and gateways _must not_ install it.
 
 As shown above, most `@opentelemetry` libraries have reached `1.0`. The instrumentation packages listed above are compatible at the time of this writing.
 
@@ -63,7 +63,7 @@ If you're using OpenTelemetry in your federated gateway, also update the `@apoll
 
 Next, update your application to configure your OpenTelemetry instrumentation _as early as possible in your app's execution_. This _must_ occur before you even import `@apollo/server`, `express`, or `http`. Otherwise, your trace data will be incomplete.
 
-**We recommend putting this configuration in its own file**, which you import at the very top of `index.js`. A sample file is provided below (note the lines that should either be deleted or uncommented).
+We recommend putting this configuration in its own file, which you import at the very top of `index.js`. A sample file is provided below (note the lines that should either be deleted or uncommented).
 
 ```js title="open-telemetry.js"
 // Import required symbols
@@ -73,7 +73,7 @@ const { NodeTracerProvider } = require("@opentelemetry/sdk-trace-node");
 const { registerInstrumentations } = require('@opentelemetry/instrumentation');
 const { HttpInstrumentation } = require ('@opentelemetry/instrumentation-http');
 const { ExpressInstrumentation } = require ('@opentelemetry/instrumentation-express');
-// **DELETE IF SETTING UP A GATEWAY, UNCOMMENT OTHERWISE**
+// DELETE IF SETTING UP A GATEWAY, UNCOMMENT OTHERWISE
 // const { GraphQLInstrumentation } = require ('@opentelemetry/instrumentation-graphql');
 
 // Register server-related instrumentation
@@ -81,7 +81,7 @@ registerInstrumentations({
   instrumentations: [
     new HttpInstrumentation(),
     new ExpressInstrumentation(),
-    // **DELETE IF SETTING UP A GATEWAY, UNCOMMENT OTHERWISE**
+    // DELETE IF SETTING UP A GATEWAY, UNCOMMENT OTHERWISE
     //new GraphQLInstrumentation()
   ]
 });
@@ -244,7 +244,7 @@ You can learn more about using the `OTLPTraceExporter` in the [instrumentation d
 
 The `@opentelemetry/instrumentation-graphql` library enables subgraphs and monoliths to emit the following spans as part of [OpenTelemetry traces](https://opentelemetry.io/docs/concepts/data-sources/#traces):
 
-> **Reminder:** Federated gateways _must not_ install the `@opentelemetry/instrumentation-graphql` library, so these spans are _not_ included in its traces.
+> Reminder: Federated gateways _must not_ install the `@opentelemetry/instrumentation-graphql` library, so these spans are _not_ included in its traces.
 
 | Name | Description |
 |------|-------------|

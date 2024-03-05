@@ -19,7 +19,7 @@ graph TB;
   class composition tertiary;
 ```
 
-* **Subgraph schemas.** Each **subgraph** has a distinct schema that indicates _which_ types and fields of your composed **supergraph** it can resolve.
+* **Subgraph schemas.** Each subgraph has a distinct schema that indicates _which_ types and fields of your composed supergraph it can resolve.
     * These are the only schemas that your teams define manually.
 * **Supergraph schema.** This schema combines all of the types and fields from your subgraph schemas, _plus_ some federation-specific information that tells your router which subgraphs can resolve which fields.
     * This schema is the result of performing [composition](./composition/) on your collection of subgraph schemas.

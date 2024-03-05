@@ -3,7 +3,7 @@ title: Schema composition
 description: In Apollo Federation
 ---
 
-In Apollo Federation, **composition** is the process of combining a set of [subgraph schemas](./overview/#subgraph-schemas) into a [supergraph schema](./overview/#supergraph-schema):
+In Apollo Federation, _composition_ is the process of combining a set of [subgraph schemas](./overview/#subgraph-schemas) into a [supergraph schema](./overview/#supergraph-schema):
 
 ```mermaid
 graph TB;
@@ -61,7 +61,7 @@ To learn how to install Rover and use this command, see the [quickstart](../quic
 
 ## Breaking composition
 
-Sometimes, your subgraph schemas might _conflict_ in a way that causes composition to fail. This is called **breaking composition**.
+Sometimes, your subgraph schemas might _conflict_ in a way that causes composition to fail. This is called _breaking composition_.
 
 For example, take a look at these two subgraph schemas:
 
@@ -89,12 +89,12 @@ One subgraph defines `Event.timestamp` as a `String`, and the other defines it a
 Breaking composition is a helpful feature of federation! Whenever a team modifies their subgraph schema, those changes might conflict with _another_ subgraph. But that conflict won't affect your router, because composition fails to generate a new supergraph schema. It's like a compiler error that prevents you from running invalid code.
 
 ## Rules of composition
-In Federation 2, your subgraph schemas must follow **all** of these rules to successfully compose into a supergraph schema:
+In Federation 2, your subgraph schemas must follow all of these rules to successfully compose into a supergraph schema:
 
 * Multiple subgraphs can't define the same field on an object type, _unless_ that field is [shareable](./sharing-types/#using-shareable).
 * A shared field must have both a compatible return type _and_ compatible argument types across each defining subgraph.
     * For examples of compatible and incompatible differences between subgraphs, see [Differing shared fields](./sharing-types/#differing-shared-fields).
-* If multiple subgraphs define the same type, each field of that type must be **resolvable** by _every valid GraphQL operation that includes it_.
+* If multiple subgraphs define the same type, each field of that type must be resolvable by _every valid GraphQL operation that includes it_.
     * This rule is the most complex and the most essential to Federation 2. [Let's look at it more closely.](#unresolvable-field-example)
 
 ### Unresolvable field example
@@ -139,7 +139,7 @@ Note the following about these two subgraphs:
 * They both define a top-level `Query` field that returns a `Position`.
 * Subgraph B's `Position` includes a `z` field, whereas Subgraph A's definition only includes shared `x` and `y` fields.
 
-Individually, these subgraph schemas are perfectly valid. However, if they're combined, **they break composition**. Why?
+Individually, these subgraph schemas are perfectly valid. However, if they're combined, they break composition. Why?
 
 The composition process attempts to merge inconsistent type definitions into a _single_ definition for the supergraph schema. In this case, the resulting definition for `Position` exactly matches Subgraph B's definition:
 
@@ -174,9 +174,9 @@ query GetPosition {
 }
 ```
 
-**Here's our problem.** Only Subgraph A can resolve `Query.positionA`, because Subgraph B doesn't define the field. But Subgraph A _doesn't_ define `Position.z`!
+Here's our problem. Only Subgraph A can resolve `Query.positionA`, because Subgraph B doesn't define the field. But Subgraph A _doesn't_ define `Position.z`!
 
-If the router sent this query to Subgraph A, it would return an error. And without extra configuration, Subgraph B can't resolve a `z` value for a `Position` in Subgraph A. Therefore, `Position.z` is **unresolvable** for this query.
+If the router sent this query to Subgraph A, it would return an error. And without extra configuration, Subgraph B can't resolve a `z` value for a `Position` in Subgraph A. Therefore, `Position.z` is unresolvable for this query.
 
 Composition recognizes this potential issue, and it fails. The hypothetical supergraph schema above would never actually be generated.
 
@@ -240,16 +240,16 @@ type User @key(fields: "id") {
 
 </CodeColumns>
 
-If you make a shared type an [entity](../entities/), different subgraphs can define any number of different fields for that type, as long as they all define **key fields** for it.
+If you make a shared type an [entity](../entities/), different subgraphs can define any number of different fields for that type, as long as they all define key fields for it.
 
 This is a useful solution when a type corresponds closely to an entry in a data store that one or more of your subgraphs has access to (e.g., a `Users` database).
 
 ## Merging types from multiple subgraphs
 
-If a particular GraphQL type is defined _differently_ by different subgraphs, composition uses one of two strategies to merge those definitions: **union** or **intersection**.
+If a particular GraphQL type is defined _differently_ by different subgraphs, composition uses one of two strategies to merge those definitions: _union_ or _intersection_.
 
-* **Union**: The supergraph schema includes _all_ parts of _all_ subgraph definitions for the type.
-* **Intersection:** The supergraph schema includes _only_ the parts of the type that are present in _every_ subgraph that defines the type.
+* Union: The supergraph schema includes _all_ parts of _all_ subgraph definitions for the type.
+* Intersection: The supergraph schema includes _only_ the parts of the type that are present in _every_ subgraph that defines the type.
 
 The merging strategy that composition uses for a particular type depends on the type, as described below.
 
@@ -361,9 +361,13 @@ type Library {
 
 As you can see, the supergraph schema includes only the input fields and arguments that _both_ subgraphs define.
 
-> ⚠️ **Important:** If the intersection strategy would omit an input field or argument that is _non-nullable_, **composition fails**. This is because at least one subgraph _requires_ that field or argument, and the router can't provide it if it's omitted from the supergraph schema.
->
-> When defining input types and field arguments in multiple subgraphs, make sure that every non-nullable field and argument is consistent in _every subgraph_. For examples, see [Arguments](sharing-types#arguments).
+<Note>
+
+If the intersection strategy would omit an input field or argument that is _non-nullable_, composition fails. This is because at least one subgraph _requires_ that field or argument, and the router can't provide it if it's omitted from the supergraph schema.
+
+When defining input types and field arguments in multiple subgraphs, make sure that every non-nullable field and argument is consistent in _every subgraph_. For examples, see [Arguments](sharing-types#arguments).
+
+</Note>
 
 ### Enums
 
@@ -373,7 +377,7 @@ If an enum definition differs between subgraphs, the [composition strategy](#mer
 |----------|----------|
 | The enum is used as the return type for at least one object or interface field. | [Union](#union) |
 | The enum is used as the type for at least one field argument or input type field. | [Intersection](#intersection) |
-| **Both** of the above are true. | All definitions must [match **exactly**](#exact-match) |
+| Both of the above are true. | All definitions must [match exactly](#exact-match) |
 
 Examples of these scenarios are provided below.
 
@@ -507,7 +511,7 @@ In this case, the `Color` enum is used as _both_:
 * The return type of at least one object field
 * The type of at least one field argument (or input type field)
 
-Therefore, the definition of the `Color` enum **must match exactly** in every subgraph that defines it. An exact match is the only scenario that enables union _and_ intersection to produce the same result.
+Therefore, the definition of the `Color` enum must match exactly in every subgraph that defines it. An exact match is the only scenario that enables union _and_ intersection to produce the same result.
 
 The subgraph schemas above _do not compose_, because their definitions of the `Color` enum differ.
 

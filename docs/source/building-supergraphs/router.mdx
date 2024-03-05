@@ -3,7 +3,7 @@ title: The router
 description: The entry point to your supergraph
 ---
 
-After you set up at least one federation-ready [subgraph](./subgraphs-overview/), you can configure a **router** (formerly known as a gateway) to sit in front of your subgraphs. The router serves as the entry point to your supergraph, and it executes incoming operations across one or more of your subgraphs:
+After you set up at least one federation-ready [subgraph](./subgraphs-overview/), you can configure a _router_ (formerly known as a gateway) to sit in front of your subgraphs. The router serves as the entry point to your supergraph, and it executes incoming operations across one or more of your subgraphs:
 
 ```mermaid
 graph LR;
@@ -22,18 +22,22 @@ graph LR;
 
 Apollo actively supports the following options for your router:
 
-- **The Apollo Router (recommended):** This is a high-performance, precompiled Rust binary.
+- The Apollo Router (recommended): This is a high-performance, precompiled Rust binary.
 
-    > If you're getting started with federation, we recommend [creating a **cloud supergraph**](/graphos/quickstart/cloud/) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages your router for you!
+    > If you're getting started with federation, we recommend [creating a cloud supergraph](/graphos/quickstart/cloud/) with Apollo GraphOS. With a cloud supergraph, GraphOS provisions and manages your router for you!
 
     You can also host your own Apollo Router instances:
 
     - [Go to the Apollo Router docs.](/router/quickstart/)
     - [See the federation quickstart](../quickstart/setup/) (which uses the Apollo Router).
-- **Apollo Server:** Apollo Server can act as your router via the [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) extension library.
+- Apollo Server: Apollo Server can act as your router via the [`@apollo/gateway`](https://www.npmjs.com/package/@apollo/gateway) extension library.
     - [See how to set up Apollo Gateway](/apollo-server/using-federation/apollo-gateway-setup).
 
-**We recommend starting with the Apollo Router.** It's faster to configure, it's more performant (especially with high request loads), and it rarely requires writing custom code.
+<Tip>    
+
+Apollo recommends starting with the Apollo Router. It's faster to configure, more performant (especially with high request loads), and it rarely requires writing custom code.
+
+</Tip>
 
 <ExpansionPanel title="When should I use Apollo Server?">
 
@@ -43,4 +47,4 @@ Regardless of which library you start with, you can swap to the other without ma
 
 </ExpansionPanel>
 
-**If you'll use the Apollo Router,** get started with the resources linked above. If you'll use Apollo Server, see [Setting up Apollo Gateway](/apollo-server/using-federation/apollo-gateway-setup).
+If you'll use the Apollo Router, get started with the resources linked above. If you'll use Apollo Server, see [Setting up Apollo Gateway](/apollo-server/using-federation/apollo-gateway-setup).

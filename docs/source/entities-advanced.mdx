@@ -12,7 +12,7 @@ Depending on your entities' fields and usage, you may need to use more advanced 
 
 ### Compound `@key`s
 
-A single `@key` can consist of multiple fields, the combination of which uniquely identifies an entity. This is called a **compound** or composite key. In the following example, the combination of both `username` and `domain` fields is required to uniquely identify the `User` entity:
+A single `@key` can consist of multiple fields, the combination of which uniquely identifies an entity. This is called a _compound_ or _composite key_. In the following example, the combination of both `username` and `domain` fields is required to uniquely identify the `User` entity:
 
 ```graphql {1} title="Users subgraph"
 type User @key(fields: "username domain") {
@@ -23,7 +23,7 @@ type User @key(fields: "username domain") {
 
 #### Nested fields in compound `@key`s
 
-Compound keys can also include _nested_ fields. In the following example, the `User` entity's `@key` consists of both a user's `id` _and_ the `id` of that user's associated `Organization`:
+Compound keys can also include nested fields. In the following example, the `User` entity's `@key` consists of both a user's `id` and the `id` of that user's associated `Organization`:
 
 ```graphql {1} title="Users subgraph"
 type User @key(fields: "id organization { id }") {
@@ -52,7 +52,7 @@ type Product @key(fields: "id") @key(fields: "sku") {
 ```
 <blockquote>
 
-**Note:** If you include multiple sets of `@key` fields, the query planner uses the most efficient set for entity resolution. For example, suppose you allow a type to be identified by `@key(fields: "id")` _or_ `@key(fields: "id sku")`:
+Note: If you include multiple sets of `@key` fields, the query planner uses the most efficient set for entity resolution. For example, suppose you allow a type to be identified by `@key(fields: "id")` _or_ `@key(fields: "id sku")`:
 
 ```graphql {1}
 type Product @key(fields: "id") @key(fields: "id sku") {
@@ -154,7 +154,7 @@ type Product @key(fields: "upc") {
 
 #### Operations with differing `@key`s
 
-Differing keys across subgraphs affect which of the entity's fields can be resolved from each subgraph. Requests can resolve fields **if there is a traversable path from the root query to the fields**.
+Differing keys across subgraphs affect which of the entity's fields can be resolved from each subgraph. Requests can resolve fields if there is a traversable path from the root query to the fields.
 
 Take these subgraph schemas as an example:
 
@@ -599,7 +599,7 @@ For an example implementation of a coprocessor that resolves labels using Launch
 
 Using `@override` to migrate entity fields enables us to migrate fields incrementally with zero downtime. However, doing so requires three separate schema publishes. If you're using [manual composition](./federated-types/composition#manually-with-the-rover-cli), each schema change requires redeploying your router. With careful coordination, we can perform the same migration with only a _single_ router redeploy.
 
-1. In the Billing subgraph, define the `Bill` entity, along with its corresponding resolvers. **These new resolvers should behave identically to the Payment subgraph resolvers they're replacing.**
+1. In the Billing subgraph, define the `Bill` entity, along with its corresponding resolvers. These new resolvers should behave identically to the Payment subgraph resolvers they're replacing.
 
     <CodeColumns>
 
@@ -624,11 +624,11 @@ Using `@override` to migrate entity fields enables us to migrate fields incremen
 
     </CodeColumns>
 
-2. Deploy the updated Billing subgraph to your environment, but **do not publish the updated schema yet**.
+2. Deploy the updated Billing subgraph to your environment, but do not publish the updated schema yet.
 
     * At this point, the Billing subgraph can successfully resolve `Bill` objects, but the router doesn't _know_ this yet because its supergraph schema hasn't been updated. Publishing the schema would cause a composition error.
 
-3. In the Payments subgraph, remove the migrated fields from the `Bill` entity and their associated resolvers (**do not deploy this change yet**):
+3. In the Payments subgraph, remove the migrated fields from the `Bill` entity and their associated resolvers (do not deploy this change yet):
 
     <CodeColumns>
 
@@ -658,7 +658,7 @@ Using `@override` to migrate entity fields enables us to migrate fields incremen
 5. Assuming CI completes successfully, deploy an updated version of your _router_ with the new supergraph schema.
     * When this deployment completes, the router begins resolving `Bill` fields in the Billing subgraph _instead of_ the Payments subgraph.
 
-    > ⚠️ While your new router instances are deploying, you will probably have active router instances resolving the `Bill.amount` field in two different ways (with older instances still resolving it from Payments). It's important that the two subgraphs resolve the field in **exactly the same way**, or your clients might see inconsistent data during this rollover.
+    > ⚠️ While your new router instances are deploying, you will probably have active router instances resolving the `Bill.amount` field in two different ways (with older instances still resolving it from Payments). It's important that the two subgraphs resolve the field in exactly the same way, or your clients might see inconsistent data during this rollover.
 
 6. Deploy the updated version of your Payments subgraph without the migrated field.
     * At this point it's safe to remove this definition, because your router instances are using the Billing subgraph exclusively.
@@ -736,7 +736,7 @@ type Product @key(fields: "id") {
 
 By default, exactly one subgraph is responsible for resolving each field in your supergraph schema (with important exceptions, like entity `@key` fields). But sometimes, _multiple_ subgraphs are able to resolve a particular entity field, because all of those subgraphs have access to a particular data store. For example, an Inventory subgraph and a Products subgraph might both have access to the database that stores all product-related data.
 
-You can enable multiple subgraphs to resolve a particular entity field. **This is a completely optional optimization.** When the router plans a query's execution, it looks at which fields are available from each subgraph. It can then attempt to optimize performance by executing the query across the fewest subgraphs needed to access all required fields.
+You can enable multiple subgraphs to resolve a particular entity field. This is a completely optional optimization. When the router plans a query's execution, it looks at which fields are available from each subgraph. It can then attempt to optimize performance by executing the query across the fewest subgraphs needed to access all required fields.
 
 You achieve this with one of the following directives:
 
@@ -757,7 +757,7 @@ If you aren't sure whether your subgraph can _always_ resolve a field, see [Usin
 
 ### Ensure resolver consistency
 
-If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results to clients depending on which subgraph resolves the field.
+If multiple subgraphs can resolve a field, make sure each subgraph's resolver for that field behaves identically. Otherwise, queries might return inconsistent results to clients depending on which subgraph resolves the field.
 
 This is especially important to keep in mind when making changes to an _existing_ resolver. If you don't make the resolver changes to each subgraph simultaneously, clients might observe inconsistent results.
 
@@ -842,7 +842,7 @@ Violating any of these rules causes composition to fail.
 
 ## Handling the N+1 problem
 
-Most subgraph implementations use **reference resolvers** (sometimes known as entity resolvers) to handle the `Query._entities` field ergonomically. A reference resolver is passed a single key and returns the entity object that corresponds to that key.
+Most subgraph implementations use _reference resolvers_ (sometimes known as _entity resolvers_) to handle the `Query._entities` field ergonomically. A reference resolver is passed a single key and returns the entity object that corresponds to that key.
 
 Although this pattern is straightforward, it can diminish performance when a client operation requests fields from _many_ entities. To illustrate this, let's revisit an earlier example:
 
@@ -877,6 +877,6 @@ const resolvers = {
 }
 ```
 
-A basic implementation of the `fetchProductByID` function might make a database call each time it's called. If we need to resolve `Product.price` for `N` different products, this results in `N` database calls. These calls are made _in addition to_ the call made by the Reviews subgraph to fetch the initial list of reviews (and the `id` of each product). This is where the "N+1" problem gets its name. If not prevented, this problem can cause performance problems or even enable denial-of-service attacks.
+A basic implementation of the `fetchProductByID` function might make a database call each time it's called. If we need to resolve `Product.price` for `N` different products, this results in `N` database calls. These calls are made in addition to the call made by the Reviews subgraph to fetch the initial list of reviews (and the `id` of each product). This is where the "N+1" problem gets its name. If not prevented, this problem can cause performance problems or even enable denial-of-service attacks.
 
-This problem is not limited to reference resolvers! In fact, it can occur with any resolver that fetches from a data store. To handle this problem, we strongly recommend using [the dataloader pattern](https://github.com/graphql/dataloader). Nearly every GraphQL server library provides a dataloader implementation, and you should use it in **every resolver**. This is true even for resolvers that _aren't_ for entities and that _don't_ return a list. These resolvers can _still_ cause N+1 issues via [batched requests](/technotes/TN0021-graph-security/#batched-requests).
+This problem is not limited to reference resolvers! In fact, it can occur with any resolver that fetches from a data store. To handle this problem, we strongly recommend using [the dataloader pattern](https://github.com/graphql/dataloader). Nearly every GraphQL server library provides a dataloader implementation, and you should use it in every resolver. This is true even for resolvers that aren't for entities and that don't return a list. These resolvers can still cause N+1 issues via [batched requests](/technotes/TN0021-graph-security/#batched-requests).

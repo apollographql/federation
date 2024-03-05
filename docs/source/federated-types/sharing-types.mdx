@@ -14,7 +14,7 @@ type Position {
 }
 ```
 
-Types like this are called **value types**. This article describes how to share value types and their fields in federated graph, enabling multiple subgraphs to define and resolve them.
+Types like this are called _value types_. This article describes how to share value types and their fields in federated graph, enabling multiple subgraphs to define and resolve them.
 
 ## Sharing object types
 
@@ -89,7 +89,7 @@ Both subgraphs A _and_ B can now resolve the `x` and `y` fields for the `Positio
 #### ⚠️ Important considerations for `@shareable`
 
 * If a type or field is marked `@shareable` in _any_ subgraph, it must be marked either `@shareable` or [`@external`](./federated-directives/#external) in _every_ subgraph that defines it. Otherwise, composition fails.
-* If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
+* If multiple subgraphs can resolve a field, make sure each subgraph's resolver for that field behaves identically. Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
 
 #### Using `@shareable` with `extend`
 
@@ -124,7 +124,7 @@ To make `Position.z` shareable, you can do one of the following:
 
 - Mark the entire `extend` declaration with `@shareable`.
 
-    - **This strategy requires targeting `v2.2` or later of the Apollo Federation specification in your subgraph schema!** Earlier versions do not support applying `@shareable` to the same object type multiple times.
+    - This strategy requires targeting `v2.2` or later of the Apollo Federation specification in your subgraph schema! Earlier versions do not support applying `@shareable` to the same object type multiple times.
 
     ```graphql
     extend schema
@@ -163,7 +163,7 @@ type Event @shareable {
 
 </CodeColumns>
 
-Subgraph A's `timestamp` returns an `Int`, and Subgraph B's returns a `String`. **This is invalid.** When composition attempts to generate an `Event` type for the supergraph schema, it fails due to an unresolvable conflict between the two `timestamp` field definitions.
+Subgraph A's `timestamp` returns an `Int`, and Subgraph B's returns a `String`. This is invalid. When composition attempts to generate an `Event` type for the supergraph schema, it fails due to an unresolvable conflict between the two `timestamp` field definitions.
 
 Next, look at these varying definitions for the `Position` object type:
 
@@ -189,7 +189,7 @@ type Position @shareable {
 
 </CodeColumns>
 
-The `x` and `y` fields are _non-nullable_ in Subgraph A, but they're _nullable_ in Subgraph B. **This is valid!** Composition recognizes that it can use the following definition for `Position` in the supergraph schema:
+The `x` and `y` fields are _non-nullable_ in Subgraph A, but they're _nullable_ in Subgraph B. This is valid! Composition recognizes that it can use the following definition for `Position` in the supergraph schema:
 
 
 ```graphql title="Supergraph schema"
@@ -199,7 +199,7 @@ type Position {
 }
 ```
 
-This definition works for querying Subgraph A, because Subgraph A's definition is _more restrictive_ than this (a non-nullable value is always valid for a nullable field). In this case, composition **coerces** Subgraph A's `Position` fields to satisfy the reduced restrictiveness of Subgraph B.
+This definition works for querying Subgraph A, because Subgraph A's definition is _more restrictive_ than this (a non-nullable value is always valid for a nullable field). In this case, composition coerces Subgraph A's `Position` fields to satisfy the reduced restrictiveness of Subgraph B.
 
 > Note that Subgraph A's actual subgraph schema is _not_ modified. Within Subgraph A, `x` and `y` remain non-nullable.
 
@@ -207,9 +207,9 @@ This definition works for querying Subgraph A, because Subgraph A's definition i
 
 Arguments for a shared field can differ between subgraphs in certain ways:
 
-* If an argument is _required_ in at least one subgraph, it can be _optional_ in other subgraphs. **It cannot be omitted.**
+* If an argument is _required_ in at least one subgraph, it can be _optional_ in other subgraphs. It cannot be omitted.
 * If an argument is _optional in every subgraph where it's defined_, it is _technically valid_ to omit it in other subgraphs. _However:_
-    * ⚠️ **If a field argument is omitted from any subgraph, that argument is omitted from the supergraph schema entirely!** This means that clients _can't_ provide the argument for that field.
+    * ⚠️ If a field argument is omitted from any subgraph, that argument is omitted from the supergraph schema entirely! This means that clients _can't_ provide the argument for that field.
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -316,7 +316,7 @@ type Position {
 
 </CodeColumns>
 
-**This definition works for Subgraph B, but it presents a problem for Subgraph A.** Let's say Subgraph A defines the following `Query` type:
+This definition works for Subgraph B, but it presents a problem for Subgraph A. Let's say Subgraph A defines the following `Query` type:
 
 <CodeColumns>
 
@@ -350,9 +350,9 @@ query GetCurrentPosition {
 
 </CodeColumns>
 
-And here's the problem: if Subgraph B _doesn't_ define `Query.currentPosition`, this query _must_ be executed on Subgraph A. But Subgraph A is missing the `Position.z` field, so that field is **unresolvable**!
+And here's the problem: if Subgraph B _doesn't_ define `Query.currentPosition`, this query _must_ be executed on Subgraph A. But Subgraph A is missing the `Position.z` field, so that field is unresolvable!
 
-**Composition recognizes this potential problem, and it fails with an error.** So how do we fix it? Check out [Solutions for unresolvable fields](./composition/#solutions-for-unresolvable-fields).
+Composition recognizes this potential problem, and it fails with an error. So how do we fix it? Check out [Solutions for unresolvable fields](./composition/#solutions-for-unresolvable-fields).
 
 ## Adding new shared fields
 

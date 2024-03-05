@@ -48,11 +48,15 @@ From your project directory, run the following command in your terminal:
 rover supergraph compose --config ./supergraph-config.yaml
 ```
 
-> ⚠️ **Important:** The first time you run this command with a Federation 2 YAML configuration, Rover installs a separate plugin and prompts you to accept the terms and conditions of the ELv2 license.
->
-> To automatically accept this prompt (especially important for CI environments), add `APOLLO_ELV2_LICENSE=accept` to the beginning of the command.
->
-> [Learn more about ELv2.](/resources/elastic-license-v2-faq/)
+<Note>
+
+The first time you run this command with a Federation 2 YAML configuration, Rover installs a separate plugin and prompts you to accept the terms and conditions of the ELv2 license.
+
+To automatically accept this prompt (especially important for CI environments), add `APOLLO_ELV2_LICENSE=accept` to the beginning of the command.
+
+[Learn more about ELv2.](/resources/elastic-license-v2-faq/)
+
+</Note>
 
 Rover outputs the following supergraph schema:
 

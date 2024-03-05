@@ -2,7 +2,7 @@
 title: Opt-in error reporting for managed federation
 ---
 
-You can configure your managed gateway to send error reports to Apollo via **out-of-band reporting**. These reports help Apollo improve the performance and reliability of managed federation.
+You can configure your managed gateway to send error reports to Apollo via _out-of-band reporting_. These reports help Apollo improve the performance and reliability of managed federation.
 
 ## Enabling reporting
 
@@ -14,7 +14,11 @@ APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT=https://outofbandreporter.api.apollographql
 
 The next time you start up your gateway, out-of-band error reporting is enabled.
 
-> **Note:** If you've enabled out-of-band reporting in the past, you might have specified a URL that is now deprecated. Double-check your configuration to make sure you've specified the URL listed above.
+<Note>
+
+If you've enabled out-of-band reporting in the past, you might have specified a URL that is now deprecated. Double-check your configuration to make sure you've specified the URL listed above.
+
+</Note>
 
 ## How it works
 

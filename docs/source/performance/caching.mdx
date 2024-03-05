@@ -102,7 +102,7 @@ query GetMissionWithCrew {
 }
 ```
 
-The response will be considered **not cacheable**.
+The response will be considered not cacheable.
 
 The `cache-control` header in the response from the astronauts subgraph will be `max-age=20, public` based on the cache hint applied to the `Astronaut` type, which will be taken into consideration when this subgraph responds to the `_entities` query from the gateway.
 

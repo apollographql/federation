@@ -2,7 +2,7 @@
 title: Changes from Federation 1 to Federation 2
 ---
 
-**Apollo Federation 2** provides developer experience improvements to the original specification for Apollo Federation (called **Federation 1** in these docs). If your organization has an existing Federation 1 graph, this article summarizes the benefits of [moving to Federation 2](./moving-to-federation-2/).
+Apollo Federation 2 provides developer experience improvements to the original specification for Apollo Federation (called _Federation 1_ in these docs). If your organization has an existing Federation 1 graph, this article summarizes the benefits of [moving to Federation 2](./moving-to-federation-2/).
 
 > If you're just getting started with Federation, check out the [Quickstart](../quickstart/setup/).
 
@@ -10,7 +10,7 @@ title: Changes from Federation 1 to Federation 2
 
 Before covering what's new, here's what _isn't_ changing in Federation 2:
 
-* Most importantly, **Federation 2 is backward compatible with most Federation 1 supergraphs.** You can probably move your existing supergraph to use Federation 2 composition without making any changes.
+* Most importantly, Federation 2 is backward compatible with most Federation 1 supergraphs. You can probably move your existing supergraph to use Federation 2 composition without making any changes.
     * Graphs that _do_ require changes are graphs that _should_ cause composition errors, but Federation 1 fails to detect them. [Learn more.](./backward-compatibility/#do-i-need-to-modify-my-subgraph-schemas-to-use-federation-2)
     * To take full advantage of Federation 2 features, you do need to make some changes to your subgraph schemas, but you can make these changes incrementally at your convenience. See [Moving to Apollo Federation 2](./moving-to-federation-2/).
 
@@ -19,13 +19,13 @@ Before covering what's new, here's what _isn't_ changing in Federation 2:
 
 ## More flexible composition
 
-**Federation 2 improves the flexibility and independence of your subgraph schemas.** New composition logic is more flexible compared to Federation 1, meaning teams can more confidently build out their subgraphs or migrate functionality between subgraphs.
+Federation 2 improves the flexibility and independence of your subgraph schemas. New composition logic is more flexible compared to Federation 1, meaning teams can more confidently build out their subgraphs or migrate functionality between subgraphs.
 
 Let's look at some examples!
 
 ## Value types
 
-In Federation 1, multiple subgraphs can define the same type, but those definitions must all be _identical_. These identical shared types are called **value types**:
+In Federation 1, multiple subgraphs can define the same type, but those definitions must all be _identical_. These identical shared types are called _value types_:
 
 <p style="margin-bottom: 0; font-weight: bold;">Fed. 1</p>
 
@@ -85,7 +85,7 @@ This flexibility is especially helpful when an organization has multiple standal
 #### Valid shared field differences between subgraphs
 
 * The return type of a shared field can vary in nullability (`String` / `String!`).
-* Types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always **resolvable**. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
+* Types can omit fields that are included in _other_ subgraphs, as long as every field in your supergraph is always resolvable. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
 
 > For details on how these field differences are handled, see [Differing shared fields](../federated-types/sharing-types/#differing-shared-fields).
 

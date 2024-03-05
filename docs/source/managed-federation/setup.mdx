@@ -10,7 +10,7 @@ This article describes how to connect your supergraph to [Apollo GraphOS](/graph
 
 ## 1. Get started
 
-First, complete the **Set up Apollo tools** step from [this tutorial](/graphos/quickstart/self-hosted#1-set-up-apollo-tools), including:
+First, complete the Set up Apollo tools step from [this tutorial](/graphos/quickstart/self-hosted#1-set-up-apollo-tools), including:
 
 - Creating an Apollo account
 - Creating a graph in Studio
@@ -34,7 +34,7 @@ graph LR;
   class registry secondary;
 ```
 
-**Do the following for each of your subgraphs**:
+Do the following for each of your subgraphs:
 
 1. Obtain the following values, which are required for the `rover subgraph publish` command:
 
@@ -51,7 +51,7 @@ graph LR;
     rover subgraph introspect http://localhost:4000 | rover subgraph publish my-graph@my-variant --name products --routing-url http://products-graphql.svc.cluster.local:4001/ --schema -
     ```
 
-As you register your subgraph schemas, the schema registry attempts to **compose** their latest versions into a single **supergraph schema**. Whenever composition succeeds, your managed router can fetch the latest supergraph schema from GraphOS.
+As you register your subgraph schemas, the schema registry attempts to compose their latest versions into a single supergraph schema. Whenever composition succeeds, your managed router can fetch the latest supergraph schema from GraphOS.
 
 You can also manually fetch your latest supergraph schema with the `rover supergraph fetch` command, or retrieve it from your graph's **Schema > SDL** tab in GraphOS Studio.
 

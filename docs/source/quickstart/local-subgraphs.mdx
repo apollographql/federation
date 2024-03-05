@@ -100,7 +100,7 @@ type Location
 
 As the federation-specific `@join__field` directive suggests, these fields of the same object type are defined across two _different_ subgraphs!
 
-This is possible because our Locations subgraph schema defines the `Location` object type as an **entity**. Entities are object types that multiple subgraphs can contribute fields to.
+This is possible because our Locations subgraph schema defines the `Location` object type as an _entity_. Entities are object types that multiple subgraphs can contribute fields to.
 
 It makes logical sense that the `reviews` field of a `Location` should be resolved by the Reviews subgraph instead of the Locations subgraph. This reflects the design principle of [separation of concerns](../#separation-of-concerns).
 
@@ -108,7 +108,7 @@ It makes logical sense that the `reviews` field of a `Location` should be resolv
 
 ## 3. Try out schema checks
 
-After you've registered your first subgraph schema, you can try out one of Apollo Studio's most powerful features: **schema checks**.
+After you've registered your first subgraph schema, you can try out one of Apollo Studio's most powerful features: _schema checks_.
 
 With schema checks, you can check whether some changes you want to make to your schema will affect any of the existing clients that use your supergraph. This feature is at its most powerful in your CI/CD environment, where you can automatically detect breaking schema changes before they're deployed to production.
 
@@ -118,4 +118,4 @@ With schema checks, you can check whether some changes you want to make to your 
 
 ---
 
-Congratulations, you've completed the federation quickstart! If you have any feedback or suggestions for this tutorial, please click **Rate article** on the right.
+Congratulations, you've completed the federation quickstart!

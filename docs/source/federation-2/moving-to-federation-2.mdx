@@ -5,7 +5,7 @@ description: Upgrade your supergraph incrementally at any pace
 
 > 📣 If you haven't yet, [see what's new in Federation 2.](./new-in-federation-2/)
 
-You can (and should!) move your Apollo Federation 1 supergraph to Federation 2 **incrementally**, one component at a time. Your supergraph will work as expected after each step in the process, even while some of your subgraphs continue using Federation 1 schemas.
+You can (and should!) move your Apollo Federation 1 supergraph to Federation 2 incrementally, one component at a time. Your supergraph will work as expected after each step in the process, even while some of your subgraphs continue using Federation 1 schemas.
 
 Each individual step of moving your supergraph has its own benefits, so it's useful to complete as many steps as you're ready to complete. You can always finish the rest later.
 
@@ -35,7 +35,7 @@ As with all infrastructure changes, we strongly recommend completing each of the
 
 For your Federation 1 supergraph to support Federation 2, you first need to upgrade its gateway to one of the following:
 
-- **The Apollo Router.** This is a high-performance, precompiled executable that provides many benefits over the Node.js-based gateway.
+- The Apollo Router. This is a high-performance, precompiled executable that provides many benefits over the Node.js-based gateway.
     - We recommend moving to the Apollo Router _unless_ you've extended your Node.js gateway with functionality that the Apollo Router doesn't currently support (this is uncommon).
 - Version 2.x of the `@apollo/gateway` library, with version 4.x of Apollo Server
 
@@ -56,7 +56,7 @@ You can install updated versions of these libraries in your gateway project with
 npm install @apollo/gateway graphql
 ```
 
-Apollo Server 3.x supports these updated library versions, however **Apollo Server 3.x is deprecated!** Therefore, we strongly recommend _also_ upgrading your gateway to Apollo Server 4.
+Apollo Server 3.x supports these updated library versions, however Apollo Server 3.x is deprecated! Therefore, we strongly recommend _also_ upgrading your gateway to Apollo Server 4.
 
 - [Learn how to migrate to Apollo Server 4.](/apollo-server/migration)
 - If you're still using Apollo Server 2.x, we recommend [migrating to v3.x ](/apollo-server/v3/migration) and _then_ migrating to 4.x.
@@ -147,7 +147,11 @@ Your Federation 1 subgraphs are now composed using Federation 2 composition! The
 
 ## Step 3: Update individual subgraphs
 
-> **You can update your subgraphs one at a time!** The steps below describe how to modify a single subgraph for Federation 2, and you can perform these steps for a given subgraph whenever's convenient for your team.
+<Note>
+
+You can update your subgraphs one at a time! The steps below describe how to modify a single subgraph for Federation 2, and you can perform these steps for a given subgraph whenever's convenient for your team.
+
+</Note>
 
 Federation 2 provides powerful new features that require making some changes to your subgraphs. These features include:
 
@@ -155,7 +159,7 @@ Federation 2 provides powerful new features that require making some changes to 
 * Safely migrating fields from one subgraph to another with [`@override`](../federated-types/federated-directives#override)
 * Hiding internal routing fields from graph consumers with [`@inaccessible`](../federated-types/federated-directives#inaccessible)
 
-The schema changes you make are **backward incompatible** with Federation 1, which means you won't be able to use Federation 1 composition anymore unless you revert those changes.
+The schema changes you make are backward incompatible with Federation 1, which means you won't be able to use Federation 1 composition anymore unless you revert those changes.
 
 ### Update your subgraph library
 
@@ -182,9 +186,13 @@ extend schema
 
 This definition identifies a schema as a Federation 2 schema, and it `import`s any federation-specific directives that the schema uses. _Without_ this `@link` definition, composition considers a schema to be a Federation 1 schema, and it applies certain default settings for backward compatibility.
 
-> ⚠️ **Important:** Depending on your schema, you might need to add other federated directives to the `import` array, such as `@external` or `@provides`.
->
-> [See all Federation-specific directives.](../federated-types/federated-directives/)
+<Note>
+
+Depending on your schema, you might need to add other federated directives to the `import` array, such as `@external` or `@provides`.
+
+[See all Federation-specific directives.](../federated-types/federated-directives/)
+
+</Note>
 
 ### Add directive definitions if needed
 

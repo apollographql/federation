@@ -3,7 +3,7 @@ title: Federation error codes
 sidebar_title: Error codes
 ---
 
-When Apollo Gateway attempts to **compose** the schemas provided by your [subgraphs](./building-supergraphs/subgraphs-overview/) into a **supergraph schema**, it confirms that:
+When Apollo Gateway attempts to _compose_ the schemas provided by your [subgraphs](./building-supergraphs/subgraphs-overview/) into a _supergraph schema_, it confirms that:
 
 * The subgraphs are valid
 * The resulting supergraph schema is valid

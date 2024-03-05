@@ -5,7 +5,7 @@ description: How your router plans operations across subgraphs
 
 > ⚠️ You definitely don't need to understand the details of query plans to get started with Apollo Federation! This information is provided primarily for advanced debugging purposes.
 
-Whenever your router receives an incoming GraphQL operation, it needs to figure out how to use your subgraphs to populate data for each of that operation's fields. To do this, the router generates a **query plan**:
+Whenever your router receives an incoming GraphQL operation, it needs to figure out how to use your subgraphs to populate data for each of that operation's fields. To do this, the router generates a _query plan_:
 
 ```mermaid
 flowchart TB;
@@ -117,7 +117,7 @@ This syntax probably looks confusing! 🤔 Let's break it down.
 
 ## Structure of a query plan
 
-A query plan is defined as a hierarchy of **nodes** that looks like a JSON or GraphQL document when serialized.
+A query plan is defined as a hierarchy of nodes that looks like a JSON or GraphQL document when serialized.
 
 At the top level of every query plan is the `QueryPlan` node:
 
@@ -405,14 +405,14 @@ When the router completes this merge, the resulting data exactly matches the str
 
 Like `Sequence` nodes, `Flatten` nodes appear whenever _one_ subgraph's response depends on data that first must be returned by _another_ subgraph. This almost always involves resolving entity fields that are defined across multiple subgraphs.
 
-In these situations, the `Flatten` node's `Fetch` needs to **resolve a reference** to an entity before fetching that entity's fields. When this is the case, the `Fetch` node uses a special syntax:
+In these situations, the `Flatten` node's `Fetch` needs to resolve a reference to an entity before fetching that entity's fields. When this is the case, the `Fetch` node uses a special syntax:
 
 ```graphql
 Flatten(path: "hotels.@") {
   Fetch(service: "reviews") {
     {
       ... on Hotel {
-        __typename
+        _typename
         id
       }
     } =>
@@ -427,9 +427,9 @@ Flatten(path: "hotels.@") {
 }
 ```
 
-Instead of containing a GraphQL operation, this `Fetch` node contains two **GraphQL fragments**, separated by `=>`.
+Instead of containing a GraphQL operation, this `Fetch` node contains two GraphQL fragments, separated by `=>`.
 
-* The first fragment is a **representation** of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](./entities/#2-define-a-reference-resolver).
+* The first fragment is a representation of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](./entities/#2-define-a-reference-resolver).
 * The second fragment contains the entity fields and subfields that the router needs the subgraph to resolve (in this case, `Hotel.reviews` and `Review.rating`).
 
 When the router sees this special `Fetch` syntax, it knows to query a subgraph's [`Query._entities` field](./building-supergraphs/subgraphs-overview/#query_entities). This field is what enables a subgraph to provide direct access to any available fields of an entity.
