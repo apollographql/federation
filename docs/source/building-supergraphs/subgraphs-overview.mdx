@@ -88,8 +88,8 @@ Whenever one subgraph references another subgraph's entity, it uses an entity re
 _entities(representations: [_Any!]!): [_Entity]!
 ```
 
-* The `_Any` type is a special scalar that enables you to provide entity representations of any valid shape.
-* The `_Entity` type is a generated [union type](/apollo-server/schema/unions-interfaces/#union-type) that includes every entity defined in your subgraph's schema.
+- The `_Any` type is a special scalar that enables you to provide entity representations of any valid shape.
+- The `_Entity` type is a generated [union type](/apollo-server/schema/unions-interfaces/#union-type) that includes every entity defined in your subgraph's schema.
 
 You can query this field like so, providing a value for the `$representations` variable as shown:
 
@@ -136,5 +136,5 @@ query GetSubgraphSchema {
 
 The `sdl` field returns your subgraph's schema as an SDL string. This field has a couple of important differences from a standard [introspection query](https://graphql.org/learn/introspection/) that a tool like Apollo Sandbox uses:
 
-* Unlike introspection, the `sdl` field is not disabled by default in production environments (this is safe if you properly [secure your subgraph](#securing-your-subgraphs)).
-* Unlike introspection, the `sdl` field's returned string includes federation-specific directives like `@key`.
+- Unlike introspection, the `sdl` field is not disabled by default in production environments (this is safe if you properly [secure your subgraph](#securing-your-subgraphs)).
+- Unlike introspection, the `sdl` field's returned string includes federation-specific directives like `@key`.

@@ -9,7 +9,7 @@ This article describes Apollo managed federation features that help you monitor 
 
 ## Metrics and observability
 
-Federated graphs can push operation metrics to Apollo Studio to enable many powerful tools, including:
+Federated graphs can push operation metrics to GraphOS Studio to enable many powerful tools, including:
 
 * Operation performance dashboards
 * [Schema checks](https://www.apollographql.com/docs/studio/schema-checks/)
@@ -19,7 +19,7 @@ With a federated graph, your subgraphs pass _trace data_ (timing and error infor
 
 ```mermaid
 graph LR;
-  studio{{Apollo Studio}};
+  studio{{GraphOS Studio}};
   subgraph " "
     gateway([Gateway]);
     serviceA[Products subgraph];
@@ -68,6 +68,6 @@ Listing subgraphs for docs-example-graph@production using credentials from the d
 View full details at https://studio.apollographql.com/graph/docs-example-graph/service-list
 ```
 
-This command includes a link to an Apollo Studio page that provides additional information about your subgraphs.
+This command includes a link to an GraphOS Studio page that provides additional information about your subgraphs.
 
 If you're using the [Apollo CLI](https://www.apollographql.com/docs/devtools/cli/), run `apollo service:list` instead.

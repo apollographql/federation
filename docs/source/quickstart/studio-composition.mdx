@@ -1,9 +1,9 @@
 ---
 title: Federation 2 quickstart
-description: Part 2 - Composition in Apollo Studio
+description: Part 2 - Composition in GraphOS Studio
 ---
 
-Now that our project and tools are set up, we can start composing our supergraph schema with Apollo Studio.
+Now that our project and tools are set up, we can start composing our supergraph schema with GraphOS Studio.
 
 ## Managed federation concepts
 
@@ -56,11 +56,11 @@ Run the following from your project directory, substituting your Studio graph's 
 
 <ExpansionPanel title="What's a graph ref?">
 
-A graph ref uniquely identifies a particular variant of a particular registered graph in Apollo Studio. Every graph ref is a string with the following format:
+A graph ref uniquely identifies a particular variant of a particular registered graph in GraphOS Studio. Every graph ref is a string with the following format:
 
 `graph-id@variant-name`
 
-If you open your graph's README page in Apollo Studio, its graph ref is displayed as the top-level header of the page:
+If you open your graph's README page in GraphOS Studio, its graph ref is displayed as the top-level header of the page:
 
 <img class="screenshot" alt="Graph ref in Studio" src="../images/studio-graph-ref.jpg" width="300"/>
 
@@ -97,9 +97,9 @@ rover subgraph publish YOUR_GRAPH_REF \
 
 If you refresh the Schema tab in Studio, you'll now see types and fields from our `reviews` service as well.
 
-Now that we've published our subgraph schemas, Apollo Studio automatically composes them into a supergraph schema. However, our router doesn't know how to fetch that schema from Apollo. We'll tackle that next.
+Now that we've published our subgraph schemas, GraphOS Studio automatically composes them into a supergraph schema. However, our router doesn't know how to fetch that schema from Apollo. We'll tackle that next.
 
-## 2. Authenticate the router with Apollo Studio
+## 2. Authenticate the router with GraphOS Studio
 
 It's time to enable our router to fetch its supergraph schema from Apollo. To do that, we'll need a graph API key that we set as the value of an environment variable.
 
@@ -123,9 +123,9 @@ API keys are secret credentials. Never share them outside your organization or c
 
     Then, make the following changes:
 
-    * Replace `your-api-key` with your graph API key.
-    * Replace `your-graph-id@your-variant` with your graph's graph ref.
-        * For a refresher on graph refs, see [Step 1](#1-register-your-subgraph-schemas).
+    - Replace `your-api-key` with your graph API key.
+    - Replace `your-graph-id@your-variant` with your graph's graph ref.
+        - For a refresher on graph refs, see [Step 1](#1-register-your-subgraph-schemas).
 
 3. Paste the edited command into your terminal and run it.
 
@@ -137,7 +137,7 @@ API keys are secret credentials. Never share them outside your organization or c
     2022-07-27T23:49:11.362235Z  INFO apollo_router::executable: Apollo Router v0.12.0 // (c) Apollo Graph, Inc. // Licensed as ELv2 (https://go.apollo.dev/elv2)
     2022-07-27T23:49:11.367689Z  INFO apollo_router::state_machine: transitioned to startup
     2022-07-27T23:49:11.368352Z  INFO apollo_router::state_machine: transitioned to startup
-    2022-07-27T23:49:12.968871Z  INFO apollo_router::plugins::telemetry::metrics::apollo: Apollo Studio usage reporting is enabled. See https://go.apollo.dev/o/data for details
+    2022-07-27T23:49:12.968871Z  INFO apollo_router::plugins::telemetry::metrics::apollo: GraphOS Studio usage reporting is enabled. See https://go.apollo.dev/o/data for details
     2022-07-27T23:49:12.975441Z  INFO apollo_router::router_factory: list of plugins plugin_details=[("apollo.telemetry", "apollo_router::plugins::telemetry::Telemetry"), ("experimental.include_subgraph_errors", "apollo_router::plugins::include_subgraph_errors::IncludeSubgraphErrors"), ("apollo.csrf", "apollo_router::plugins::csrf::Csrf")]
     2022-07-27T23:49:13.175090Z  INFO apollo_router::axum_http_server_factory: GraphQL endpoint exposed at http://127.0.0.1:4000/ 🚀
     2022-07-27T23:49:13.175546Z  INFO apollo_router::state_machine: transitioned to running
@@ -147,7 +147,7 @@ API keys are secret credentials. Never share them outside your organization or c
 
   <Note>
   
-  By providing an API key to the router, you also automatically enable federated trace reporting to Apollo Studio, enabling you to view helpful performance metrics. [Learn more about federated traces.](../metrics/)
+  By providing an API key to the router, you also automatically enable federated trace reporting to GraphOS Studio, enabling you to view helpful performance metrics. [Learn more about federated traces.](../metrics/)
 
   </Note>
 

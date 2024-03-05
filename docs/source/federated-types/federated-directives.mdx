@@ -357,7 +357,7 @@ type Product @key(fields: "id") {
 
 In the example above, we're migrating the `Product.inStock` field from the Products subgraph to the Inventory subgraph. The composed supergraph schema indicates that `Product.inStock` is resolved by the Inventory subgraph but not the Products subgraph, even though the Products subgraph also defines the field.
 
-You can apply `@override` to a [`@shareable`](#shareable) field. If you do, only the subgraph you provide in the `from` argument no longer resolves that field. other subgraphs can still resolve the field.
+You can apply `@override` to a [`@shareable`](#shareable) field. If you do, only the subgraph you provide in the `from` argument no longer resolves that field. Other subgraphs can still resolve the field.
 
 Only one subgraph can `@override` any given field. If multiple subgraphs attempt to `@override` the same field, a composition error occurs.
 

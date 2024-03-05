@@ -32,7 +32,7 @@ The following errors might be raised during composition:
 | `EXTERNAL_ARGUMENT_DEFAULT_MISMATCH` | An `@external` field declares an argument with a default that is incompatible with the corresponding argument in the declaration(s) of that field in other subgraphs. | 2.0.0 |  |
 | `EXTERNAL_ARGUMENT_MISSING` | An `@external` field is missing some arguments present in the declaration(s) of that field in other subgraphs. | 2.0.0 |  |
 | `EXTERNAL_ARGUMENT_TYPE_MISMATCH` | An `@external` field declares an argument with a type that is incompatible with the corresponding argument in the declaration(s) of that field in other subgraphs. | 2.0.0 |  |
-| `EXTERNAL_COLLISION_WITHanotherDIRECTIVE` | The @external directive collides with other directives in some situations. | 2.1.0 |  |
+| `EXTERNAL_COLLISION_WITH_ANOTHER_DIRECTIVE` | The @external directive collides with other directives in some situations. | 2.1.0 |  |
 | `EXTERNAL_MISSING_ON_BASE` | A field is marked as `@external` in a subgraph but with no non-external declaration in any other subgraph. | 0.x |  |
 | `EXTERNAL_ON_INTERFACE` | The field of an interface type is marked with `@external`: as external is about marking field not resolved by the subgraph and as interface field are not resolved (only implementations of those fields are), an "external" interface field is nonsensical | 2.0.0 |  |
 | `EXTERNAL_TYPE_MISMATCH` | An `@external` field has a type that is incompatible with the declaration(s) of that field in other subgraphs. | 0.x |  |
@@ -63,7 +63,7 @@ The following errors might be raised during composition:
 | `MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL` | In a subgraph, a field is both marked @external and has a merged directive applied to it | 2.0.0 |  |
 | `NO_QUERIES` | None of the composed subgraphs expose any query. | 2.0.0 |  |
 | `ONLY_INACCESSIBLE_CHILDREN` | A type visible in the API schema has only @inaccessible children. | 2.0.0 |  |
-| `OVERRIDE_COLLISION_WITHanotherDIRECTIVE` | The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires. | 2.0.0 |  |
+| `OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE` | The @override directive cannot be used on external fields, nor to override fields with either @external, @provides, or @requires. | 2.0.0 |  |
 | `OVERRIDE_FROM_SELF_ERROR` | Field with `@override` directive has "from" location that references its own subgraph. | 2.0.0 |  |
 | `OVERRIDE_LABEL_INVALID` | The @override directive `label` argument must match the pattern /^[a-zA-Z][a-zA-Z0-9_-:./]*$/ or /^percent((d{1,2}(.d{1,8})?|100))$/ | 2.7.0 |  |
 | `OVERRIDE_ON_INTERFACE` | The @override directive cannot be used on the fields of an interface type. | 2.3.0 |  |
@@ -111,7 +111,7 @@ The following errors might be raised during composition:
 | `SOURCE_TYPE_SELECTION_INVALID` | The `selection` argument of the `@sourceType` directive must be a valid `JSONSelection` that outputs fields of the GraphQL type | 2.0.0 |  |
 | `TYPE_DEFINITION_INVALID` | A built-in or federation type has an invalid definition in the schema. | 2.0.0 |  |
 | `TYPE_KIND_MISMATCH` | A type has the same name in different subgraphs, but a different kind. For instance, one definition is an object type but another is an interface. | 2.0.0 | Replaces: `VALUE_TYPE_KIND_MISMATCH`, `EXTENSION_OF_WRONG_KIND`, `ENUM_MISMATCH_TYPE` |
-| `TYPE_WITHonlyUNUSED_EXTERNAL` | A federation 1 schema has a composite type comprised only of unused external fields. Note that this error can only be raised for federation 1 schema as federation 2 schema do not allow unused external fields (and errors with code EXTERNAL_UNUSED will be raised in that case). But when federation 1 schema are automatically migrated to federation 2 ones, unused external fields are automatically removed, and in rare case this can leave a type empty. If that happens, an error with this code will be raised | 2.0.0 |  |
+| `TYPE_WITH_ONLY_UNUSED_EXTERNAL` | A federation 1 schema has a composite type comprised only of unused external fields. Note that this error can only be raised for federation 1 schema as federation 2 schema do not allow unused external fields (and errors with code EXTERNAL_UNUSED will be raised in that case). But when federation 1 schema are automatically migrated to federation 2 ones, unused external fields are automatically removed, and in rare case this can leave a type empty. If that happens, an error with this code will be raised | 2.0.0 |  |
 | `UNKNOWN_FEDERATION_LINK_VERSION` | The version of federation in a @link directive on the schema is unknown. | 2.0.0 |  |
 | `UNKNOWN_LINK_VERSION` | The version of @link set on the schema is unknown. | 2.1.0 |  |
 | `UNSUPPORTED_FEATURE` | Indicates an error due to feature currently unsupported by federation. | 2.1.0 |  |

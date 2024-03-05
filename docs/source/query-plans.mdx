@@ -121,7 +121,7 @@ This syntax probably looks confusing. 🤔 Let's break it down.
 
 ## Structure of a query plan
 
-A query plan is defined as a hierarchy of nodes that looks like a JSON or GraphQL document when serialized.
+A query plan is defined as a hierarchy of _nodes_ that looks like a JSON or GraphQL document when serialized.
 
 At the top level of every query plan is the `QueryPlan` node:
 
@@ -433,8 +433,8 @@ Flatten(path: "hotels.@") {
 
 Instead of containing a GraphQL operation, this `Fetch` node contains two GraphQL fragments, separated by `=>`.
 
-* The first fragment is a representation of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](./entities/#2-define-a-reference-resolver).
-* The second fragment contains the entity fields and subfields that the router needs the subgraph to resolve (in this case, `Hotel.reviews` and `Review.rating`).
+- The first fragment is a representation of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](./entities/#2-define-a-reference-resolver).
+- The second fragment contains the entity fields and subfields that the router needs the subgraph to resolve (in this case, `Hotel.reviews` and `Review.rating`).
 
 When the router sees this special `Fetch` syntax, it knows to query a subgraph's [`Query._entities` field](./building-supergraphs/subgraphs-overview/#query_entities). This field is what enables a subgraph to provide direct access to any available fields of an entity.
 
@@ -444,18 +444,18 @@ Now that you've learned about each query plan node, take another look at the exa
 
 You can view the query plan for a particular operation in any of the following ways:
 
-* [In the Apollo Studio Explorer](/graphos/explorer/additional-features#query-plans-for-supergraphs)
-    * Note that you must [register your federated graph](./managed-federation/setup/) with GraphOS to view query plans in the Explorer.
-* As direct output from the `@apollo/gateway` library (see below)
+- [In the GraphOS Studio Explorer](/graphos/explorer/additional-features#query-plans-for-supergraphs)
+    - Note that you must [register your federated graph](./managed-federation/setup/) with GraphOS to view query plans in the Explorer.
+- As direct output from the `@apollo/gateway` library (see below)
 
 ### Outputting query plans with headers
 
 With [the Apollo Router](/router/) `v0.16.0+` and [`@apollo/gateway`](/apollo-server/using-federation/api/apollo-gateway/) `v2.5.4+`, you can pass the following headers to return the query plans in the GraphQL response extensions:
 
-* Including the `Apollo-Query-Plan-Experimental` header returns the query plan in the response extensions
-* Additionally including the `Apollo-Query-Plan-Experimental-Format` header with one of the supported options changes the output format:
-  * A value of `prettified` returns a human-readable string  of the query plan
-  * A value of `internal` returns a JSON representation of the query plan
+- Including the `Apollo-Query-Plan-Experimental` header returns the query plan in the response extensions
+- Additionally including the `Apollo-Query-Plan-Experimental-Format` header with one of the supported options changes the output format:
+  - A value of `prettified` returns a human-readable string  of the query plan
+  - A value of `internal` returns a JSON representation of the query plan
 
 ### Outputting query plans with `@apollo/gateway`
 
@@ -479,6 +479,6 @@ Your gateway can output the query plan for each incoming operation as it's calcu
     });
     ```
 
-    The value you provide for this option is a function that's called every time the gateway generates a query plan. The example function above logs the generated query plan for every operation except for introspection queries (such as those sent periodically by tools like the Apollo Studio Explorer). You can define any logic you want to log query plans or otherwise interact with them.
+    The value you provide for this option is a function that's called every time the gateway generates a query plan. The example function above logs the generated query plan for every operation except for introspection queries (such as those sent periodically by tools like the GraphOS Studio Explorer). You can define any logic you want to log query plans or otherwise interact with them.
 
     For all available options passed to your function, [see the source](https://github.com/apollographql/federation/blob/21ea8d5e028050a546bfca3c8dd092be44b1aa07/gateway-js/src/config.ts#L16-L28).

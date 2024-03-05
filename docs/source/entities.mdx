@@ -5,7 +5,7 @@ description: Resolve types across multiple subgraphs
 
 <Note>
 
-Some details of entity behavior have changed in Federation 2. For a summary of these changes, [see what's new](./federation-2/new-in-federation-2/).
+Some details of entity behavior have changed in Federation 2. For a summary of these changes, [see what's new in Federation 2](./federation-2/new-in-federation-2/).
 
 </Note>
 
@@ -34,7 +34,7 @@ type Product @key(fields: "id") {
 
 Entities are a fundamental building block of Apollo Federation that enable subgraphs to adhere to the [separation of concerns principle](./#separation-of-concerns).
 
-Entities are always _object_ types (never input types, unions, and so on).
+Entities are always object types, never input types, unions, and so on.
 
 ## Defining an entity
 
@@ -61,11 +61,7 @@ The `@key` directive defines an entity's _unique key_, which consists of one or 
 
 In most cases, the `@key` field(s) for the same entity will be the same across subgraphs. For example, if one subgraph uses `id` as the `@key` field for the `Product` entity, other subgraphs should do the same. However, this [isn't strictly required](./entities-advanced#differing-keys-across-subgraphs).
 
-<Note>
-
 If coming from a database context, it can be helpful to think of a `@key` as an entity's [primary key](https://en.wikipedia.org/wiki/Primary_key). This term isn't completely accurate for entities since a single entity can have [multiple `@key`s](./entities-advanced#multiple-keys). The field(s) you select for an entity's `@key` must, however, uniquely identify the entity. In that way, `@key`s are similar to [candidate keys](https://en.wikipedia.org/wiki/Candidate_key).
-
-</Note>
 
 <CodeColumns>
 
@@ -121,12 +117,12 @@ const resolvers = {
 
 Let's break this example down:
 
-* You declare an entity's reference resolver in your resolver map, as a member of the entity's corresponding object.
-* A reference resolver's name is always `__resolveReference`.
-* A reference resolver's first parameter is a representation of the entity being resolved.
-    * An entity representation is an object that contains the entity's `@key` fields, plus its `__typename` field. These values are automatically provided to your subgraph by your router.
-* A reference resolver is responsible for returning all of the entity fields that this subgraph defines.
-    * In this example, the hypothetical `fetchProductByID` function fetches a particular `Product`'s field data based on its `id`.
+- You declare an entity's reference resolver in your resolver map, as a member of the entity's corresponding object.
+- A reference resolver's name is always `__resolveReference`.
+- A reference resolver's first parameter is a representation of the entity being resolved.
+    - An entity representation is an object that contains the entity's `@key` fields, plus its `__typename` field. These values are automatically provided to your subgraph by your router.
+- A reference resolver is responsible for returning all of the entity fields that this subgraph defines.
+    - In this example, the hypothetical `fetchProductByID` function fetches a particular `Product`'s field data based on its `id`.
 
 <Note>
 

@@ -3,11 +3,11 @@ title: Federation quickstart
 description: Part 3 - Local composition
 ---
 
-[Back in Part 2](./studio-composition/), we used managed federation with Apollo Studio to compose our router's supergraph schema. Next, let's try out composing locally with the Rover CLI.
+[Back in Part 2](./studio-composition/), we used managed federation with GraphOS Studio to compose our router's supergraph schema. Next, let's try out composing locally with the Rover CLI.
 
 ## 1. Provide subgraph details
 
-Like Apollo Studio, the Rover CLI needs the following information about each of our subgraphs to compose them:
+Like GraphOS Studio, the Rover CLI needs the following information about each of our subgraphs to compose them:
 
 * The subgraph's schema
 * The URL of the subgraph's GraphQL endpoint (which must be accessible by the router)
@@ -42,7 +42,7 @@ Now that our configuration file is ready, we can compose our supergraph schema. 
 
 <Tip>
 
-[Haven't installed the latest version of Rover?](./setup/#install-the-rover-cli)
+[Install the latest version of Rover, if you haven't already.](./setup/#install-the-rover-cli)
 
 </Tip>
 
@@ -219,7 +219,7 @@ For brevity, we're skipping setting the `APOLLO_KEY` environment variable here. 
 
 </Note>
 
-This time, the router reads your static supergraph schema from a file. This does not communicate with Apollo Studio, which means it's well suited to local development or CI environments where you don't want to introduce an external dependency.
+This time, the router reads your static supergraph schema from a file. This does not communicate with GraphOS Studio, which means it's well suited to local development or CI environments where you don't want to introduce an external dependency.
 
 [Learn more about router configuration options.](/router/configuration/overview/)
 

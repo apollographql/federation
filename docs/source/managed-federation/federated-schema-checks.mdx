@@ -10,7 +10,7 @@ For an introduction to schema checks, see [Schema checks](/graphos/delivery/sche
 
 Whenever you make changes to a subgraph schema, running `rover subgraph check` helps ensure that all your subgraph schemas still compose to a valid supergraph schema. This helps teams work independently on their portion of your federated graph without negatively affecting your users or other teams.
 
-When you run `rover subgraph check` on a particular subgraph, Apollo Studio takes your schema changes and attempts to compose a supergraph schema from all of your registered subgraph schemas.
+When you run `rover subgraph check` on a particular subgraph, GraphOS Studio takes your schema changes and attempts to compose a supergraph schema from all of your registered subgraph schemas.
 
 - If composition succeeds, the result is compared against your most recently registered supergraph schema to confirm that no known clients are affected by the proposed changes.
 - If composition fails, validation ends and results are returned to the user.

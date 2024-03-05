@@ -41,8 +41,8 @@ As a best practice, your router doesn't compose its own supergraph schema. Inste
 
 There are multiple ways to compose a supergraph schema from subgraph schemas:
 
-* Via _managed federation_ in Apollo Studio (we'll start with this)
-* On our local machine with the Rover CLI (we'll do this in [Part 3](./local-composition/))
+- Via _managed federation_ in GraphOS Studio (we'll start with this)
+- On our local machine with the Rover CLI (we'll do this in [Part 3](./local-composition/))
 
 Using managed federation is strongly recommended for production environments. Meanwhile, composing with Rover can be useful for local development and CI environments.
 
@@ -144,17 +144,17 @@ type SubmitReviewResponse {
 
 This quickstart uses a couple of Apollo tools to get the most out of federation:
 
-* **Apollo Studio**, a cloud platform for monitoring, managing, and collaborating on your supergraph
-    * You don't need a paid Studio plan to complete this quickstart or use managed federation features.
-* **The Rover CLI**, a command-line interface for interacting with graphs and their schemas
+- **GraphOS Studio**, a cloud platform for monitoring, managing, and collaborating on your supergraph
+    - You don't need a paid Studio plan to complete this quickstart or use managed federation features.
+- **The Rover CLI**, a command-line interface for interacting with graphs and their schemas
 
 Let's set these up first!
 
-### Sign up for Apollo Studio
+### Sign up for GraphOS Studio
 
-Before we can use managed federation with Apollo Studio, we need a Studio account. Let's create one if you don't have one yet.
+Before we can use managed federation with GraphOS Studio, we need a Studio account. Let's create one if you don't have one yet.
 
-Complete the first two steps of <a href="/studio/getting-started/" target="_blank">Get started with Apollo Studio</a> (**Create your account** and **Create your first graph**), then return here.
+Complete the first two steps of <a href="/studio/getting-started/" target="_blank">Get started with GraphOS Studio</a> (**Create your account** and **Create your first graph**), then return here.
 
 <Note>
 
@@ -226,11 +226,11 @@ Apollo Router v0.12.0 // (c) Apollo Graph, Inc. // Licensed as ELv2 (https://go.
 
 👉 DO ONE:
 
-  * Pass a local schema file with the '--supergraph' option:
+  - Pass a local schema file with the '--supergraph' option:
 
       $ ./router --supergraph <file_path>
 
-  * Fetch a registered schema from Apollo Studio by setting
+  - Fetch a registered schema from GraphOS Studio by setting
     these environment variables:
 
       $ APOLLO_KEY="..." APOLLO_GRAPH_REF="..." ./router
@@ -255,10 +255,10 @@ That's because we aren't currently providing a supergraph schema to the router. 
 
 ## 3. Obtain your subgraph schemas
 
-To compose our supergraph schema, Apollo Studio needs the following information about each of our subgraphs:
+To compose our supergraph schema, GraphOS Studio needs the following information about each of our subgraphs:
 
-* The subgraph's schema
-* The URL of the subgraph's GraphQL endpoint (which must be accessible by the router)
+- The subgraph's schema
+- The URL of the subgraph's GraphQL endpoint (which must be accessible by the router)
 
 Fortunately, we have all of this information! Let's collect it in our project.
 

@@ -69,11 +69,11 @@ There are [several community-contributed packages](./building-supergraphs/suppor
 
 We strongly recommend that you register all of your GraphQL schemas with an [external registry](https://principledgraphql.com/integrity#3-track-the-schema-in-a-registry). This registry supports running the gateway with the subgraphs' partial schemas. Additionally, it enables tracking changes at the subgraph level and protecting the graph from changes that break composition.
 
-[Apollo Studio](https://www.apollographql.com/docs/studio/) provides a free schema registry that helps you manage your federated gateway's configuration. You provide your gateway a Studio API key on startup, which directs the gateway to download your schemas automatically in a fault-tolerant way.
+[GraphOS Studio](https://www.apollographql.com/docs/studio/) provides a free schema registry that helps you manage your federated gateway's configuration. You provide your gateway a Studio API key on startup, which directs the gateway to download your schemas automatically in a fault-tolerant way.
 
 Studio can also provide [schema validation](https://www.apollographql.com/docs/studio/managed-federation/overview/#validating-changes-to-the-graph) to ensure that all changes you make to your subgraphs are compatible with your complete graph.
 
-[Learn more about managed configuration](https://www.apollographql.com/docs/studio/managed-federation/overview/)
+[Learn more about managed configuration.](https://www.apollographql.com/docs/studio/managed-federation/overview/)
 
 ## Step 3: Start up an Apollo Server gateway
 
@@ -81,7 +81,7 @@ After you've registered your schemas, you can start exposing your subgraphs from
 
 We recommend setting up the Apollo Server gateway alongside your existing schema-stitching gateway. Depending on your infrastructure, you might even want to run both in the same process to support dynamically routing traffic through one gateway or the other.
 
-To enable managed configuration with Apollo Studio, set the `APOLLO_KEY` and `APOLLO_GRAPH_REF` environment variables when you start up your Apollo Server gateway, and do not provide the `supergraphSDL` or `serviceList` constructor option to `ApolloGateway`. For details, see the [Apollo Studio documentation](https://www.apollographql.com/docs/studio/managed-federation/setup/).
+To enable managed configuration with GraphOS Studio, set the `APOLLO_KEY` and `APOLLO_GRAPH_REF` environment variables when you start up your Apollo Server gateway, and do not provide the `supergraphSDL` or `serviceList` constructor option to `ApolloGateway`. For details, see the [GraphOS Studio documentation](https://www.apollographql.com/docs/studio/managed-federation/setup/).
 
 After your gateway is set up, you can make direct queries to it that are routed to the correct subgraphs.
 
