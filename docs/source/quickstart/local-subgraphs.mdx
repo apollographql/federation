@@ -3,7 +3,7 @@ title: Federation quickstart
 description: Part 4 - Working with subgraphs
 ---
 
-In the previous parts of this quickstart, we used Apollo-hosted services for our subgraphs. Now, let's see what we can do with our _own_ subgraphs.
+In the previous parts of this quickstart, we used Apollo-hosted services for our subgraphs. Now, let's see what we can do with our own subgraphs.
 
 Our subgraphs can use any GraphQL server library that supports Apollo Federation. This includes Apollo Server, along with the other libraries listed in [Federation-compatible subgraph implementations](../building-supergraphs/supported-subgraphs/).
 
@@ -66,11 +66,11 @@ const server = new ApolloServer({
 
 (As shown, you now pass your `typeDefs` and `resolvers` to `buildSubgraphSchema`.)
 
-And that's it! You can now perform all of the same subgraph setup on your _own_ service (schema publishing, introspection, etc.) that you did with the Apollo-hosted services we used in the previous parts. Refer to those parts for guidance.
+And that's it! You can now perform all of the same subgraph setup on your own service (schema publishing, introspection, etc.) that you did with the Apollo-hosted services we used in the previous parts. Refer to those parts for guidance.
 
 ## 2. Learn about federated types
 
-In a federated graph, each subgraph's schema can define or reference types and fields that are also present in _another_ subgraph's schema.
+In a federated graph, each subgraph's schema can define or reference types and fields that are also present in another subgraph's schema.
 
 Consider the `Location` type in our composed supergraph schema from [Part 3](./local-composition/#2-perform-composition). This type includes the following fields:
 
@@ -98,7 +98,7 @@ type Location
 }
 ```
 
-As the federation-specific `@join__field` directive suggests, these fields of the same object type are defined across two _different_ subgraphs!
+As the federation-specific `@join__field` directive suggests, these fields of the same object type are defined across two different subgraphs!
 
 This is possible because our Locations subgraph schema defines the `Location` object type as an _entity_. Entities are object types that multiple subgraphs can contribute fields to.
 

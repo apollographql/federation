@@ -53,7 +53,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-The `@key` directive defines an entity's _unique key_, which consists of one or more of the type's `fields`. In the example above, the `Product` entity's unique key is its `id` field. Every instance of an entity must be uniquely identifiable by its `@key` fields. This is what enables your router to associate field data from _different_ subgraphs with the _same_ entity instance.
+The `@key` directive defines an entity's _unique key_, which consists of one or more of the type's `fields`. In the example above, the `Product` entity's unique key is its `id` field. Every instance of an entity must be uniquely identifiable by its `@key` fields. This is what enables your router to associate field data from different subgraphs with the same entity instance.
 
 In most cases, the `@key` field(s) for the same entity will be the same across subgraphs. For example, if one subgraph uses `id` as the `@key` field for the `Product` entity, other subgraphs should do the same. However, this [isn't strictly required](./entities-advanced#differing-keys-across-subgraphs).
 
@@ -78,7 +78,7 @@ type Product @key(fields: "id") {
 
 </CodeColumns>
 
-> An entity's `@key` _cannot_ include:
+> An entity's `@key` cannot include:
 >
 > * Fields that return a union or interface
 > * Fields that take arguments
@@ -116,7 +116,7 @@ Let's break this example down:
 * A reference resolver is responsible for returning all of the entity fields that this subgraph defines.
     * In this example, the hypothetical `fetchProductByID` function fetches a particular `Product`'s field data based on its `id`.
 
-> ⚠️ A particular reference resolver might be called _many_ times to resolve a single query! It's crucial that reference resolvers account for "N+1" issues (typically via [data loaders](https://github.com/graphql/dataloader)). For details, see [Handling the N+1 problem](./entities-advanced#handling-the-n1-problem).
+> ⚠️ A particular reference resolver might be called many times to resolve a single query! It's crucial that reference resolvers account for "N+1" issues (typically via [data loaders](https://github.com/graphql/dataloader)). For details, see [Handling the N+1 problem](./entities-advanced#handling-the-n1-problem).
 
 Every subgraph that contributes at least one unique field to an entity must define a reference resolver for that entity.
 
@@ -145,15 +145,15 @@ type Product @key(fields: "id") {
 
 </CodeColumns>
 
-When a subgraph contributes entity fields, no _other_ subgraph knows about those fields—only the router does thanks to the composed supergraph schema.
+When a subgraph contributes entity fields, no other subgraph knows about those fields—only the router does thanks to the composed supergraph schema.
 
-By default, each subgraph must contribute _different_ fields, with the important exception of `@key` fields. Otherwise, a composition error occurs. To override this default, see [Resolving another subgraph's field](./entities-advanced/#resolving-another-subgraphs-field).
+By default, each subgraph must contribute different fields, with the important exception of `@key` fields. Otherwise, a composition error occurs. To override this default, see [Resolving another subgraph's field](./entities-advanced/#resolving-another-subgraphs-field).
 
-As mentioned previously, each subgraph that _does_ contribute fields to an entity must [define a reference resolver](#2-define-a-reference-resolver) for that entity.
+As mentioned previously, each subgraph that does contribute fields to an entity must [define a reference resolver](#2-define-a-reference-resolver) for that entity.
 
 ## Referencing an entity without contributing fields
 
-Your subgraphs can use an entity as a field's return type _without_ contributing any fields to that entity. This requires less code than the steps in [Defining an entity](#defining-an-entity).
+Your subgraphs can use an entity as a field's return type without contributing any fields to that entity. This requires less code than the steps in [Defining an entity](#defining-an-entity).
 
 Take a look at this `Product` entity in the Products subgraph:
 
@@ -189,7 +189,7 @@ type Product @key(fields: "id", resolvable: false) {
 }
 ```
 
-As you can see, this stub definition includes _only_ the `@key` fields of `Product` (just `id` in this case). It also includes `resolvable: false` in the `@key` directive to indicate that this subgraph doesn't even define a reference resolver for the `Product` entity.
+As you can see, this stub definition includes only the `@key` fields of `Product` (just `id` in this case). It also includes `resolvable: false` in the `@key` directive to indicate that this subgraph doesn't even define a reference resolver for the `Product` entity.
 
 ## Example query flow
 
@@ -241,7 +241,7 @@ query GetReviewsWithProducts {
 }
 ```
 
-Here we have a problem: this query needs to start its execution in the Reviews subgraph (because that's where `latestReviews` is defined), but that subgraph _doesn't_ know that `Product` entities have a `price` field! Remember, the Reviews subgraph only knows about the `id` field of `Product`.
+Here we have a problem: this query needs to start its execution in the Reviews subgraph (because that's where `latestReviews` is defined), but that subgraph doesn't know that `Product` entities have a `price` field! Remember, the Reviews subgraph only knows about the `id` field of `Product`.
 
 Because of this, the router needs to fetch `price` from the Products subgraph instead. To handle this two-step process, the router generates a _query plan_.
 
@@ -253,8 +253,8 @@ A query plan is a blueprint for dividing a single incoming operation into one or
 
 With our example query above, the router knows the following:
 
-* It _must_ start by querying the Reviews subgraph, because that's where `Query.latestReviews` is defined.
-* It _must_ then query the Products subgraph to fetch the `price` of each `Product` returned by the Reviews subgraph.
+- It must start by querying the Reviews subgraph, because that's where `Query.latestReviews` is defined.
+- It must then query the Products subgraph to fetch the `price` of each `Product` returned by the Reviews subgraph.
 
 Using this information, the router's query plan starts with this query to the Reviews subgraph:
 
@@ -270,7 +270,7 @@ query {
 }
 ```
 
-Notice that this query omits the `Product.price` field but _adds_ the `Product.__typename` field! This is because the router needs representations of each returned `Product` entity for its _second_ query.
+Notice that this query omits the `Product.price` field but adds the `Product.__typename` field! This is because the router needs representations of each returned `Product` entity for its second query.
 
 > As described in [Define a reference resolver](#2-define-a-reference-resolver), an entity representation is an object that contains the entity's `@key` fields (`id` in this case), plus its `__typename` field.
 
@@ -288,7 +288,7 @@ query {
 
 This query uses a special entry point that's automatically added to every subgraph schema: `Query._entities`. This entry point is what provides the router with direct access to any entity's fields.
 
-Each item in the `representations` list argument above is one of the `Product` representations that the router obtained from its _first_ query. Here's an example list:
+Each item in the `representations` list argument above is one of the `Product` representations that the router obtained from its first query. Here's an example list:
 
 ```json
 [

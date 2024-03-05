@@ -44,7 +44,7 @@ flowchart BT;
   class registry secondary;
 ```
 
-Whenever an update is available, the router downloads it and automatically begins using the new supergraph schema, _without_ requiring a restart.
+Whenever an update is available, the router downloads it and automatically begins using the new supergraph schema, without requiring a restart.
 
 We strongly recommended managed federation for reducing downtime in your production supergraph. Let's set it up!
 
@@ -97,7 +97,7 @@ rover subgraph publish YOUR_GRAPH_REF \
 
 If you refresh the Schema tab in Studio, you'll now see types and fields from our `reviews` service as well.
 
-Now that we've published our subgraph schemas, Apollo Studio automatically composes them into a supergraph schema! However, our router doesn't know how to _fetch_ that schema from Apollo. We'll tackle that next.
+Now that we've published our subgraph schemas, Apollo Studio automatically composes them into a supergraph schema! However, our router doesn't know how to fetch that schema from Apollo. We'll tackle that next.
 
 ## 2. Authenticate the router with Apollo Studio
 
@@ -121,7 +121,7 @@ It's time to enable our router to fetch its supergraph schema from Apollo. To do
 
     * Replace `your-api-key` with your graph API key.
     * Replace `your-graph-id@your-variant` with your graph's graph ref.
-        * _For a refresher on graph refs, see [Step 1](#1-register-your-subgraph-schemas)._
+        * For a refresher on graph refs, see [Step 1](#1-register-your-subgraph-schemas).
 
 3. Paste the edited command into your terminal and run it.
 

@@ -16,7 +16,7 @@ flowchart TB;
   subFetchHotels --> flatten("Flatten (latestReviews,[],hotel)")
 ```
 
-A query plan is a blueprint for dividing a single incoming operation into _one or more_ operations that are each resolvable by a single subgraph. Some of these operations depend on the results of _other_ operations, so the query plan also defines any required ordering for their execution.
+A query plan is a blueprint for dividing a single incoming operation into one or more operations that are each resolvable by a single subgraph. Some of these operations depend on the results of other operations, so the query plan also defines any required ordering for their execution.
 
 ## Example graph
 
@@ -127,7 +127,7 @@ QueryPlan {
 }
 ```
 
-Each node defined _inside_ the `QueryPlan` node is one of the following:
+Each node defined inside the `QueryPlan` node is one of the following:
 
 | Node | Description |
 |------|-------------|
@@ -156,7 +156,7 @@ Fetch(service: "books") {
 
 The node's body is the operation to execute, and its `service` argument indicates which subgraph to execute the operation against.
 
-In our [example graph](#example-graph) above, the following query requires data _only_ from the Hotels subgraph:
+In our [example graph](#example-graph) above, the following query requires data only from the Hotels subgraph:
 
 ```graphql
 query GetHotels {
@@ -167,7 +167,7 @@ query GetHotels {
 }
 ```
 
-Because this operation doesn't require orchestrating operations across multiple subgraphs, the _entire query plan_ contains just a single `Fetch` node:
+Because this operation doesn't require orchestrating operations across multiple subgraphs, the entire query plan contains just a single `Fetch` node:
 
 ```graphql
 QueryPlan {
@@ -215,7 +215,7 @@ query GetBooksAndMovies {
 }
 ```
 
-In this case, the data returned by each subgraph does _not_ depend on the data returned by any _other_ subgraph. Therefore, the router can query both subgraphs in parallel.
+In this case, the data returned by each subgraph does not depend on the data returned by any other subgraph. Therefore, the router can query both subgraphs in parallel.
 
 The query plan for the operation looks like this:
 
@@ -248,7 +248,7 @@ QueryPlan {
 
 ### `Sequence` node
 
-A `Sequence` node tells the router that the node's immediate children _must_ be executed _serially_ in the order listed.
+A `Sequence` node tells the router that the node's immediate children must be executed serially in the order listed.
 
 ```graphql
 Sequence {
@@ -264,7 +264,7 @@ Sequence {
 }
 ```
 
-This node appears in query plans whenever _one_ subgraph's response depends on data that first must be returned by _another_ subgraph. This occurs most commonly when a query requests fields of an [entity](./entities/) that are defined across multiple subgraphs.
+This node appears in query plans whenever one subgraph's response depends on data that first must be returned by another subgraph. This occurs most commonly when a query requests fields of an [entity](./entities/) that are defined across multiple subgraphs.
 
 As an example, we can return to the `GetHotels` query from our [example graph](#example-graph):
 
@@ -280,7 +280,7 @@ query GetHotels {
 }
 ```
 
-In our example graph, the `Hotel` type is an entity. `Hotel.id` and `Hotel.address` are resolved by the Hotels subgraph, but `Hotel.reviews` is resolved by the Reviews subgraph. And our Hotels subgraph needs to resolve _first_, because otherwise the Reviews subgraph doesn't know _which_ hotels to return reviews for.
+In our example graph, the `Hotel` type is an entity. `Hotel.id` and `Hotel.address` are resolved by the Hotels subgraph, but `Hotel.reviews` is resolved by the Reviews subgraph. And our Hotels subgraph needs to resolve first, because otherwise the Reviews subgraph doesn't know which hotels to return reviews for.
 
 The query plan for the operation looks like this:
 
@@ -321,11 +321,11 @@ QueryPlan {
 
 </ExpansionPanel>
 
-As shown, this query plan defines a `Sequence` that executes a `Fetch` on the Hotels subgraph _before_ executing one on the Reviews subgraph. (We'll cover the `Flatten` node and the second `Fetch`'s special syntax next.)
+As shown, this query plan defines a `Sequence` that executes a `Fetch` on the Hotels subgraph before executing one on the Reviews subgraph. (We'll cover the `Flatten` node and the second `Fetch`'s special syntax next.)
 
 ### `Flatten` node
 
-A `Flatten` node always appears inside a `Sequence` node, and it always _contains_ a `Fetch` node. It tells the router to merge the data returned by its `Fetch` node with data that was _previously_ `Fetch`ed during the current `Sequence`:
+A `Flatten` node always appears inside a `Sequence` node, and it always contains a `Fetch` node. It tells the router to merge the data returned by its `Fetch` node with data that was previously `Fetch`ed during the current `Sequence`:
 
 ```graphql
 Flatten(path: "hotels.@") {
@@ -335,7 +335,7 @@ Flatten(path: "hotels.@") {
 }
 ```
 
-The `Flatten` node's `path` argument tells the router _at what position_ to merge the newly returned data with the existing data. An `@` element in a `path` indicates that the immediately preceding path element returns a list.
+The `Flatten` node's `path` argument tells the router at what position to merge the newly returned data with the existing data. An `@` element in a `path` indicates that the immediately preceding path element returns a list.
 
 In the snippet above, the data returned by the `Flatten`'s `Fetch` is added to the `Sequence`'s existing data within the objects contained in the `hotels` list field.
 
@@ -377,7 +377,7 @@ At this point, we still need review-related information for each hotel. The quer
 }
 ```
 
-Now, the router needs to know _how to merge_ these `Hotel` objects with the data it already fetched from the Hotels subgraph. The `Flatten` node's `path` argument tells it exactly that:
+Now, the router needs to know how to merge these `Hotel` objects with the data it already fetched from the Hotels subgraph. The `Flatten` node's `path` argument tells it exactly that:
 
 ```graphql
 Flatten(path: "hotels.@") {
@@ -385,7 +385,7 @@ Flatten(path: "hotels.@") {
 }
 ```
 
-In other words, "Take the `Hotel` objects returned by the Reviews subgraph and merge them with the `Hotel` objects in the top-level `hotels` field returned by the _first_ query."
+In other words, "Take the `Hotel` objects returned by the Reviews subgraph and merge them with the `Hotel` objects in the top-level `hotels` field returned by the first query."
 
 When the router completes this merge, the resulting data exactly matches the structure of the client's original query:
 
@@ -403,7 +403,7 @@ When the router completes this merge, the resulting data exactly matches the str
 
 #### Resolving references with `Flatten`
 
-Like `Sequence` nodes, `Flatten` nodes appear whenever _one_ subgraph's response depends on data that first must be returned by _another_ subgraph. This almost always involves resolving entity fields that are defined across multiple subgraphs.
+Like `Sequence` nodes, `Flatten` nodes appear whenever one subgraph's response depends on data that first must be returned by another subgraph. This almost always involves resolving entity fields that are defined across multiple subgraphs.
 
 In these situations, the `Flatten` node's `Fetch` needs to resolve a reference to an entity before fetching that entity's fields. When this is the case, the `Fetch` node uses a special syntax:
 
@@ -475,6 +475,6 @@ Your gateway can output the query plan for each incoming operation as it's calcu
     });
     ```
 
-    The value you provide for this option is a function that's called every time the gateway generates a query plan. The example function above logs the generated query plan for every operation _except for_ introspection queries (such as those sent periodically by tools like the Apollo Studio Explorer). You can define any logic you want to log query plans or otherwise interact with them.
+    The value you provide for this option is a function that's called every time the gateway generates a query plan. The example function above logs the generated query plan for every operation except for introspection queries (such as those sent periodically by tools like the Apollo Studio Explorer). You can define any logic you want to log query plans or otherwise interact with them.
 
     For all available options passed to your function, [see the source](https://github.com/apollographql/federation/blob/21ea8d5e028050a546bfca3c8dd092be44b1aa07/gateway-js/src/config.ts#L16-L28).

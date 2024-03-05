@@ -36,10 +36,10 @@ As with all infrastructure changes, we strongly recommend completing each of the
 For your Federation 1 supergraph to support Federation 2, you first need to upgrade its gateway to one of the following:
 
 - The Apollo Router. This is a high-performance, precompiled executable that provides many benefits over the Node.js-based gateway.
-    - We recommend moving to the Apollo Router _unless_ you've extended your Node.js gateway with functionality that the Apollo Router doesn't currently support (this is uncommon).
+    - We recommend moving to the Apollo Router unless you've extended your Node.js gateway with functionality that the Apollo Router doesn't currently support (this is uncommon).
 - Version 2.x of the `@apollo/gateway` library, with version 4.x of Apollo Server
 
-> Both the Apollo Router _and_ `@apollo/gateway` v2.x support Federation 1! You can upgrade to either without making any other changes to your Federation 1 supergraph, and it will work as expected.
+> Both the Apollo Router and `@apollo/gateway` v2.x support Federation 1! You can upgrade to either without making any other changes to your Federation 1 supergraph, and it will work as expected.
 
 ### Moving to the Apollo Router
 
@@ -56,17 +56,17 @@ You can install updated versions of these libraries in your gateway project with
 npm install @apollo/gateway graphql
 ```
 
-Apollo Server 3.x supports these updated library versions, however Apollo Server 3.x is deprecated! Therefore, we strongly recommend _also_ upgrading your gateway to Apollo Server 4.
+Apollo Server 3.x supports these updated library versions, however Apollo Server 3.x is deprecated! Therefore, we strongly recommend also upgrading your gateway to Apollo Server 4.
 
 - [Learn how to migrate to Apollo Server 4.](/apollo-server/migration)
-- If you're still using Apollo Server 2.x, we recommend [migrating to v3.x ](/apollo-server/v3/migration) and _then_ migrating to 4.x.
+- If you're still using Apollo Server 2.x, we recommend [migrating to v3.x ](/apollo-server/v3/migration) and then migrating to 4.x.
 
 ## Step 2: Configure your composition method
 
 Federation 2 uses a completely new method to compose supergraph schemas. This method is backward compatible with Federation 1 subgraph schemas, and it provides the following benefits even for Federation 1 subgraphs:
 
 * Helpful [composition hints](../hints/) when schema definitions are inconsistent between your subgraphs
-* Support for interfaces implementing _other_ interfaces (which Federation 1 composition doesn't support)
+* Support for interfaces implementing other interfaces (which Federation 1 composition doesn't support)
 
 Follow the instructions below to configure whichever composition method(s) you currently use:
 
@@ -143,7 +143,7 @@ After you configure these changes, make sure your router is using your newly cre
 
 Your Federation 1 subgraphs are now composed using Federation 2 composition! The natural next question is, "What does this change about the behavior of those subgraphs?" And until the next step, the answer is: nothing!
 
-> If your supergraph is _not_ successfully composing with Federation 2, see [Breaking changes](./backward-compatibility/#breaking-changes) for the most common causes.
+> If your supergraph is not successfully composing with Federation 2, see [Breaking changes](./backward-compatibility/#breaking-changes) for the most common causes.
 
 ## Step 3: Update individual subgraphs
 
@@ -172,7 +172,7 @@ To use new Federation 2 features and their associated directives, it's helpful t
     ```
 
 * If your subgraph uses another server library, check the [compatibility table](../building-supergraphs/supported-subgraphs/) to see whether it supports Federation 2 directives yet. If it does, consult that library's documentation to determine which version you need to update to.
-    * If your library _doesn't_ support Federation 2 directives yet, you can still use that library with Federation 2 if the library lets you add custom directive definitions to your schema!
+    * If your library doesn't support Federation 2 directives yet, you can still use that library with Federation 2 if the library lets you add custom directive definitions to your schema!
 
 ### Opt in to Federation 2
 
@@ -184,7 +184,7 @@ extend schema
         import: ["@key", "@shareable"])
 ```
 
-This definition identifies a schema as a Federation 2 schema, and it `import`s any federation-specific directives that the schema uses. _Without_ this `@link` definition, composition considers a schema to be a Federation 1 schema, and it applies certain default settings for backward compatibility.
+This definition identifies a schema as a Federation 2 schema, and it `import`s any federation-specific directives that the schema uses. Without this `@link` definition, composition considers a schema to be a Federation 1 schema, and it applies certain default settings for backward compatibility.
 
 <Note>
 
@@ -221,7 +221,7 @@ Definitions for all Federation 2 directives are available in [this article](../f
 
 ### Mark all value types as `@shareable`
 
-By default in Federation 2, most schema fields are resolvable by only a _single subgraph_. In Federation 1, this is _not_ true for [value types](https://www.apollographql.com/docs/federation/value-types/):
+By default in Federation 2, most schema fields are resolvable by only a single subgraph. In Federation 1, this is not true for [value types](https://www.apollographql.com/docs/federation/value-types/):
 
 <p style="margin-bottom: 0;"><strong>Fed. 1</strong> (invalid in Fed. 2)</p>
 
@@ -265,7 +265,7 @@ type Position {
 
 </CodeColumns>
 
-> You can also apply `@shareable` directly to a type definition (such as `Position` above). This is equivalent to applying `@shareable` to _all_ of that type's fields.
+> You can also apply `@shareable` directly to a type definition (such as `Position` above). This is equivalent to applying `@shareable` to all of that type's fields.
 
 For more details, see [Value types](../federated-types/sharing-types/).
 
@@ -275,7 +275,7 @@ Federation 2 introduces subtle but powerful changes to [entities](../entities/).
 
 #### Remove unnecessary syntax
 
-In Federation 1, an entity originates in _one_ subgraph, and then other subgraphs _extend_ the entity to add fields:
+In Federation 1, an entity originates in one subgraph, and then other subgraphs extend the entity to add fields:
 
 <p style="margin-bottom: 0;"><strong>Fed. 1</strong></p>
 
@@ -325,15 +325,15 @@ Note the following in the Federation 2 subgraphs above:
 
 * The Inventory subgraph no longer `extend`s the `Product` entity.
 * The Inventory subgraph no longer marks the `Product.id` field as `@external`.
-    * The `@external` directive is no longer required for `@key` fields, but it _is_ still required for [`@requires`](../entities-advanced/#contributing-computed-entity-fields) and [`@provides`](../entities-advanced/#using-provides).
+    * The `@external` directive is no longer required for `@key` fields, but it is still required for [`@requires`](../entities-advanced/#contributing-computed-entity-fields) and [`@provides`](../entities-advanced/#using-provides).
 * Both subgraphs can resolve `Product.id`, even though it isn't marked as `@shareable`!
     * Unlike most fields, `@key` fields such as `Product.id` are `@shareable` by default. This is necessary for `@key` fields, because the gateway uses them to associate data from different subgraphs with the same object.
 
 #### Mark `@provides` fields as `@shareable`
 
-The `@provides` directive enables a subgraph to resolve a particular field _only_ for specific query paths. It's supported in Federation 2 as it is in Federation 1.
+The `@provides` directive enables a subgraph to resolve a particular field only for specific query paths. It's supported in Federation 2 as it is in Federation 1.
 
-However, if a subgraph `@provides` a particular field, that field must be marked as `@shareable` in each subgraph where it's _always_ resolvable:
+However, if a subgraph `@provides` a particular field, that field must be marked as `@shareable` in each subgraph where it's always resolvable:
 
 <p style="margin-bottom: 0;"><strong>Fed. 2</strong></p>
 
@@ -365,7 +365,7 @@ Here, `Query.outOfStockProducts` in the Inventory subgraph `@provides` the `Prod
 
 #### Modify `@key`s for entity stubs
 
-In certain cases, a subgraph _references_ an entity without contributing any fields to it. In Federation 1, these cases look like the following:
+In certain cases, a subgraph references an entity without contributing any fields to it. In Federation 1, these cases look like the following:
 
 <p style="margin-bottom: 0;"><strong>Fed. 1</strong></p>
 

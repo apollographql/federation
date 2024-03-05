@@ -29,7 +29,7 @@ For a subgraph to include trace data in its responses to your router, it must us
 
 To check whether your subgraph library supports federated tracing, see the `FEDERATED TRACING` entry for the library on [this page](./building-supergraphs/supported-subgraphs/).
 
-If your library _does_ support federated tracing, see its documentation to learn how to enable the feature.
+If your library does support federated tracing, see its documentation to learn how to enable the feature.
 
 > If your subgraph uses Apollo Server with `@apollo/subgraph`, federated tracing is enabled by default. You can customize this behavior with Apollo Server's [inline trace plugin](/apollo-server/api/plugin/inline-trace).
 

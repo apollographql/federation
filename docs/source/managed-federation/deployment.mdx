@@ -25,7 +25,7 @@ Whenever possible, you should update your subgraph configuration in a way that i
 
 Additionally, call `rover subgraph publish` for a subgraph only after all replicas of that subgraph are deployed. This ensures that resolvers are in place for all operations that are executable against your graph, and operations can't attempt to access fields that do not yet exist.
 
-In the rare case where a configuration change is _not_ backward compatible with your router's query planner, you should update your registered subgraph schemas _before_ you deploy your updated code.
+In the rare case where a configuration change is not backward compatible with your router's query planner, you should update your registered subgraph schemas before you deploy your updated code.
 
 You should also perform configuration updates that affect query planning prior to (and separately from) other changes. This helps avoid a scenario where the query planner generates queries that fail validation in downstream services or violate your resolvers.
 
@@ -38,7 +38,7 @@ In general, always exercise caution when pushing configuration changes that affe
 
 ### Example scenario
 
-Let's say we define a `Channel` interface in one subgraph, and we define types that _implement_ `Channel` in two other subgraphs:
+Let's say we define a `Channel` interface in one subgraph, and we define types that implement `Channel` in two other subgraphs:
 
 ```graphql
 # channel subgraph
@@ -66,7 +66,7 @@ To safely remove the `EmailChannel` type from your supergraph schema:
 
 The first step causes the query planner to stop sending fragments `...on EmailChannel`, which would fail validation if sent to a subgraph that isn't aware of the type.
 
-If you want to _keep_ `EmailType` but remove it from the `Channel` interface, the process is similar. Instead of removing the `EmailChannel` type altogether, only remove the `implements Channel` addendum to the type definition. This is because the query planner expands queries to interfaces or unions into fragments on their implementing types.
+If you want to keep `EmailType` but remove it from the `Channel` interface, the process is similar. Instead of removing the `EmailChannel` type altogether, only remove the `implements Channel` addendum to the type definition. This is because the query planner expands queries to interfaces or unions into fragments on their implementing types.
 
 For example, a query such as...
 
@@ -407,9 +407,9 @@ type Product @key(fields: "upc") {
 To perform this migration in-place:
 
 1. Modify the `Products` subgraph to add the new field. (As usual, first deploy all replicas, then use `rover subgraph publish` to push the new subgraph schema.)
-2. Deploy a new version of the `Reviews` subgraph with a resolver that accepts _either_ `nameLowercase` or `name` in the source object.
+2. Deploy a new version of the `Reviews` subgraph with a resolver that accepts either `nameLowercase` or `name` in the source object.
 3. Modify the Reviews subgraph's schema in the registry so that it `@requires(fields: "name")`.
-4. Deploy a new version of the `Reviews` subgraph with a resolver that _only_ accepts the `name` in its source object.
+4. Deploy a new version of the `Reviews` subgraph with a resolver that only accepts the `name` in its source object.
 
 Alternatively, you can perform this operation with an atomic migration at the subgraph level, by modifying the subgraph's URL:
 
@@ -417,13 +417,13 @@ Alternatively, you can perform this operation with an atomic migration at the su
 2. Deploy a new set of `Reviews` replicas to a new URL that reads from `name`.
 3. Register the `Reviews` subgraph with the new URL and the schema changes above.
 
-With this atomic strategy, the query planner resolves all outstanding requests to the old subgraph URL that relied on `nameLowercase` with the old query-planning configuration, which `@requires` the `nameLowercase` field. All _new_ requests are made to the new subgraph URL using the new query-planning configuration, which `@requires` the `name` field.
+With this atomic strategy, the query planner resolves all outstanding requests to the old subgraph URL that relied on `nameLowercase` with the old query-planning configuration, which `@requires` the `nameLowercase` field. All new requests are made to the new subgraph URL using the new query-planning configuration, which `@requires` the `name` field.
 
 ## Reliability and security
 
 Your router fetches its configuration by polling Apollo Uplink, an Apollo-hosted endpoint specifically for serving supergraph configs. In the event that your updated config is inaccessible due to an outage in Uplink, your router continues to serve its most recently fetched configuration.
 
-If you restart a router instance or spin up a _new_ instance during an Uplink outage, that instance can't fetch its configuration until Apollo resolves the outage.
+If you restart a router instance or spin up a new instance during an Uplink outage, that instance can't fetch its configuration until Apollo resolves the outage.
 
 ## The `subgraph publish` lifecycle
 

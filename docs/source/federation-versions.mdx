@@ -5,7 +5,7 @@ description: Understand changes between federation versions
 
 This article describes notable changes and additions introduced in each minor version release of Apollo Federation. Most of these changes involve additions or modifications to [federation-specific directives](./federated-types/federated-directives/).
 
-> For a _comprehensive_ changelog for Apollo Federation and its associated libraries, see [GitHub](https://github.com/apollographql/federation/blob/main/CHANGELOG.md).
+> For a comprehensive changelog for Apollo Federation and its associated libraries, see [GitHub](https://github.com/apollographql/federation/blob/main/CHANGELOG.md).
 
 - To use a feature introduced in a particular federation version, make sure your subgraph schema's `@link` directive targets that version (or higher):
 
@@ -797,11 +797,11 @@ Entities
 </td>
 <td>
 
-* Entities no longer _originate_ in a subgraph. Instead, any number of subgraphs can define the same entity and _contribute fields_ to it.
-* Multiple subgraphs _can_ contribute the same field to an entity, _if_ that field is marked as `@shareable` in every subgraph that defines it.
+* Entities no longer originate in a subgraph. Instead, any number of subgraphs can define the same entity and contribute fields to it.
+* Multiple subgraphs can contribute the same field to an entity, if that field is marked as `@shareable` in every subgraph that defines it.
 * Subgraphs no longer need to `extend` (or `@extends`) an entity whenever another subgraph already defines that entity.
 * Each subgraph can apply any number of `@key` directives to an entity.
-* Subgraphs _must_ no longer apply the `@external` directive to their `@key` fields.
+* Subgraphs must no longer apply the `@external` directive to their `@key` fields.
 
 </td>
 </tr>
@@ -815,7 +815,7 @@ Value types
 <td>
 
 * To define a value type with shared fields across multiple subgraphs, those shared fields must be marked as `@shareable` in every subgraph that defines them.
-* Value type fields _can_ differ across subgraphs (in certain ways). For details, see [Differing shared fields](./federated-types/sharing-types#differing-shared-fields).
+* Value type fields can differ across subgraphs (in certain ways). For details, see [Differing shared fields](./federated-types/sharing-types#differing-shared-fields).
 
 </td>
 </tr>
@@ -828,7 +828,7 @@ Value types
 </td>
 <td>
 
-* More than one subgraph _can_ define the same field of the `Query` or `Mutation` type, _if_ that field is marked as `@shareable` in every subgraph that defines it.
+* More than one subgraph can define the same field of the `Query` or `Mutation` type, if that field is marked as `@shareable` in every subgraph that defines it.
 * Subgraphs no longer need to apply the `extend` keyword (or the `@extends` directive) to the `Query` and `Mutation` types.
 
 </td>
@@ -997,12 +997,12 @@ Entities
 </td>
 <td>
 
-* Each entity _originates_ in exactly one subgraph and can be _extended_ in other subgraphs.
-* An entity's originating subgraph _must_ apply _at least one_ `@key` directive to the entity definition.
+* Each entity originates in exactly one subgraph and can be extended in other subgraphs.
+* An entity's originating subgraph must apply at least one `@key` directive to the entity definition.
 * An extending subgraph must use the `extend` keyword (or the `@extends` directive) when defining another subgraph's entity.
 * An extending subgraph must apply exactly one `@key` directive to any entity it extends. The `fields` of that `@key` must match a `@key` that's defined by the entity's originating subgraph.
 * An extending subgraph must apply the `@external` directive to all `@key` fields of an entity it extends.
-* If an entity field is defined in more than one subgraph, it must be marked as `@external` in all but _one_ subgraph.
+* If an entity field is defined in more than one subgraph, it must be marked as `@external` in all but one subgraph.
 
 </td>
 </tr>
@@ -1015,7 +1015,7 @@ Value types
 </td>
 <td>
 
-* Each subgraph that defines a value type _must_ define that value type _identically_.
+* Each subgraph that defines a value type must define that value type identically.
 
 </td>
 </tr>
@@ -1028,7 +1028,7 @@ Value types
 </td>
 <td>
 
-* More than one subgraph _cannot_ define the same field of the `Query` or `Mutation` type.
+* More than one subgraph cannot define the same field of the `Query` or `Mutation` type.
 * Every subgraph must apply the `extend` keyword (or the `@extends` directive) to the `Query` and `Mutation` types.
 
 </td>

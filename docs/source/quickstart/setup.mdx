@@ -16,7 +16,7 @@ Related resources:
 
 ## Federation concepts
 
-Before we set up our project, let's quickly cover what Apollo Federation _is_.
+Before we set up our project, let's quickly cover what Apollo Federation is.
 
 In a federated architecture, multiple GraphQL APIs are [composed](../federated-types/composition/) into a single federated graph. The individual APIs are called _subgraphs_, and they're composed into a _supergraph_:
 
@@ -33,11 +33,11 @@ Usually, each subgraph corresponds to a different service in your backend. The s
 
 The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific metadata.
 
-This architecture enables clients to query data from _all_ subgraphs _simultaneously_, just by querying the router. It also enables different teams to own independent parts of a unified graph.
+This architecture enables clients to query data from all subgraphs simultaneously, just by querying the router. It also enables different teams to own independent parts of a unified graph.
 
 ### Supergraph schema composition
 
-As a best practice, your router _does not_ compose its own supergraph schema. Instead, a separate process composes the schema and provides it to the router. This helps improve reliability and reduce downtime when you make changes to a subgraph.
+As a best practice, your router doesn't compose its own supergraph schema. Instead, a separate process composes the schema and provides it to the router. This helps improve reliability and reduce downtime when you make changes to a subgraph.
 
 There are multiple ways to compose a supergraph schema from subgraph schemas:
 
@@ -179,17 +179,17 @@ After installing, run `rover` in your terminal with no arguments to confirm that
 
 ### Authenticate Rover with Studio
 
-We'll use the Rover CLI to publish our subgraph schemas to Studio. To do that, we first need to _authenticate_ Rover with Studio.
+We'll use the Rover CLI to publish our subgraph schemas to Studio. To do that, we first need to authenticate Rover with Studio.
 
 Complete the first two steps of <a href="/rover/configuring/" target="_blank">Configuring Rover</a> (**Obtain an API key** and **Provide the API key to Rover**), then return here.
 
 ## 2. Create a router project directory
 
-As mentioned in [Federation concepts](#federation-concepts), your federated supergraph is represented by a _graph router_ that routes queries to various subgraphs. For this tutorial, we'll use some Apollo-hosted example services as our subgraphs, and we'll set up the Apollo Router in front of them.
+As mentioned in [Federation concepts](#federation-concepts), your federated supergraph is represented by a graph router that routes queries to various subgraphs. For this tutorial, we'll use some Apollo-hosted example services as our subgraphs, and we'll set up the Apollo Router in front of them.
 
 > The Apollo Router is a high-performance, precompiled Rust executable that acts as the router for a supergraph.
 >
-> Alternatively, _Apollo Server_ can act as your graph router, as documented in [The graph router](../building-supergraphs/router/). This tutorial uses the Apollo Router because it's the recommended default for all new supergraphs (for details, see [Choosing a router library](../building-supergraphs/router/#choosing-a-router-library)).
+> Alternatively, Apollo Server can act as your graph router, as documented in [The graph router](../building-supergraphs/router/). This tutorial uses the Apollo Router because it's the recommended default for all new supergraphs (for details, see [Choosing a router library](../building-supergraphs/router/#choosing-a-router-library)).
 
 On your development machine, first create a new directory for your router project. Then inside that directory, run the following to install the Apollo Router:
 

@@ -3,7 +3,7 @@ title: Server-side caching
 sidebar_title: Caching
 ---
 
-> Using cache control with Apollo Federation requires at least v3.0.2 of Apollo Server in your subgraphs _and_ gateway. Please note that Apollo Server's cache hints API has evolved as of v3, so be sure to review the [updated caching documentation](/apollo-server/performance/caching/).
+> Using cache control with Apollo Federation requires at least v3.0.2 of Apollo Server in your subgraphs and gateway. Please note that Apollo Server's cache hints API has evolved as of v3, so be sure to review the [updated caching documentation](/apollo-server/performance/caching/).
 
 ## Using cache hints with subgraphs
 
@@ -131,7 +131,7 @@ type Astronaut @key(fields: "id") @cacheControl(maxAge: 20) {
 }
 ```
 
-Setting the `maxAge` property on the `Astronaut` type in the missions subgraph raises an important consideration about whether _every_ subgraph should explicitly set these values for any entity types that they include. In most cases, it's likely preferable to apply `@cacheControl(inheritMaxAge: true)` wherever an entity type is used as a field's return type to avoid ambiguity. Depending on your requirements, you might want to disallow this entirely using custom linting for your subgraphs to ensure that multiple subgraphs do not set the `maxAge` or `scope` arguments when applying the `@cacheControl` directive.
+Setting the `maxAge` property on the `Astronaut` type in the missions subgraph raises an important consideration about whether every subgraph should explicitly set these values for any entity types that they include. In most cases, it's likely preferable to apply `@cacheControl(inheritMaxAge: true)` wherever an entity type is used as a field's return type to avoid ambiguity. Depending on your requirements, you might want to disallow this entirely using custom linting for your subgraphs to ensure that multiple subgraphs do not set the `maxAge` or `scope` arguments when applying the `@cacheControl` directive.
 
 ### Gateway override
 

@@ -41,7 +41,7 @@ This example subgraph schema uses `@uniqueKey` for the federated directive usual
 
 ### Namespaced directives
 
-If you _don't_ [import a particular directive](#importing-directives) from a linked spec, you _can_ still use that directive in your subgraph schema. However, that directive is namespaced with a prefix:
+If you don't [import a particular directive](#importing-directives) from a linked spec, you can still use that directive in your subgraph schema. However, that directive is namespaced with a prefix:
 
 ```graphql
 extend schema
@@ -53,7 +53,7 @@ type Book @federation__shareable {
 }
 ```
 
-In the example above, `@shareable` is _not_ imported from the federation spec. Therefore, it is available as `@federation__shareable`.
+In the example above, `@shareable` is not imported from the federation spec. Therefore, it is available as `@federation__shareable`.
 
 The default namespace prefix for a `@link`ed directive is the name of its associated specification (indicated by the penultimate component of `url`), plus two underscores (`__`). For Apollo Federation directives, this prefix is `federation__`.
 
@@ -69,7 +69,7 @@ type Book @fed__shareable {
 }
 ```
 
-As shown, custom namespace prefixes _also_ end in two underscores.
+As shown, custom namespace prefixes also end in two underscores.
 
 <MinVersion version="2.0">
 
@@ -86,7 +86,7 @@ directive @link(
 ) repeatable on SCHEMA
 ```
 
-This directive links definitions from an external specification to this schema. Every Federation 2 subgraph uses the `@link` directive to import the _other_ federation-specific directives described in this article (see the syntax in [Importing directives](#importing-directives)).
+This directive links definitions from an external specification to this schema. Every Federation 2 subgraph uses the `@link` directive to import the other federation-specific directives described in this article (see the syntax in [Importing directives](#importing-directives)).
 
 For more information on `@link`, see the [official spec](https://specs.apollo.dev/link/v1.0/).
 
@@ -112,7 +112,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-You can apply multiple `@key` directives to a single entity (to specify multiple valid sets of key fields), _if_ your subgraph library supports repeatable directives:
+You can apply multiple `@key` directives to a single entity (to specify multiple valid sets of key fields), if your subgraph library supports repeatable directives:
 
 ```graphql {1}
 type Product @key(fields: "upc") @key(fields: "sku") {
@@ -124,7 +124,7 @@ type Product @key(fields: "upc") @key(fields: "sku") {
 
 To check whether your subgraph library supports repeatable directives, see the `repeatable @key` item in [Federation-compatible subgraph implementations](../building-supergraphs/supported-subgraphs/).
 
-In Apollo Federation 2.3 and later, you can also apply `@key` to `interface` definitions to create [entity interfaces](./interfaces/). If you apply `@key` to an `interface` in _earlier_ versions of Federation 2, a composition error occurs.
+In Apollo Federation 2.3 and later, you can also apply `@key` to `interface` definitions to create [entity interfaces](./interfaces/). If you apply `@key` to an `interface` in earlier versions of Federation 2, a composition error occurs.
 
 #### Arguments
 
@@ -170,7 +170,7 @@ See also [Advanced `@key`s](../entities-advanced/#using-advanced-keys).
 </td>
 <td>
 
-If `false`, indicates to the router that this subgraph _doesn't_ define a [reference resolver](../entities/#2-define-a-reference-resolver) for this entity. This means that router query plans can't "jump to" this subgraph to resolve fields that aren't defined in _another_ subgraph.
+If `false`, indicates to the router that this subgraph doesn't define a [reference resolver](../entities/#2-define-a-reference-resolver) for this entity. This means that router query plans can't "jump to" this subgraph to resolve fields that aren't defined in another subgraph.
 
 Most commonly, you set this to `false` when [referencing an entity without contributing fields](../entities/#referencing-an-entity-without-contributing-fields).
 
@@ -192,9 +192,9 @@ The default value is `true`.
 directive @interfaceObject on OBJECT
 ```
 
-Indicates that an object definition serves as an abstraction of another subgraph's _entity interface_. This abstraction enables a subgraph to automatically contribute fields to _all_ entities that implement a particular entity interface.
+Indicates that an object definition serves as an abstraction of another subgraph's entity interface. This abstraction enables a subgraph to automatically contribute fields to all entities that implement a particular entity interface.
 
-During composition, the fields of every `@interfaceObject` are added both to their corresponding `interface` definition _and_ to all entity types that _implement_ that interface.
+During composition, the fields of every `@interfaceObject` are added both to their corresponding `interface` definition and to all entity types that implement that interface.
 
 > [Learn more about entity interfaces.](./interfaces/)
 
@@ -208,7 +208,7 @@ During composition, the fields of every `@interfaceObject` are added both to the
 directive @extends on OBJECT | INTERFACE
 ```
 
-Indicates that an object or interface definition is an extension of _another_ definition of that same type.
+Indicates that an object or interface definition is an extension of another definition of that same type.
 
 <Caution>
 
@@ -216,11 +216,11 @@ If your subgraph library supports GraphQL's built-in `extend` keyword, do not us
 
 </Caution>
 
-This directive is for use with GraphQL subgraph libraries that do _not_ support the `extend` keyword. Most commonly, these are subgraph libraries that generate their schema programmatically instead of using a static `.graphql` file.
+This directive is for use with GraphQL subgraph libraries that do not support the `extend` keyword. Most commonly, these are subgraph libraries that generate their schema programmatically instead of using a static `.graphql` file.
 
-> Note that Federation 2 does not _require_ any use of type extensions.
+> Note that Federation 2 does not require any use of type extensions.
 >
-> In Federation 1, every subgraph must extend the `Query` and `Mutation` types (if it defines them), and entities are extended in every subgraph that defines them _except_ their originating subgraph.
+> In Federation 1, every subgraph must extend the `Query` and `Mutation` types (if it defines them), and entities are extended in every subgraph that defines them except their originating subgraph.
 
 ## Managing shared fields
 
@@ -243,7 +243,7 @@ type Position {
 }
 ```
 
-If applied to an object type definition, _all_ of that type's fields are considered `@shareable`:
+If applied to an object type definition, all of that type's fields are considered `@shareable`:
 
 ```graphql {1}
 type Position @shareable {
@@ -252,7 +252,7 @@ type Position @shareable {
 }
 ```
 
-If a field is marked `@shareable` in _any_ subgraph, it must be marked as either `@shareable` or [`@external`](#external) in _every_ Federation 2 subgraph that defines it.
+If a field is marked `@shareable` in any subgraph, it must be marked as either `@shareable` or [`@external`](#external) in every Federation 2 subgraph that defines it.
 
 > If a Federation 2 supergraph includes a Federation 1 subgraph, all value types in the Federation 1 subgraph are automatically considered `@shareable` by the Federation 2 composition algorithm.
 
@@ -272,16 +272,16 @@ See also [Value types in Apollo Federation](./sharing-types/) and [Resolving ano
 directive @inaccessible on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
 ```
 
-Indicates that a definition in the subgraph schema should be _omitted_ from the router's [API schema](./overview/#api-schema), _even if that definition is also present in other subgraphs_. This means that the field is not exposed to clients at all.
+Indicates that a definition in the subgraph schema should be omitted from the router's [API schema](./overview/#api-schema), even if that definition is also present in other subgraphs. This means that the field is not exposed to clients at all.
 
 Common use cases for `@inaccessible` include:
 
 * Avoiding composition errors while making staggered updates to a definition that's shared across multiple subgraphs (such as a [value type](./sharing-types/#adding-new-shared-fields))
 * Using a private field as part of an entity's [`@key`](#key) without exposing that field to clients
 
-> ⚠️ Unlike with most directives, composition _preserves_ uses of this directive in the generated supergraph schema. To preserve uses of _other_ directives, see [`@composeDirective`](#composedirective).
+> ⚠️ Unlike with most directives, composition preserves uses of this directive in the generated supergraph schema. To preserve uses of other directives, see [`@composeDirective`](#composedirective).
 >
-> Consequently, if you [rename this directive](#renaming-directives), you must use the _same_ name in every subgraph. Otherwise, a composition error occurs due to a naming mismatch.
+> Consequently, if you [rename this directive](#renaming-directives), you must use the same name in every subgraph. Otherwise, a composition error occurs due to a naming mismatch.
 
 <CodeColumns>
 
@@ -303,9 +303,9 @@ type Position @shareable {
 
 </CodeColumns>
 
-Often when you add a field to a value type in _one_ subgraph, composition fails because that field isn't resolvable in _other_ subgraphs. With `@inaccessible`, you can preserve composition while adding the field to your remaining subgraphs. When the rollout is complete, you can remove the directive and begin using the field.
+Often when you add a field to a value type in one subgraph, composition fails because that field isn't resolvable in other subgraphs. With `@inaccessible`, you can preserve composition while adding the field to your remaining subgraphs. When the rollout is complete, you can remove the directive and begin using the field.
 
-An `@inaccessible` field or type is _not_ omitted from the _supergraph_ schema, so the router still knows it exists (but clients can't include it in operations). This is what enables the router to use an `@inaccessible` field as part of an entity's `@key` when combining entity fields from multiple subgraphs.
+An `@inaccessible` field or type is not omitted from the supergraph schema, so the router still knows it exists (but clients can't include it in operations). This is what enables the router to use an `@inaccessible` field as part of an entity's `@key` when combining entity fields from multiple subgraphs.
 
 If a type is marked `@inaccessible`, all fields that return that type must also be marked `@inaccessible`. Otherwise, a composition error occurs.
 
@@ -321,7 +321,7 @@ For more information, see [Using `@inaccessible`](./sharing-types/#using-inacces
 directive @override(from: String!) on FIELD_DEFINITION
 ```
 
-Indicates that an object field is now resolved by this subgraph _instead of_ another subgraph where it's also defined. This enables you to migrate a field from one subgraph to another.
+Indicates that an object field is now resolved by this subgraph instead of another subgraph where it's also defined. This enables you to migrate a field from one subgraph to another.
 
 You can apply `@override` to [entity](../entities/) fields and fields of the root operation types (such as `Query` and `Mutation`).
 
@@ -343,9 +343,9 @@ type Product @key(fields: "id") {
 
 </CodeColumns>
 
-In the example above, we're migrating the `Product.inStock` field from the Products subgraph to the Inventory subgraph. The composed supergraph schema indicates that `Product.inStock` is resolved by the Inventory subgraph but _not_ the Products subgraph, even though the Products subgraph also defines the field.
+In the example above, we're migrating the `Product.inStock` field from the Products subgraph to the Inventory subgraph. The composed supergraph schema indicates that `Product.inStock` is resolved by the Inventory subgraph but not the Products subgraph, even though the Products subgraph also defines the field.
 
-You can apply `@override` to a [`@shareable`](#shareable) field. If you do, only the subgraph you provide in the `from` argument no longer resolves that field. _Other_ subgraphs can still resolve the field.
+You can apply `@override` to a [`@shareable`](#shareable) field. If you do, only the subgraph you provide in the `from` argument no longer resolves that field. other subgraphs can still resolve the field.
 
 Only one subgraph can `@override` any given field. If multiple subgraphs attempt to `@override` the same field, a composition error occurs.
 
@@ -359,7 +359,7 @@ For more information, see [Migrating entities and fields](../entities-advanced/#
 
 <ProgressiveOverrideEnterprise/>
 
-Rolling out any change to a production subgraph, including field migration, risks degrading the performance of your graph. Rerouting all traffic from one subgraph to another _all at once_ could overload the overriding subgraph.
+Rolling out any change to a production subgraph, including field migration, risks degrading the performance of your graph. Rerouting all traffic from one subgraph to another all at once could overload the overriding subgraph.
 
 The _progressive `@override`_ feature enables the gradual, progressive deployment of a subgraph with an `@override` field. As a subgraph developer, you can customize the percentage of traffic that the overriding and overridden subgraphs each resolve for a field. You apply a label to an `@override` field to set the percentage of traffic for the field that should be resolved by the overriding subgraph, with the remaining percentage resolved by the overridden subgraph. You can then monitor the performance of the subgraphs in Studio, resolve any issues, and iteratively and progressively increase the percentage until all traffic is resolved by the overriding subgraph.
 
@@ -551,7 +551,7 @@ Indicates to composition that the target element is restricted based on authoriz
 directive @external on FIELD_DEFINITION | OBJECT
 ```
 
-Indicates that this subgraph usually _can't_ resolve a particular object field, but it still needs to define that field for other purposes.
+Indicates that this subgraph usually can't resolve a particular object field, but it still needs to define that field for other purposes.
 
 This directive is always used in combination with another directive that references object fields, such as [`@provides`](#provides) or [`@requires`](#requires).
 
@@ -568,9 +568,9 @@ type Query {
 }
 ```
 
-This example subgraph _usually_ can't resolve the `Product.name` field, but it _can_ at the `Query.outOfStockProducts` query path (indicated by the [`@provides` directive](#provides)).
+This example subgraph usually can't resolve the `Product.name` field, but it can at the `Query.outOfStockProducts` query path (indicated by the [`@provides` directive](#provides)).
 
-If applied to an object type definition, _all_ of that type's fields are considered `@external`:
+If applied to an object type definition, all of that type's fields are considered `@external`:
 
 ```graphql {1}
 type Position @external {
@@ -589,9 +589,9 @@ type Position @external {
 directive @provides(fields: FieldSet!) on FIELD_DEFINITION
 ```
 
-Specifies a set of entity fields that a subgraph _can_ resolve, but _only_ at a particular schema path (at other paths, the subgraph _can't_ resolve those fields).
+Specifies a set of entity fields that a subgraph can resolve, but only at a particular schema path (at other paths, the subgraph can't resolve those fields).
 
-If a subgraph can _always_ resolve a particular entity field, do _not_ apply this directive.
+If a subgraph can always resolve a particular entity field, do not apply this directive.
 
 Using this directive is always an optional optimization. It can reduce the total number of subgraphs that your router needs to communicate with to resolve certain operations, which can improve performance.
 
@@ -608,15 +608,15 @@ type Query {
 }
 ```
 
-This example subgraph can resolve `Product.name` for products returned by `Query.outOfStockProducts` but _not_ `Query.discontinuedProducts`.
+This example subgraph can resolve `Product.name` for products returned by `Query.outOfStockProducts` but not `Query.discontinuedProducts`.
 
 <Note>
 
 If a subgraph `@provides` an entity field:
 
 - The subgraph must define that field and mark it as [`@external`](#external), as shown above with `Product.name`.
-- The entity field must be marked as either [`@shareable`](#shareable) or [`@external`](#external) in _every_ subgraph that defines it.
-- The entity field must be marked as [`@shareable`](#shareable) in at least one other subgraph (i.e., there's at least one subgraph that can _always_ resolve the field).
+- The entity field must be marked as either [`@shareable`](#shareable) or [`@external`](#external) in every subgraph that defines it.
+- The entity field must be marked as [`@shareable`](#shareable) in at least one other subgraph (i.e., there's at least one subgraph that can always resolve the field).
 
 Otherwise, a composition error occurs.
 
@@ -646,7 +646,7 @@ For more information, see [Using `@provides`](/federation/entities-advanced#usin
 </td>
 <td>
 
-**Required.** A GraphQL selection set (provided as a string) of object fields and subfields that the subgraph can resolve only at _this_ query path.
+**Required.** A GraphQL selection set (provided as a string) of object fields and subfields that the subgraph can resolve only at this query path.
 
 Examples:
 
@@ -670,7 +670,7 @@ Examples:
 directive @requires(fields: FieldSet!) on FIELD_DEFINITION
 ```
 
-Indicates that the resolver for a particular entity field depends on the values of _other_ entity fields that are resolved by _other_ subgraphs. This tells the router that it needs to fetch the values of those externally defined fields _first_, even if the original client query didn't request them.
+Indicates that the resolver for a particular entity field depends on the values of other entity fields that are resolved by other subgraphs. This tells the router that it needs to fetch the values of those externally defined fields first, even if the original client query didn't request them.
 
 ```graphql {5} title="Shipping subgraph"
 type Product @key(fields: "id") {
@@ -741,9 +741,9 @@ directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJEC
 
 Applies arbitrary string metadata to a schema location. Custom tooling can use this metadata during any step of the schema delivery flow, including composition, static analysis, and documentation. The GraphOS Enterprise [contracts feature](/graphos/delivery/contracts/) uses `@tag` with its inclusion and exclusion filters.
 
-> ⚠️ Unlike with most directives, composition _preserves_ uses of this directive in the generated supergraph schema. To preserve uses of _other_ directives, see [`@composeDirective`](#composedirective).
+> ⚠️ Unlike with most directives, composition preserves uses of this directive in the generated supergraph schema. To preserve uses of other directives, see [`@composeDirective`](#composedirective).
 >
-> Consequently, if you [rename this directive](#renaming-directives), you must use the _same_ name in every subgraph that uses it. Otherwise, a composition error occurs due to a naming mismatch.
+> Consequently, if you [rename this directive](#renaming-directives), you must use the same name in every subgraph that uses it. Otherwise, a composition error occurs due to a naming mismatch.
 
 ```graphql
 extend schema
@@ -839,15 +839,15 @@ This directive has the following requirements:
 
   - Ensure your [subgraph library](../building-supergraphs/supported-subgraphs) supports `@composeDirective` or try manually adding the `@composeDirective` definition to your subgraph schema.
   - The directive to preserve must be defined and imported from a core specification via the `@link` directive.
-  - The specified directive `name` must match the name used for the directive _in this subgraph_.
-      - If you use the `as` argument in your `@link` definition to modify the directive's name from its spec's default, provide the _modified_ name, not the default name.
+  - The specified directive `name` must match the name used for the directive in this subgraph.
+      - If you use the `as` argument in your `@link` definition to modify the directive's name from its spec's default, provide the modified name, not the default name.
   - If multiple subgraphs import and use the directive:
-      - The name used for the directive _must_ be identical in all of those subgraphs.
-      - All of those subgraphs _should_ use the same major version of the spec that defines the directive.
+      - The name used for the directive must be identical in all of those subgraphs.
+      - All of those subgraphs should use the same major version of the spec that defines the directive.
 
 If any of these requirements is not met, composition fails.
 
-> If different subgraphs use different versions of a directive's corresponding spec, the supergraph schema uses whichever version number is _highest_ among all subgraphs. Composition does _not_ verify whether this version of the directive is compatible with subgraphs that use an earlier version.
+> If different subgraphs use different versions of a directive's corresponding spec, the supergraph schema uses whichever version number is highest among all subgraphs. Composition does not verify whether this version of the directive is compatible with subgraphs that use an earlier version.
 
 #### Arguments
 

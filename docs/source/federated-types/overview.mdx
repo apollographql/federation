@@ -19,11 +19,11 @@ graph TB;
   class composition tertiary;
 ```
 
-* **Subgraph schemas.** Each subgraph has a distinct schema that indicates _which_ types and fields of your composed supergraph it can resolve.
+* **Subgraph schemas.** Each subgraph has a distinct schema that indicates which types and fields of your composed supergraph it can resolve.
     * These are the only schemas that your teams define manually.
-* **Supergraph schema.** This schema combines all of the types and fields from your subgraph schemas, _plus_ some federation-specific information that tells your router which subgraphs can resolve which fields.
+* **Supergraph schema.** This schema combines all of the types and fields from your subgraph schemas, plus some federation-specific information that tells your router which subgraphs can resolve which fields.
     * This schema is the result of performing [composition](./composition/) on your collection of subgraph schemas.
-* **API schema.** This schema is similar to the supergraph schema, but it _omits_ federation-specific types, fields, and directives that are considered "machinery" and are not part of your public API.
+* **API schema.** This schema is similar to the supergraph schema, but it omits federation-specific types, fields, and directives that are considered "machinery" and are not part of your public API.
     * This is the schema that your router exposes to clients, which don't need to know internal implementation details about your graph.
 
 Let's look at an example!
@@ -228,4 +228,4 @@ type User {
 }
 ```
 
-Unlike the supergraph schema, this schema hides the fact that your GraphQL API is composed of _multiple distinct_ GraphQL APIs.
+Unlike the supergraph schema, this schema hides the fact that your GraphQL API is composed of multiple distinct GraphQL APIs.

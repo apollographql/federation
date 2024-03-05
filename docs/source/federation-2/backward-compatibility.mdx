@@ -17,20 +17,20 @@ Eventually. The process of [moving to Federation 2](./moving-to-federation-2/) h
 2. Begin composing your supergraph schema with Federation 2 composition logic.
 3. Update your individual subgraphs to use Federation 2 features and directives.
 
-Steps 1 and 2 usually require _no_ changes to your subgraph schemas. Schemas that _do_ require changes are schemas that _should_ cause certain composition errors that Federation 1 fails to detect ([see below.](#breaking-changes)).
+Steps 1 and 2 usually require no changes to your subgraph schemas. Schemas that do require changes are schemas that should cause certain composition errors that Federation 1 fails to detect ([see below.](#breaking-changes)).
 
-Step 3 _does_ require some changes to your subgraph schemas, described [here](./moving-to-federation-2/#step-3-update-individual-subgraphs).
+Step 3 does require some changes to your subgraph schemas, described [here](./moving-to-federation-2/#step-3-update-individual-subgraphs).
 
 
 ### Breaking changes
 
-As mentioned above, the following Federation 1 examples _should_ produce composition errors, but they aren't detected. If your subgraph schemas include syntax that matches any of these, you need to update those schemas before moving to Federation 2.
+As mentioned above, the following Federation 1 examples should produce composition errors, but they aren't detected. If your subgraph schemas include syntax that matches any of these, you need to update those schemas before moving to Federation 2.
 
 <ExpansionPanel title="See breaking changes">
 
 #### Invalid `@key` directives
 
-An entity's `@key` consists of one or more of the entity's own `fields`. If any of these fields have _subfields_, the `@key` must _also_ include at least one of those subfields:
+An entity's `@key` consists of one or more of the entity's own `fields`. If any of these fields have subfields, the `@key` must also include at least one of those subfields:
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -48,7 +48,7 @@ type Organization {
 
 In this example, the `User`'s key fields are `User.id` and `User.organization.id`.
 
-Federation 1 composition _incorrectly_ allows a `@key` such as the following:
+Federation 1 composition incorrectly allows a `@key` such as the following:
 
 <p style="margin-bottom: 0">❌</p>
 
@@ -64,11 +64,11 @@ type Organization {
 }
 ```
 
-This `@key` should _break_ composition because it doesn't include at least one subfield of `Organization`.
+This `@key` should break composition because it doesn't include at least one subfield of `Organization`.
 
 #### Invalid `@requires` directives
 
-A subgraph can mark an entity field with the [`@requires` directive](https://www.apollographql.com/docs/federation/entities/#extending-an-entity-with-computed-fields-advanced) to indicate that it depends on fields and subfields from _another_ subgraph:
+A subgraph can mark an entity field with the [`@requires` directive](https://www.apollographql.com/docs/federation/entities/#extending-an-entity-with-computed-fields-advanced) to indicate that it depends on fields and subfields from another subgraph:
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -99,7 +99,7 @@ type ProductDimensions {
 
 In this example, Subgraph B's `shippingEstimate` field depends on the `dimensions.size` and `dimensions.weight` fields of Subgraph A.
 
-Federation 1 _incorrectly_ allows a `@requires` directive such as the following:
+Federation 1 incorrectly allows a `@requires` directive such as the following:
 
 <p style="margin-bottom: 0">❌</p>
 
@@ -128,7 +128,7 @@ type ProductDimensions {
 }
 ```
 
-This `@requires` directive should _break_ composition because it depends on subfields of `ProductDimensions` that _don't exist_ (`length` and `depth`).
+This `@requires` directive should break composition because it depends on subfields of `ProductDimensions` that don't exist (`length` and `depth`).
 
 #### Invalid `@provides` directives
 
@@ -155,7 +155,7 @@ type Query {
 
 In the above example, Subgraph A can resolve the `Product.info.name` field  when accessed through the `outOfStockProducts` query. Any other path to `Product.info.name` results in an additional subgraph call.
 
-Federation 1 _incorrectly_ allows `@provides` usage like the following:
+Federation 1 incorrectly allows `@provides` usage like the following:
 
 <p style="margin-bottom: 0">❌</p>
 
@@ -176,7 +176,7 @@ type Query {
 }
 ```
 
-The above `@provides` directives usage should _break_ composition because it does not specify which subfields of `ProductInfo` it can resolve. This is correctly caught and surfaced as an error in Federation v2 but Federation v1 incorrectly allows this usage.
+The above `@provides` directives usage should break composition because it does not specify which subfields of `ProductInfo` it can resolve. This is correctly caught and surfaced as an error in Federation v2 but Federation v1 incorrectly allows this usage.
 
 </ExpansionPanel>
 
@@ -185,11 +185,11 @@ The above `@provides` directives usage should _break_ composition because it doe
 
 No, not after you [convert at least one subgraph schema](#do-i-need-to-modify-my-subgraph-schemas-to-use-federation-2) to a true Federation 2 schema.
 
-Federation 2 provides [more flexible composition rules](./new-in-federation-2/#more-flexible-composition) compared to Federation 1. After you modify your subgraph schemas to take advantage of this flexibility, your graph will no longer compose with Federation 1. You need to revert these changes to move _back_ to Federation 1.
+Federation 2 provides [more flexible composition rules](./new-in-federation-2/#more-flexible-composition) compared to Federation 1. After you modify your subgraph schemas to take advantage of this flexibility, your graph will no longer compose with Federation 1. You need to revert these changes to move back to Federation 1.
 
 ## Does `@apollo/gateway` v2 support Federation 1?
 
-Yes. If you want, you can update your gateway's `@apollo/gateway` library to its latest `2.x` version _before_ you're ready to [move your graph to Federation 2](./moving-to-federation-2/).
+Yes. If you want, you can update your gateway's `@apollo/gateway` library to its latest `2.x` version before you're ready to [move your graph to Federation 2](./moving-to-federation-2/).
 
 Your plugins and customizations for `@apollo/gateway` `0.x` will continue to work as expected in `@apollo/gateway` `2.x`.
 

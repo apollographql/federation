@@ -3,7 +3,7 @@ title: Apollo Federation subgraph specification
 description: For adding subgraph support to GraphQL server libraries
 ---
 
-> This content is provided for developers adding federated subgraph support to a GraphQL server library, and for anyone curious about the inner workings of federation. You do _not_ need to read this if you're building a supergraph with existing [subgraph-compatible libraries](./building-supergraphs/supported-subgraphs/), such as Apollo Server.
+> This content is provided for developers adding federated subgraph support to a GraphQL server library, and for anyone curious about the inner workings of federation. You do not need to read this if you're building a supergraph with existing [subgraph-compatible libraries](./building-supergraphs/supported-subgraphs/), such as Apollo Server.
 >
 > Servers that are partially or fully compatible with this specification are tracked in Apollo's [subgraph compatibility repository](https://github.com/apollographql/apollo-federation-subgraph-compatibility).
 
@@ -98,11 +98,11 @@ The "enhanced" introspection query above differs from [the GraphQL spec's built-
 
 - The returned schema representation is a string instead of a `__Schema` object.
 - The returned schema string includes all uses of [federation-specific directives](./federated-types/federated-directives/), such as `@key`.
-    - The built-in introspection query's response does _not_ include the uses of any directives.
+    - The built-in introspection query's response does not include the uses of any directives.
     - The graph router requires these federation-specific directives to perform composition successfully.
 -  If a subgraph server "disables introspection", the enhanced introspection query is still available.
 
-> Note that the `_service` field is _not_ included in the composed supergraph schema. For security reasons, it's intended solely for use by the graph router.
+> Note that the `_service` field is not included in the composed supergraph schema. For security reasons, it's intended solely for use by the graph router.
 
 ### Required resolvers for introspection
 
@@ -125,7 +125,7 @@ The returned `sdl` string has the following requirements:
 - It must include all uses of all federation-specific directives, such as `@key`.
     - All of these directives are shown in [Subgraph schema additions](#subgraph-schema-additions).
 - If supporting Federation 1, `sdl` must omit all automatically added definitions from [Subgraph schema additions](#subgraph-schema-additions), such as `Query._service` and `_Service.sdl`!
-    - If your library is _only_ supporting Federation 2, `sdl` can include these defintions.
+    - If your library is only supporting Federation 2, `sdl` can include these defintions.
 
 For example, consider this Federation 2 subgraph schema:
 
@@ -180,11 +180,11 @@ These requirements are described further in the sections below.
 
 ### Defining the `_Entity` union
 
-The `_Entity` union type is the only schema definition in [Subgraph schema additions](#subgraph-schema-additions) that a subgraph must generate _dynamically_ based on the schema it's provided. All other definitions are static and can be added exactly as shown.
+The `_Entity` union type is the only schema definition in [Subgraph schema additions](#subgraph-schema-additions) that a subgraph must generate dynamically based on the schema it's provided. All other definitions are static and can be added exactly as shown.
 
-The `_Entity` union must include all entity types that are defined in the subgraph schema, _except_ entities with a `@key` that sets `resolvable: false`.
+The `_Entity` union must include all entity types that are defined in the subgraph schema, except entities with a `@key` that sets `resolvable: false`.
 
-> If a subgraph defines zero applicable entity types, then it should _not_ define the `_Entity` union.
+> If a subgraph defines zero applicable entity types, then it should not define the `_Entity` union.
 
 #### Example
 
@@ -227,13 +227,13 @@ type Query {
 }
 ```
 
-> If a subgraph doesn't define any entity types, then it should _not_ define the `Query._entities` field.
+> If a subgraph doesn't define any entity types, then it should not define the `Query._entities` field.
 
-The graph router uses this entry point to directly fetch fields of entity objects. It combines those fields with _other_ fields of the same entity that are returned by _other_ subgraphs.
+The graph router uses this entry point to directly fetch fields of entity objects. It combines those fields with other fields of the same entity that are returned by other subgraphs.
 
 The `Query._entities` field takes a required `representations` argument, which is a list of entity representations. A representation is an object that contains all fields from one of an entity's `@key`s, plus that entity's `__typename` field. These are the fields that a subgraph requires to uniquely identify a particular instance of an entity.
 
-Each item in the `representations` list is an `_Any` scalar. This is a federation-specific scalar defined in [Subgraph schema additions](#subgraph-schema-additions). This scalar is serialized as a generic JSON object, which enables the graph router to include representations of _different_ entities in the _same_ query, all of which can have a different shape.
+Each item in the `representations` list is an `_Any` scalar. This is a federation-specific scalar defined in [Subgraph schema additions](#subgraph-schema-additions). This scalar is serialized as a generic JSON object, which enables the graph router to include representations of different entities in the same query, all of which can have a different shape.
 
 Here's an example `_Any` representation for a `Product` entity:
 
@@ -290,7 +290,7 @@ query GetTopProductReviews {
 }
 ```
 
-To resolve this query, the graph router _starts_ by sending the following query to the Products subgraph, because that's where the top-level `Query.topProducts` field is defined:
+To resolve this query, the graph router starts by sending the following query to the Products subgraph, because that's where the top-level `Query.topProducts` field is defined:
 
 ```graphql
 query {
@@ -301,7 +301,7 @@ query {
 }
 ```
 
-Notice that this query includes `Product.__typename` and `Product.upc`, even though those fields _aren't_ included in the original client query. The graph router knows that these two fields are used in a `Product` type's representation, which it will use to fetch the remaining fields from the Reviews subgraph.
+Notice that this query includes `Product.__typename` and `Product.upc`, even though those fields aren't included in the original client query. The graph router knows that these two fields are used in a `Product` type's representation, which it will use to fetch the remaining fields from the Reviews subgraph.
 
 After getting this result from the Products subgraph, the router can send this followup query to the Reviews subgraph:
 
@@ -349,7 +349,7 @@ Every subgraph must also automatically define the resolver for this field. The l
     3. Add the fetched entity object to the array of entity objects. Make sure objects are listed in the same order as their corresponding representations.
 3. Return the array of entity objects.
 
-Notice in step 2.2 above that the subgraph _developer_ is responsible for defining logic that fetches a particular entity based on its representation. The subgraph _library_ is responsible for providing the mechanism that developers use to specify this logic, and for automatically hooking into this mechanism in the resolver for `Query._entities`.
+Notice in step 2.2 above that the subgraph developer is responsible for defining logic that fetches a particular entity based on its representation. The subgraph library is responsible for providing the mechanism that developers use to specify this logic, and for automatically hooking into this mechanism in the resolver for `Query._entities`.
 
 See the next section for more details on providing this mechanism.
 
@@ -386,7 +386,7 @@ The representation object passed to the reference resolver above might have the 
 
 For this reference resolver, the developer calls a `fetchProductByUPC` function, passing the `upc` from the representation. This function might query a database or a REST API to fetch the entity fields of `Product` that this subgraph knows about.
 
-Your subgraph library does _not_ need to use this reference resolver pattern. It just needs to provide and document _some_ pattern for defining entity-fetching logic.
+Your subgraph library does not need to use this reference resolver pattern. It just needs to provide and document some pattern for defining entity-fetching logic.
 
 ## Glossary of schema additions
 
@@ -407,7 +407,7 @@ For details, see [Enhanced introspection with `Query._service`](#enhanced-intros
 
 The graph router uses this root-level `Query` field to directly fetch fields of entities defined by a subgraph.
 
-This field must take a `representations` argument of type `[_Any!]!` (a non-nullable list of non-nullable [`_Any` scalars](#scalar-_any)). Its return type must be `[_Entity]!` (a non-nullable list of _nullable_ objects that belong to the [`_Entity` union](#union-_entity)).
+This field must take a `representations` argument of type `[_Any!]!` (a non-nullable list of non-nullable [`_Any` scalars](#scalar-_any)). Its return type must be `[_Entity]!` (a non-nullable list of nullable objects that belong to the [`_Entity` union](#union-_entity)).
 
 Each entry in the `representations` list  must be validated with the following rules:
 
@@ -422,8 +422,8 @@ For details, see [Resolving entity fields with `Query._entities`](#resolving-ent
 
 This object type must have an `sdl: String!` field, which returns the SDL of the subgraph schema as a string.
 
-- The returned schema string _must_ include all uses of federation-specific directives (`@key`, `@requires`, etc.).
-- If supporting Federation 1, the schema _must not_ include any definitions from [Subgraph schema additions](#subgraph-schema-additions).
+- The returned schema string must include all uses of federation-specific directives (`@key`, `@requires`, etc.).
+- If supporting Federation 1, the schema must not include any definitions from [Subgraph schema additions](#subgraph-schema-additions).
 
 For details, see [Enhanced introspection with `Query._service`](#enhanced-introspection-with-query_service).
 
