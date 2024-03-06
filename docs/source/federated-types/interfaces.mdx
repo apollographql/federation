@@ -208,7 +208,7 @@ In this example, the hypothetical variable `allMedia` contains all `Media` data,
 In [the example schemas above](#example-schemas), Subgraph B defines `Media` as an object type and applies `@interfaceObject` to it. It also defines a `Query.topRatedMedia` field:
 
 ```graphql title="Subgraph B"
-type Media @key(fields: "id") @interfaceObject {
+interface Media @key(fields: "id") @interfaceObject {
   id: ID!
   reviews: [Review!]!
 }
