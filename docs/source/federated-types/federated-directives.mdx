@@ -319,7 +319,7 @@ directive @override(from: String!) on FIELD_DEFINITION
 
 Indicates that an object field is now resolved by this subgraph _instead of_ another subgraph where it's also defined. This enables you to migrate a field from one subgraph to another.
 
-You can apply `@override` to [entity](../entities/) fields and fields of the root operation types (such as `Query` and `Mutation`).
+You can apply `@override` to [entity](../entities/) fields, along with fields of the root operation types (such as `Query` and `Mutation`).
 
 <CodeColumns>
 
@@ -341,9 +341,8 @@ type Product @key(fields: "id") {
 
 In the example above, we're migrating the `Product.inStock` field from the Products subgraph to the Inventory subgraph. The composed supergraph schema indicates that `Product.inStock` is resolved by the Inventory subgraph but _not_ the Products subgraph, even though the Products subgraph also defines the field.
 
-You can apply `@override` to a [`@shareable`](#shareable) field. If you do, only the subgraph you provide in the `from` argument no longer resolves that field. _Other_ subgraphs can still resolve the field.
-
-Only one subgraph can `@override` any given field. If multiple subgraphs attempt to `@override` the same field, a composition error occurs.
+- You can apply `@override` to a [`@shareable`](#shareable) field. If you do, only the subgraph you provide in the `from` argument no longer resolves that field. _Other_ subgraphs can still resolve the field.
+- Only one subgraph can `@override` any given field. If multiple subgraphs attempt to `@override` the same field, a composition error occurs.
 
 For more information, see [Migrating entities and fields](../entities-advanced/#migrating-entities-and-fields).
 
@@ -384,8 +383,10 @@ To learn more, see the [Incremental migration with `@override`](../entities-adva
 
 **Required.** The name of the other subgraph that no longer resolves the field.
 
-* **If you're performing composition with managed federation,** this must match the name of the subgraph registered to GraphOS.
-* **If you're performing composition with the Rover CLI,** this must match the name of the subgraph in the YAML config file you provide to `rover supergraph compose`.
+* **If you perform composition with managed federation,** this corresponds to the subgraph name you've published (or will publish) to GraphOS.
+* **If you perform composition with the Rover CLI,** this corresponds to the subgraph name in the YAML config file you provide to `rover supergraph compose`.
+
+You _can_ provide the name of a subgraph that you haven't yet added to your supergraph. When you later add that subgraph, composition honors the directive.
 
 </td>
 </tr>
