@@ -1354,3 +1354,47 @@ describe('when a directive causes an implicit federation version upgrade', () =>
     expect(result).toNotRaiseHints();
   });
 })
+
+describe('fully external, reference-only types/fields', () => {
+  it('value types', () => {
+    const meSubgraph = gql`
+      type Query {
+        me: Account
+      }
+
+      type Account @key(fields: "id") {
+        id: ID!
+        name: String
+        permissions: Permissions
+      }
+
+      type Permissions {
+        canView: Boolean
+        canEdit: Boolean
+      }
+    `;
+
+    const accountSubgraph = gql`
+      type Query {
+        account: Account
+      }
+
+      type Account @key(fields: "id") {
+        id: ID!
+        permissions: Permissions @external
+        isViewer: Boolean @requires(fields: "permissions { canView }")
+      }
+
+      type Permissions @external {
+        canView: Boolean
+      }
+    `;
+
+    const result = mergeDocuments(meSubgraph, accountSubgraph);
+    expect(result).toRaiseHint(
+      HINTS.INCONSISTENT_OBJECT_VALUE_TYPE_FIELD,
+      'Field "Permissions.canEdit" of non-entity object type "Permissions" is defined in some but not all subgraphs that define "Permissions": "Permissions.canEdit" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
+      'Permissions'
+    );
+  })
+})
