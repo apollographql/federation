@@ -967,7 +967,7 @@ class Merger {
     }
     for (const source of sources) {
       // As soon as we find a subgraph that has the type but not the field, we hint.
-      if (source && !source.field(field.name)) {
+      if (source && !source.field(field.name) && !this.typeIsFullyExternal(source)) {
         this.mismatchReporter.reportMismatchHint({
           code: hintId,
           message: `Field "${field.coordinate}" of ${typeDescription} type "${dest}" is defined in some but not all subgraphs that define "${dest}": `,
@@ -1079,6 +1079,11 @@ class Merger {
 
   private isFullyExternal(sourceIdx: number, field: FieldDefinition<any> | InputFieldDefinition) {
     return this.metadata(sourceIdx).isFieldFullyExternal(field);
+  }
+
+  private typeIsFullyExternal(object: ObjectType | InterfaceType): boolean {
+    return object.hasAppliedDirective('external')
+      || object.fields().every(f => f.hasAppliedDirective('external'));
   }
 
   private validateAndFilterExternal(sources: (FieldDefinition<any> | undefined)[]): (FieldDefinition<any> | undefined)[] {

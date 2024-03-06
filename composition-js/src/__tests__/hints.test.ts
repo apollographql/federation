@@ -1391,10 +1391,6 @@ describe('fully external, reference-only types/fields', () => {
     `;
 
     const result = mergeDocuments(meSubgraph, accountSubgraph);
-    expect(result).toRaiseHint(
-      HINTS.INCONSISTENT_OBJECT_VALUE_TYPE_FIELD,
-      'Field "Permissions.canEdit" of non-entity object type "Permissions" is defined in some but not all subgraphs that define "Permissions": "Permissions.canEdit" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
-      'Permissions'
-    );
+    expect(result).toNotRaiseHints();
   })
 })
