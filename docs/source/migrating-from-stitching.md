@@ -14,7 +14,7 @@ For a real-world example of an organization benefiting from this migration, see 
 
 ## Summary of steps
 
-This guide describes a set of steps for migrating architecture incrementally from stitching to federation. In order to do so, we rely on the fact that changes necessary for federation are completely backwards compatible. In other words, services that implement a part of your graph, also known as _subgraphs_, can be used in both your stitching gateway and your Apollo gateway.
+This guide describes a set of steps for migrating architecture incrementally from stitching to federation. In order to do so, we rely on the fact that changes necessary for federation are completely backwards compatible. Services that implement a part of your graph, also known as _subgraphs_, can be used in both your stitching gateway and your Apollo gateway.
 
 We recommend that you begin by modifying existing subgraphs in place to support the federation specification while continuing to support schema stitching as well. At this point, you can stand up an Apollo gateway side-by-side with your existing stitching gateway and migrate over the links between the subgraphs in an incremental, backward compatible way.
 

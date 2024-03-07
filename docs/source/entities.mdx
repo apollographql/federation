@@ -34,7 +34,11 @@ type Product @key(fields: "id") {
 
 Entities are a fundamental building block of Apollo Federation that enable subgraphs to adhere to the [separation of concerns principle](./#separation-of-concerns).
 
-Entities are always object types, never input types, unions, and so on.
+<Note>
+
+Only object types can be entities.
+
+</Note>
 
 ## Defining an entity
 
