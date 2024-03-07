@@ -14,11 +14,11 @@ type Position {
 }
 ```
 
-Types like this are called **value types**. This article describes how to share value types and their fields in federated graph, enabling multiple subgraphs to define and resolve them.
+Types like this are called _value types_. This article describes how to share value types and their fields in federated graph, enabling multiple subgraphs to define and resolve them.
 
 ## Sharing object types
 
-By default in [Federation 2 subgraphs](../federation-2/moving-to-federation-2/#step-3-update-individual-subgraphs), a single object field _can't_ be defined or resolved by more than one subgraph schema.
+By default in [Federation 2 subgraphs](../federation-2/moving-to-federation-2/#step-3-update-individual-subgraphs), a single object field can't be defined or resolved by more than one subgraph schema.
 
 Consider the following `Position` example:
 
@@ -43,9 +43,13 @@ type Position {
 
 </CodeColumns>
 
-Attempting to compose these two subgraph schemas together will [break composition](./composition/#breaking-composition). The router doesn't know _which subgraph_ is responsible for resolving `Position.x` and `Position.y`. To enable multiple subgraphs to resolve these fields, you must first mark that field as [`@shareable`](#using-shareable).
+Attempting to compose these two subgraph schemas together will [break composition](./composition/#breaking-composition). The router doesn't know which subgraph is responsible for resolving `Position.x` and `Position.y`. To enable multiple subgraphs to resolve these fields, you must first mark that field as [`@shareable`](#using-shareable).
 
-> As an alternative, if you want Subgraphs A and B to resolve _different_ fields of `Position`, you can designate the `Position` type as an [entity](../entities).
+<Note>
+
+As an alternative, if you want Subgraphs A and B to resolve different fields of `Position`, you can designate the `Position` type as an [entity](../entities).
+
+</Note>
 
 ### Using `@shareable`
 
@@ -59,7 +63,7 @@ extend schema
         import: ["@key", "@shareable"])
 ```
 
-Then you can apply the `@shareable` directive to an object type, or to _individual fields_ of that type:
+Then you can apply the `@shareable` directive to an object type, or to individual fields of that type:
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -82,18 +86,22 @@ type Position {
 
 </CodeColumns>
 
-> Marking a type as `@shareable` is equivalent to marking _all_ of its fields as `@shareable`, so the two subgraph definitions above are equivalent.
+<Note>
 
-Both subgraphs A _and_ B can now resolve the `x` and `y` fields for the `Position` type, and our subgraph schemas will successfully compose into a supergraph schema.
+Marking a type as `@shareable` is equivalent to marking all of its fields as `@shareable`, so the two subgraph definitions above are equivalent.
+
+</Note>
+
+Both subgraphs A and B can now resolve the `x` and `y` fields for the `Position` type, and our subgraph schemas will successfully compose into a supergraph schema.
 
 #### ⚠️ Important considerations for `@shareable`
 
-* If a type or field is marked `@shareable` in _any_ subgraph, it must be marked either `@shareable` or [`@external`](./federated-directives/#external) in _every_ subgraph that defines it. Otherwise, composition fails.
-* If multiple subgraphs can resolve a field, **make sure each subgraph's resolver for that field behaves identically.** Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
+* If a type or field is marked `@shareable` in any subgraph, it must be marked either `@shareable` or [`@external`](./federated-directives/#external) in every subgraph that defines it. Otherwise, composition fails.
+* If multiple subgraphs can resolve a field, make sure each subgraph's resolver for that field behaves identically. Otherwise, queries might return inconsistent results depending on which subgraph resolves the field.
 
 #### Using `@shareable` with `extend`
 
-If you apply `@shareable` to an object type declaration, it only applies to the fields within that _exact_ declaration. It does _not_ apply to _other_ declarations for that same type:
+If you apply `@shareable` to an object type declaration, it only applies to the fields within that exact declaration. It does not apply to other declarations for that same type:
 
 ```graphql title="Subgraph A"
 type Position @shareable {
@@ -108,7 +116,7 @@ extend type Position {
 }
 ```
 
-Using the `extend` keyword, the schema above includes two different declarations for `Position`. Because only the first declaration is marked `@shareable`, `Position.z` is _not_ considered shareable.
+Using the `extend` keyword, the schema above includes two different declarations for `Position`. Because only the first declaration is marked `@shareable`, `Position.z` is not considered shareable.
 
 To make `Position.z` shareable, you can do one of the following:
 
@@ -124,7 +132,7 @@ To make `Position.z` shareable, you can do one of the following:
 
 - Mark the entire `extend` declaration with `@shareable`.
 
-    - **This strategy requires targeting `v2.2` or later of the Apollo Federation specification in your subgraph schema!** Earlier versions do not support applying `@shareable` to the same object type multiple times.
+    - This strategy requires targeting v2.2 or later of the Apollo Federation specification in your subgraph schema. Earlier versions do not support applying `@shareable` to the same object type multiple times.
 
     ```graphql
     extend schema
@@ -163,7 +171,7 @@ type Event @shareable {
 
 </CodeColumns>
 
-Subgraph A's `timestamp` returns an `Int`, and Subgraph B's returns a `String`. **This is invalid.** When composition attempts to generate an `Event` type for the supergraph schema, it fails due to an unresolvable conflict between the two `timestamp` field definitions.
+Subgraph A's `timestamp` returns an `Int`, and Subgraph B's returns a `String`. This is invalid. When composition attempts to generate an `Event` type for the supergraph schema, it fails due to an unresolvable conflict between the two `timestamp` field definitions.
 
 Next, look at these varying definitions for the `Position` object type:
 
@@ -189,7 +197,7 @@ type Position @shareable {
 
 </CodeColumns>
 
-The `x` and `y` fields are _non-nullable_ in Subgraph A, but they're _nullable_ in Subgraph B. **This is valid!** Composition recognizes that it can use the following definition for `Position` in the supergraph schema:
+The `x` and `y` fields are non-nullable in Subgraph A, but they're nullable in Subgraph B. This is valid. Composition recognizes that it can use the following definition for `Position` in the supergraph schema:
 
 
 ```graphql title="Supergraph schema"
@@ -199,17 +207,21 @@ type Position {
 }
 ```
 
-This definition works for querying Subgraph A, because Subgraph A's definition is _more restrictive_ than this (a non-nullable value is always valid for a nullable field). In this case, composition **coerces** Subgraph A's `Position` fields to satisfy the reduced restrictiveness of Subgraph B.
+This definition works for querying Subgraph A, because Subgraph A's definition is more restrictive than this (a non-nullable value is always valid for a nullable field). In this case, composition coerces Subgraph A's `Position` fields to satisfy the reduced restrictiveness of Subgraph B.
 
-> Note that Subgraph A's actual subgraph schema is _not_ modified. Within Subgraph A, `x` and `y` remain non-nullable.
+<Note>
+
+Subgraph A's actual subgraph schema is not modified. Within Subgraph A, `x` and `y` remain non-nullable.
+
+</Note>
 
 ### Arguments
 
 Arguments for a shared field can differ between subgraphs in certain ways:
 
-* If an argument is _required_ in at least one subgraph, it can be _optional_ in other subgraphs. **It cannot be omitted.**
-* If an argument is _optional in every subgraph where it's defined_, it is _technically valid_ to omit it in other subgraphs. _However:_
-    * ⚠️ **If a field argument is omitted from any subgraph, that argument is omitted from the supergraph schema entirely!** This means that clients _can't_ provide the argument for that field.
+* If an argument is required in at least one subgraph, it can be optional in other subgraphs. It cannot be omitted.
+* If an argument is optional in every subgraph where it's defined, it is technically valid to omit it in other subgraphs. However:
+    * ⚠️ If a field argument is omitted from any subgraph, that argument is omitted from the supergraph schema entirely. This means that clients can't provide the argument for that field.
 
 <p style="margin-bottom: 0">✅</p>
 
@@ -316,7 +328,7 @@ type Position {
 
 </CodeColumns>
 
-**This definition works for Subgraph B, but it presents a problem for Subgraph A.** Let's say Subgraph A defines the following `Query` type:
+This definition works for Subgraph B, but it presents a problem for Subgraph A. Let's say Subgraph A defines the following `Query` type:
 
 <CodeColumns>
 
@@ -350,13 +362,13 @@ query GetCurrentPosition {
 
 </CodeColumns>
 
-And here's the problem: if Subgraph B _doesn't_ define `Query.currentPosition`, this query _must_ be executed on Subgraph A. But Subgraph A is missing the `Position.z` field, so that field is **unresolvable**!
+And here's the problem: if Subgraph B doesn't define `Query.currentPosition`, this query must be executed on Subgraph A. But Subgraph A is missing the `Position.z` field, so that field is unresolvable!
 
-**Composition recognizes this potential problem, and it fails with an error.** So how do we fix it? Check out [Solutions for unresolvable fields](./composition/#solutions-for-unresolvable-fields).
+Composition recognizes this potential problem, and it fails with an error. So how do we fix it? Check out [Solutions for unresolvable fields](./composition/#solutions-for-unresolvable-fields).
 
 ## Adding new shared fields
 
-Adding a new field to a value type can cause composition issues, because it's challenging to add the field to _all_ defining subgraphs at the same time.
+Adding a new field to a value type can cause composition issues, because it's challenging to add the field to all defining subgraphs at the same time.
 
 Let's say we're adding a `z` field to our `Position` value type, and we start with Subgraph A:
 
@@ -381,14 +393,14 @@ type Position @shareable {
 
 </CodeColumns>
 
-It's likely that when we attempt to compose these two schemas, composition will _fail_, because Subgraph B can't resolve `Position.z`.
+It's likely that when we attempt to compose these two schemas, composition will fail, because Subgraph B can't resolve `Position.z`.
 
-To incrementally add the field to _all_ of our subgraphs _without_ breaking composition, we can use the [`@inaccessible` directive](#using-inaccessible).
+To incrementally add the field to all of our subgraphs without breaking composition, we can use the [`@inaccessible` directive](#using-inaccessible).
 
 
 ### Using `@inaccessible`
 
-If you apply the `@inaccessible` directive to a field, composition _omits_ that field from your router's API schema. This helps you incrementally add a field to multiple subgraphs without breaking composition.
+If you apply the `@inaccessible` directive to a field, composition omits that field from your router's API schema. This helps you incrementally add a field to multiple subgraphs without breaking composition.
 
 To use `@inaccessible` in a subgraph, first make sure you include it in the `import` array of your Federation 2 opt-in declaration:
 
@@ -398,7 +410,7 @@ extend schema
         import: ["@key", "@shareable", "@inaccessible"])
 ```
 
-Then, whenever you add a new field to a value type, apply `@inaccessible` to that field if it isn't yet present in _every_ subgraph that defines the value type:
+Then, whenever you add a new field to a value type, apply `@inaccessible` to that field if it isn't yet present in every subgraph that defines the value type:
 
 <CodeColumns>
 
@@ -419,11 +431,15 @@ type Position @shareable {
 
 </CodeColumns>
 
-> Even if `Position.z` is defined in _multiple_ subgraphs, you only need to apply `@inaccessible` in _one_ subgraph to omit it. In fact, you might _want_ to apply it in only one subgraph to simplify removing it later.
+Even if `Position.z` is defined in multiple subgraphs, you only need to apply `@inaccessible` in one subgraph to omit it. In fact, you might want to apply it in only one subgraph to simplify removing it later.
 
 With the syntax above, composition omits `Position.z` from the generated API schema, and the resulting `Position` type includes only `x` and `y` fields.
 
-> Note that `Position.z` _does_ appear in the _supergraph_ schema, but the _API_ schema enforces which fields clients can include in operations. [Learn more about federated schemas.](./overview/)
+<Note>
+
+Notice that `Position.z` does appear in the supergraph schema, but the API schema enforces which fields clients can include in operations. [Learn more about federated schemas.](./overview/)
+
+</Note>
 
 Whenever you're ready, you can now add `Position.z` to Subgraph B:
 
@@ -447,7 +463,7 @@ type Position @shareable {
 
 </CodeColumns>
 
-At this point, `Position.z` is _still_ `@inaccessible`, so composition continues to ignore it.
+At this point, `Position.z` is still `@inaccessible`, so composition continues to ignore it.
 
 Finally, when you've added `Position.z` to every subgraph that defines `Position`, you can remove `@inaccessible` from Subgraph A:
 
@@ -475,7 +491,7 @@ Composition now successfully includes `Position.z` in the supergraph schema!
 
 ## Unions and interfaces
 
-In Federation 2, `union` and `interface` type definitions can be shared between subgraphs by default, _and_ those definitions can differ:
+In Federation 2, `union` and `interface` type definitions can be shared between subgraphs by default, and those definitions can differ:
 <CodeColumns>
 
 ```graphql {1, 3, 9} title="Subgraph A"
@@ -512,7 +528,11 @@ interface User {
 
 This can be useful when different subgraphs are responsible for different subsets of a particular set of related types or values.
 
->  You can also use the `enum` type across multiple subgraphs. For details, see [Merging types from multiple subgraphs](composition#enums).
+<Note>
+
+You can also use the `enum` type across multiple subgraphs. For details, see [Merging types from multiple subgraphs](composition#enums).
+
+</Note>
 
 ### Challenges with shared interfaces
 
@@ -581,19 +601,19 @@ type Podcast implements Media {
 
 </CodeColumns>
 
-This breaks composition, because `Book` also implements `Media` but _doesn't_ define the new `creator` field.
+This breaks composition, because `Book` also implements `Media` but doesn't define the new `creator` field.
 
-To prevent this error, _all_ implementing types across _all_ subgraphs need to be updated to include all fields of `Media`. This becomes more and more challenging to do as your number of subgraphs and teams grows. Fortunately, there's a [solution](#solution-entity-interfaces).
+To prevent this error, all implementing types across all subgraphs need to be updated to include all fields of `Media`. This becomes more and more challenging to do as your number of subgraphs and teams grows. Fortunately, there's a [solution](#solution-entity-interfaces).
 
 #### Solution: Entity interfaces
 
-Apollo Federation 2.3 introduces a powerful abstraction mechanism for interfaces, enabling you to add interface fields across subgraphs _without_ needing to update every single implementing type.
+Apollo Federation 2.3 introduces a powerful abstraction mechanism for interfaces, enabling you to add interface fields across subgraphs without needing to update every single implementing type.
 
-> [Learn more about entity interfaces.](./interfaces/)
+[Learn more about entity interfaces.](./interfaces/)
 
 ## Input types
 
-Subgraphs can share `input` type definitions, but composition merges their fields using an _intersection_ strategy. When `input` types are composed across multiple subgraphs, only _mutual_ fields are preserved in the supergraph schema:
+Subgraphs can share `input` type definitions, but composition merges their fields using an intersection strategy. When `input` types are composed across multiple subgraphs, only mutual fields are preserved in the supergraph schema:
 
 <CodeColumns>
 

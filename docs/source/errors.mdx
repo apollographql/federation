@@ -1,0 +1,1636 @@
+---
+title: Federation error codes
+description: Learn the error codes you can receive if composition fails.
+toc: false
+---
+
+When Apollo Gateway attempts to compose the schemas provided by your [subgraphs](./building-supergraphs/subgraphs-overview/) into a supergraph schema, it confirms that:
+
+- The subgraphs are valid
+- The resulting supergraph schema is valid
+- The gateway has all of the information it needs to execute operations against the resulting schema
+
+If Apollo Gateway encounters an error, composition fails. This document lists subgraph validation and composition error codes, along with their root causes.
+
+### Errors
+
+The following errors might be raised during composition:
+
+<table class="field-table">
+<thead>
+<tr>
+<th>Error Code / <br/> Minimum Federation Version </th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+
+##### `DEFAULT_VALUE_USES_INACCESSIBLE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An element is marked as `@inaccessible` but is used in the default value of an element visible in the API schema.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `DIRECTIVE_COMPOSITION_ERROR`
+
+Since v2.1.0
+
+</td>
+<td>
+
+Error when composing custom directives.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `DIRECTIVE_DEFINITION_INVALID`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A built-in or Federation directive has an invalid definition in the schema.
+
+Replaces [`TAG_DEFINITION_INVALID`](#tag-definition-invalid).
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `DISALLOWED_INACCESSIBLE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An element is marked as `@inaccessible` that is not allowed to be `@inaccessible`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `DOWNSTREAM_SERVICE_ERROR`
+
+Since v0.x
+
+</td>
+<td>
+
+Indicates an error in a subgraph service query during query execution in a federated service.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `EMPTY_MERGED_ENUM_TYPE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An enum type has no value common to all the subgraphs that define the type. Merging that type would result in an invalid empty enum type.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `EMPTY_MERGED_INPUT_TYPE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An input object type has no field common to all the subgraphs that define the type. Merging that type would result in an invalid empty input object type.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `ENUM_VALUE_MISMATCH`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An enum type that is used as both an input and output type has a value that is not defined in all the subgraphs that define the enum type.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `EXTENSION_WITH_NO_BASE`
+
+Since v0.x
+
+</td>
+<td>
+
+A subgraph is attempting to `extend` a type that is not originally defined in any known subgraph.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `EXTERNAL_ARGUMENT_DEFAULT_MISMATCH`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An `@external` field declares an argument with a default that is incompatible with the corresponding argument in the declaration(s) of that field in other subgraphs.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `EXTERNAL_ARGUMENT_MISSING`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An `@external` field is missing some arguments present in the declaration(s) of that field in other subgraphs.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `EXTERNAL_ARGUMENT_TYPE_MISMATCH`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An `@external` field declares an argument with a type that is incompatible with the corresponding argument in the declaration(s) of that field in other subgraphs.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `EXTERNAL_COLLISION_WITH_ANOTHER_DIRECTIVE`
+
+Since v2.1.0
+
+</td>
+<td>
+
+The `@external` directive collides with other directives in some situations.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `EXTERNAL_MISSING_ON_BASE`
+
+Since v0.x
+
+</td>
+<td>
+
+A field is marked as `@external` in a subgraph but with no non-external declaration in any other subgraph.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `EXTERNAL_ON_INTERFACE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+The field of an interface type is marked with `@external`: as external is about marking field not resolved by the subgraph and as interface field are not resolved (only implementations of those fields are), an "external" interface field is nonsensical
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `EXTERNAL_TYPE_MISMATCH`
+
+Since v0.x
+
+</td>
+<td>
+
+An `@external` field has a type that is incompatible with the declaration(s) of that field in other subgraphs.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `EXTERNAL_UNUSED`
+
+Since v0.x
+
+</td>
+<td>
+
+An `@external` field is not being used by any instance of `@key`, `@requires`, `@provides` or to satisfy an interface implementation.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `FIELD_ARGUMENT_DEFAULT_MISMATCH`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An argument (of a field/directive) has a default value that is incompatible with that of other declarations of that same argument in other subgraphs.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `FIELD_ARGUMENT_TYPE_MISMATCH`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An argument (of a field/directive) has a type that is incompatible with that of other declarations of that same argument in other subgraphs.
+
+Replaces [`VALUE_TYPE_INPUT_VALUE_MISMATCH`](#value-type-input-value-mismatch).
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `FIELD_TYPE_MISMATCH`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A field has a type that is incompatible with other declarations of that field in other subgraphs.
+
+Replaces [`VALUE_TYPE_FIELD_TYPE_MISMATCH`](#value-type-field-type-mismatch).
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `IMPLEMENTED_BY_INACCESSIBLE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An element is marked as `@inaccessible` but implements an element visible in the API schema.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `INPUT_FIELD_DEFAULT_MISMATCH`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An input field has a default value that is incompatible with other declarations of that field in other subgraphs.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `INTERFACE_FIELD_NO_IMPLEM`
+
+Since v2.0.0
+
+</td>
+<td>
+
+After subgraph merging, an implementation is missing a field of one of the interfaces it implements (which can happen for valid subgraphs).
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE`
+
+Since v2.3.0
+
+</td>
+<td>
+
+A subgraph has a `@key` on an interface type, but that subgraph does not define an implementation (in the supergraph) of that interface.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `INTERFACE_KEY_NOT_ON_IMPLEMENTATION`
+
+Since v2.3.0
+
+</td>
+<td>
+
+A `@key` is defined on an interface type, but is not defined (or is not resolvable) on at least one of the interface implementations.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `INTERFACE_OBJECT_USAGE_ERROR`
+
+Since v2.3.0
+
+</td>
+<td>
+
+Error in the usage of the `@interfaceObject` directive.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `INVALID_FEDERATION_SUPERGRAPH`
+
+Since v2.1.0
+
+</td>
+<td>
+
+Indicates that a schema provided for an Apollo Federation supergraph is not a valid supergraph schema.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `INVALID_FIELD_SHARING`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A field that is non-shareable in at least one subgraph is resolved by multiple subgraphs.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `INVALID_GRAPHQL`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A schema is invalid GraphQL: it violates one of the rules of the specification.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `INVALID_LINK_DIRECTIVE_USAGE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An application of the `@link` directive is invalid/does not respect the specification.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `INVALID_LINK_IDENTIFIER`
+
+Since v2.1.0
+
+</td>
+<td>
+
+A URL/version for a `@link` feature is invalid/does not respect the specification.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `INVALID_SHAREABLE_USAGE`
+
+Since v2.1.2
+
+</td>
+<td>
+
+The `@shareable` Federation directive is used in an invalid way.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `INVALID_SUBGRAPH_NAME`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A subgraph name is invalid. (Subgraph names cannot be a single underscore (`_`)).
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `KEY_DIRECTIVE_IN_FIELDS_ARG`
+
+Since v2.1.0
+
+</td>
+<td>
+
+The `fields` argument of a `@key` directive includes some directive applications. This is not supported.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `KEY_FIELDS_HAS_ARGS`
+
+Since v2.0.0
+
+</td>
+<td>
+
+The `fields` argument of a `@key` directive includes a field defined with arguments (which is not currently supported).
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `KEY_FIELDS_SELECT_INVALID_TYPE`
+
+Since v0.x
+
+</td>
+<td>
+
+The `fields` argument of `@key` directive includes a field whose type is a list, interface, or union type. Fields of these types cannot be part of a `@key`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `KEY_INVALID_FIELDS_TYPE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+The value passed to the `fields` argument of a `@key` directive is not a string.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `KEY_INVALID_FIELDS`
+
+Since v2.0.0
+
+</td>
+<td>
+
+The `fields` argument of a `@key` directive is invalid (it has invalid syntax, includes unknown fields, ...).
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `KEY_UNSUPPORTED_ON_INTERFACE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A `@key` directive is used on an interface, which is only supported when `@link`ing to Federation v2.3 or later.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `LINK_IMPORT_NAME_MISMATCH`
+
+Since v2.0.0
+
+</td>
+<td>
+
+The import name for a merged directive (as declared by the relevant `@link(import:)` argument) is inconsistent between subgraphs.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL`
+
+Since v2.0.0
+
+</td>
+<td>
+
+In a subgraph, a field is both marked `@external` and has a merged directive applied to it.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `NO_QUERIES`
+
+Since v2.0.0
+
+</td>
+<td>
+
+None of the composed subgraphs expose any query.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `ONLY_INACCESSIBLE_CHILDREN`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A type visible in the API schema has only `@inaccessible` children.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `OVERRIDE_COLLISION_WITH_ANOTHER_DIRECTIVE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+The `@override` directive cannot be used on external fields, nor to override fields with either `@external`, `@provides`, or `@requires`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `OVERRIDE_FROM_SELF_ERROR`
+
+Since v2.0.0
+
+</td>
+<td>
+
+Field with `@override` directive has "from" location that references its own subgraph.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `OVERRIDE_LABEL_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+The `@override` directive `label` argument must match the pattern `/^[a-zA-Z][a-zA-Z0-9_-:./]*$/ or /^percent((d{1,2}(.d{1,8})?|100))$/`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `OVERRIDE_ON_INTERFACE`
+
+Since v2.3.0
+
+</td>
+<td>
+
+The `@override` directive cannot be used on the fields of an interface type.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `OVERRIDE_SOURCE_HAS_OVERRIDE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+Field which is overridden to another subgraph is also marked `@override`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `PROVIDES_DIRECTIVE_IN_FIELDS_ARG`
+
+Since v2.1.0
+
+</td>
+<td>
+
+The `fields` argument of a `@provides` directive includes some directive applications. This is not supported.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `PROVIDES_FIELDS_HAS_ARGS`
+
+Since v2.0.0
+
+</td>
+<td>
+
+The `fields` argument of a `@provides` directive includes a field defined with arguments (which is not currently supported).
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `PROVIDES_FIELDS_MISSING_EXTERNAL`
+
+Since v0.x
+
+</td>
+<td>
+
+The `fields` argument of a `@provides` directive includes a field that is not marked as `@external`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `PROVIDES_INVALID_FIELDS_TYPE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+The value passed to the `fields` argument of a `@provides` directive is not a string.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `PROVIDES_INVALID_FIELDS`
+
+Since v2.0.0
+
+</td>
+<td>
+
+The `fields` argument of a `@provides` directive is invalid (it has invalid syntax, includes unknown fields, ...).
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `PROVIDES_ON_NON_OBJECT_FIELD`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A `@provides` directive is used to mark a field whose base type is not an object type.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `PROVIDES_UNSUPPORTED_ON_INTERFACE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A `@provides` directive is used on an interface, which is not (yet) supported.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `QUERY_ROOT_TYPE_INACCESSIBLE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An element is marked as `@inaccessible` but is the query root type, which must be visible in the API schema.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `REFERENCED_INACCESSIBLE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An element is marked as `@inaccessible` but is referenced by an element visible in the API schema.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `REQUIRED_ARGUMENT_MISSING_IN_SOME_SUBGRAPH`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An argument of a field or directive definition is mandatory in some subgraphs, but the argument is not defined in all the subgraphs that define the field or directive definition.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `REQUIRED_INACCESSIBLE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+An element is marked as `@inaccessible` but is required by an element visible in the API schema.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A field of an input object type is mandatory in some subgraphs, but the field is not defined in all the subgraphs that define the input object type.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `REQUIRES_DIRECTIVE_IN_FIELDS_ARG`
+
+Since v2.1.0
+
+</td>
+<td>
+
+The `fields` argument of a `@requires` directive includes some directive applications. This is not supported.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `REQUIRES_FIELDS_MISSING_EXTERNAL`
+
+Since v0.x
+
+</td>
+<td>
+
+The `fields` argument of a `@requires` directive includes a field that is not marked as `@external`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `REQUIRES_INVALID_FIELDS_TYPE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+The value passed to the `fields` argument of a `@requires` directive is not a string.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `REQUIRES_INVALID_FIELDS`
+
+Since v2.0.0
+
+</td>
+<td>
+
+The `fields` argument of a `@requires` directive is invalid (it has invalid syntax, includes unknown fields, ...).
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `REQUIRES_UNSUPPORTED_ON_INTERFACE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A `@requires` directive is used on an interface, which is not (yet) supported.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `ROOT_MUTATION_USED`
+
+Since v0.x
+
+</td>
+<td>
+
+A subgraph's schema defines a type with the name `mutation`, while also specifying a different type name as the root query object. This is not allowed.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `ROOT_QUERY_USED`
+
+Since v0.x
+
+</td>
+<td>
+
+A subgraph's schema defines a type with the name `query`, while also specifying a different type name as the root query object. This is not allowed.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `ROOT_SUBSCRIPTION_USED`
+
+Since v0.x
+
+</td>
+<td>
+
+A subgraph's schema defines a type with the name `subscription`, while also specifying a different type name as the root query object. This is not allowed.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SATISFIABILITY_ERROR`
+
+Since v2.0.0
+
+</td>
+<td>
+
+Subgraphs can be merged, but the resulting supergraph API would have queries that cannot be satisfied by those subgraphs.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A shareable field return type has mismatched possible runtime types in the subgraphs in which the field is declared. As shared fields must resolve the same way in all subgraphs, this is almost surely a mistake.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_API_HTTP_BASE_URL_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+The `@sourceAPI` directive must specify a valid http.baseURL.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_API_NAME_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+Each `@sourceAPI` directive must take a unique and valid name as an argument.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_API_PROTOCOL_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+Each `@sourceAPI` directive must specify exactly one of the known protocols.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_FEDERATION_VERSION_REQUIRED`
+
+Since v2.7.1
+
+</td>
+<td>
+
+Schemas using `@source{API,Type,Field}` directives must `@link`-import v2.7 or later of Federation.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_FIELD_API_ERROR`
+
+Since v2.7.0
+
+</td>
+<td>
+
+The `api` argument of the `@sourceField` directive must match a valid `@sourceAPI` name.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_FIELD_HTTP_BODY_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+If `@sourceField` specifies http.body, it must be a valid `JSONSelection` matching available arguments and fields.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_FIELD_HTTP_METHOD_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+The `@sourceField` directive must specify at most one of `http.{GET,POST,PUT,PATCH,DELETE}`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_FIELD_HTTP_PATH_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+The `@sourceField` directive must specify a valid URL template for `http.{GET,POST,PUT,PATCH,DELETE}`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD`
+
+Since v2.7.0
+
+</td>
+<td>
+
+The `@sourceField` directive must be applied to a field of the `Query` or `Mutation` types, or of an entity type.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_FIELD_PROTOCOL_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+If `@sourceField` specifies a protocol, it must match the corresponding `@sourceAPI` protocol.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_FIELD_SELECTION_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+The `selection` argument of the `@sourceField` directive must be a valid `JSONSelection` that outputs fields of the GraphQL type.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_HTTP_HEADERS_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+The `http.headers` argument of `@source*` directives must specify valid HTTP headers.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_TYPE_API_ERROR`
+
+Since v2.7.0
+
+</td>
+<td>
+
+The `api` argument of the `@sourceType` directive must match a valid `@sourceAPI` name.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_TYPE_HTTP_BODY_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+If the `@sourceType` specifies `http.body`, it must be a valid `JSONSelection`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_TYPE_HTTP_METHOD_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+The `@sourceType` directive must specify exactly one of `http.GET` or `http.POST`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_TYPE_HTTP_PATH_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+The `@sourceType` directive must specify a valid URL template for `http.GET` or `http.POST`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_TYPE_ON_NON_OBJECT_OR_NON_ENTITY`
+
+Since v2.7.0
+
+</td>
+<td>
+
+The `@sourceType` directive must be applied to an object or interface type that also has `@key`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_TYPE_PROTOCOL_INVALID`
+
+Since v2.7.0
+
+</td>
+<td>
+
+The `@sourceType` directive must specify the same protocol as its corresponding `@sourceAPI`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `SOURCE_TYPE_SELECTION_INVALID`
+
+Since v2.0.0
+
+</td>
+<td>
+
+The `selection` argument of the `@sourceType` directive must be a valid `JSONSelection` that outputs fields of the GraphQL type.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `TYPE_DEFINITION_INVALID`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A built-in or Federation type has an invalid definition in the schema.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `TYPE_KIND_MISMATCH`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A type has the same name in different subgraphs, but a different kind. For instance, one definition is an object type but another is an interface.
+
+Replaces `VALUE_TYPE_KIND_MISMATCH`, `EXTENSION_OF_WRONG_KIND`, `ENUM_MISMATCH_TYPE`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `TYPE_WITH_ONLY_UNUSED_EXTERNAL`
+
+Since v2.0.0
+
+</td>
+<td>
+
+A Federation 1 schema has a composite type comprised only of unused external fields. Note that this error can only be raised for Federation 1 schema as Federation 2 schema do not allow unused external fields (and errors with code [`EXTERNAL_UNUSED`](#external_unused) will be raised in that case). But when Federation 1 schema are automatically migrated to Federation 2 ones, unused external fields are automatically removed, and in rare case this can leave a type empty. If that happens, an error with this code will be raised.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `UNKNOWN_FEDERATION_LINK_VERSION`
+
+Since v2.0.0
+
+</td>
+<td>
+
+The version of Federation in a `@link` directive on the schema is unknown.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `UNKNOWN_LINK_VERSION`
+
+Since v2.1.0
+
+</td>
+<td>
+
+The version of `@link` set on the schema is unknown.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `UNSUPPORTED_FEATURE`
+
+Since v2.1.0
+
+</td>
+<td>
+
+Indicates an error due to feature currently unsupported by Federation.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `UNSUPPORTED_LINKED_FEATURE`
+
+Since v2.0.0
+
+</td>
+<td>
+
+Indicates that a feature used in a `@link` is either unsupported or is used with unsupported options.
+
+</td>
+</tr>
+</tbody>
+</table>
+
+## Removed codes
+
+The following error codes have been removed and are no longer generated by the most recent version of the `@apollo/gateway` library:
+
+<table class="field-table">
+<thead>
+<tr>
+<th>Removed code</th>
+<th>Comment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+
+##### `DUPLICATE_ENUM_DEFINITION`
+
+</td>
+<td>
+
+As duplicate enum definitions is invalid GraphQL, this will now be an error with code [`INVALID_GRAPHQL`](#invalid_graphql).
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `DUPLICATE_ENUM_VALUE`
+
+</td>
+<td>
+
+As duplicate enum values are invalid in GraphQL, this will now be an error with code [`INVALID_GRAPHQL`](#invalid_graphql).
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `DUPLICATE_SCALAR_DEFINITION`
+
+</td>
+<td>
+
+As duplicate scalar definitions are invalid in GraphQL, this will now be an error with code [`INVALID_GRAPHQL`](#invalid_graphql).
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `ENUM_MISMATCH`
+
+</td>
+<td>
+
+Subgraph definitions for an enum are now merged by composition.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `EXTERNAL_USED_ON_BASE`
+
+</td>
+<td>
+
+As there is no type ownership anymore, there is also no particular limitation as to where a field can be external.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `INTERFACE_FIELD_IMPLEM_TYPE_MISMATCH`
+
+</td>
+<td>
+
+This error was thrown by a validation introduced to avoid running into a known runtime bug. Since Federation v2.3, the underlying runtime bug has been addressed and the validation/limitation was no longer necessary and has been removed.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `KEY_FIELDS_MISSING_EXTERNAL`
+
+</td>
+<td>
+
+Using `@external` for key fields is now discouraged, unless the field is truly meant to be external.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `KEY_FIELDS_MISSING_ON_BASE`
+
+</td>
+<td>
+
+Keys can now use any field from any other subgraph.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `KEY_MISSING_ON_BASE`
+
+</td>
+<td>
+
+Each subgraph is now free to declare a key only if it needs it.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `KEY_NOT_SPECIFIED`
+
+</td>
+<td>
+
+Each subgraph can declare a key independently of any other subgraph.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `MULTIPLE_KEYS_ON_EXTENSION`
+
+</td>
+<td>
+
+Every subgraph can have multiple keys, as necessary.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `NON_REPEATABLE_DIRECTIVE_ARGUMENTS_MISMATCH`
+
+</td>
+<td>
+
+Since Federation v2.1.0, the case this error used to cover is now a warning (with code `INCONSISTENT_NON_REPEATABLE_DIRECTIVE_ARGUMENTS`) instead of an error.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `PROVIDES_FIELDS_SELECT_INVALID_TYPE`
+
+</td>
+<td>
+
+`@provides` can now be used on fields of interface, union, and list types.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `PROVIDES_NOT_ON_ENTITY`
+
+</td>
+<td>
+
+`@provides` can now be used on any type.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `REQUIRES_FIELDS_HAS_ARGS`
+
+</td>
+<td>
+
+Since Federation v2.1.1, using fields with arguments in a `@requires` is fully supported.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `REQUIRES_FIELDS_MISSING_ON_BASE`
+
+</td>
+<td>
+
+Fields in `@requires` can now be from any subgraph.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `REQUIRES_USED_ON_BASE`
+
+</td>
+<td>
+
+As there is no type ownership anymore, there is also no particular limitation as to which subgraph can use a `@requires`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `RESERVED_FIELD_USED`
+
+</td>
+<td>
+
+This error was previously not correctly enforced: the service and entities, if present, were overridden; this is still the case.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `VALUE_TYPE_NO_ENTITY`
+
+</td>
+<td>
+
+There is no strong difference between entity and value types in the model (they are just usage patterns), and a type can have keys in one subgraph but not another.
+
+</td>
+</tr>
+<tr>
+<td>
+
+##### `VALUE_TYPE_UNION_TYPES_MISMATCH`
+
+</td>
+<td>
+
+Subgraph definitions for a union are now merged by composition.
+
+</td>
+</tr>
+</tbody>
+</table>

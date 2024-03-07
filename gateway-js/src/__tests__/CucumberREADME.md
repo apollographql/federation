@@ -16,7 +16,7 @@ _Scenarios_ are Cucumber's test cases. Each scenario should contain the instruct
 
 ## Steps
 
-Cucumber tests (scenarios) are made up of `steps`. Each step can be prefixed with a "`Given`", "`When`", or "`Then`" step, which when all provided, must occur in precisely that order. These stages represent test _preconditions_, test _execution_, and test _expectations_, respectively. However, tests don't _need_ all 3 of steps! Scenarios can leave off the `When` step when it's not needed. For example, query plan builder tests only have the "Given" and "Then" steps, like so:
+Cucumber tests (scenarios) are made up of `steps`. Each step can be prefixed with a "`Given`", "`When`", or "`Then`" step, which when all provided, must occur in precisely that order. These stages represent test preconditions, test execution, and test expectations, respectively. However, tests don't need all 3 of steps! Scenarios can leave off the `When` step when it's not needed. For example, query plan builder tests only have the "Given" and "Then" steps, like so:
 
 ```gherkin
 Scenario: should not confuse union types with overlapping field names
@@ -60,7 +60,7 @@ And schema extension B
 Then composed schema should be ...
 ```
 
-Using `And` is especially useful in `Then` steps for testing multiple kinds of expectations. For example, to create a test that looked at a query plan and expected that it called service A and _didn't_ call service B, the test spec would look like this:
+Using `And` is especially useful in `Then` steps for testing multiple kinds of expectations. For example, to create a test that looked at a query plan and expected that it called service A and didn't call service B, the test spec would look like this:
 
 ```
 Given service A, B

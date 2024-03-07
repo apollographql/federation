@@ -2,11 +2,13 @@
 title: Setting up managed federation
 ---
 
-import ObtainGraphApiKey from '../../shared/obtain-graph-api-key.mdx';
-
 This article describes how to connect your supergraph to [Apollo GraphOS](/graphos/) to enable managed federation features.
 
-> As with all changes, you should first set up managed federation in a non-production environment, such as staging. To support this, you can create multiple [variants](/graphos/graphs/#variants) of your supergraph in GraphOS Studio. Each variant represents a distinct version of the same graph for different environments.
+<Note>
+
+As with all changes, you should first set up managed federation in a non-production environment, such as staging. To support this, you can create multiple [variants](/graphos/graphs/#variants) of your supergraph in GraphOS Studio. Each variant represents a distinct version of the same graph for different environments.
+
+</Note>
 
 ## 1. Get started
 
@@ -34,7 +36,7 @@ graph LR;
   class registry secondary;
 ```
 
-**Do the following for each of your subgraphs**:
+Do the following for each of your subgraphs:
 
 1. Obtain the following values, which are required for the `rover subgraph publish` command:
 
@@ -51,7 +53,7 @@ graph LR;
     rover subgraph introspect http://localhost:4000 | rover subgraph publish my-graph@my-variant --name products --routing-url http://products-graphql.svc.cluster.local:4001/ --schema -
     ```
 
-As you register your subgraph schemas, the schema registry attempts to **compose** their latest versions into a single **supergraph schema**. Whenever composition succeeds, your managed router can fetch the latest supergraph schema from GraphOS.
+As you register your subgraph schemas, the schema registry attempts to compose their latest versions into a single supergraph schema. Whenever composition succeeds, your managed router can fetch the latest supergraph schema from GraphOS.
 
 You can also manually fetch your latest supergraph schema with the `rover supergraph fetch` command, or retrieve it from your graph's **Schema > SDL** tab in GraphOS Studio.
 
@@ -59,7 +61,7 @@ You can also manually fetch your latest supergraph schema with the `rover superg
 
 <ExpansionPanel title="Using Apollo Gateway?">
 
-If you've already set up Apollo Federation _without_ connecting your gateway to GraphOS, the constructor of your `ApolloGateway` instance probably includes a `supergraphSdl` option, like this:
+If you've already set up Apollo Federation without connecting your gateway to GraphOS, the constructor of your `ApolloGateway` instance probably includes a `supergraphSdl` option, like this:
 
 ```js {2}
 const gateway = new ApolloGateway({
@@ -67,9 +69,9 @@ const gateway = new ApolloGateway({
 });
 ```
 
-This option is specific to _non_-managed federation, in which supergraph schema composition is performed via the Rover CLI.
+This option is specific to non-managed federation, in which supergraph schema composition is performed via the Rover CLI.
 
-With managed federation, composition can instead be performed by _GraphOS_, where the gateway regularly polls for an updated schema. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your gateway.
+With managed federation, composition can instead be performed by GraphOS, where the gateway regularly polls for an updated schema. This enables you to add, remove, and modify your subgraphs without needing to restart your gateway.
 
 To use managed federation, ensure your `ApolloGateway` constructor doesn't include the `supergraphSdl` argument:
 
@@ -81,7 +83,7 @@ When running your gateway in an environment where outbound traffic to the intern
 
 </ExpansionPanel>
 
-If you've already set up Apollo Federation _without_ connecting your router to GraphOS, you're probably passing the [`--supergraph` (or `-s`) option](/router/configuration/overview/#-s----supergraph) to the Apollo Router's startup command:
+If you've already set up Apollo Federation without connecting your router to GraphOS, you're probably passing the [`--supergraph` (or `-s`) option](/router/configuration/overview/#-s----supergraph) to the Apollo Router's startup command:
 
 ```sh
 ./router --config ./router.yaml --supergraph ./your-local-supergraph.graphql
@@ -93,13 +95,13 @@ The `--supergraph` option applies in scenarios where the router doesn't retrieve
 
 * **Unmanaged federation**: The Rover CLI composes the supergraph schema and passes the schema's file path to the router via the `--supergraph` option.
 
-For other scenarios where the router retrieves the supergraph schema from Apollo Uplink, _remove_ the `--supergraph` option (but leave `--config` if it's present):
+For other scenarios where the router retrieves the supergraph schema from Apollo Uplink, remove the `--supergraph` option (but leave `--config` if it's present):
 
 ```sh
 ./router --config ./router.yaml
 ```
 
-With federation managed by GraphOS, composition is performed when subgraph schemas are published, and the router regularly polls for an updated supergraph schema from Apollo Uplink. This enables you to add, remove, and modify your subgraphs _without_ needing to restart your router.
+With federation managed by GraphOS, composition is performed when subgraph schemas are published, and the router regularly polls for an updated supergraph schema from Apollo Uplink. This enables you to add, remove, and modify your subgraphs without needing to restart your router.
 
 
 ## 4. Connect your router to GraphOS
