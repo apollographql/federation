@@ -252,12 +252,6 @@ You can learn more about using the `OTLPTraceExporter` in the [instrumentation d
 
 The `@opentelemetry/instrumentation-graphql` library enables subgraphs and monoliths to emit the following spans as part of [OpenTelemetry traces](https://opentelemetry.io/docs/concepts/data-sources/#traces):
 
-<Note>
-
-Federated gateways must not install the `@opentelemetry/instrumentation-graphql` library, so these spans are not included in its traces.
-
-</Note>
-
 | Name | Description |
 |------|-------------|
 | `graphql.parse` | The amount of time the server spent parsing an operation string. |
@@ -266,6 +260,12 @@ Federated gateways must not install the `@opentelemetry/instrumentation-graphql`
 | `graphql.resolve` | The amount of time the server spent resolving a particular field. |
 
 Note that not every GraphQL span appears in every operation trace. This is because Apollo server can skip parsing or validating an operation string if that string is available in the operation cache.
+
+<Note>
+
+Federated gateways must not install the `@opentelemetry/instrumentation-graphql` library, so these spans are not included in its traces.
+
+</Note>
 
 ## Gateway-specific spans
 
