@@ -1830,7 +1830,7 @@ export class GroupPath {
     } else if (this.typeConditions.size > 0) {
       const typeConditions = Array.from(this.typeConditions.values());
       typeConditions.sort();
-      const conditions = `[${typeConditions.join(',')}]`;
+      const conditions = `|[${typeConditions.join(',')}]`;
       const lastPath = `${this.responsePath.pop()||''}${conditions}`;
       this.responsePath.push(lastPath);
       this.typeConditions.clear();
@@ -3990,6 +3990,7 @@ function computeGroupsForTree(
             //    key from X to I, and then Y to I), then the same fetch is properly reused. Note that it is ok to do so
             //    since 1) inputs are based on the supergraph schema, so I is going to exist there and 2) we wrap the input
             //    selection properly against `sourceType` below anyway.
+            // TODO[igni]: here
             const newGroup = dependencyGraph.getOrCreateKeyFetchGroup({
               subgraphName: edge.tail.source,
               mergeAt: path.inResponse(),
