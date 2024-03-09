@@ -410,25 +410,30 @@ describe('Type Condition field merging', () => {
     const operation = operationFromDocument(
       api,
       gql`
-        query Search($movieParams: String, $articleParams: String) {
+        query Search($movieResultParam: String, $articleResultParam: String) {
           search {
-            __typename
             ... on MovieResult {
-              id
               sections {
                 ... on EntityCollectionSection {
                   id
-                  artwork(params: $movieParams)
+                  title
+                  artwork(params: $movieResultParam)
+                }
+                ... on GallerySection {
+                  artwork(params: $movieResultParam)
+                  id
                 }
               }
+              id
             }
             ... on ArticleResult {
               id
               sections {
+                ... on GallerySection {
+                  artwork(params: $articleResultParam)
+                }
                 ... on EntityCollectionSection {
-                  id
-                  artwork(params: $articleParams)
-                  title
+                  artwork(params: $articleResultParam)
                 }
               }
             }
@@ -448,19 +453,27 @@ describe('Type Condition field merging', () => {
               search {
                 __typename
                 ... on MovieResult {
-                  id
                   sections {
                     __typename
                     ... on EntityCollectionSection {
                       __typename
                       id
                     }
+                    ... on GallerySection {
+                      __typename
+                      id
+                    }
                   }
+                  id
                 }
                 ... on ArticleResult {
                   id
                   sections {
                     __typename
+                    ... on GallerySection {
+                      __typename
+                      id
+                    }
                     ... on EntityCollectionSection {
                       __typename
                       id
@@ -478,10 +491,18 @@ describe('Type Condition field merging', () => {
                     __typename
                     id
                   }
+                  ... on GallerySection {
+                    __typename
+                    id
+                  }
                 } =>
                 {
                   ... on EntityCollectionSection {
-                    artwork(params: $movieParams)
+                    title
+                    artwork(params: $movieResultParam)
+                  }
+                  ... on GallerySection {
+                    artwork(params: $movieResultParam)
                   }
                 }
               },
@@ -489,15 +510,21 @@ describe('Type Condition field merging', () => {
             Flatten(path: "search.@|[ArticleResult].sections.@") {
               Fetch(service: "artworkSubgraph") {
                 {
+                  ... on GallerySection {
+                    __typename
+                    id
+                  }
                   ... on EntityCollectionSection {
                     __typename
                     id
                   }
                 } =>
                 {
+                  ... on GallerySection {
+                    artwork(params: $articleResultParam)
+                  }
                   ... on EntityCollectionSection {
-                    artwork(params: $articleParams)
-                    title
+                    artwork(params: $articleResultParam)
                   }
                 }
               },
