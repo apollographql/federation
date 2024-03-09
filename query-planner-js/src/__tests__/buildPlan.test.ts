@@ -6,11 +6,7 @@ import {
   Supergraph,
 } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
-import {
-  FetchNode,
-  FlattenNode,
-  SequenceNode,
-} from '../QueryPlan';
+import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
 import {
   composeAndCreatePlanner,

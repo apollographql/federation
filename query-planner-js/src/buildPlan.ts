@@ -4014,7 +4014,7 @@ function computeGroupsForTree(
             //    key from X to I, and then Y to I), then the same fetch is properly reused. Note that it is ok to do so
             //    since 1) inputs are based on the supergraph schema, so I is going to exist there and 2) we wrap the input
             //    selection properly against `sourceType` below anyway.
-            // TODO[igni]: here
+            // TODO: here
             const newGroup = dependencyGraph.getOrCreateKeyFetchGroup({
               subgraphName: edge.tail.source,
               mergeAt: path.inResponse(),
