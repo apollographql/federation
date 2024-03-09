@@ -1828,7 +1828,6 @@ export class GroupPath {
     }
 
     let rp = this.responsePath;
-
     if (this.typeConditionedFetching && this.possibleTypes.length > 0) {
       const typeConditions = Array.from(this.possibleTypes.values());
       typeConditions.sort();
@@ -1861,10 +1860,9 @@ export class GroupPath {
       elementPossibleTypes = Array.from(possibleRuntimeTypes(elementType));
       elementPossibleTypes.sort();
     }
-    // If element is a fragment, intersect
+    // If element is a fragment, use its type condition
     if (this.typeConditionedFetching && element.kind === 'FragmentElement' && !!element.typeCondition) {
       elementPossibleTypes = [element.typeCondition];
-      // elementPossibleTypes = elementPossibleTypes.filter((elt) => this.possibleTypes.includes(elt) );
       // Else if element is path advancing, advance on the possible types
     } else if (this.typeConditionedFetching && this.possibleTypes.length > 0) {
       // never null since the schema is valid
@@ -1878,14 +1876,10 @@ export class GroupPath {
       });
     }
 
-
-
-    const responsePath = this.updatedResponsePath(element);
-
     return new GroupPath(
       this.fullPath.concat(element),
       this.pathInGroup.concat(element),
-      responsePath,
+      this.updatedResponsePath(element),
       this.typeConditionedFetching,
       elementPossibleTypes,
     );
