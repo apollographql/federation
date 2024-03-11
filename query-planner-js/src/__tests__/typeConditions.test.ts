@@ -684,4 +684,106 @@ describe('Type Condition field merging', () => {
       }
     `);
   });
+
+  test('does generate type conditions with interface fragment', () => {
+    const [api2, queryPlanner2] = composeAndCreatePlanner(subgraph3, subgraph2);
+
+    const operation = operationFromDocument(
+      api2,
+      gql`
+        query Search($movieParams: String, $articleParams: String) {
+          search {
+            __typename
+            ... on SearchResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $movieParams)
+                }
+              }
+            }
+            ... on ArticleResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $articleParams)
+                  title
+                }
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner2.buildQueryPlan(operation, {
+      typeConditionedFetching: true,
+    });
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "searchSubgraph") {
+            {
+              search {
+                __typename
+                id
+                sections {
+                  __typename
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                }
+                ... on ArticleResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
+                    }
+                  }
+                }
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "search.@|[ArticleResult,MovieResult,SeriesResult].sections.@") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $movieParams)
+                  }
+                }
+              },
+            },
+            Flatten(path: "search.@|[ArticleResult].sections.@") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $articleParams)
+                    title
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
+  });
 });
