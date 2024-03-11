@@ -786,4 +786,157 @@ describe('Type Condition field merging', () => {
       }
     `);
   });
+
+  test('does generate type conditions with interface fragment', () => {
+    const [api, queryPlanner] = composeAndCreatePlanner(
+      {
+        name: 'artworkSubgraph',
+        typeDefs: gql`
+          type Query {
+            me: String
+          }
+
+          type EntityCollectionSection @key(fields: "id") {
+            id: ID!
+            title: String
+            artwork(params: String): String
+          }
+
+          type GallerySection @key(fields: "id") {
+            id: ID!
+            artwork(params: String): String
+          }
+        `,
+      },
+      {
+        name: 'searchSubgraph',
+        typeDefs: gql`
+          type Query {
+            search: [SearchResult]
+          }
+
+          union SearchResult = MovieResult | ArticleResult
+          union Section = EntityCollectionSection | GallerySection
+
+          type MovieResult @key(fields: "id") {
+            id: ID!
+            sections: [Section]
+          }
+
+          type ArticleResult @key(fields: "id") {
+            id: ID!
+            sections: [Section]
+          }
+
+          type EntityCollectionSection @key(fields: "id") {
+            id: ID!
+          }
+
+          type GallerySection @key(fields: "id") {
+            id: ID!
+          }
+        `,
+      },
+    );
+
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query Search($movieParams: String, $articleParams: String) {
+          search {
+            __typename
+            ... on MovieResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $movieParams)
+                }
+              }
+            }
+            ... on ArticleResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $articleParams)
+                  title
+                }
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation, {
+      typeConditionedFetching: true,
+    });
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "searchSubgraph") {
+            {
+              search {
+                __typename
+                ... on MovieResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
+                    }
+                  }
+                }
+                ... on ArticleResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
+                    }
+                  }
+                }
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "search.@|[MovieResult].sections.@") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $movieParams)
+                  }
+                }
+              },
+            },
+            Flatten(path: "search.@|[ArticleResult].sections.@") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $articleParams)
+                    title
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
+  });
 });
