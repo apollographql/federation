@@ -3945,40 +3945,41 @@ export function extractInlineFragments<T extends ASTNode>(ast: T): {
 } {
   const seenFragments = new Map<string, { definition: FragmentDefinitionNode, spread: FragmentSpreadNode }>();
   const updatedSelectionSet = visit(ast, {
-    leave(node) {
-      if (
-        node.kind === Kind.INLINE_FRAGMENT
-        && node.typeCondition
-        && !node.directives?.length // caution: this is simple but clever, it handles both `undefined` and 0 length
-      ) {
-        const stringified = print(node);
-        const seen = seenFragments.get(stringified);
-        if (seen) {
-          return seen.spread;
-        } else {
-          const name: NameNode = {
-            kind: Kind.NAME,
-            value: `Fragment_${seenFragments.size}`,
-          };
-          const spread: FragmentSpreadNode = {
-            kind: Kind.FRAGMENT_SPREAD,
-            name,
+    InlineFragment: {
+      leave(node) {
+        if (
+          node.typeCondition
+          && !node.directives?.length // caution: this is simple but clever, it handles both `undefined` and 0 length
+        ) {
+          const stringified = print(node);
+          const seen = seenFragments.get(stringified);
+          if (seen) {
+            return seen.spread;
+          } else {
+            const name: NameNode = {
+              kind: Kind.NAME,
+              value: `Fragment_${seenFragments.size}`,
+            };
+            const spread: FragmentSpreadNode = {
+              kind: Kind.FRAGMENT_SPREAD,
+              name,
+            };
+            const definition: FragmentDefinitionNode = {
+              kind: Kind.FRAGMENT_DEFINITION,
+              name,
+              typeCondition: node.typeCondition,
+              selectionSet: node.selectionSet,
+            };
+            seenFragments.set(stringified, {
+              definition,
+              spread,
+            });
+            return spread;
           }
-          const definition: FragmentDefinitionNode = {
-            kind: Kind.FRAGMENT_DEFINITION,
-            name,
-            typeCondition: node.typeCondition,
-            selectionSet: node.selectionSet,
-          }
-          seenFragments.set(stringified, {
-            definition,
-            spread,
-          });
-          return spread;
         }
+        return;
       }
-      return;
-    }
+    },
   });
 
   return {
