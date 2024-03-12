@@ -3907,7 +3907,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment FooChildSelect on Foo {
             __typename
             foo
@@ -3922,7 +3922,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment FooSelect on Foo {
             __typename
             foo
@@ -4096,7 +4096,7 @@ describe('Named fragments preservation', () => {
                   }
                 }
               }
-              
+
               fragment OnV on V {
                 a
                 b
@@ -4170,7 +4170,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment Selection on A {
             x
             y
@@ -4202,6 +4202,74 @@ describe('Named fragments preservation', () => {
       );
     },
   );
+
+  it('respects autoFragmentize option', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        union T = A | B
+
+        type A {
+          x: Int
+          y: Int
+        }
+
+        type B {
+          z: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      [subgraph1],
+      { autoFragmentize: true },
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            ... on A {
+              x
+              y
+            }
+            ... on B {
+              z
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ...Fragment_0
+              ...Fragment_1
+            }
+          }
+
+          fragment Fragment_0 on A {
+            x
+            y
+          }
+
+          fragment Fragment_1 on B {
+            z
+          }
+        },
+      }
+    `);
+  });
 
   it('works with nested fragments when only the nested fragment gets preserved', () => {
     const subgraph1 = {
@@ -4264,7 +4332,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment OnV on V {
             v1
             v2
@@ -4372,7 +4440,7 @@ describe('Named fragments preservation', () => {
               ...OnT @include(if: $test2)
             }
           }
-          
+
           fragment OnT on T {
             a
             b
@@ -4556,7 +4624,7 @@ describe('Named fragments preservation', () => {
       `,
     );
 
-    const expectedPlan = `
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
           Fetch(service: "Subgraph2") {
@@ -4572,7 +4640,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               inner {
                 v {
@@ -4619,10 +4687,7 @@ describe('Named fragments preservation', () => {
           },
         },
       }
-    `;
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
-      expectedPlan,
-    );
+    `);
 
     // We very slighly modify the operation to add an artificial indirection within `IFrag`.
     // This does not really change the query, and should result in the same plan, but
@@ -4658,9 +4723,70 @@ describe('Named fragments preservation', () => {
       `,
     );
 
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
-      expectedPlan,
-    );
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              outer1 {
+                __typename
+                ...OuterFrag
+                id
+              }
+              outer2 {
+                __typename
+                ...OuterFrag
+                id
+              }
+            }
+
+            fragment OuterFrag on Outer {
+              inner {
+                v {
+                  x
+                }
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "outer1") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v {
+                      x
+                    }
+                  }
+                }
+              },
+            },
+            Flatten(path: "outer2") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v {
+                      x
+                    }
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
 
     // The previous cases tests the cases where nothing in the `...IFrag` spread at the
     // top-level of `OuterFrag` applied at all: it all gets eliminated in the plan. But
@@ -4711,7 +4837,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               w
               inner {
@@ -4852,7 +4978,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               inner {
                 v
@@ -4894,9 +5020,64 @@ describe('Named fragments preservation', () => {
         },
       }
     `;
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
-      expectedPlan,
-    );
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              outer1 {
+                __typename
+                ...OuterFrag
+                id
+              }
+              outer2 {
+                __typename
+                ...OuterFrag
+                id
+              }
+            }
+
+            fragment OuterFrag on Outer {
+              inner {
+                v
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "outer1") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v
+                  }
+                }
+              },
+            },
+            Flatten(path: "outer2") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
 
     // We very slighly modify the operation to add an artificial indirection within `IFrag`.
     // This does not really change the query, and should result in the same plan, but
@@ -4935,9 +5116,64 @@ describe('Named fragments preservation', () => {
       `,
     );
 
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
-      expectedPlan,
-    );
+    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              outer1 {
+                __typename
+                ...OuterFrag
+                id
+              }
+              outer2 {
+                __typename
+                ...OuterFrag
+                id
+              }
+            }
+
+            fragment OuterFrag on Outer {
+              inner {
+                v
+              }
+            }
+          },
+          Parallel {
+            Flatten(path: "outer1") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v
+                  }
+                }
+              },
+            },
+            Flatten(path: "outer2") {
+              Fetch(service: "Subgraph1") {
+                {
+                  ... on Outer {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on Outer {
+                    v
+                  }
+                }
+              },
+            },
+          },
+        },
+      }
+    `);
 
     // The previous cases tests the cases where nothing in the `...IFrag` spread at the
     // top-level of `OuterFrag` applied at all: it all gets eliminated in the plan. But
@@ -4991,7 +5227,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               w
               inner {
@@ -6815,7 +7051,7 @@ describe('named fragments', () => {
               }
             }
           }
-          
+
           fragment Fragment4 on I {
             __typename
             id1
@@ -6888,7 +7124,7 @@ describe('named fragments', () => {
               }
             }
           }
-          
+
           fragment Fragment4 on I {
             id1
             id2
@@ -7030,7 +7266,7 @@ describe('named fragments', () => {
                 id
               }
             }
-            
+
             fragment allTFields on T {
               v0
               v1
@@ -7178,7 +7414,7 @@ describe('named fragments', () => {
                   }
                 }
               }
-              
+
               fragment allUFields on U {
                 v0
                 v1
@@ -7481,35 +7717,35 @@ test('correctly generate plan built from some non-individually optimal branch op
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
-   QueryPlan {
-     Sequence {
-       Fetch(service: "Subgraph2") {
-         {
-           t {
-             __typename
-             id
-           }
-         }
-       },
-       Flatten(path: "t") {
-         Fetch(service: "Subgraph3") {
-           {
-             ... on T {
-               __typename
-               id
+       QueryPlan {
+         Sequence {
+           Fetch(service: "Subgraph2") {
+             {
+               t {
+                 __typename
+                 id
+               }
              }
-           } =>
-           {
-             ... on T {
-               y
-               x
-             }
-           }
+           },
+           Flatten(path: "t") {
+             Fetch(service: "Subgraph3") {
+               {
+                 ... on T {
+                   __typename
+                   id
+                 }
+               } =>
+               {
+                 ... on T {
+                   y
+                   x
+                 }
+               }
+             },
+           },
          },
-       },
-     },
-   }
-  `);
+       }
+    `);
 });
 
 test('does not error on some complex fetch group dependencies', () => {
@@ -7902,75 +8138,75 @@ describe('@requires references external field indirectly', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Sequence {
-        Fetch(service: "A") {
-          {
-            u {
-              __typename
-              k1 {
-                id
-              }
-            }
+          QueryPlan {
+            Sequence {
+              Fetch(service: "A") {
+                {
+                  u {
+                    __typename
+                    k1 {
+                      id
+                    }
+                  }
+                }
+              },
+              Flatten(path: "u") {
+                Fetch(service: "B") {
+                  {
+                    ... on U {
+                      __typename
+                      k1 {
+                        id
+                      }
+                    }
+                  } =>
+                  {
+                    ... on U {
+                      k2
+                    }
+                  }
+                },
+              },
+              Flatten(path: "u") {
+                Fetch(service: "C") {
+                  {
+                    ... on U {
+                      __typename
+                      k2
+                    }
+                  } =>
+                  {
+                    ... on U {
+                      v {
+                        v
+                      }
+                    }
+                  }
+                },
+              },
+              Flatten(path: "u") {
+                Fetch(service: "B") {
+                  {
+                    ... on U {
+                      __typename
+                      v {
+                        v
+                      }
+                      k1 {
+                        id
+                      }
+                    }
+                  } =>
+                  {
+                    ... on U {
+                      f
+                    }
+                  }
+                },
+              },
+            },
           }
-        },
-        Flatten(path: "u") {
-          Fetch(service: "B") {
-            {
-              ... on U {
-                __typename
-                k1 {
-                  id
-                }
-              }
-            } =>
-            {
-              ... on U {
-                k2
-              }
-            }
-          },
-        },
-        Flatten(path: "u") {
-          Fetch(service: "C") {
-            {
-              ... on U {
-                __typename
-                k2
-              }
-            } =>
-            {
-              ... on U {
-                v {
-                  v
-                }
-              }
-            }
-          },
-        },
-        Flatten(path: "u") {
-          Fetch(service: "B") {
-            {
-              ... on U {
-                __typename
-                v {
-                  v
-                }
-                k1 {
-                  id
-                }
-              }
-            } =>
-            {
-              ... on U {
-                f
-              }
-            }
-          },
-        },
-      },
-    }
-    `);
+        `);
   });
 });
 

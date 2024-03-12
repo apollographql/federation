@@ -3,12 +3,12 @@ import {
   isCompositeType,
   Schema,
   SchemaRootKind,
-} from '../../dist/definitions';
-import { buildSchema } from '../../dist/buildSchema';
-import { FederationBlueprint } from '../../dist/federation';
-import { FragmentRestrictionAtType, MutableSelectionSet, NamedFragmentDefinition, Operation, operationFromDocument, parseOperation } from '../../dist/operations';
+} from '../definitions';
+import { buildSchema } from '../buildSchema';
+import { FederationBlueprint } from '../federation';
+import { extractInlineFragments, FragmentRestrictionAtType, MutableSelectionSet, NamedFragmentDefinition, Operation, operationFromDocument, parseOperation } from '../operations';
 import './matchers';
-import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, parse, SelectionNode, SelectionSetNode, validate } from 'graphql';
+import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, parse, print, SelectionNode, SelectionSetNode, validate } from 'graphql';
 import { assert } from '../utils';
 import gql from 'graphql-tag';
 
@@ -3156,7 +3156,7 @@ describe('named fragment selection set restrictions at type', () => {
       }
     `);
 
-    const frag = operation.fragments?.get('FonI1')!;
+    const frag = operation.fragments!.get('FonI1')!;
 
     let { selectionSet, validator } = expandAtType(frag, schema, 'I1');
     expect(selectionSet.toString()).toBe('{ x ... on T1 { x } ... on T2 { x } ... on I2 { x } ... on I3 { x } }');
@@ -3229,7 +3229,7 @@ describe('named fragment selection set restrictions at type', () => {
       }
     `);
 
-    const frag = operation.fragments?.get('FonU1')!;
+    const frag = operation.fragments!.get('FonU1')!;
 
     // Note that with unions, the fragments inside the unions can be "lifted" and so that everything normalizes to just the
     // possible runtimes.
@@ -3760,4 +3760,141 @@ describe('named fragment rebasing on subgraphs', () => {
       }
     `);
   });
+});
+
+describe("extractInlineFragments", () => {
+  function extract(operation: string) {
+    const doc = parse(operation).definitions[0];
+    const { ast, fragments } = extractInlineFragments(doc);
+    return print({
+      kind: Kind.DOCUMENT,
+      definitions: [ast, ...fragments],
+    });
+  }
+
+  test("basic inline fragment", () => {
+    expect(extract(`
+      {
+        a {
+          ... on B { b }
+        }
+      }`
+    )).toMatchString(`
+      {
+        a {
+          ...Fragment_0
+        }
+      }
+
+      fragment Fragment_0 on B {
+        b
+      }
+    `);
+  });
+
+  test("multiple inline fragments", () => {
+    expect(extract(`
+      {
+        a {
+          ... on B { b }
+          ... on C { c }
+        }
+      }`
+    )).toMatchString(`
+      {
+        a {
+          ...Fragment_0
+          ...Fragment_1
+        }
+      }
+
+      fragment Fragment_0 on B {
+        b
+      }
+
+      fragment Fragment_1 on C {
+        c
+      }
+    `);
+  });
+
+  test("nested inline fragments", () => {
+    expect(extract(`
+      {
+        a {
+          ... on B {
+            ... on C { c }
+          }
+        }
+      }
+    `)).toMatchString(`
+      {
+        a {
+          ...Fragment_1
+        }
+      }
+
+      fragment Fragment_0 on C {
+        c
+      }
+
+      fragment Fragment_1 on B {
+        ...Fragment_0
+      }
+    `);
+  });
+
+  test("common fragments are reused", () => {
+    expect(extract(`
+      {
+        a {
+          ... on B {
+            ... on D { d }
+          }
+          ... on C {
+            ... on D { d }
+          }
+          ... on D { d }
+        }
+      }
+    `)).toMatchString(`
+      {
+        a {
+          ...Fragment_1
+          ...Fragment_2
+          ...Fragment_0
+        }
+      }
+
+      fragment Fragment_0 on D {
+        d
+      }
+
+      fragment Fragment_1 on B {
+        ...Fragment_0
+      }
+
+      fragment Fragment_2 on C {
+        ...Fragment_0
+      }
+    `);
+  });
+
+  test("inline fragments with directives are not fragmentized", () => {
+    expect(extract(`
+      {
+        a {
+          ... on B @include(if: true) { b }
+        }
+      }
+    `)).toMatchString(`
+      {
+        a {
+          ... on B @include(if: true) {
+            b
+          }
+        }
+      }
+    `);
+  })
 });

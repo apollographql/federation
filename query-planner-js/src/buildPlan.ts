@@ -700,7 +700,11 @@ class QueryPlanningTraversal<RV extends Vertex> {
         .map((cp) => flattenClosedPath(cp))
         .flat();
       initialTree = PathTree.createFromOpPaths(federatedQueryGraph, root, singleChoiceBranches);
-      initialDependencyGraph = this.updatedDependencyGraph(this.newDependencyGraph(), initialTree);
+      initialDependencyGraph = this.updatedDependencyGraph(
+        this.newDependencyGraph(),
+        initialTree,
+        this.parameters.config.autoFragmentize,
+      );
       if (idxFirstOfLengthOne === 0) {
         // Well, we have the only possible plan; it's also the best.
         this.bestPlan = [initialDependencyGraph, initialTree, this.cost(initialDependencyGraph)];
@@ -718,7 +722,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       toAdd: otherTrees,
       addFct: (p, t) => {
         const updatedDependencyGraph = p.graph.clone();
-        this.updatedDependencyGraph(updatedDependencyGraph, t);
+        this.updatedDependencyGraph(updatedDependencyGraph, t, this.parameters.config.autoFragmentize);
         const updatedTree = p.tree.merge(t);
         return { graph: updatedDependencyGraph, tree: updatedTree };
       },
@@ -745,10 +749,10 @@ class QueryPlanningTraversal<RV extends Vertex> {
       : this.costFunction.reduceDefer(main, dependencyGraph.deferTracking.primarySelection!.get(), deferred);
   }
 
-  private updatedDependencyGraph(dependencyGraph: FetchDependencyGraph, tree: OpPathTree<RV>): FetchDependencyGraph {
+  private updatedDependencyGraph(dependencyGraph: FetchDependencyGraph, tree: OpPathTree<RV>, autoFragmentize: boolean): FetchDependencyGraph {
     return isRootPathTree(tree)
-      ? computeRootFetchGroups(dependencyGraph, tree, this.rootKind)
-      : computeNonRootFetchGroups(dependencyGraph, tree, this.rootKind);
+      ? computeRootFetchGroups(dependencyGraph, tree, this.rootKind, autoFragmentize)
+      : computeNonRootFetchGroups(dependencyGraph, tree, this.rootKind, autoFragmentize);
   }
 
   private resolveConditionPlan(edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions): ConditionResolution {
@@ -907,6 +911,7 @@ class FetchGroup {
     // key for that. Having it here saves us from re-computing it more than once.
     readonly subgraphAndMergeAtKey?: string,
     private cachedCost?: number,
+    private autoFragmentize: boolean = false,
     // Cache used to save unecessary recomputation of the `isUseless` method.
     private isKnownUseful: boolean = false,
     private readonly inputRewrites: FetchDataRewrite[] = [],
@@ -934,6 +939,7 @@ class FetchGroup {
     hasInputs,
     mergeAt,
     deferRef,
+    autoFragmentize,
   }: {
     dependencyGraph: FetchDependencyGraph,
     index: number,
@@ -943,6 +949,7 @@ class FetchGroup {
     hasInputs: boolean,
     mergeAt?: ResponsePath,
     deferRef?: string,
+    autoFragmentize: boolean,
   }): FetchGroup {
     // Sanity checks that the selection parent type belongs to the schema of the subgraph we're querying.
     assert(parentType.schema() === dependencyGraph.subgraphSchemas.get(subgraphName), `Expected parent type ${parentType} to belong to ${subgraphName}`);
@@ -957,7 +964,9 @@ class FetchGroup {
       hasInputs ? new GroupInputs(dependencyGraph.supergraphSchema) : undefined,
       mergeAt,
       deferRef,
-      hasInputs ? `${toValidGraphQLName(subgraphName)}-${mergeAt?.join('::') ?? ''}` : undefined
+      hasInputs ? `${toValidGraphQLName(subgraphName)}-${mergeAt?.join('::') ?? ''}` : undefined,
+      undefined,
+      autoFragmentize,
     );
   }
 
@@ -976,6 +985,7 @@ class FetchGroup {
       this.deferRef,
       this.subgraphAndMergeAtKey,
       this.cachedCost,
+      this.autoFragmentize,
       this.isKnownUseful,
       [...this.inputRewrites],
     );
@@ -1516,6 +1526,9 @@ class FetchGroup {
           operationName,
         );
 
+    if (this.autoFragmentize) {
+      operation = operation.autoFragmentize();
+    }
     operation = operation.optimize(fragments?.forSubgraph(this.subgraphName, subgraphSchema));
 
     const operationDocument = operationToDocument(operation);
@@ -2126,14 +2139,16 @@ class FetchDependencyGraph {
     subgraphName,
     rootKind,
     parentType,
+    autoFragmentize,
   }: {
     subgraphName: string,
     rootKind: SchemaRootKind,
     parentType: CompositeType,
+    autoFragmentize: boolean,
   }): FetchGroup {
     let group = this.rootGroups.get(subgraphName);
     if (!group) {
-      group = this.createRootFetchGroup({ subgraphName, rootKind, parentType });
+      group = this.createRootFetchGroup({ subgraphName, rootKind, parentType, autoFragmentize });
       this.rootGroups.set(subgraphName, group);
     }
     return group;
@@ -2151,12 +2166,14 @@ class FetchDependencyGraph {
     subgraphName,
     rootKind,
     parentType,
+    autoFragmentize,
   }: {
     subgraphName: string,
     rootKind: SchemaRootKind,
     parentType: CompositeType,
+    autoFragmentize: boolean,
   }): FetchGroup {
-    const group = this.newFetchGroup({ subgraphName, parentType, rootKind, hasInputs: false });
+    const group = this.newFetchGroup({ subgraphName, parentType, rootKind, hasInputs: false, autoFragmentize, });
     this.rootGroups.set(subgraphName, group);
     return group;
   }
@@ -2168,6 +2185,7 @@ class FetchDependencyGraph {
     rootKind, // always "query" for entity fetches
     mergeAt,
     deferRef,
+    autoFragmentize,
   }: {
     subgraphName: string,
     parentType: CompositeType,
@@ -2175,6 +2193,7 @@ class FetchDependencyGraph {
     rootKind: SchemaRootKind,
     mergeAt?: ResponsePath,
     deferRef?: string,
+    autoFragmentize: boolean,
   }): FetchGroup {
     this.onModification();
     const newGroup = FetchGroup.create({
@@ -2186,6 +2205,7 @@ class FetchDependencyGraph {
       hasInputs,
       mergeAt,
       deferRef,
+      autoFragmentize,
     });
     this.groups.push(newGroup);
     return newGroup;
@@ -2198,6 +2218,7 @@ class FetchDependencyGraph {
     parent,
     conditionsGroups,
     deferRef,
+    autoFragmentize,
   }: {
     subgraphName: string,
     mergeAt: ResponsePath,
@@ -2205,6 +2226,7 @@ class FetchDependencyGraph {
     parent: ParentRelation,
     conditionsGroups: FetchGroup[],
     deferRef?: string,
+    autoFragmentize: boolean,
   }): FetchGroup {
     // Let's look if we can reuse a group we have, that is an existing child of the parent that:
     // 1. is for the same subgraph
@@ -2232,7 +2254,8 @@ class FetchDependencyGraph {
     const newGroup = this.newKeyFetchGroup({
       subgraphName,
       mergeAt,
-      deferRef
+      deferRef,
+      autoFragmentize,
     });
     newGroup.addParent(parent);
     return newGroup
@@ -2244,12 +2267,14 @@ class FetchDependencyGraph {
     parentType,
     mergeAt,
     deferRef,
+    autoFragmentize,
   }: {
     subgraphName: string,
     rootKind: SchemaRootKind,
     parentType: ObjectType,
     mergeAt: ResponsePath,
     deferRef?: string,
+    autoFragmentize: boolean,
   }): FetchGroup {
     return this.newFetchGroup({
       subgraphName,
@@ -2257,7 +2282,8 @@ class FetchDependencyGraph {
       rootKind,
       hasInputs: false,
       mergeAt,
-      deferRef
+      deferRef,
+      autoFragmentize,
     });
   }
 
@@ -2285,10 +2311,12 @@ class FetchDependencyGraph {
     subgraphName,
     mergeAt,
     deferRef,
+    autoFragmentize,
   }: {
     subgraphName: string,
     mergeAt: ResponsePath,
     deferRef?: string,
+    autoFragmentize: boolean,
   }): FetchGroup {
     const parentType = this.federationMetadata(subgraphName).entityType();
     assert(parentType, () => `Subgraph ${subgraphName} has no entities defined`);
@@ -2298,7 +2326,8 @@ class FetchDependencyGraph {
       hasInputs: true,
       rootKind: 'query',
       mergeAt,
-      deferRef
+      deferRef,
+      autoFragmentize,
     });
   }
 
@@ -3524,7 +3553,17 @@ function computeRootSerialDependencyGraph(
       // }
       // then we should _not_ merge the 2 `mut1` fields (contrarily to what happens on queried fields).
       prevPaths = prevPaths.concat(newPaths);
-      prevDepGraph = computeRootFetchGroups(FetchDependencyGraph.create(supergraphSchema, federatedQueryGraph, startingFetchId, rootType), prevPaths, root.rootKind);
+      prevDepGraph = computeRootFetchGroups(
+        FetchDependencyGraph.create(
+          supergraphSchema,
+          federatedQueryGraph,
+          startingFetchId,
+          rootType,
+        ),
+        prevPaths,
+        root.rootKind,
+        parameters.config.autoFragmentize,
+      );
     } else {
       startingFetchId = prevDepGraph.nextFetchId();
       graphs.push(prevDepGraph);
@@ -3785,7 +3824,12 @@ function samePathsInParents(first: OperationPath | undefined, second: OperationP
   return !!second && sameOperationPaths(first, second);
 }
 
-function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpRootPathTree, rootKind: SchemaRootKind): FetchDependencyGraph {
+function computeRootFetchGroups(
+  dependencyGraph: FetchDependencyGraph,
+  pathTree: OpRootPathTree,
+  rootKind: SchemaRootKind,
+  autoFragmentize: boolean,
+): FetchDependencyGraph {
   // The root of the pathTree is one of the "fake" root of the subgraphs graph, which belongs to no subgraph but points to each ones.
   // So we "unpack" the first level of the tree to find out our top level groups (and initialize our stack).
   // Note that we can safely ignore the triggers of that first level as it will all be free transition, and we know we cannot have conditions.
@@ -3794,19 +3838,31 @@ function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree:
     const subgraphName = edge.tail.source;
     // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
     const rootType = edge.tail.type as ObjectType;
-    const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType });
-    computeGroupsForTree(dependencyGraph, child, group, GroupPath.empty(), emptyDeferContext);
+    const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType, autoFragmentize });
+    computeGroupsForTree(dependencyGraph, child, group, GroupPath.empty(), emptyDeferContext, autoFragmentize);
   }
   return dependencyGraph;
 }
 
-function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpPathTree, rootKind: SchemaRootKind): FetchDependencyGraph {
+function computeNonRootFetchGroups(
+  dependencyGraph: FetchDependencyGraph,
+  pathTree: OpPathTree,
+  rootKind: SchemaRootKind,
+  autoFragmentize: boolean
+): FetchDependencyGraph {
   const subgraphName = pathTree.vertex.source;
   // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
   const rootType = pathTree.vertex.type;
   assert(isCompositeType(rootType), () => `Should not have condition on non-selectable type ${rootType}`);
-  const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType} );
-  computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(), emptyDeferContext);
+  const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType, autoFragmentize } );
+  computeGroupsForTree(
+    dependencyGraph,
+    pathTree,
+    group,
+    GroupPath.empty(),
+    emptyDeferContext,
+    autoFragmentize,
+  );
   return dependencyGraph;
 }
 
@@ -3894,6 +3950,7 @@ function computeGroupsForTree(
   startGroup: FetchGroup,
   initialGroupPath: GroupPath,
   initialDeferContext: DeferContext,
+  autoFragmentize: boolean,
   initialContext: PathContext = emptyContext,
 ): FetchGroup[] {
   const stack: {
@@ -3934,7 +3991,14 @@ function computeGroupsForTree(
           if (edge.transition.kind === 'KeyResolution') {
             assert(conditions, () => `Key edge ${edge} should have some conditions paths`);
             // First, we need to ensure we fetch the conditions from the current group.
-            const conditionsGroups = computeGroupsForTree(dependencyGraph, conditions, group, path, deferContextForConditions(deferContext));
+            const conditionsGroups = computeGroupsForTree(
+              dependencyGraph,
+              conditions,
+              group,
+              path,
+              deferContextForConditions(deferContext),
+              autoFragmentize,
+            );
             updateCreatedGroups(createdGroups, ...conditionsGroups);
             // Then we can "take the edge", creating a new group. That group depends
             // on the condition ones.
@@ -3959,6 +4023,7 @@ function computeGroupsForTree(
               parent: { group, path: pathInParent },
               conditionsGroups,
               deferRef: updatedDeferContext.activeDeferRef,
+              autoFragmentize,
             });
             updateCreatedGroups(createdGroups, newGroup);
             newGroup.addParents(conditionsGroups.map((conditionGroup) => {
@@ -4024,6 +4089,7 @@ function computeGroupsForTree(
               parentType: type,
               mergeAt: path.inResponse(),
               deferRef: updatedDeferContext.activeDeferRef,
+              autoFragmentize,
             });
             newGroup.addParent({ group, path: path.inGroup() });
             stack.push({
@@ -4103,6 +4169,7 @@ function computeGroupsForTree(
               path,
               context,
               updatedDeferContext,
+              autoFragmentize,
             );
             updated.group = requireResult.group;
             updated.path = requireResult.path;
@@ -4301,6 +4368,7 @@ function handleRequires(
   path: GroupPath,
   context: PathContext,
   deferContext: DeferContext,
+  autoFragmentize: boolean,
 ): {
   group: FetchGroup,
   path: GroupPath,
@@ -4339,11 +4407,19 @@ function handleRequires(
     const newGroup = dependencyGraph.newKeyFetchGroup({
       subgraphName: group.subgraphName,
       mergeAt: group.mergeAt!,
-      deferRef: group.deferRef
+      deferRef: group.deferRef,
+      autoFragmentize,
     });
     newGroup.addParent(parent);
     newGroup.copyInputsOf(group);
-    const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, path, deferContextForConditions(deferContext));
+    const createdGroups = computeGroupsForTree(
+      dependencyGraph,
+      requiresConditions,
+      newGroup,
+      path,
+      deferContextForConditions(deferContext),
+      autoFragmentize,
+    );
     if (createdGroups.length === 0) {
       // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
       // and continue.
@@ -4458,7 +4534,8 @@ function handleRequires(
     const postRequireGroup = dependencyGraph.newKeyFetchGroup({
       subgraphName: group.subgraphName,
       mergeAt: group.mergeAt!,
-      deferRef: group.deferRef
+      deferRef: group.deferRef,
+      autoFragmentize,
     });
     // Note that `postRequireGroup` cannot generally be merged in any of the `unmergedGroup` and we don't provide a `path`.
     postRequireGroup.addParents(unmergedGroups.map((group) => ({ group })));
@@ -4495,7 +4572,13 @@ function handleRequires(
     // just after having jumped to that subgraph). In that case, there isn't tons of optimisation we can do: we have to
     // see what satisfying the @require necessitate, and if it needs anything from another subgraph, we have to stop the
     // current subgraph fetch there, get the requirements from other subgraphs, and then resume the query of that particular subgraph.
-    const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, group, path, deferContextForConditions(deferContext));
+    const createdGroups = computeGroupsForTree(dependencyGraph,
+      requiresConditions,
+      group,
+      path,
+      deferContextForConditions(deferContext),
+      autoFragmentize,
+    );
     // If we didn't created any group, that means the whole condition was fetched from the current group
     // and we're good.
     if (createdGroups.length == 0) {
@@ -4508,6 +4591,7 @@ function handleRequires(
     const newGroup = dependencyGraph.newKeyFetchGroup({
       subgraphName: group.subgraphName,
       mergeAt: path.inResponse(),
+      autoFragmentize,
     });
     newGroup.addParents(
       createdGroups.map((group) => ({

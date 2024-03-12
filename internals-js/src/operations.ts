@@ -15,6 +15,8 @@ import {
   SelectionSetNode,
   OperationTypeNode,
   NameNode,
+  print,
+  visit,
 } from "graphql";
 import {
   baseType,
@@ -971,6 +973,44 @@ export class Operation {
     }
 
     return this.withUpdatedSelectionSetAndFragments(optimizedSelection, finalFragments ?? undefined);
+  }
+
+  autoFragmentize(): Operation {
+    const expanded = this.selectionSet.expandFragments();
+    const selectionAsAST = expanded.toSelectionSetNode();
+    const fragmentizedResult = extractInlineFragments(selectionAsAST);
+    const fragments = new NamedFragments();
+    for (const definition of fragmentizedResult.fragments) {
+      const name = definition.name.value;
+      const typeName = definition.typeCondition.name.value;
+      const typeCondition = this.schema.type(typeName);
+      if (!typeCondition) {
+        throw ERRORS.INVALID_GRAPHQL.err(`Unknown type "${typeName}" for fragment "${name}"`, { nodes: definition });
+      }
+      if (!isCompositeType(typeCondition)) {
+        throw ERRORS.INVALID_GRAPHQL.err(`Invalid fragment "${name}" on non-composite type "${typeName}"`, { nodes: definition });
+      }
+      const variableDefinitions = variableDefinitionsFromAST(this.schema, definition.variableDefinitions ?? []);
+      fragments.add(new NamedFragmentDefinition(this.schema, name, typeCondition).setSelectionSet(
+        selectionSetOfNode(typeCondition, definition.selectionSet, variableDefinitions, fragments)
+      ));
+    }
+
+    const parentType = this.schema.schemaDefinition.root(this.rootKind)?.type;
+    assert(parentType, `Cannot find root type for kind ${this.rootKind}`);
+    return new Operation(
+      this.schema,
+      this.rootKind,
+      parseSelectionSet({
+        parentType,
+        source: fragmentizedResult.ast,
+        variableDefinitions: this.variableDefinitions,
+        fragments,
+      }),
+      this.variableDefinitions,
+      fragments,
+      this.name,
+    );
   }
 
   expandAllFragments(): Operation {
@@ -3896,5 +3936,53 @@ export function operationToDocument(operation: Operation): DocumentNode {
   return {
     kind: Kind.DOCUMENT,
     definitions: [operationAST as DefinitionNode].concat(fragmentASTs),
+  };
+}
+
+export function extractInlineFragments<T extends ASTNode>(ast: T): {
+  ast: T;
+  fragments: FragmentDefinitionNode[];
+} {
+  const seenFragments = new Map<string, { definition: FragmentDefinitionNode, spread: FragmentSpreadNode }>();
+  const updatedSelectionSet = visit(ast, {
+    leave(node) {
+      if (
+        node.kind === Kind.INLINE_FRAGMENT
+        && node.typeCondition
+        && !node.directives?.length // caution: this is simple but clever, it handles both `undefined` and 0 length
+      ) {
+        const stringified = print(node);
+        const seen = seenFragments.get(stringified);
+        if (seen) {
+          return seen.spread;
+        } else {
+          const name: NameNode = {
+            kind: Kind.NAME,
+            value: `Fragment_${seenFragments.size}`,
+          };
+          const spread: FragmentSpreadNode = {
+            kind: Kind.FRAGMENT_SPREAD,
+            name,
+          }
+          const definition: FragmentDefinitionNode = {
+            kind: Kind.FRAGMENT_DEFINITION,
+            name,
+            typeCondition: node.typeCondition,
+            selectionSet: node.selectionSet,
+          }
+          seenFragments.set(stringified, {
+            definition,
+            spread,
+          });
+          return spread;
+        }
+      }
+      return;
+    }
+  });
+
+  return {
+    ast: updatedSelectionSet,
+    fragments: Array.from(seenFragments.values()).map(({definition}) => definition)
   };
 }
