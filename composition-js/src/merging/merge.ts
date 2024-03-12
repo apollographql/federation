@@ -75,6 +75,7 @@ import {
   sourceIdentity,
   FeatureUrl,
   isFederationDirectiveDefinedInSchema,
+  parseSelectionSet,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -305,6 +306,7 @@ class Merger {
   private latestFedVersionUsed: FeatureVersion;
   private joinDirectiveIdentityURLs = new Set<string>();
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
+  private contextToTypeMap = new Map<string, { types: Set<CompositeType>, usages: { usage: string, argumentDefinition: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>> }[] }>();
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.latestFedVersionUsed = this.getLatestFederationVersionUsed();
@@ -819,6 +821,25 @@ class Merger {
     }
   }
 
+  private addTypeToContextMap(type: CompositeType, contexts: string[]) {
+    for (const context of contexts) {
+      if (this.contextToTypeMap.has(context)) {
+        this.contextToTypeMap.get(context)!.types.add(type);
+      } else {
+        this.contextToTypeMap.set(context, { types: new Set([type]), usages: [] });
+      }
+
+    }
+  }
+
+  private addUsageToContextMap(context: string, selection: string, argumentDefinition: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>>) {
+    if (this.contextToTypeMap.has(context)) {
+      this.contextToTypeMap.get(context)!.usages.push({ usage: selection, argumentDefinition });
+    } else {
+      this.contextToTypeMap.set(context, { types: new Set(), usages: [{ usage: selection, argumentDefinition }] });
+    }
+  }
+
   private addJoinType(sources: (NamedType | undefined)[], dest: NamedType) {
     const joinTypeDirective = this.joinSpec.typeDirective(this.merged);
     for (const [idx, source] of sources.entries()) {
@@ -834,13 +855,23 @@ class Merger {
       const isInterfaceObject = sourceMetadata.isInterfaceObjectType(source) ? true : undefined;
       const keys = source.appliedDirectivesOf(sourceMetadata.keyDirective());
       const name = this.joinSpecName(idx);
+      const contextDirective = sourceMetadata.contextDirective();
+      let contexts: string[] | undefined = undefined;
+      if (isFederationDirectiveDefinedInSchema(contextDirective) && isCompositeType(dest)) {
+        const appliedDirectives = source.appliedDirectivesOf(contextDirective);
+        if (appliedDirectives.length > 0) {
+          contexts = appliedDirectives.map(d => d.arguments().name);
+          this.addTypeToContextMap(dest, contexts);
+        }
+      }
+
       if (!keys.length) {
         dest.applyDirective(joinTypeDirective, { graph: name, isInterfaceObject });
       } else {
         for (const key of keys) {
           const extension = key.ofExtension() || source.hasAppliedDirective(sourceMetadata.extendsDirective()) ? true : undefined;
           const { resolvable } = key.arguments();
-          dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields, extension, resolvable, isInterfaceObject });
+          dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields, extension, resolvable, isInterfaceObject, contexts });
         }
       }
     }
@@ -1651,29 +1682,36 @@ class Merger {
       }
 
       const requiredArguments: {
-        position: number,
-        fromContext: string,
+        context: string,
         name: string,
         type: string,
         selection: string,
       }[] = [];
-      const requireDirective = this.subgraphs.values()[idx].metadata().requiresDirective();
-      if (source.kind === 'FieldDefinition') {
+      const metadata = this.subgraphs.values()[idx].metadata();
+      const fromContextDirective = metadata.fromContextDirective();
+      if (source.kind === 'FieldDefinition' && isFederationDirectiveDefinedInSchema(fromContextDirective)) {
         const args = source.arguments();
-        args.forEach((arg, i) => {
-          const appliedDirectives = arg.appliedDirectivesOf(requireDirective);
-          assert(appliedDirectives.length <= 1, () => `@require directive should not be repeatable on ${arg.coordinate}`);
+        args.forEach((arg) => {
+          const appliedDirectives = arg.appliedDirectivesOf(fromContextDirective);
+          assert(appliedDirectives.length <= 1, () => `@fromContext directive should not be repeatable on ${arg.coordinate}`);
           if (appliedDirectives.length === 1) {
-            const app = appliedDirectives[0];
             const argType = arg.type?.toString();
             assert(argType, () => `Argument ${arg.coordinate} should have a type`);
-            requiredArguments.push({
-              position: i,
-              fromContext: app.arguments().fields['fromContext'],
-              name: app.arguments().fields['from'],
-              type: argType,
-              selection: app.arguments().fields['selection'],
-            });
+            const { context, selection } = this.parseContext(appliedDirectives[0].arguments().field);
+            if (!context || !selection) {
+              this.errors.push(ERRORS.NO_CONTEXT_IN_SELECTION.err(
+                `@fromContext argument does not reference a context "${appliedDirectives[0].arguments().field}".`,
+                { nodes: sourceASTs(appliedDirectives[0]) }
+              ));
+            } else {
+              this.addUsageToContextMap(context, selection, arg);
+              requiredArguments.push({
+                name: arg.name,
+                type: argType,
+                context,
+                selection,
+              });
+            }
           }
         });
       }
@@ -1693,6 +1731,20 @@ class Merger {
       });
     }
   }
+
+  private parseContext = (input: string): { context: string | undefined, selection: string | undefined } => {
+    const regex = /^\$([\w\d_]+)\s*({[\s\S]+})$/;
+    const match = input.match(regex);
+    if (!match) {
+      return { context: undefined, selection: undefined };
+    }
+
+    const [, context, selection] = match;
+    return {
+      context,
+      selection,
+    };
+  };
 
   private getFieldSet(element: SchemaElement<any, any>, directive: DirectiveDefinition<{fields: string}>): string | undefined {
     const applications = element.appliedDirectivesOf(directive);
@@ -1818,8 +1870,8 @@ class Merger {
       const arg = dest.addArgument(argName);
 
       const isContextualArg = (index: number, arg: ArgumentDefinition<DirectiveDefinition<any>> | ArgumentDefinition<FieldDefinition<any>>) => {
-        const requireDirective = this.metadata(index).requireDirective();
-        return requireDirective && isFederationDirectiveDefinedInSchema(requireDirective) && arg.appliedDirectivesOf(requireDirective).length >= 1;
+        const fromContextDirective = this.metadata(index).fromContextDirective();
+        return fromContextDirective && isFederationDirectiveDefinedInSchema(fromContextDirective) && arg.appliedDirectivesOf(fromContextDirective).length >= 1;
       }
       const hasContextual = sources.map((s, idx) => {
         const arg = s?.argument(argName);
@@ -2972,7 +3024,44 @@ class Merger {
         }
       }
     }
+    this.validateContextUsages();
+  }
 
+  // private traverseSelectionSetForType(
+  //   selection: string,
+  //   type: ObjectType,
+  // ) {
+  //   const selectionSet = new SelectionSet(type, )
+  // }
+
+  private validateContextUsages() {
+    // For each usage of a context, we need to validate that all set contexts could fulfill the selection of the context
+    this.contextToTypeMap.forEach(({ usages, types }, context) => {
+      for (const { usage, argumentDefinition } of usages) {
+        if (types.size === 0) {
+          this.errors.push(ERRORS.CONTEXT_NOT_SET.err(
+            `Context "${context}" is used in "${argumentDefinition.coordinate}" but is never set in any subgraph.`,
+            { nodes: sourceASTs(argumentDefinition) }
+          ));
+        }
+        // const resolvedTypes = [];
+        for (const type of types) {
+          // now ensure that for each type, the selection is satisfiable and collect the resolved type
+          try {
+            parseSelectionSet({ parentType: type, source: usage });
+          } catch (error) {
+            if (error instanceof GraphQLError) {
+              this.errors.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+                `Context "${context}" is used in "${argumentDefinition.coordinate}" but the selection is invalid: ${error.message}`,
+                { nodes: sourceASTs(argumentDefinition) }
+              ));
+            } else {
+              throw error;
+            }
+          }
+        }
+      }
+    });
   }
 
   private updateInaccessibleErrorsWithLinkToSubgraphs(

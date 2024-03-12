@@ -24,6 +24,7 @@ export const federationIdentity = 'https://specs.apollo.dev/federation';
 
 export enum FederationTypeName {
   FIELD_SET = 'FieldSet',
+  FIELD_VALUE = 'FieldValue',
 }
 
 export enum FederationDirectiveName {
@@ -44,8 +45,8 @@ export enum FederationDirectiveName {
   SOURCE_API = 'sourceAPI',
   SOURCE_TYPE = 'sourceType',
   SOURCE_FIELD = 'sourceField',
-  SET_CONTEXT = 'setContext',
-  REQUIRE = 'require',
+  CONTEXT = 'context',
+  FROM_CONTEXT = 'fromContext',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
@@ -89,16 +90,16 @@ const legacyFederationTypes = [
   fieldSetTypeSpec,
 ];
 
-const setContextSpec = createDirectiveSpecification({
-  name: FederationDirectiveName.SET_CONTEXT,
-  locations: [DirectiveLocation.FIELD_DEFINITION],
-  args: [{ name: 'name', type: (schema) =>new NonNullType(schema.stringType()) }, { name: 'field', type: (schema) => fieldSetType(schema) }],
+const contextSpec = createDirectiveSpecification({
+  name: FederationDirectiveName.CONTEXT,
+  locations: [DirectiveLocation.INTERFACE, DirectiveLocation.OBJECT, DirectiveLocation.UNION],
+  args: [{ name: 'name', type: (schema) =>new NonNullType(schema.stringType()) }],
 });
 
-const requireSpec = createDirectiveSpecification({
-  name: FederationDirectiveName.REQUIRE,
+const fromContextSpec = createDirectiveSpecification({
+  name: FederationDirectiveName.FROM_CONTEXT,
   locations: [DirectiveLocation.ARGUMENT_DEFINITION],
-  args: [{ name: 'fromContext', type: (schema) =>new NonNullType(schema.stringType()) }, { name: 'field', type: (schema) => fieldSetType(schema) }],
+  args: [{ name: 'field', type: (schema) => schema.stringType() }],
 });
 
 const legacyFederationDirectives = [
@@ -121,6 +122,12 @@ function fieldSetType(schema: Schema): InputType {
   assert(metadata, `The schema is not a federation subgraph`);
   return new NonNullType(metadata.fieldSetType());
 }
+
+// function fieldValueType(schema: Schema): InputType {
+//   const metadata = federationMetadata(schema);
+//   assert(metadata, `The schema is not a federation subgraph`);
+//   return new NonNullType(metadata.fieldValueType());
+// }
 
 export class FederationSpecDefinition extends FeatureDefinition {
   constructor(version: FeatureVersion) {
@@ -187,8 +194,8 @@ export class FederationSpecDefinition extends FeatureDefinition {
 
     if (version.gte(new FeatureVersion(2, 7))) {
       this.registerSubFeature(SOURCE_VERSIONS.find(new FeatureVersion(0, 1))!);
-      this.registerDirective(setContextSpec);
-      this.registerDirective(requireSpec);
+      this.registerDirective(contextSpec);
+      this.registerDirective(fromContextSpec);
     }
   }
 }

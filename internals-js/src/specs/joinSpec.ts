@@ -37,7 +37,8 @@ export type JoinTypeDirectiveArguments = {
   key?: string,
   extension?: boolean,
   resolvable?: boolean,
-  isInterfaceObject?: boolean
+  isInterfaceObject?: boolean,
+  contexts?: string[],
 };
 
 export type JoinFieldDirectiveArguments = {
@@ -50,10 +51,9 @@ export type JoinFieldDirectiveArguments = {
   usedOverridden?: boolean,
   overrideLabel?: string,
   requiredArguments?: {
-    position: number,
-    fromContext: string,
     name: string,
     type: string,
+    context: string,
     selection: string,
   }[],
 }
@@ -101,6 +101,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
 
       if (this.version.gte(new FeatureVersion(0, 3))) {
         joinType.addArgument('isInterfaceObject', new NonNullType(schema.booleanType()), false);
+        joinType.addArgument('contexts', new ListType(new NonNullType(schema.stringType())));
       }
     }
 
@@ -164,10 +165,9 @@ export class JoinSpecDefinition extends FeatureDefinition {
 
       // set context
       const requireType = schema.addType(new InputObjectType('join__RequireArgument'));
-      requireType.addField('position', new NonNullType(schema.intType()));
-      requireType.addField('fromContext', new NonNullType(schema.stringType()));
       requireType.addField('name', new NonNullType(schema.stringType()));
       requireType.addField('type', new NonNullType(schema.stringType()));
+      requireType.addField('context', new NonNullType(schema.stringType()));
       requireType.addField('selection', new NonNullType(joinFieldSet));
 
       joinField.addArgument('requiredArguments', new ListType(new NonNullType(requireType)));

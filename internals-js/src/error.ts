@@ -325,6 +325,24 @@ const TYPE_KIND_MISMATCH = makeCodeDefinition(
   { ...DEFAULT_METADATA, replaces: ['VALUE_TYPE_KIND_MISMATCH', 'EXTENSION_OF_WRONG_KIND', 'ENUM_MISMATCH_TYPE'] },
 );
 
+const CONTEXT_NOT_SET = makeCodeDefinition(
+  'CONTEXT_NOT_SET',
+  'Context is never set for context trying to be used.',
+  { addedIn: '2.8.0' },
+);
+
+const CONTEXT_INVALID_SELECTION= makeCodeDefinition(
+  'CONTEXT_INVALID_SELECTION',
+  'Selection within a context is not valid for contextual type.',
+  { addedIn: '2.8.0' },
+);
+
+const NO_CONTEXT_IN_SELECTION = makeCodeDefinition(
+  'NO_CONTEXT_IN_SELECTION',
+  'Selection in @fromContext field argument does not reference a context.',
+  { addedIn: '2.8.0' },
+);
+
 const EXTERNAL_TYPE_MISMATCH = makeCodeDefinition(
   'EXTERNAL_TYPE_MISMATCH',
   'An `@external` field has a type that is incompatible with the declaration(s) of that field in other subgraphs.',
@@ -722,6 +740,9 @@ export const ERRORS = {
   NO_QUERIES,
   INTERFACE_FIELD_NO_IMPLEM,
   TYPE_KIND_MISMATCH,
+  CONTEXT_NOT_SET,
+  CONTEXT_INVALID_SELECTION,
+  NO_CONTEXT_IN_SELECTION,
   EXTERNAL_TYPE_MISMATCH,
   EXTERNAL_ARGUMENT_MISSING,
   EXTERNAL_ARGUMENT_TYPE_MISMATCH,
