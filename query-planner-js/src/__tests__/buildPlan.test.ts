@@ -3912,7 +3912,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment FooChildSelect on Foo {
             __typename
             foo
@@ -3927,7 +3927,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment FooSelect on Foo {
             __typename
             foo
@@ -4101,7 +4101,7 @@ describe('Named fragments preservation', () => {
                   }
                 }
               }
-              
+
               fragment OnV on V {
                 a
                 b
@@ -4175,7 +4175,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment Selection on A {
             x
             y
@@ -4269,7 +4269,7 @@ describe('Named fragments preservation', () => {
               }
             }
           }
-          
+
           fragment OnV on V {
             v1
             v2
@@ -4377,7 +4377,7 @@ describe('Named fragments preservation', () => {
               ...OnT @include(if: $test2)
             }
           }
-          
+
           fragment OnT on T {
             a
             b
@@ -4577,7 +4577,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               inner {
                 v {
@@ -4716,7 +4716,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               w
               inner {
@@ -4857,7 +4857,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               inner {
                 v
@@ -4996,7 +4996,7 @@ describe('Named fragments preservation', () => {
                 id
               }
             }
-            
+
             fragment OuterFrag on Outer {
               w
               inner {
@@ -5036,6 +5036,162 @@ describe('Named fragments preservation', () => {
               },
             },
           },
+        },
+      }
+    `);
+  });
+});
+
+describe('Fragment autogeneration', () => {
+  it('respects generateQueryFragments option', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        union T = A | B
+
+        type A {
+          x: Int
+          y: Int
+        }
+
+        type B {
+          z: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      [subgraph1],
+      { generateQueryFragments: true },
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            ... on A {
+              x
+              y
+            }
+            ... on B {
+              z
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+
+    expect(serializeQueryPlan(plan)).toMatchString(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ...qp__0
+              ...qp__1
+            }
+          }
+
+          fragment qp__0 on A {
+            x
+            y
+          }
+
+          fragment qp__1 on B {
+            z
+          }
+        },
+      }
+    `);
+  });
+
+  it('handles nested fragment generation', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        union T = A | B
+
+        type A {
+          x: Int
+          y: Int
+          t: T
+        }
+
+        type B {
+          z: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      [subgraph1],
+      { generateQueryFragments: true },
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            ... on A {
+              x
+              y
+              t {
+                ... on A {
+                  x
+                }
+                ... on B {
+                  z
+                }
+              }
+            }
+            ... on B {
+              z
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+
+    expect(serializeQueryPlan(plan)).toMatchString(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ...qp__2
+              ...qp__1
+            }
+          }
+
+          fragment qp__0 on A {
+            x
+          }
+
+          fragment qp__1 on B {
+            z
+          }
+
+          fragment qp__2 on A {
+            x
+            y
+            t {
+              __typename
+              ...qp__0
+              ...qp__1
+            }
+          }
         },
       }
     `);
@@ -6820,7 +6976,7 @@ describe('named fragments', () => {
               }
             }
           }
-          
+
           fragment Fragment4 on I {
             __typename
             id1
@@ -6893,7 +7049,7 @@ describe('named fragments', () => {
               }
             }
           }
-          
+
           fragment Fragment4 on I {
             id1
             id2
@@ -7035,7 +7191,7 @@ describe('named fragments', () => {
                 id
               }
             }
-            
+
             fragment allTFields on T {
               v0
               v1
@@ -7183,7 +7339,7 @@ describe('named fragments', () => {
                   }
                 }
               }
-              
+
               fragment allUFields on U {
                 v0
                 v1

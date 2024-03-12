@@ -15,6 +15,7 @@ import {
   SelectionSetNode,
   OperationTypeNode,
   NameNode,
+  print,
 } from "graphql";
 import {
   baseType,
@@ -973,6 +974,21 @@ export class Operation {
     return this.withUpdatedSelectionSetAndFragments(optimizedSelection, finalFragments ?? undefined);
   }
 
+  generateQueryFragments(): Operation {
+    const fragments = new NamedFragments();
+    const fragmentSpreadsById = new Map<string, FragmentSpreadSelection>();
+    const minimizedSelectionSet = this.selectionSet.minimizeSelectionSet(fragments, fragmentSpreadsById);
+
+    return new Operation(
+      this.schema,
+      this.rootKind,
+      minimizedSelectionSet,
+      this.variableDefinitions,
+      fragments,
+      this.name,
+    );
+  }
+
   expandAllFragments(): Operation {
     // We clear up the fragments since we've expanded all.
     // Also note that expanding fragment usually generate unecessary fragments/inefficient selections, so it
@@ -1533,6 +1549,32 @@ export class SelectionSet {
   ) {
     this._keyedSelections = keyedSelections;
     this._selections = mapValues(keyedSelections);
+  }
+
+  minimizeSelectionSet(namedFragments: NamedFragments, fragmentSpreadsById: Map<string, FragmentSpreadSelection>): SelectionSet {
+    return this.lazyMap((selection) => {
+      if (selection.kind === 'FragmentSelection' && selection.element.typeCondition && selection.element.appliedDirectives.length === 0 && selection.selectionSet) {
+        const id = print(selection.toSelectionNode());
+        const existing = fragmentSpreadsById.get(id);
+        if (existing) return existing;
+
+        const minimizedSelectionSet = selection.selectionSet.minimizeSelectionSet(namedFragments, fragmentSpreadsById);
+        const fragmentDefinition = new NamedFragmentDefinition(
+          this.parentType.schema(),
+          `qp__${fragmentSpreadsById.size}`,
+          selection.element.typeCondition
+        ).setSelectionSet(minimizedSelectionSet);
+        const fragmentSpread = new FragmentSpreadSelection(this.parentType, namedFragments, fragmentDefinition, []);
+        fragmentSpreadsById.set(id, fragmentSpread);
+        namedFragments.add(fragmentDefinition);
+        return fragmentSpread;
+      } else if (selection.kind === 'FieldSelection') {
+        if (selection.selectionSet) {
+          selection = selection.withUpdatedSelectionSet(selection.selectionSet.minimizeSelectionSet(namedFragments, fragmentSpreadsById));
+        }
+      }
+      return selection;
+    });
   }
 
   selectionsInReverseOrder(): readonly Selection[] {
@@ -2413,7 +2455,7 @@ export function selectionOfElement(element: OperationElement, subSelection?: Sel
   return element.kind === 'Field' ? new FieldSelection(element, subSelection) : new InlineFragmentSelection(element, subSelection!);
 }
 
-export type Selection = FieldSelection | FragmentSelection;
+export type Selection = FieldSelection | FragmentSelection | FragmentSpreadSelection;
 abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf extends undefined | never, TOwnType extends AbstractSelection<TElement, TIsLeaf, TOwnType>> {
   constructor(
     readonly element: TElement,
