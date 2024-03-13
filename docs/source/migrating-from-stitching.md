@@ -6,13 +6,17 @@ description: How to move your services to Apollo Federation
 If you have a distributed graph that uses schema stitching, follow the
 steps in this guide to migrate it to use Apollo Federation.
 
-> For a real-world example of an organization benefiting from this migration, see [this blog post](https://www.apollographql.com/blog/announcement/expedia-improved-performance-by-moving-from-schema-stitching-to-apollo-federation/).
+<Tip>
+
+For a real-world example of an organization benefiting from this migration, see [this blog post](https://www.apollographql.com/blog/announcement/expedia-improved-performance-by-moving-from-schema-stitching-to-apollo-federation/).
+
+</Tip>
 
 ## Summary of steps
 
-This guide describes a set of steps for migrating architecture **incrementally** from stitching to federation. In order to do so, we rely on the fact that changes necessary for federation are completely backwards compatible. In other words, services that implement a part of your graph (**subgraphs**) can be used in both your stitching gateway and your Apollo gateway.
+This guide describes a set of steps for migrating architecture incrementally from stitching to federation. In order to do so, we rely on the fact that changes necessary for federation are completely backwards compatible. Services that implement a part of your graph, also known as _subgraphs_, can be used in both your stitching gateway and your Apollo gateway.
 
-We recommend that you begin by modifying existing subgraphs _in place_ to support the federation specification while continuing to support schema stitching as well. At this point, you can stand up an Apollo gateway side-by-side with your existing stitching gateway and migrate over the links between the subgraphs in an incremental, backward compatible way.
+We recommend that you begin by modifying existing subgraphs in place to support the federation specification while continuing to support schema stitching as well. At this point, you can stand up an Apollo gateway side-by-side with your existing stitching gateway and migrate over the links between the subgraphs in an incremental, backward compatible way.
 
 Here are the high-level steps for migrating to Apollo Federation:
 
@@ -25,11 +29,11 @@ Here are the high-level steps for migrating to Apollo Federation:
 
 Each step is described in detail below.
 
-> [This GitHub repository](https://github.com/apollographql/federation-migration-example) shows the same project before and after migrating to Apollo Federation from schema stitching.
+[This GitHub repository](https://github.com/apollographql/federation-migration-example) shows the same project before and after migrating to Apollo Federation from schema stitching.
 
 ## Step 1: Add federation support to your subgraphs
 
-You can add federation support to your subgraphs _without_ impacting your existing schema-stitching architecture. Support for federation is fully compatible with schema stitching.
+You can add federation support to your subgraphs without impacting your existing schema-stitching architecture. Support for federation is fully compatible with schema stitching.
 
 Because of this, we recommend that you migrate your subgraphs in-place instead of creating replacement subgraphs. Doing so helps you identify any type conflicts that exist across your graph.
 
@@ -65,25 +69,25 @@ There are [several community-contributed packages](./building-supergraphs/suppor
 
 We strongly recommend that you register all of your GraphQL schemas with an [external registry](https://principledgraphql.com/integrity#3-track-the-schema-in-a-registry). This registry supports running the gateway with the subgraphs' partial schemas. Additionally, it enables tracking changes at the subgraph level and protecting the graph from changes that break composition.
 
-[Apollo Studio](https://www.apollographql.com/docs/studio/) provides a free schema registry that helps you manage your federated gateway's configuration. You provide your gateway a Studio API key on startup, which directs the gateway to download your schemas automatically in a fault-tolerant way.
+[GraphOS Studio](https://www.apollographql.com/docs/studio/) provides a free schema registry that helps you manage your federated gateway's configuration. You provide your gateway a Studio API key on startup, which directs the gateway to download your schemas automatically in a fault-tolerant way.
 
 Studio can also provide [schema validation](https://www.apollographql.com/docs/studio/managed-federation/overview/#validating-changes-to-the-graph) to ensure that all changes you make to your subgraphs are compatible with your complete graph.
 
-> [Learn more about managed configuration](https://www.apollographql.com/docs/studio/managed-federation/overview/)
+[Learn more about managed configuration.](https://www.apollographql.com/docs/studio/managed-federation/overview/)
 
 ## Step 3: Start up an Apollo Server gateway
 
 After you've registered your schemas, you can start exposing your subgraphs from a federation-compatible gateway. Apollo Server's gateway is a query planner and executor that handles incoming GraphQL requests and breaks them down into a collection of operations to perform on your subgraphs.
 
-We recommend setting up the Apollo Server gateway _alongside_ your existing schema-stitching gateway. Depending on your infrastructure, you might even want to run both in the same _process_ to support dynamically routing traffic through one gateway or the other.
+We recommend setting up the Apollo Server gateway alongside your existing schema-stitching gateway. Depending on your infrastructure, you might even want to run both in the same process to support dynamically routing traffic through one gateway or the other.
 
-To enable managed configuration with Apollo Studio, set the `APOLLO_KEY` and `APOLLO_GRAPH_REF` environment variables when you start up your Apollo Server gateway, and **do not provide the `supergraphSDL` or `serviceList` constructor option to `ApolloGateway`**. For details, see the [Apollo Studio documentation](https://www.apollographql.com/docs/studio/managed-federation/setup/).
+To enable managed configuration with GraphOS Studio, set the `APOLLO_KEY` and `APOLLO_GRAPH_REF` environment variables when you start up your Apollo Server gateway, and do not provide the `supergraphSDL` or `serviceList` constructor option to `ApolloGateway`. For details, see the [GraphOS Studio documentation](https://www.apollographql.com/docs/studio/managed-federation/setup/).
 
 After your gateway is set up, you can make direct queries to it that are routed to the correct subgraphs.
 
 ## Step 4: Move linking logic to your subgraphs
 
-When using a schema-stitching gateway, your linking logic typically resides _in the gateway itself_. In the federation model, however, linking logic resides _in each subgraph_. Therefore, you need to migrate linking logic from your schema-stitching gateway into each of your subgraphs.
+When using a schema-stitching gateway, your linking logic typically resides in the gateway itself. In the federation model, however, linking logic resides in each subgraph. Therefore, you need to migrate linking logic from your schema-stitching gateway into each of your subgraphs.
 
 Here are recommendations for common cases when migrating your logic:
 
@@ -94,7 +98,7 @@ Here are recommendations for common cases when migrating your logic:
 
 ### Adding resolvers to your subgraphs
 
-At this point your subgraphs support federation, but they still need to be able to resolve extensions to types that are defined in _other_ subgraphs.
+At this point your subgraphs support federation, but they still need to be able to resolve extensions to types that are defined in other subgraphs.
 
 A schema-stitching architecture declares this logic at the gateway level using the `delegateToSchema` function, like so:
 
@@ -122,7 +126,7 @@ resolvers: {
 
 This resolver calls `Query.user` on the `userSchema` to look up a `User`. It adds that user to the `Reservation.user` field that was previously defined at the gateway. This code can all remain. You don't need to remove it from the stitched gateway. In fact, if you did that, the stitched gateway would break.
 
-On the other hand, a _federated_ architecture defines its resolvers at the subgraph level. These resolvers rely on **entities**, which are identified by a unique key. For example, the Reservation subgraph must define the `Reservation` type as an entity to allow other subgraphs to extend it. These other subgraphs use the `Reservation`'s `@key` fields to uniquely identify a given instance:
+On the other hand, a federated architecture defines its resolvers at the subgraph level. These resolvers rely on entities, which are identified by a unique key. For example, the Reservation subgraph must define the `Reservation` type as an entity to allow other subgraphs to extend it. These other subgraphs use the `Reservation`'s `@key` fields to uniquely identify a given instance:
 
 ```graphql
 type Reservation @key(fields: "id") {
@@ -141,7 +145,7 @@ extend type Reservation @key(fields: "id") {
 }
 ```
 
-The `user` field indicates that it `@requires` a `Reservation`'s `userId` field in order to identify the user that _made_ the reservation.
+The `user` field indicates that it `@requires` a `Reservation`'s `userId` field in order to identify the user that made the reservation.
 
 Then in the Users subgraph, you can add a resolver for `Reservation.user` like so:
 

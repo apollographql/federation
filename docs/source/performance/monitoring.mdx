@@ -9,17 +9,17 @@ This article describes Apollo managed federation features that help you monitor 
 
 ## Metrics and observability
 
-Federated graphs can push operation metrics to Apollo Studio to enable many powerful tools, including:
+Federated graphs can push operation metrics to GraphOS Studio to enable many powerful tools, including:
 
 * Operation performance dashboards
 * [Schema checks](https://www.apollographql.com/docs/studio/schema-checks/)
 * [Performance alerts](https://www.apollographql.com/docs/studio/performance-alerts/) (paid and experimental)
 
-With a federated graph, your subgraphs pass **trace data** (timing and error information for each resolved schema field) to the gateway for every operation. The gateway then pushes that data to Studio:
+With a federated graph, your subgraphs pass _trace data_ (timing and error information for each resolved schema field) to the gateway for every operation. The gateway then pushes that data to Studio:
 
 ```mermaid
 graph LR;
-  studio{{Apollo Studio}};
+  studio{{GraphOS Studio}};
   subgraph " "
     gateway([Gateway]);
     serviceA[Products subgraph];
@@ -31,7 +31,11 @@ graph LR;
   class studio secondary;
 ```
 
-> Individual subgraphs do _not_ push trace data directly to Studio.
+<Note>
+
+Individual subgraphs do not push trace data directly to Studio.
+
+</Note>
 
 Traces are displayed in Studio in the shape of the query plan, with each unique fetch to a subgraph reporting timing and error data.
 
@@ -39,9 +43,9 @@ Operation-level statistics are still collected for operations sent by clients, a
 
 ### Setup
 
-To enable federated tracing, you [set the `APOLLO_KEY` environment variable](/apollo-server/monitoring/metrics/#connecting-to-graphos) in your _gateway's_ environment. **Do not** set this environment variable for your subgraph servers.
+To enable federated tracing, you [set the `APOLLO_KEY` environment variable](/apollo-server/monitoring/metrics/#connecting-to-graphos) in your gateway's environment. Do not set this environment variable for your subgraph servers.
 
-> If _other_ features require you to set `APOLLO_KEY` in your subgraph servers, [disable usage reporting](/apollo-server/api/plugin/usage-reporting/#disabling-the-plugin) in those servers.
+If other features require you to set `APOLLO_KEY` in your subgraph servers, [disable usage reporting](/apollo-server/api/plugin/usage-reporting/#disabling-the-plugin) in those servers.
 
 Also ensure that all instances of Apollo Server in your graph are using an up-to-date version of the `@apollo/server` library.
 
@@ -64,6 +68,6 @@ Listing subgraphs for docs-example-graph@production using credentials from the d
 View full details at https://studio.apollographql.com/graph/docs-example-graph/service-list
 ```
 
-This command includes a link to an Apollo Studio page that provides additional information about your subgraphs.
+This command includes a link to an GraphOS Studio page that provides additional information about your subgraphs.
 
-> If you're using the [Apollo CLI](https://www.apollographql.com/docs/devtools/cli/), run `apollo service:list` instead.
+If you're using the [Apollo CLI](https://www.apollographql.com/docs/devtools/cli/), run `apollo service:list` instead.
