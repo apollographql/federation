@@ -6,7 +6,7 @@ import {
 } from '../definitions';
 import { buildSchema } from '../buildSchema';
 import { FederationBlueprint } from '../federation';
-import { extractInlineFragments, FragmentRestrictionAtType, MutableSelectionSet, NamedFragmentDefinition, Operation, operationFromDocument, parseOperation } from '../operations';
+import { extractInlineFragments, FragmentRestrictionAtType, multiPassExtractInlineFragments, MutableSelectionSet, NamedFragmentDefinition, Operation, operationFromDocument, parseOperation } from '../operations';
 import './matchers';
 import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, parse, print, SelectionNode, SelectionSetNode, validate } from 'graphql';
 import { assert } from '../utils';
@@ -3700,7 +3700,7 @@ describe('named fragment rebasing on subgraphs', () => {
     `);
   });
 
-  test('it handles fields whose type is a subtype in the subgarph', () => {
+  test('it handles fields whose type is a subtype in the subgraph', () => {
     const schema = parseSchema(`
       type Query {
         t: I
@@ -3908,6 +3908,225 @@ describe("extractInlineFragments", () => {
     `)).toMatchString(`
       {
         a {
+          ... {
+            b
+          }
+        }
+      }
+    `);
+  });
+});
+
+describe("multiPassExtractInlineFragments", () => {
+  function extract(operation: string) {
+    const doc = parse(operation).definitions[0];
+    const { ast, fragments } = multiPassExtractInlineFragments(doc);
+    return print({
+      kind: Kind.DOCUMENT,
+      definitions: [ast, ...fragments],
+    });
+  }
+
+  test("ignores single usages of a fragment (2 or more only)", () => {
+    expect(extract(`
+      {
+        a {
+          ... on B { b }
+        }
+      }`
+    )).toMatchString(`
+      {
+        a {
+          ... on B {
+            b
+          }
+        }
+      }
+    `);
+  });
+
+  test("basic inline fragment", () => {
+    expect(extract(`
+      {
+        a {
+          ... on B { b }
+          ... on B { b }
+        }
+      }`
+    )).toMatchString(`
+      {
+        a {
+          ...Fragment_0
+          ...Fragment_0
+        }
+      }
+
+      fragment Fragment_0 on B {
+        b
+      }
+    `);
+  });
+
+  test("multiple inline fragments", () => {
+    expect(extract(`
+      {
+        a {
+          ... on B { b }
+          ... on B { b }
+          ... on C { c }
+          ... on C { c }
+        }
+      }`
+    )).toMatchString(`
+      {
+        a {
+          ...Fragment_0
+          ...Fragment_0
+          ...Fragment_1
+          ...Fragment_1
+        }
+      }
+
+      fragment Fragment_0 on B {
+        b
+      }
+
+      fragment Fragment_1 on C {
+        c
+      }
+    `);
+  });
+
+  test("nested inline fragments", () => {
+    expect(extract(`
+      {
+        a {
+          ... on B {
+            ... on C { c }
+          }
+        }
+        ... on C { c }
+      }
+    `)).toMatchString(`
+      {
+        a {
+          ... on B {
+            ...Fragment_0
+          }
+        }
+        ...Fragment_0
+      }
+
+      fragment Fragment_0 on C {
+        c
+      }
+    `);
+  });
+
+  test("common fragments are reused", () => {
+    expect(extract(`
+      {
+        a {
+          ... on B {
+            ... on D { d }
+          }
+          ... on C {
+            ... on D { d }
+          }
+          ... on D { d }
+        }
+      }
+    `)).toMatchString(`
+      {
+        a {
+          ... on B {
+            ...Fragment_0
+          }
+          ... on C {
+            ...Fragment_0
+          }
+          ...Fragment_0
+        }
+      }
+
+      fragment Fragment_0 on D {
+        d
+      }
+    `);
+  });
+
+  test("equivalent but different fragments are not reused", () => {
+    expect(extract(`
+      {
+        a {
+          ... on B {
+            ... on D { d a }
+          }
+          ... on C {
+            ... on D { d a }
+          }
+          ... on D { a d }
+        }
+      }
+    `)).toMatchString(`
+      {
+        a {
+          ... on B {
+            ...Fragment_0
+          }
+          ... on C {
+            ...Fragment_0
+          }
+          ... on D {
+            a
+            d
+          }
+        }
+      }
+
+      fragment Fragment_0 on D {
+        d
+        a
+      }
+    `);
+  });
+
+  test("inline fragments with directives are not fragmentized", () => {
+    expect(extract(`
+      {
+        a {
+          ... on B @include(if: true) { b }
+          ... on B @include(if: true) { b }
+        }
+      }
+    `)).toMatchString(`
+      {
+        a {
+          ... on B @include(if: true) {
+            b
+          }
+          ... on B @include(if: true) {
+            b
+          }
+        }
+      }
+    `);
+  });
+
+  test("inline fragments with no type condition are not fragmentized", () => {
+    expect(extract(`
+      {
+        a {
+          ... { b }
+          ... { b }
+        }
+      }
+    `)).toMatchString(`
+      {
+        a {
+          ... {
+            b
+          }
           ... {
             b
           }
