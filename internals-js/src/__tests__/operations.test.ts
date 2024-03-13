@@ -3896,5 +3896,23 @@ describe("extractInlineFragments", () => {
         }
       }
     `);
-  })
+  });
+
+  test("inline fragments with no type condition are not fragmentized", () => {
+    expect(extract(`
+      {
+        a {
+          ... { b }
+        }
+      }
+    `)).toMatchString(`
+      {
+        a {
+          ... {
+            b
+          }
+        }
+      }
+    `);
+  });
 });
