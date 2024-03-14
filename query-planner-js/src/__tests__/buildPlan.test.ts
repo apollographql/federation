@@ -5043,7 +5043,7 @@ describe('Named fragments preservation', () => {
 });
 
 describe('Fragment autogeneration', () => {
-  it('respects autoFragmentize option', () => {
+  it('respects generateQueryFragments option', () => {
     const subgraph1 = {
       name: 'Subgraph1',
       typeDefs: gql`
@@ -5066,7 +5066,7 @@ describe('Fragment autogeneration', () => {
 
     const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
       [subgraph1],
-      { autoFragmentize: true },
+      { generateQueryFragments: true },
     );
     const operation = operationFromDocument(
       api,

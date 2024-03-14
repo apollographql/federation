@@ -975,7 +975,7 @@ export class Operation {
     return this.withUpdatedSelectionSetAndFragments(optimizedSelection, finalFragments ?? undefined);
   }
 
-  autoFragmentize(): Operation {
+  generateQueryFragments(): Operation {
     const expanded = this.selectionSet.expandFragments();
     const selectionAsAST = expanded.toSelectionSetNode();
     const fragmentizedResult = extractInlineFragments(selectionAsAST);
@@ -4003,107 +4003,5 @@ export function extractInlineFragments<T extends ASTNode>(ast: T): {
   return {
     ast: updatedSelectionSet,
     fragments: Array.from(seenFragments.values()).map(({definition}) => definition)
-  };
-}
-
-/**
- * A simple approach to extract inline fragments from an operation document.
- * Inline fragments must meet the following criteria:
- * 1. They must have no directives
- * 2. They must have a type condition
- * 3. The fragment must appear more than once Note: This uses graphql-js `print`
- *    to compare inline fragments. A normalization step could be added to
- *    identify _more_ equivalent inline fragments than what this function
- *    currently does.
- *
- * This function:
- * 1. Visits the `InlineFragmentNode`s in the AST, collecting them in a map and
- *    counting their occurrences
- * 2. Visits the `InlineFragmentNode`s in the AST in a post-order traversal
- * 3. For each `InlineFragmentNode` (with no directives and a type condition
- *    that has been seen more than once):
- *   1. Generates or reuses a `FragmentSpreadNode`
- *   2. Replaces the `InlineFragmentNode` with the `FragmentSpreadNode`
- *   3. Generates or reuses a `FragmentDefinitionNode`
- * 4. Returns the updated operation document and the generated
- *    `FragmentDefinitionNode`s
- */
-export function multiPassExtractInlineFragments<T extends ASTNode>(ast: T): {
-  ast: T;
-  fragments: FragmentDefinitionNode[];
-} {
-  // We're going to visit the AST and `print` each node twice; let's cache the
-  // printed version of the inline fragments.
-  const printCache = new Map<InlineFragmentNode, string>();
-  function memoizedPrint(node: InlineFragmentNode): string {
-    let printed = printCache.get(node);
-    if (!printed) {
-      printed = print(node);
-      printCache.set(node, printed);
-    }
-    return printed;
-  }
-
-  const seenFragments = new Map<string, { definition: FragmentDefinitionNode, spread: FragmentSpreadNode, count: number }>();
-  visit(ast, {
-    InlineFragment(node) {
-      if (
-        node.typeCondition
-        && !node.directives?.length // caution: this is simple but clever, it handles both `undefined` and 0 length
-      ) {
-        const stringified = memoizedPrint(node);
-        const seen = seenFragments.get(stringified);
-        if (seen) {
-          seen.count++;
-        } else {
-          const name: NameNode = {
-            kind: Kind.NAME,
-            value: `Fragment_${seenFragments.size}`,
-          };
-          const spread: FragmentSpreadNode = {
-            kind: Kind.FRAGMENT_SPREAD,
-            name,
-          };
-          const definition: FragmentDefinitionNode = {
-            kind: Kind.FRAGMENT_DEFINITION,
-            name,
-            typeCondition: node.typeCondition,
-            selectionSet: node.selectionSet,
-          };
-          seenFragments.set(stringified, {
-            definition,
-            spread,
-            count: 1,
-          });
-        }
-      }
-      return;
-    }
-  });
-  const updatedSelectionSet = visit(ast, {
-    InlineFragment: {
-      leave(node) {
-        if (
-          node.typeCondition
-          && !node.directives?.length // caution: this is simple but clever, it handles both `undefined` and 0 length
-        ) {
-          const stringified = memoizedPrint(node);
-          const seen = seenFragments.get(stringified);
-          if (seen && seen.count > 1) {
-            return seen.spread;
-          }
-        }
-        return;
-      }
-    },
-  });
-
-  return {
-    ast: updatedSelectionSet,
-    fragments: Array.from(
-      seenFragments.values())
-        .filter(({ count }) => count > 1)
-        .map(({ definition }) => definition
-      )
   };
 }

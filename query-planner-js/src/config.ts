@@ -37,7 +37,7 @@ export type QueryPlannerConfig = {
   /**
    * TODO
    */
-  autoFragmentize?: boolean,
+  generateQueryFragments?: boolean,
 
   // Side-note: implemented as an object instead of single boolean because we expect to add more to this soon
   // enough. In particular, once defer-passthrough to subgraphs is implemented, the idea would be to add a
@@ -113,7 +113,7 @@ export function enforceQueryPlannerConfigDefaults(
   return {
     exposeDocumentNodeInFetchNode: false,
     reuseQueryFragments: true,
-    autoFragmentize: false,
+    generateQueryFragments: false,
     cache: new InMemoryLRUCache<QueryPlan>({maxSize: Math.pow(2, 20) * 50 }),
     ...config,
     incrementalDelivery: {
