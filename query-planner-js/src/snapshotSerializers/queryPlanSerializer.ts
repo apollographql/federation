@@ -79,7 +79,7 @@ function printNode(
         '}';
       break;
     case 'Flatten':
-      result += `Flatten(path: "${node.path.join('.')}")`;
+      result += `Flatten(path: "${node.path.join('')}")`;
       break;
     case 'Defer':
       const primary = node.primary;
