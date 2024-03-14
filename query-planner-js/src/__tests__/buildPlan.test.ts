@@ -5093,11 +5093,11 @@ describe('Fragment autogeneration', () => {
             }
           }
           
-          fragment qp__0 on A {
+	  fragment qp__0 on A {
             x
             y
           }
-
+          
           fragment qp__1 on B {
             z
           }
@@ -5159,7 +5159,7 @@ describe('Fragment autogeneration', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
 
-    expect(serializeQueryPlan(plan)).toMatchString(`
+    expect(plan).toMatchString(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
           {
@@ -5169,15 +5169,15 @@ describe('Fragment autogeneration', () => {
               ...qp__1
             }
           }
-
+          
           fragment qp__0 on A {
             x
           }
-
+          
           fragment qp__1 on B {
             z
           }
-
+          
           fragment qp__2 on A {
             x
             y
