@@ -5092,7 +5092,7 @@ describe('Fragment autogeneration', () => {
               ...qp__1
             }
           }
-
+          
           fragment qp__0 on A {
             x
             y
