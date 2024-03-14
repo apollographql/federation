@@ -69,7 +69,10 @@ describe('Type Condition field merging', () => {
   const idType = api.type('ID') as NamedType;
 
   test('yields correct response path for regular fields', () => {
-    const groupPath = GroupPath.empty(false);
+    const groupPath = GroupPath.empty(
+      false,
+      api.type('Query') as CompositeType,
+    );
     const element = {
       kind: 'Field',
       key: function () {
@@ -83,11 +86,14 @@ describe('Type Condition field merging', () => {
       },
     } as OperationElement;
     const expectedPath = 'me';
-    expect(groupPath.add(element, stringType).toString()).toEqual(expectedPath);
+    expect(groupPath.add(element).toString()).toEqual(expectedPath);
   });
 
   test('yields correct response path for list fields', () => {
-    const groupPath = GroupPath.empty(false);
+    const groupPath = GroupPath.empty(
+      false,
+      api.type('Query') as CompositeType,
+    );
     const element = {
       kind: 'Field',
       key: function () {
@@ -101,35 +107,30 @@ describe('Type Condition field merging', () => {
       },
     } as OperationElement;
     const expectedPath = 'search.@';
-    expect(groupPath.add(element, searchListType).toString()).toEqual(
-      expectedPath,
-    );
+    expect(groupPath.add(element).toString()).toEqual(expectedPath);
   });
 
   test('does not add type condition check if the planner flag is not passed', () => {
-    let groupPath = GroupPath.empty(false);
+    let groupPath = GroupPath.empty(false, api.type('Query') as CompositeType);
 
     // Add 'search' '@' to the path
-    groupPath = groupPath.add(
-      {
-        kind: 'Field',
-        key: function () {
-          return this.responseName();
-        },
-        responseName: function () {
-          return 'search';
-        },
-        definition: {
-          type: searchListType,
-        },
-      } as OperationElement,
-      searchListType,
-    );
+    groupPath = groupPath.add({
+      kind: 'Field',
+      key: function () {
+        return this.responseName();
+      },
+      responseName: function () {
+        return 'search';
+      },
+      definition: {
+        type: searchListType,
+      },
+    } as OperationElement);
 
     // This is the interesting bit, we'll add a Fragment:
     // ... on MovieResult
     const fragment = new FragmentElement(searchType, 'MovieResult');
-    groupPath = groupPath.add(fragment, searchType);
+    groupPath = groupPath.add(fragment);
 
     // process ID
     const element = {
@@ -146,32 +147,33 @@ describe('Type Condition field merging', () => {
     } as OperationElement;
 
     const expectedPath = 'search.@.id';
-    expect(groupPath.add(element, idType).toString()).toEqual(expectedPath);
+    expect(groupPath.add(element).toString()).toEqual(expectedPath);
   });
 
   test('does add type condition check if the planner flag is passed', () => {
-    let groupPath = GroupPath.empty(true);
+    let groupPath = GroupPath.empty(true, api.type('Query') as CompositeType);
     // Add 'search' '@' to the path
-    groupPath = groupPath.add(
-      {
-        kind: 'Field',
-        key: function () {
-          return this.responseName();
-        },
-        responseName: function () {
-          return 'search';
-        },
-        definition: {
-          type: searchType,
-        },
-      } as OperationElement,
-      searchType,
-    );
+    groupPath = groupPath.add({
+      kind: 'Field',
+      key: function () {
+        return this.responseName();
+      },
+      baseType: function () {
+        return searchType;
+      },
+      name: 'search',
+      responseName: function () {
+        return 'search';
+      },
+      definition: {
+        type: searchType,
+      },
+    } as OperationElement);
 
     // This is the interesting bit, we'll add a Fragment:
     // ... on MovieResult
     const fragment = new FragmentElement(searchType, 'MovieResult');
-    groupPath = groupPath.add(fragment, searchType);
+    groupPath = groupPath.add(fragment);
 
     // process ID
     const element = {
@@ -179,6 +181,10 @@ describe('Type Condition field merging', () => {
       key: function () {
         return this.responseName();
       },
+      baseType: function () {
+        return idType;
+      },
+      name: 'id',
       responseName: function () {
         return 'id';
       },
@@ -187,41 +193,46 @@ describe('Type Condition field merging', () => {
       },
     } as OperationElement;
 
-    const expectedPath = 'search|[MovieResult].id';
-    expect(groupPath.add(element, idType).toString()).toEqual(expectedPath);
+    const expectedPath = '.search|[MovieResult].id';
+    expect(groupPath.add(element).toString()).toEqual(expectedPath);
   });
 
   test('type condition checks are sorted', () => {
-    let groupPath = GroupPath.empty(true);
+    let groupPath = GroupPath.empty(true, api.type('Query') as CompositeType);
 
     // Add 'search' '@' to the path
-    groupPath = groupPath.add(
-      {
-        kind: 'Field',
-        key: function () {
-          return this.responseName();
-        },
-        responseName: function () {
-          return 'search';
-        },
-        definition: {
-          type: searchListType,
-        },
-      } as OperationElement,
-      searchListType,
-    );
+    groupPath = groupPath.add({
+      kind: 'Field',
+      key: function () {
+        return this.responseName();
+      },
+      baseType: function () {
+        return searchType;
+      },
+      name: 'search',
+      responseName: function () {
+        return 'search';
+      },
+      definition: {
+        type: searchListType,
+      },
+    } as OperationElement);
 
     const fragment = new FragmentElement(searchType, 'MovieResult');
-    const gp1 = groupPath.add(fragment, searchType);
+    const gp1 = groupPath.add(fragment);
 
     const fragment2 = new FragmentElement(searchType, 'ArticleResult');
-    const gp2 = groupPath.add(fragment2, searchType);
+    const gp2 = groupPath.add(fragment2);
 
     // process ID
     const element = {
       kind: 'Field',
       key: function () {
         return this.responseName();
+      },
+      name: 'id',
+      baseType: function () {
+        return idType;
       },
       responseName: function () {
         return 'id';
@@ -231,10 +242,10 @@ describe('Type Condition field merging', () => {
       },
     } as OperationElement;
 
-    const expectedPath1 = 'search.@|[MovieResult].id';
-    const expectedPath2 = 'search.@|[ArticleResult].id';
-    expect(gp1.add(element, idType).toString()).toEqual(expectedPath1);
-    expect(gp2.add(element, idType).toString()).toEqual(expectedPath2);
+    const expectedPath1 = '.search.@|[MovieResult].id';
+    const expectedPath2 = '.search.@|[ArticleResult].id';
+    expect(gp1.add(element).toString()).toEqual(expectedPath1);
+    expect(gp2.add(element).toString()).toEqual(expectedPath2);
   });
 
   test('simpleschematest', () => {
@@ -281,44 +292,68 @@ describe('Type Condition field merging', () => {
 
     const [api, _] = composeAndCreatePlanner(schema1);
 
-    let groupPath = GroupPath.empty(true);
+    let groupPath = GroupPath.empty(true, api.type('Query') as CompositeType);
     const fooInterface = api.type('Foo') as CompositeType;
 
-    groupPath = groupPath.add(
-      {
-        kind: 'Field',
-        key: function () {
-          return 'foo';
-        },
-        responseName: function () {
-          return 'foo';
-        },
-        definition: {
-          type: fooInterface,
-        },
-      } as OperationElement,
-      fooInterface,
-    );
+    groupPath = groupPath.add({
+      kind: 'Field',
+      key: function () {
+        return 'foo';
+      },
+      name: 'foo',
+      responseName: function () {
+        return 'foo';
+      },
+      baseType: function () {
+        return fooInterface;
+      },
+      definition: {
+        type: fooInterface,
+      },
+    } as OperationElement);
 
     const barInterface = api.type('Bar') as CompositeType;
 
-    groupPath = groupPath.add(
-      {
-        kind: 'Field',
-        key: function () {
-          return 'bar';
-        },
-        responseName: function () {
-          return 'bar';
-        },
-        definition: {
-          type: barInterface,
-        },
-      } as OperationElement,
-      barInterface,
-    );
+    groupPath = groupPath.add({
+      kind: 'Field',
+      key: function () {
+        return 'bar';
+      },
+      name: 'bar',
+      responseName: function () {
+        return 'bar';
+      },
+      baseType: function () {
+        return barInterface;
+      },
+      definition: {
+        type: barInterface,
+      },
+    } as OperationElement);
 
-    expect(groupPath.toString()).toEqual('foo|[Foo_1,Foo_2].bar');
+    const fragment = new FragmentElement(
+      api.type('Bar_1') as CompositeType,
+      'Bar_1',
+    );
+    groupPath = groupPath.add(fragment);
+
+    groupPath = groupPath.add({
+      kind: 'Field',
+      key: function () {
+        return 'baz';
+      },
+      name: 'baz',
+      responseName: function () {
+        return 'baz';
+      },
+      baseType: function () {
+        return api.type('String');
+      },
+      definition: {
+        type: api.type('String'),
+      },
+    } as OperationElement);
+    expect(groupPath.toString()).toEqual('.foo.bar|[Bar_1].baz');
   });
 
   test('does eagerly merge fields on different type conditions if flag is absent', () => {
@@ -356,54 +391,54 @@ describe('Type Condition field merging', () => {
       typeConditionedFetching: false,
     });
     expect(plan).toMatchInlineSnapshot(`
-            QueryPlan {
-              Sequence {
-                Fetch(service: "searchSubgraph") {
-                  {
-                    search {
+      QueryPlan {
+        Sequence {
+          Fetch(service: "searchSubgraph") {
+            {
+              search {
+                __typename
+                ... on MovieResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
                       __typename
-                      ... on MovieResult {
-                        id
-                        sections {
-                          __typename
-                          ... on EntityCollectionSection {
-                            __typename
-                            id
-                          }
-                        }
-                      }
-                      ... on ArticleResult {
-                        id
-                        sections {
-                          __typename
-                          ... on EntityCollectionSection {
-                            __typename
-                            id
-                          }
-                        }
-                      }
+                      id
                     }
                   }
-                },
-                Flatten(path: "search.@.sections.@") {
-                  Fetch(service: "artworkSubgraph") {
-                    {
-                      ... on EntityCollectionSection {
-                        __typename
-                        id
-                      }
-                    } =>
-                    {
-                      ... on EntityCollectionSection {
-                        artwork(params: $movieParams)
-                        title
-                      }
+                }
+                ... on ArticleResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
                     }
-                  },
-                },
-              },
+                  }
+                }
+              }
             }
-        `);
+          },
+          Flatten(path: "search.@.sections.@") {
+            Fetch(service: "artworkSubgraph") {
+              {
+                ... on EntityCollectionSection {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on EntityCollectionSection {
+                  artwork(params: $movieParams)
+                  title
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
   });
 
   test('does not eagerly merge fields on different type conditions if flag is present', () => {
@@ -484,7 +519,7 @@ describe('Type Condition field merging', () => {
             }
           },
           Parallel {
-            Flatten(path: "search.@|[MovieResult].sections.@") {
+            Flatten(path: ".search.@|[MovieResult].sections.@") {
               Fetch(service: "artworkSubgraph") {
                 {
                   ... on EntityCollectionSection {
@@ -507,7 +542,7 @@ describe('Type Condition field merging', () => {
                 }
               },
             },
-            Flatten(path: "search.@|[ArticleResult].sections.@") {
+            Flatten(path: ".search.@|[ArticleResult].sections.@") {
               Fetch(service: "artworkSubgraph") {
                 {
                   ... on GallerySection {
@@ -648,7 +683,7 @@ describe('Type Condition field merging', () => {
             }
           },
           Parallel {
-            Flatten(path: "search.@|[MovieResult].sections.@") {
+            Flatten(path: ".search.@|[MovieResult].sections.@") {
               Fetch(service: "artworkSubgraph") {
                 {
                   ... on EntityCollectionSection {
@@ -663,7 +698,7 @@ describe('Type Condition field merging', () => {
                 }
               },
             },
-            Flatten(path: "search.@|[ArticleResult].sections.@") {
+            Flatten(path: ".search.@|[ArticleResult].sections.@") {
               Fetch(service: "artworkSubgraph") {
                 {
                   ... on EntityCollectionSection {
@@ -750,7 +785,7 @@ describe('Type Condition field merging', () => {
             }
           },
           Parallel {
-            Flatten(path: "search.@|[ArticleResult,MovieResult,SeriesResult].sections.@") {
+            Flatten(path: ".search.@.sections.@") {
               Fetch(service: "artworkSubgraph") {
                 {
                   ... on EntityCollectionSection {
@@ -765,7 +800,7 @@ describe('Type Condition field merging', () => {
                 }
               },
             },
-            Flatten(path: "search.@|[ArticleResult].sections.@") {
+            Flatten(path: ".search.@|[ArticleResult].sections.@") {
               Fetch(service: "artworkSubgraph") {
                 {
                   ... on EntityCollectionSection {
@@ -903,7 +938,7 @@ describe('Type Condition field merging', () => {
             }
           },
           Parallel {
-            Flatten(path: "search.@|[MovieResult].sections.@") {
+            Flatten(path: ".search.@|[MovieResult].sections.@") {
               Fetch(service: "artworkSubgraph") {
                 {
                   ... on EntityCollectionSection {
@@ -918,7 +953,7 @@ describe('Type Condition field merging', () => {
                 }
               },
             },
-            Flatten(path: "search.@|[ArticleResult].sections.@") {
+            Flatten(path: ".search.@|[ArticleResult].sections.@") {
               Fetch(service: "artworkSubgraph") {
                 {
                   ... on EntityCollectionSection {

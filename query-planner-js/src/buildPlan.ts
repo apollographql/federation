@@ -57,11 +57,11 @@ import {
   isDefined,
   InterfaceType,
   FragmentSelection,
-  possibleRuntimeTypes,
   typesCanBeMerged,
   Supergraph,
   sameType,
-  OutputType,
+  possibleRuntimeTypes,
+  NamedType,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -1777,12 +1777,15 @@ export class GroupPath {
     private readonly pathInGroup: OperationPath,
     private readonly responsePath: ResponsePath,
     private readonly typeConditionedFetching: boolean,
-    private possibleTypes: OutputType[],
+    private possibleTypes: ObjectType[],
+    private childConditions: ObjectType[],
   ) {
   }
 
-  static empty(typeConditionedFetching: boolean): GroupPath {
-    return new GroupPath([], [], [], typeConditionedFetching, []);
+  static empty(typeConditionedFetching: boolean, rootType: CompositeType): GroupPath {
+    const pst = Array.from(possibleRuntimeTypes(rootType));
+    pst.sort();
+    return new GroupPath([], [], [], typeConditionedFetching, pst, []);
   }
 
   inGroup(): OperationPath {
@@ -1804,6 +1807,7 @@ export class GroupPath {
       this.responsePath,
       this.typeConditionedFetching,
       this.possibleTypes,
+      this.childConditions,
     );
   }
 
@@ -1818,76 +1822,106 @@ export class GroupPath {
       this.responsePath,
       this.typeConditionedFetching,
       this.possibleTypes,
+      this.childConditions
     );
   }
 
   // TODO: make it private again once everything works
-  /* private */ updatedResponsePath(element: OperationElement): ResponsePath {
-    if (element.kind !== 'Field') {
-      return this.responsePath;
-    }
+  /* private */ updatedResponsePath(element: OperationElement, elementPossibleTypes: ObjectType[]): [ResponsePath, ObjectType[]] {
+    switch (element.kind){
+      case 'FragmentElement':
+        return [this.responsePath, elementPossibleTypes];
+      case 'Field':
+        let newPath = this.responsePath;
+        if (this.childConditions.length > 0) {
+          const conditions = `|[${this.childConditions.join(',')}]`;
+          const previousLastElement = newPath[newPath.length -1] as string || '';
 
-    let rp = this.responsePath;
-    if (this.typeConditionedFetching && this.possibleTypes.length > 0) {
-      const typeConditions = Array.from(this.possibleTypes.values());
-      typeConditions.sort();
-      const conditions = `|[${typeConditions.join(',')}]`;
-      const previousLastPath = rp[rp.length -1] || '';
-
-      const lastPath = `${previousLastPath}${conditions}`;
-      if (previousLastPath) {
-        rp = [...rp.slice(0, -1), lastPath];
-      } else {
-        rp = rp.concat(lastPath);
-      }
+          if (previousLastElement.startsWith('|[')) {
+            newPath = [...newPath.slice(0, -1), conditions];
+          } else {
+            newPath = [...newPath.slice(0, -1), `${previousLastElement}${conditions}`];
+          }
+        }
+        let type = element.definition.type!;
+        if (newPath.length === 0 && this.typeConditionedFetching) {
+          newPath = newPath.concat('');
+        }
+        newPath = newPath.concat(`${element.responseName()}`);
+        while (!isNamedType(type)) {
+          if (isListType(type)) {
+            newPath.push('@');
+          }
+          type = type.ofType;
+        }
+        return [newPath, []];
     }
-
-    let type = element.definition.type!;
-    const newPath = rp.concat(element.responseName());
-    while (!isNamedType(type)) {
-      if (isListType(type)) {
-        newPath.push('@');
-      }
-      type = type.ofType;
-    }
-    return newPath;
   }
 
-  add(element: OperationElement, elementType: Type): GroupPath {
-    // Get all possible types
-    let elementPossibleTypes : OutputType[]= [];
-    if (isAbstractType(elementType)) {
-      elementPossibleTypes = Array.from(possibleRuntimeTypes(elementType));
-      elementPossibleTypes.sort();
-    }
-    // If element is a fragment, use its type condition
-    if (this.typeConditionedFetching && element.kind === 'FragmentElement' && !!element.typeCondition) {
-      elementPossibleTypes = [element.typeCondition];
-      // Else if element is path advancing, advance on the possible types
-    } else if (this.typeConditionedFetching && this.possibleTypes.length > 0) {
-      // never null since the schema is valid
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      elementPossibleTypes = this.possibleTypes.map((elt) =>
-      {
-        if (isCompositeType(elt)) {
-          return elt.field(element.key())!.type!;
-        }
-        throw "should have been a composite type";
-      });
-    }
+  add(element: OperationElement): GroupPath {
+    const newPossibleTypes = this.computeNewPossibleTypes(element);
 
+    const [responsePath, childConditions] = this.updatedResponsePath(element, newPossibleTypes);
     return new GroupPath(
       this.fullPath.concat(element),
       this.pathInGroup.concat(element),
-      this.updatedResponsePath(element),
+      responsePath,
       this.typeConditionedFetching,
-      elementPossibleTypes,
+      newPossibleTypes,
+      childConditions
     );
   }
 
   toString() {
     return this.inResponse().join('.');
   }
+
+  computeNewPossibleTypes(element: OperationElement): ObjectType[] {
+    if (!this.typeConditionedFetching) {
+      return [];
+    }
+    switch (element.kind){
+      case 'FragmentElement':
+        if (!element.typeCondition) {
+          return this.possibleTypes;
+        }
+        const elementPossibleTypes = possibleRuntimeTypes(element.typeCondition);
+        return this.possibleTypes.filter((pt) => elementPossibleTypes.some((ept) => ept.name === pt.name));
+      case 'Field':
+        return this.advanceFieldType(element);
+    }
+  }
+
+
+  advanceFieldType(element: Field): ObjectType[] {
+    if (!isCompositeType(element.baseType())) {
+      return [];
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const res = Array.from(new Set(this.possibleTypes.map((pt) => possibleRuntimeTypes(baseType(pt.field(element.name)!.type!) as CompositeType)).flat()));
+    res.sort();
+    return res;
+  }
+
+
+  //   // Get all possible types
+  //   // If element is a fragment, use its type condition
+  //   const elementPossibleTypes = element.kind === 'FragmentElement' && !!element.typeCondition ? Array.from(possibleRuntimeTypes(element.typeCondition)): [];
+  //   // no type condition
+  //   if (elementPossibleTypes.length === 0) {
+  //     return this.possibleTypes as ObjectType[];
+  //   }
+  //   let actualPossibleTypes = [];
+  //   // intersect this.elementPossibleTypes with elementPossibleTypes
+  //   if (elementPossibleTypes.length !== 0) {
+  //   } else {
+  //     actualPossibleTypes = this.possibleTypes;
+  //   }
+
+  //   const newPossibleTypes = computeNewPossibleTypes(element, actualPossibleTypes);
+  //   return newPossibleTypes;
+  // }
 }
 
 class DeferTracking {
@@ -2171,6 +2205,11 @@ class FetchDependencyGraph {
     }
 
     return cloned;
+  }
+
+
+  supergraphSchemaType(typeName: string): NamedType | undefined {
+    return this.supergraphSchema.type(typeName)
   }
 
   getOrCreateRootFetchGroup({
@@ -3857,7 +3896,10 @@ function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree:
     // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
     const rootType = edge.tail.type as ObjectType;
     const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType });
-    computeGroupsForTree(dependencyGraph, child, group, GroupPath.empty(typeConditionedFetching), emptyDeferContext);
+    // If a type is in a subgraph, it has to be in the supergraph.
+    // A root type has to be a Composite type.
+    const rootTypeInSupergraph = dependencyGraph.supergraphSchemaType(rootType.name) as CompositeType;
+    computeGroupsForTree(dependencyGraph, child, group, GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph), emptyDeferContext);
   }
   return dependencyGraph;
 }
@@ -3868,7 +3910,10 @@ function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTr
   const rootType = pathTree.vertex.type;
   assert(isCompositeType(rootType), () => `Should not have condition on non-selectable type ${rootType}`);
   const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType} );
-  computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(typeConditionedFetching), emptyDeferContext);
+  // If a type is in a subgraph, it has to be in the supergraph.
+    // A root type has to be a Composite type.
+    const rootTypeInSupergraph = dependencyGraph.supergraphSchemaType(rootType.name) as CompositeType;
+  computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph), emptyDeferContext);
   return dependencyGraph;
 }
 
@@ -4114,8 +4159,7 @@ function computeGroupsForTree(
           // slighly smaller and on complex queries, it might also deduplicate similar selections).
           let newPath = path;
           if (updatedOperation && updatedOperation.appliedDirectives.length > 0) {
-            const childType = child.vertex.type;
-            newPath = path.add(updatedOperation, childType)
+            newPath = path.add(updatedOperation)
           }
           stack.push({
             tree: child,
@@ -4199,7 +4243,6 @@ function computeGroupsForTree(
             // optimization doesn't kick in in this case.
             updated.group.mustPreserveSelection = true
           }
-          const childType = child.vertex.type;
 
           if (edge.transition.kind === 'InterfaceObjectFakeDownCast') {
             // We shouldn't add the operation "as is" as it's a down-cast but we're "faking it". However,
@@ -4208,10 +4251,10 @@ function computeGroupsForTree(
             if (updatedOperation.appliedDirectives.length > 0) {
               // We want to keep the directives, but we clear the condition since it's to a type that doesn't exists in the
               // subgraph we're currently in.
-              updated.path = updated.path.add(updatedOperation.withUpdatedCondition(undefined), childType);
+              updated.path = updated.path.add(updatedOperation.withUpdatedCondition(undefined));
             }
           } else {
-            updated.path = updated.path.add(updatedOperation, childType);
+            updated.path = updated.path.add(updatedOperation);
           }
 
           stack.push(updated);
