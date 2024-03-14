@@ -1827,27 +1827,32 @@ export class GroupPath {
   /* private */ updatedResponsePath(element: OperationElement, elementPossibleTypes: ObjectType[]): ResponsePath {
     switch (element.kind){
       case 'FragmentElement':
-        // if (this.possibleTypes.length === elementPossibleTypes.length) {
+        if (this.possibleTypes.length === elementPossibleTypes.length) {
           return this.responsePath;
-        // }
-      case 'Field':
+        }
         let rp = this.responsePath;
         if (elementPossibleTypes.length > 0) {
           const conditions = `|[${elementPossibleTypes.join(',')}]`;
           const previousLastElement = rp[rp.length -1] as string || '';
 
-          const lastPath = conditions;
           if (previousLastElement.startsWith('|[')) {
-            rp = [...rp.slice(0, -1), lastPath];
+            rp = [...rp.slice(0, -1), conditions];
           } else {
-            rp = rp.concat(lastPath);
+            rp = [...rp.slice(0, -1), `${previousLastElement}${conditions}`];
           }
         }
+        return rp;
+      case 'Field':
+
         let type = element.definition.type!;
-        const newPath = rp.concat(`.${element.responseName()}`);
+        let newPath = this.responsePath;
+        if (newPath.length === 0 && this.typeConditionedFetching) {
+          newPath = newPath.concat('');
+        }
+        newPath = newPath.concat(`${element.responseName()}`);
         while (!isNamedType(type)) {
           if (isListType(type)) {
-            newPath.push('.@');
+            newPath.push('@');
           }
           type = type.ofType;
         }
@@ -1868,7 +1873,7 @@ export class GroupPath {
   }
 
   toString() {
-    return this.inResponse().join('');
+    return this.inResponse().join('.');
   }
 
   computeNewPossibleTypes(element: OperationElement): ObjectType[] {
@@ -1898,6 +1903,25 @@ export class GroupPath {
     res.sort();
     return res;
   }
+
+
+  //   // Get all possible types
+  //   // If element is a fragment, use its type condition
+  //   const elementPossibleTypes = element.kind === 'FragmentElement' && !!element.typeCondition ? Array.from(possibleRuntimeTypes(element.typeCondition)): [];
+  //   // no type condition
+  //   if (elementPossibleTypes.length === 0) {
+  //     return this.possibleTypes as ObjectType[];
+  //   }
+  //   let actualPossibleTypes = [];
+  //   // intersect this.elementPossibleTypes with elementPossibleTypes
+  //   if (elementPossibleTypes.length !== 0) {
+  //   } else {
+  //     actualPossibleTypes = this.possibleTypes;
+  //   }
+
+  //   const newPossibleTypes = computeNewPossibleTypes(element, actualPossibleTypes);
+  //   return newPossibleTypes;
+  // }
 }
 
 class DeferTracking {

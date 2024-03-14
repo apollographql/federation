@@ -158,6 +158,10 @@ describe('Type Condition field merging', () => {
       key: function () {
         return this.responseName();
       },
+      baseType: function () {
+        return searchType;
+      },
+      name: 'search',
       responseName: function () {
         return 'search';
       },
@@ -177,6 +181,10 @@ describe('Type Condition field merging', () => {
       key: function () {
         return this.responseName();
       },
+      baseType: function () {
+        return idType;
+      },
+      name: 'id',
       responseName: function () {
         return 'id';
       },
@@ -185,7 +193,7 @@ describe('Type Condition field merging', () => {
       },
     } as OperationElement;
 
-    const expectedPath = 'search|[MovieResult].id';
+    const expectedPath = '.search|[MovieResult].id';
     expect(groupPath.add(element).toString()).toEqual(expectedPath);
   });
 
@@ -198,6 +206,10 @@ describe('Type Condition field merging', () => {
       key: function () {
         return this.responseName();
       },
+      baseType: function () {
+        return searchType;
+      },
+      name: 'search',
       responseName: function () {
         return 'search';
       },
@@ -218,6 +230,10 @@ describe('Type Condition field merging', () => {
       key: function () {
         return this.responseName();
       },
+      name: 'id',
+      baseType: function() {
+        return idType;
+      },
       responseName: function () {
         return 'id';
       },
@@ -226,8 +242,8 @@ describe('Type Condition field merging', () => {
       },
     } as OperationElement;
 
-    const expectedPath1 = 'search.@|[MovieResult].id';
-    const expectedPath2 = 'search.@|[ArticleResult].id';
+    const expectedPath1 = '.search.@|[MovieResult].id';
+    const expectedPath2 = '.search.@|[ArticleResult].id';
     expect(gp1.add(element).toString()).toEqual(expectedPath1);
     expect(gp2.add(element).toString()).toEqual(expectedPath2);
   });
@@ -284,8 +300,12 @@ describe('Type Condition field merging', () => {
       key: function () {
         return 'foo';
       },
+      name: 'foo',
       responseName: function () {
         return 'foo';
+      },
+      baseType: function () {
+        return fooInterface;
       },
       definition: {
         type: fooInterface,
@@ -299,15 +319,39 @@ describe('Type Condition field merging', () => {
       key: function () {
         return 'bar';
       },
+      name: 'bar',
       responseName: function () {
         return 'bar';
+      },
+      baseType: function () {
+        return barInterface;
       },
       definition: {
         type: barInterface,
       },
     } as OperationElement);
 
-    expect(groupPath.toString()).toEqual('foo|[Foo_1,Foo_2].bar');
+
+    const fragment = new FragmentElement(api.type('Bar_1') as CompositeType, 'Bar_1');
+    groupPath = groupPath.add(fragment);
+
+    groupPath = groupPath.add({
+      kind: 'Field',
+      key: function () {
+        return 'baz';
+      },
+      name: 'baz',
+      responseName: function () {
+        return 'baz';
+      },
+      baseType: function () {
+        return api.type('String');
+      },
+      definition: {
+        type: api.type('String'),
+      },
+    } as OperationElement);
+    expect(groupPath.toString()).toEqual('.foo.bar|[Bar_1].baz');
   });
 
   test('does eagerly merge fields on different type conditions if flag is absent', () => {
@@ -374,7 +418,7 @@ describe('Type Condition field merging', () => {
               }
             }
           },
-          Flatten(path: ".search.@.sections.@") {
+          Flatten(path: "search.@.sections.@") {
             Fetch(service: "artworkSubgraph") {
               {
                 ... on EntityCollectionSection {
@@ -472,27 +516,67 @@ describe('Type Condition field merging', () => {
               }
             }
           },
-          Flatten(path: "|[ArticleResult,MovieResult].search.@|[EntityCollectionSection,GallerySection].sections.@") {
-            Fetch(service: "artworkSubgraph") {
-              {
-                ... on EntityCollectionSection {
-                  __typename
-                  id
+          Parallel {
+            Flatten(path: ".search.@|[MovieResult].sections.@|[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    title
+                    artwork(params: $movieResultParam)
+                  }
                 }
-                ... on GallerySection {
-                  __typename
-                  id
+              },
+            },
+            Flatten(path: ".search.@|[MovieResult].sections.@|[GallerySection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on GallerySection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on GallerySection {
+                    artwork(params: $movieResultParam)
+                  }
                 }
-              } =>
-              {
-                ... on EntityCollectionSection {
-                  title
-                  artwork(params: $movieResultParam)
+              },
+            },
+            Flatten(path: ".search.@|[ArticleResult].sections.@|[GallerySection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on GallerySection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on GallerySection {
+                    artwork(params: $articleResultParam)
+                  }
                 }
-                ... on GallerySection {
-                  artwork(params: $movieResultParam)
+              },
+            },
+            Flatten(path: ".search.@|[ArticleResult].sections.@|[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $articleResultParam)
+                  }
                 }
-              }
+              },
             },
           },
         },
@@ -612,20 +696,37 @@ describe('Type Condition field merging', () => {
               }
             }
           },
-          Flatten(path: "|[ArticleResult,MovieResult,SeriesResult].search.@|[EntityCollectionSection,GallerySection].sections.@") {
-            Fetch(service: "artworkSubgraph") {
-              {
-                ... on EntityCollectionSection {
-                  __typename
-                  id
+          Parallel {
+            Flatten(path: ".search.@|[MovieResult].sections.@|[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $movieParams)
+                  }
                 }
-              } =>
-              {
-                ... on EntityCollectionSection {
-                  artwork(params: $movieParams)
-                  title
+              },
+            },
+            Flatten(path: ".search.@|[ArticleResult].sections.@|[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $articleParams)
+                    title
+                  }
                 }
-              }
+              },
             },
           },
         },
@@ -697,20 +798,37 @@ describe('Type Condition field merging', () => {
               }
             }
           },
-          Flatten(path: "|[ArticleResult,MovieResult,SeriesResult].search.@|[EntityCollectionSection,GallerySection].sections.@") {
-            Fetch(service: "artworkSubgraph") {
-              {
-                ... on EntityCollectionSection {
-                  __typename
-                  id
+          Parallel {
+            Flatten(path: ".search.@.sections.@|[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $movieParams)
+                  }
                 }
-              } =>
-              {
-                ... on EntityCollectionSection {
-                  artwork(params: $movieParams)
-                  title
+              },
+            },
+            Flatten(path: ".search.@|[ArticleResult].sections.@|[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $articleParams)
+                    title
+                  }
                 }
-              }
+              },
             },
           },
         },
@@ -833,20 +951,37 @@ describe('Type Condition field merging', () => {
               }
             }
           },
-          Flatten(path: "|[ArticleResult,MovieResult].search.@|[EntityCollectionSection,GallerySection].sections.@") {
-            Fetch(service: "artworkSubgraph") {
-              {
-                ... on EntityCollectionSection {
-                  __typename
-                  id
+          Parallel {
+            Flatten(path: ".search.@|[MovieResult].sections.@|[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $movieParams)
+                  }
                 }
-              } =>
-              {
-                ... on EntityCollectionSection {
-                  artwork(params: $movieParams)
-                  title
+              },
+            },
+            Flatten(path: ".search.@|[ArticleResult].sections.@|[EntityCollectionSection]") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $articleParams)
+                    title
+                  }
                 }
-              }
+              },
             },
           },
         },
