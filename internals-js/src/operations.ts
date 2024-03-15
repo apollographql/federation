@@ -1565,7 +1565,7 @@ export class SelectionSet {
         const minimizedSelectionSet = selection.selectionSet.minimizeSelectionSet(namedFragments, fragmentDefinitionsById);
         const fragmentDefinition = new NamedFragmentDefinition(
           this.parentType.schema(),
-          `qp__${id}_${equivalentSelectionSetCandidates?.length ?? 0}`,
+          `__generated_on_${selection.element.typeCondition!.name}_${id}_${equivalentSelectionSetCandidates?.length ?? 0}`,
           selection.element.typeCondition
         ).setSelectionSet(minimizedSelectionSet);
 
