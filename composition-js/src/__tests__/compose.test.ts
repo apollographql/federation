@@ -16,7 +16,6 @@ import {
 } from '@apollo/federation-internals';
 import { CompositionOptions, CompositionResult, composeServices } from '../compose';
 import gql from 'graphql-tag';
-import './matchers';
 import { print } from 'graphql';
 import {
   assertCompositionSuccess,

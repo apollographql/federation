@@ -7,7 +7,7 @@ import {
 } from '../hints';
 import { MergeResult, mergeSubgraphs } from '../merging';
 import { assertCompositionSuccess, composeAsFed2Subgraphs } from './testHelper';
-import { formatExpectedToMatchReceived } from './matchers/toMatchString';
+import { formatExpectedToMatchReceived } from 'apollo-federation-integration-testsuite/src/matchers/toMatchString';
 import { composeServices } from '../compose';
 
 function mergeDocuments(...documents: DocumentNode[]): MergeResult {

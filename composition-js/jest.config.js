@@ -4,6 +4,7 @@ const baseConfig = require('../jest.config.base');
 /** @type {import('@jest/types').Config.InitialOptions} */
 module.exports = {
   ...baseConfig,
+  setupFilesAfterEnv: ['./src/__tests__/testSetup.ts'],
   displayName: {
     name: '@apollo/composition',
     color: 'gray'

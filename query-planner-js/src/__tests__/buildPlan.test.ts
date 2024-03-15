@@ -6,7 +6,12 @@ import {
   Supergraph,
 } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
-import { FetchNode, FlattenNode, SequenceNode } from '../QueryPlan';
+import {
+  FetchNode,
+  FlattenNode,
+  SequenceNode,
+  serializeQueryPlan,
+} from '../QueryPlan';
 import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
 import {
   composeAndCreatePlanner,
@@ -1797,7 +1802,7 @@ describe('@requires', () => {
         },
       }
     `;
-    expect(plan).toMatchInlineSnapshot(expectedPlan);
+    expect(serializeQueryPlan(plan)).toMatchString(expectedPlan);
 
     // Ensures that manually asking for the required dependencies doesn't change anything.
     operation = operationFromDocument(
@@ -1814,7 +1819,7 @@ describe('@requires', () => {
     );
 
     plan = queryPlanner.buildQueryPlan(operation);
-    expect(plan).toMatchInlineSnapshot(expectedPlan);
+    expect(serializeQueryPlan(plan)).toMatchString(expectedPlan);
   });
 
   it('handles longer require chain (a chain of 10 requires)', () => {
@@ -1896,7 +1901,7 @@ describe('@requires', () => {
         },
       }
     `;
-    expect(plan).toMatchInlineSnapshot(expectedPlan);
+    expect(serializeQueryPlan(plan)).toMatchString(expectedPlan);
   });
 
   it('handles complex require chain', () => {
@@ -2315,7 +2320,7 @@ describe('@requires', () => {
         },
       }
     `;
-    expect(plan1).toMatchInlineSnapshot(expectedPlan);
+    expect(serializeQueryPlan(plan1)).toMatchString(expectedPlan);
 
     const plan2 = queryPlanner.buildQueryPlan(op1);
     expect(plan2).toMatchInlineSnapshot(`
@@ -2358,7 +2363,7 @@ describe('@requires', () => {
     `);
 
     const plan3 = queryPlanner.buildQueryPlan(op2);
-    expect(plan3).toMatchInlineSnapshot(expectedPlan);
+    expect(serializeQueryPlan(plan3)).toMatchString(expectedPlan);
   });
 
   it('handes diamond-shape depedencies', () => {
@@ -4197,7 +4202,7 @@ describe('Named fragments preservation', () => {
       }
     `;
 
-      expect(plan).toMatchInlineSnapshot(
+      expect(serializeQueryPlan(plan)).toMatchString(
         reuseQueryFragments ? withReuse : withoutReuse,
       );
     },
@@ -4620,9 +4625,9 @@ describe('Named fragments preservation', () => {
         },
       }
     `;
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
-      expectedPlan,
-    );
+    expect(
+      serializeQueryPlan(queryPlanner.buildQueryPlan(operation)),
+    ).toMatchString(expectedPlan);
 
     // We very slighly modify the operation to add an artificial indirection within `IFrag`.
     // This does not really change the query, and should result in the same plan, but
@@ -4658,9 +4663,9 @@ describe('Named fragments preservation', () => {
       `,
     );
 
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
-      expectedPlan,
-    );
+    expect(
+      serializeQueryPlan(queryPlanner.buildQueryPlan(operation)),
+    ).toMatchString(expectedPlan);
 
     // The previous cases tests the cases where nothing in the `...IFrag` spread at the
     // top-level of `OuterFrag` applied at all: it all gets eliminated in the plan. But
@@ -4894,9 +4899,9 @@ describe('Named fragments preservation', () => {
         },
       }
     `;
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
-      expectedPlan,
-    );
+    expect(
+      serializeQueryPlan(queryPlanner.buildQueryPlan(operation)),
+    ).toMatchString(expectedPlan);
 
     // We very slighly modify the operation to add an artificial indirection within `IFrag`.
     // This does not really change the query, and should result in the same plan, but
@@ -4935,9 +4940,9 @@ describe('Named fragments preservation', () => {
       `,
     );
 
-    expect(queryPlanner.buildQueryPlan(operation)).toMatchInlineSnapshot(
-      expectedPlan,
-    );
+    expect(
+      serializeQueryPlan(queryPlanner.buildQueryPlan(operation)),
+    ).toMatchString(expectedPlan);
 
     // The previous cases tests the cases where nothing in the `...IFrag` spread at the
     // top-level of `OuterFrag` applied at all: it all gets eliminated in the plan. But
@@ -7481,35 +7486,35 @@ test('correctly generate plan built from some non-individually optimal branch op
 
   const plan = queryPlanner.buildQueryPlan(operation);
   expect(plan).toMatchInlineSnapshot(`
-   QueryPlan {
-     Sequence {
-       Fetch(service: "Subgraph2") {
-         {
-           t {
-             __typename
-             id
-           }
-         }
-       },
-       Flatten(path: "t") {
-         Fetch(service: "Subgraph3") {
-           {
-             ... on T {
-               __typename
-               id
+       QueryPlan {
+         Sequence {
+           Fetch(service: "Subgraph2") {
+             {
+               t {
+                 __typename
+                 id
+               }
              }
-           } =>
-           {
-             ... on T {
-               y
-               x
-             }
-           }
+           },
+           Flatten(path: "t") {
+             Fetch(service: "Subgraph3") {
+               {
+                 ... on T {
+                   __typename
+                   id
+                 }
+               } =>
+               {
+                 ... on T {
+                   y
+                   x
+                 }
+               }
+             },
+           },
          },
-       },
-     },
-   }
-  `);
+       }
+    `);
 });
 
 test('does not error on some complex fetch group dependencies', () => {
@@ -7902,74 +7907,74 @@ describe('@requires references external field indirectly', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-    QueryPlan {
-      Sequence {
-        Fetch(service: "A") {
-          {
-            u {
-              __typename
-              k1 {
-                id
-              }
-            }
-          }
-        },
-        Flatten(path: "u") {
-          Fetch(service: "B") {
+      QueryPlan {
+        Sequence {
+          Fetch(service: "A") {
             {
-              ... on U {
+              u {
                 __typename
                 k1 {
                   id
                 }
               }
-            } =>
-            {
-              ... on U {
-                k2
-              }
             }
           },
-        },
-        Flatten(path: "u") {
-          Fetch(service: "C") {
-            {
-              ... on U {
-                __typename
-                k2
-              }
-            } =>
-            {
-              ... on U {
-                v {
-                  v
+          Flatten(path: "u") {
+            Fetch(service: "B") {
+              {
+                ... on U {
+                  __typename
+                  k1 {
+                    id
+                  }
+                }
+              } =>
+              {
+                ... on U {
+                  k2
                 }
               }
-            }
+            },
+          },
+          Flatten(path: "u") {
+            Fetch(service: "C") {
+              {
+                ... on U {
+                  __typename
+                  k2
+                }
+              } =>
+              {
+                ... on U {
+                  v {
+                    v
+                  }
+                }
+              }
+            },
+          },
+          Flatten(path: "u") {
+            Fetch(service: "B") {
+              {
+                ... on U {
+                  __typename
+                  v {
+                    v
+                  }
+                  k1 {
+                    id
+                  }
+                }
+              } =>
+              {
+                ... on U {
+                  f
+                }
+              }
+            },
           },
         },
-        Flatten(path: "u") {
-          Fetch(service: "B") {
-            {
-              ... on U {
-                __typename
-                v {
-                  v
-                }
-                k1 {
-                  id
-                }
-              }
-            } =>
-            {
-              ... on U {
-                f
-              }
-            }
-          },
-        },
-      },
-    }
+      }
     `);
   });
 });

@@ -1,5 +1,4 @@
 import gql from 'graphql-tag';
-import './matchers';
 import {
   assertCompositionSuccess,
   errors,

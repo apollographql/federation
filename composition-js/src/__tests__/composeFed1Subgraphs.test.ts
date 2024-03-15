@@ -1,7 +1,6 @@
 import { FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS, ObjectType, printSchema, Schema, SubgraphASTNode, Subgraphs, Supergraph } from '@apollo/federation-internals';
 import { CompositionResult, composeServices, CompositionSuccess } from '../compose';
 import gql from 'graphql-tag';
-import './matchers';
 
 function assertCompositionSuccess(r: CompositionResult): asserts r is CompositionSuccess {
   if (r.errors) {
