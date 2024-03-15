@@ -15,7 +15,6 @@ import {
   SelectionSetNode,
   OperationTypeNode,
   NameNode,
-  print,
 } from "graphql";
 import {
   baseType,
@@ -976,8 +975,8 @@ export class Operation {
 
   generateQueryFragments(): Operation {
     const fragments = new NamedFragments();
-    const fragmentSpreadsById = new Map<string, NamedFragmentDefinition>();
-    const minimizedSelectionSet = this.selectionSet.minimizeSelectionSet(fragments, fragmentSpreadsById);
+    const fragmentDefinitionsById = new Map<number, [SelectionSet, NamedFragmentDefinition][]>();
+    const minimizedSelectionSet = this.selectionSet.minimizeSelectionSet(fragments, fragmentDefinitionsById);
 
     return new Operation(
       this.schema,
@@ -1551,25 +1550,33 @@ export class SelectionSet {
     this._selections = mapValues(keyedSelections);
   }
 
-  minimizeSelectionSet(namedFragments: NamedFragments, fragmentDefinitionsById: Map<string, NamedFragmentDefinition>): SelectionSet {
+  minimizeSelectionSet(namedFragments: NamedFragments, fragmentDefinitionsById: Map<number, [SelectionSet, NamedFragmentDefinition][]>): SelectionSet {
     return this.lazyMap((selection) => {
       if (selection.kind === 'FragmentSelection' && selection.element.typeCondition && selection.element.appliedDirectives.length === 0 && selection.selectionSet) {
-        const id = print(selection.toSelectionNode());
-        const existingFragmentDefinition = fragmentDefinitionsById.get(id);
-        if (existingFragmentDefinition) {
-          return new FragmentSpreadSelection(this.parentType, namedFragments, existingFragmentDefinition, [])
+        const id = selection.toString().length;
+        const equivalentSelectionSetCandidates = fragmentDefinitionsById.get(id);
+        if (equivalentSelectionSetCandidates) {
+          const match = equivalentSelectionSetCandidates.find(([candidateSet]) => candidateSet.equals(selection.selectionSet!));
+          if (match) {
+            return new FragmentSpreadSelection(this.parentType, namedFragments, match[1], []);
+          }
         }
 
         const minimizedSelectionSet = selection.selectionSet.minimizeSelectionSet(namedFragments, fragmentDefinitionsById);
         const fragmentDefinition = new NamedFragmentDefinition(
           this.parentType.schema(),
-          `qp__${fragmentDefinitionsById.size}`,
+          `qp__${id}_${equivalentSelectionSetCandidates?.length ?? 0}`,
           selection.element.typeCondition
         ).setSelectionSet(minimizedSelectionSet);
-        const fragmentSpread = new FragmentSpreadSelection(this.parentType, namedFragments, fragmentDefinition, []);
-        fragmentDefinitionsById.set(id, fragmentDefinition);
-        namedFragments.add(fragmentDefinition);
-        return fragmentSpread;
+
+        if (!equivalentSelectionSetCandidates) {
+          fragmentDefinitionsById.set(id, [[minimizedSelectionSet, fragmentDefinition]]);
+          namedFragments.add(fragmentDefinition);
+        } else {
+          equivalentSelectionSetCandidates.push([minimizedSelectionSet, fragmentDefinition]);
+        }
+
+        return new FragmentSpreadSelection(this.parentType, namedFragments, fragmentDefinition, []);
       } else if (selection.kind === 'FieldSelection') {
         if (selection.selectionSet) {
           selection = selection.withUpdatedSelectionSet(selection.selectionSet.minimizeSelectionSet(namedFragments, fragmentDefinitionsById));

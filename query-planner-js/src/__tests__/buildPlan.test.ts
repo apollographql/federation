@@ -5094,17 +5094,17 @@ describe('Fragment autogeneration', () => {
           {
             t {
               __typename
-              ...qp__0
-              ...qp__1
+              ...qp__16_0
+              ...qp__14_0
             }
           }
           
-          fragment qp__0 on A {
+          fragment qp__16_0 on A {
             x
             y
           }
           
-          fragment qp__1 on B {
+          fragment qp__14_0 on B {
             z
           }
         },
@@ -5149,26 +5149,22 @@ describe('Fragment autogeneration', () => {
           {
             t {
               __typename
-              ...qp__2
-              ...qp__1
+              ...qp__63_0
+              ...qp__14_1
             }
           }
           
-          fragment qp__0 on A {
+          fragment qp__14_0 on A {
             x
           }
           
-          fragment qp__1 on B {
-            z
-          }
-          
-          fragment qp__2 on A {
+          fragment qp__63_0 on A {
             x
             y
             t {
               __typename
-              ...qp__0
-              ...qp__1
+              ...qp__14_0
+              ...qp__14_1
             }
           }
         },
@@ -5208,22 +5204,17 @@ describe('Fragment autogeneration', () => {
           {
             t {
               __typename
-              ...qp__0
+              ...qp__16_0
             }
             t2 {
               __typename
-              ...qp__1
+              ...qp__16_0
             }
           }
           
-          fragment qp__0 on A {
+          fragment qp__16_0 on A {
             x
             y
-          }
-          
-          fragment qp__1 on A {
-            y
-            x
           }
         },
       }
