@@ -7907,75 +7907,75 @@ describe('@requires references external field indirectly', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
-          QueryPlan {
-            Sequence {
-              Fetch(service: "A") {
-                {
-                  u {
-                    __typename
-                    k1 {
-                      id
-                    }
+      QueryPlan {
+        Sequence {
+          Fetch(service: "A") {
+            {
+              u {
+                __typename
+                k1 {
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "u") {
+            Fetch(service: "B") {
+              {
+                ... on U {
+                  __typename
+                  k1 {
+                    id
                   }
                 }
-              },
-              Flatten(path: "u") {
-                Fetch(service: "B") {
-                  {
-                    ... on U {
-                      __typename
-                      k1 {
-                        id
-                      }
-                    }
-                  } =>
-                  {
-                    ... on U {
-                      k2
-                    }
-                  }
-                },
-              },
-              Flatten(path: "u") {
-                Fetch(service: "C") {
-                  {
-                    ... on U {
-                      __typename
-                      k2
-                    }
-                  } =>
-                  {
-                    ... on U {
-                      v {
-                        v
-                      }
-                    }
-                  }
-                },
-              },
-              Flatten(path: "u") {
-                Fetch(service: "B") {
-                  {
-                    ... on U {
-                      __typename
-                      v {
-                        v
-                      }
-                      k1 {
-                        id
-                      }
-                    }
-                  } =>
-                  {
-                    ... on U {
-                      f
-                    }
-                  }
-                },
-              },
+              } =>
+              {
+                ... on U {
+                  k2
+                }
+              }
             },
-          }
-        `);
+          },
+          Flatten(path: "u") {
+            Fetch(service: "C") {
+              {
+                ... on U {
+                  __typename
+                  k2
+                }
+              } =>
+              {
+                ... on U {
+                  v {
+                    v
+                  }
+                }
+              }
+            },
+          },
+          Flatten(path: "u") {
+            Fetch(service: "B") {
+              {
+                ... on U {
+                  __typename
+                  v {
+                    v
+                  }
+                  k1 {
+                    id
+                  }
+                }
+              } =>
+              {
+                ... on U {
+                  f
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
   });
 });
 
