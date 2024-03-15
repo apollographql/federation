@@ -5172,7 +5172,7 @@ describe('Fragment autogeneration', () => {
     `);
   });
 
-  it('identifies and reuses equivalent fragments that arent identical', () => {
+  it("identifies and reuses equivalent fragments that aren't identical", () => {
     const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph], {
       generateQueryFragments: true,
     });
