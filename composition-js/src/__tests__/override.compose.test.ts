@@ -1,6 +1,5 @@
 import { printSchema, printType } from "@apollo/federation-internals";
 import gql from "graphql-tag";
-import "./matchers";
 import {
   assertCompositionSuccess,
   schemas,

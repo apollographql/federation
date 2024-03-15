@@ -9,7 +9,6 @@
     "editor.formatOnSave": false,
     "editor.rulers": [80],
     "editor.wordWrapColumn": 80,
-    "files.trimTrailingWhitespace": true,
     "files.insertFinalNewline": true,
   },
   "typescript.tsdk": "./node_modules/typescript/lib",

@@ -6,7 +6,6 @@ import {
   print
 } from "graphql";
 import { graphQLJSSchemaToAST } from "../graphQLJSSchemaToAST";
-import './matchers';
 
 function validateRoundtrip(schemaStr: string, expectedWithoutASTNodes: string | undefined = schemaStr) {
   const schema = buildSchema(schemaStr);

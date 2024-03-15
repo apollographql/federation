@@ -8,14 +8,13 @@ import {
   SchemaElement,
   UnionType,
   InputObjectType,
-} from '../../dist/definitions';
+} from '../definitions';
 import {
   printSchema as printGraphQLjsSchema,
 } from 'graphql';
-import { defaultPrintOptions, printSchema } from '../../dist/print';
-import { buildSchema } from '../../dist/buildSchema';
-import { buildSubgraph, federationMetadata, newEmptyFederation2Schema } from '../../dist/federation';
-import './matchers';
+import { defaultPrintOptions, printSchema } from '../print';
+import { buildSchema } from '../buildSchema';
+import { buildSubgraph, federationMetadata, newEmptyFederation2Schema } from '../federation';
 
 function parseSchema(schema: string): Schema {
   try {

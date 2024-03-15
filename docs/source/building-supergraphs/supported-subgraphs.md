@@ -37,8 +37,8 @@ The following open-source GraphQL server libraries and hosted solutions support 
 Github: <a href="https://github.com/ballerina-platform/module-ballerina-graphql">ballerina-platform/module-ballerina-graphql</a><br/>
 <br/>
 Type: Code first<br/>
-Stars: 143 ⭐<br/>
-Last Release: 2024-02-15<br/>
+Stars: 144 ⭐<br/>
+Last Release: 2024-02-21<br/>
 <br/>
       </td>
       <td>
@@ -126,7 +126,7 @@ Github: <a href="https://github.com/ChilliCream/graphql-platform">ChilliCream/gr
 <br/>
 Type: Code first | SDL first<br/>
 Stars: 4.8k ⭐<br/>
-Last Release: 2024-02-17<br/>
+Last Release: 2024-03-02<br/>
 <br/>
 Federation Library: <a href="https://github.com/apollographql/federation-hotchocolate">apollographql/federation-hotchocolate&nbsp;&nbsp;<img style="display:inline-block; height:1em; width:auto;" alt="Maintained by Apollo" src="https://raw.githubusercontent.com/apollographql/apollo-federation-subgraph-compatibility/d7829ef89441c337749bf6538711a642cfa2689c/docs/assets/horizon_logo.png"/></a>
       </td>
@@ -240,7 +240,7 @@ Last Release: 2024-02-15<br/>
           <tr><th><code>@key (multi)</code></th><td>🟢</td></tr>
           <tr><th><code>@key (composite)</code></th><td>🟢</td></tr>
           <tr><th><code>repeatable @key</code></th><td>🟢</td></tr>
-          <tr><th><code>@requires</code></th><td>🔲</td></tr>
+          <tr><th><code>@requires</code></th><td>🟢</td></tr>
           <tr><th><code>@provides</code></th><td>🟢</td></tr>
           <tr><th><code>federated tracing</code></th><td>🟢</td></tr>
         </table>
@@ -252,8 +252,8 @@ Last Release: 2024-02-15<br/>
           <tr><th><code>@tag</code></th><td>🟢</td></tr>
           <tr><th><code>@override</code></th><td>🟢</td></tr>
           <tr><th><code>@inaccessible</code></th><td>🟢</td></tr>
-          <tr><th><code>@composeDirective</code></th><td>🔲</td></tr>
-          <tr><th><code>@interfaceObject</code></th><td>🔲</td></tr>
+          <tr><th><code>@composeDirective</code></th><td>🟢</td></tr>
+          <tr><th><code>@interfaceObject</code></th><td>🟢</td></tr>
         </table>
       </td>
     </tr>
@@ -318,7 +318,7 @@ Github: <a href="https://github.com/netflix/dgs-framework/">netflix/dgs-framewor
 <br/>
 Type: SDL first<br/>
 Stars: 2.9k ⭐<br/>
-Last Release: 2024-02-09<br/>
+Last Release: 2024-02-28<br/>
 <br/>
 Core Library: <a href="https://github.com/graphql-java/graphql-java">GraphQL Java</a><br/>
 Federation Library: <a href="https://github.com/apollographql/federation-jvm">apollographql/federation-jvm&nbsp;&nbsp;<img style="display:inline-block; height:1em; width:auto;" alt="Maintained by Apollo" src="https://raw.githubusercontent.com/apollographql/apollo-federation-subgraph-compatibility/d7829ef89441c337749bf6538711a642cfa2689c/docs/assets/horizon_logo.png"/></a>
@@ -434,7 +434,7 @@ Github: <a href="https://github.com/spring-projects/spring-graphql">spring-proje
 <br/>
 Type: SDL first<br/>
 Stars: 1.5k ⭐<br/>
-Last Release: 2023-11-21<br/>
+Last Release: 2024-02-21<br/>
 <br/>
 Core Library: <a href="https://github.com/graphql-java/graphql-java">GraphQL Java</a><br/>
 Federation Library: <a href="https://github.com/apollographql/federation-jvm">apollographql/federation-jvm&nbsp;&nbsp;<img style="display:inline-block; height:1em; width:auto;" alt="Maintained by Apollo" src="https://raw.githubusercontent.com/apollographql/apollo-federation-subgraph-compatibility/d7829ef89441c337749bf6538711a642cfa2689c/docs/assets/horizon_logo.png"/></a>
@@ -564,7 +564,7 @@ Federation Library: <a href="https://www.npmjs.com/package/@apollo/subgraph">Apo
 Github: <a href="https://github.com/dotansimha/graphql-yoga/">dotansimha/graphql-yoga</a><br/>
 <br/>
 Type: SDL first<br/>
-Stars: 7.9k ⭐<br/>
+Stars: 8.0k ⭐<br/>
 Last Release: 2024-02-04<br/>
 <br/>
 Core Library: <a href="https://www.npmjs.com/package/graphql">GraphQL.js</a><br/>
@@ -603,7 +603,7 @@ Federation Library: <a href="https://www.npmjs.com/package/@apollo/subgraph">Apo
 Github: <a href="https://github.com/contra/graphql-helix">contra/graphql-helix</a><br/>
 <br/>
 Type: SDL first<br/>
-Stars: 834 ⭐<br/>
+Stars: 832 ⭐<br/>
 Last Release: 2022-07-09<br/>
 <br/>
 Core Library: <a href="https://www.npmjs.com/package/graphql">GraphQL.js</a><br/>
@@ -760,7 +760,7 @@ Github: <a href="https://github.com/hayes/pothos">hayes/pothos</a><br/>
 <br/>
 Type: Code first<br/>
 Stars: 2.2k ⭐<br/>
-Last Release: 2024-02-14<br/>
+Last Release: 2024-03-02<br/>
 <br/>
 Core Library: <a href="https://www.npmjs.com/package/graphql">GraphQL.js</a><br/>
       </td>
@@ -812,7 +812,7 @@ Github: <a href="https://github.com/nuwave/lighthouse">nuwave/lighthouse</a><br/
 <br/>
 Type: SDL first<br/>
 Stars: 3.3k ⭐<br/>
-Last Release: 2024-02-01<br/>
+Last Release: 2024-03-01<br/>
 <br/>
 Core Library: <a href="https://github.com/webonyx/graphql-php">webonyx/graphql-php</a><br/>
       </td>
@@ -902,7 +902,7 @@ Github: <a href="https://github.com/mirumee/ariadne">mirumee/ariadne</a><br/>
 <br/>
 Type: SDL first<br/>
 Stars: 2.1k ⭐<br/>
-Last Release: 2024-01-31<br/>
+Last Release: 2024-02-29<br/>
 <br/>
 Core Library: <a href="https://github.com/graphql-python/graphql-core">GraphQL-core 3</a><br/>
       </td>
@@ -1133,7 +1133,7 @@ Last Release: 2022-11-28<br/>
 Github: <a href="https://github.com/ghostdogpr/caliban">ghostdogpr/caliban</a><br/>
 <br/>
 Type: Code first<br/>
-Stars: 922 ⭐<br/>
+Stars: 925 ⭐<br/>
 Last Release: 2024-02-17<br/>
 <br/>
       </td>
@@ -1222,7 +1222,7 @@ Federation Library: <a href="https://github.com/sangria-graphql/sangria-federate
 Github: <a href="https://github.com/GraphQLSwift/Graphiti">GraphQLSwift/Graphiti</a><br/>
 <br/>
 Type: SDL first<br/>
-Stars: 519 ⭐<br/>
+Stars: 521 ⭐<br/>
 Last Release: 2023-11-15<br/>
 <br/>
       </td>
@@ -1337,8 +1337,8 @@ Last Release: 2023-11-15<br/>
 Github: <a href="https://github.com/grafbase/grafbase">grafbase/grafbase</a><br/>
 <br/>
 Type: Code first | SDL first<br/>
-Stars: 905 ⭐<br/>
-Last Release: 2024-02-16<br/>
+Stars: 934 ⭐<br/>
+Last Release: 2024-02-23<br/>
 <br/>
       </td>
       <td>
@@ -1375,7 +1375,7 @@ Github: <a href="https://github.com/Urigo/graphql-mesh">Urigo/graphql-mesh</a><b
 <br/>
 
 Stars: 3.1k ⭐<br/>
-Last Release: 2024-02-13<br/>
+Last Release: 2024-02-28<br/>
 <br/>
       </td>
       <td>
@@ -1411,8 +1411,8 @@ Last Release: 2024-02-13<br/>
 Github: <a href="https://github.com/neo4j/graphql">neo4j/graphql</a><br/>
 <br/>
 Type: Code first | SDL first<br/>
-Stars: 466 ⭐<br/>
-Last Release: 2024-01-16<br/>
+Stars: 467 ⭐<br/>
+Last Release: 2024-02-27<br/>
 <br/>
 Core Library: <a href="https://www.npmjs.com/package/graphql">GraphQL.js</a><br/>
 Federation Library: <a href="https://www.npmjs.com/package/@apollo/subgraph">Apollo Subgraph&nbsp;&nbsp;<img style="display:inline-block; height:1em; width:auto;" alt="Maintained by Apollo" src="https://raw.githubusercontent.com/apollographql/apollo-federation-subgraph-compatibility/d7829ef89441c337749bf6538711a642cfa2689c/docs/assets/horizon_logo.png"/></a>

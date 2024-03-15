@@ -1,7 +1,6 @@
 import { assertCompositionSuccess, composeAsFed2Subgraphs } from "./testHelper";
 import gql from 'graphql-tag';
 import { asFed2SubgraphDocument, buildSubgraph, ServiceDefinition, Supergraph } from "@apollo/federation-internals";
-import './matchers';
 
 function composeAndTestReversibility(subgraphs: ServiceDefinition[]) {
   const result = composeAsFed2Subgraphs(subgraphs);

@@ -811,7 +811,7 @@ This CHANGELOG pertains only to Apollo Federation packages in the 2.x range. The
 
 ## v2.0.0
 
-- Previous preview release promoted to general availability! Please see previous changelog entries for full info.
+- Previous preview release promoted to general availability. Please see previous changelog entries for full info.
 
 ## v2.0.0-preview.14
 

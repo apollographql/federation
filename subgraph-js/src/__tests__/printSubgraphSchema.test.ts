@@ -2,7 +2,6 @@ import { fixtures } from 'apollo-federation-integration-testsuite';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { printSubgraphSchema } from '../printSubgraphSchema';
 import gql from 'graphql-tag';
-import './matchers';
 import { FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS } from '@apollo/federation-internals';
 
 describe('printSubgraphSchema', () => {
