@@ -976,7 +976,7 @@ export class Operation {
 
   generateQueryFragments(): Operation {
     const fragments = new NamedFragments();
-    const fragmentSpreadsById = new Map<string, FragmentSpreadSelection>();
+    const fragmentSpreadsById = new Map<string, NamedFragmentDefinition>();
     const minimizedSelectionSet = this.selectionSet.minimizeSelectionSet(fragments, fragmentSpreadsById);
 
     return new Operation(
@@ -1551,26 +1551,28 @@ export class SelectionSet {
     this._selections = mapValues(keyedSelections);
   }
 
-  minimizeSelectionSet(namedFragments: NamedFragments, fragmentSpreadsById: Map<string, FragmentSpreadSelection>): SelectionSet {
+  minimizeSelectionSet(namedFragments: NamedFragments, fragmentDefinitionsById: Map<string, NamedFragmentDefinition>): SelectionSet {
     return this.lazyMap((selection) => {
       if (selection.kind === 'FragmentSelection' && selection.element.typeCondition && selection.element.appliedDirectives.length === 0 && selection.selectionSet) {
         const id = print(selection.toSelectionNode());
-        const existing = fragmentSpreadsById.get(id);
-        if (existing) return existing;
+        const existingFragmentDefinition = fragmentDefinitionsById.get(id);
+        if (existingFragmentDefinition) {
+          return new FragmentSpreadSelection(this.parentType, namedFragments, existingFragmentDefinition, [])
+        }
 
-        const minimizedSelectionSet = selection.selectionSet.minimizeSelectionSet(namedFragments, fragmentSpreadsById);
+        const minimizedSelectionSet = selection.selectionSet.minimizeSelectionSet(namedFragments, fragmentDefinitionsById);
         const fragmentDefinition = new NamedFragmentDefinition(
           this.parentType.schema(),
-          `qp__${fragmentSpreadsById.size}`,
+          `qp__${fragmentDefinitionsById.size}`,
           selection.element.typeCondition
         ).setSelectionSet(minimizedSelectionSet);
         const fragmentSpread = new FragmentSpreadSelection(this.parentType, namedFragments, fragmentDefinition, []);
-        fragmentSpreadsById.set(id, fragmentSpread);
+        fragmentDefinitionsById.set(id, fragmentDefinition);
         namedFragments.add(fragmentDefinition);
         return fragmentSpread;
       } else if (selection.kind === 'FieldSelection') {
         if (selection.selectionSet) {
-          selection = selection.withUpdatedSelectionSet(selection.selectionSet.minimizeSelectionSet(namedFragments, fragmentSpreadsById));
+          selection = selection.withUpdatedSelectionSet(selection.selectionSet.minimizeSelectionSet(namedFragments, fragmentDefinitionsById));
         }
       }
       return selection;
