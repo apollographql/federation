@@ -5043,31 +5043,32 @@ describe('Named fragments preservation', () => {
 });
 
 describe('Fragment autogeneration', () => {
+  const subgraph = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+        t2: T
+      }
+
+      union T = A | B
+
+      type A {
+        x: Int
+        y: Int
+        t: T
+      }
+
+      type B {
+        z: Int
+      }
+    `,
+  };
+
   it('respects generateQueryFragments option', () => {
-    const subgraph1 = {
-      name: 'Subgraph1',
-      typeDefs: gql`
-        type Query {
-          t: T
-        }
-
-        union T = A | B
-
-        type A {
-          x: Int
-          y: Int
-        }
-
-        type B {
-          z: Int
-        }
-      `,
-    };
-
-    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
-      [subgraph1],
-      { generateQueryFragments: true },
-    );
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph], {
+      generateQueryFragments: true,
+    });
     const operation = operationFromDocument(
       api,
       gql`
@@ -5112,31 +5113,9 @@ describe('Fragment autogeneration', () => {
   });
 
   it('handles nested fragment generation', () => {
-    const subgraph1 = {
-      name: 'Subgraph1',
-      typeDefs: gql`
-        type Query {
-          t: T
-        }
-
-        union T = A | B
-
-        type A {
-          x: Int
-          y: Int
-          t: T
-        }
-
-        type B {
-          z: Int
-        }
-      `,
-    };
-
-    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
-      [subgraph1],
-      { generateQueryFragments: true },
-    );
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph], {
+      generateQueryFragments: true,
+    });
     const operation = operationFromDocument(
       api,
       gql`
@@ -5191,6 +5170,60 @@ describe('Fragment autogeneration', () => {
               ...qp__0
               ...qp__1
             }
+          }
+        },
+      }
+    `);
+  });
+
+  it('identifies and reuses equivalent fragments that arent identical', () => {
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph], {
+      generateQueryFragments: true,
+    });
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            ... on A {
+              x
+              y
+            }
+          }
+          t2 {
+            ... on A {
+              y
+              x
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ...qp__0
+            }
+            t2 {
+              __typename
+              ...qp__1
+            }
+          }
+          
+          fragment qp__0 on A {
+            x
+            y
+          }
+          
+          fragment qp__1 on A {
+            y
+            x
           }
         },
       }
