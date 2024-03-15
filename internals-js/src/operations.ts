@@ -1553,7 +1553,7 @@ export class SelectionSet {
   minimizeSelectionSet(namedFragments: NamedFragments, fragmentDefinitionsById: Map<number, [SelectionSet, NamedFragmentDefinition][]>): SelectionSet {
     return this.lazyMap((selection) => {
       if (selection.kind === 'FragmentSelection' && selection.element.typeCondition && selection.element.appliedDirectives.length === 0 && selection.selectionSet) {
-        const id = selection.toString().length;
+        const id = selection.key().length + selection.selectionSet.selections().length;
         const equivalentSelectionSetCandidates = fragmentDefinitionsById.get(id);
         if (equivalentSelectionSetCandidates) {
           const match = equivalentSelectionSetCandidates.find(([candidateSet]) => candidateSet.equals(selection.selectionSet!));
