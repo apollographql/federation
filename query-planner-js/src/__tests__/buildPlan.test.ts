@@ -5094,17 +5094,17 @@ describe('Fragment autogeneration', () => {
           {
             t {
               __typename
-              ...__generated_on_A_10_0
-              ...__generated_on_B_9_0
+              ..._generated_on_A_10_0
+              ..._generated_on_B_9_0
             }
           }
           
-          fragment __generated_on_A_10_0 on A {
+          fragment _generated_on_A_10_0 on A {
             x
             y
           }
           
-          fragment __generated_on_B_9_0 on B {
+          fragment _generated_on_B_9_0 on B {
             z
           }
         },
@@ -5149,22 +5149,22 @@ describe('Fragment autogeneration', () => {
           {
             t {
               __typename
-              ...__generated_on_A_11_0
-              ...__generated_on_B_9_1
+              ..._generated_on_A_11_0
+              ..._generated_on_B_9_1
             }
           }
           
-          fragment __generated_on_A_9_0 on A {
+          fragment _generated_on_A_9_0 on A {
             x
           }
           
-          fragment __generated_on_A_11_0 on A {
+          fragment _generated_on_A_11_0 on A {
             x
             y
             t {
               __typename
-              ...__generated_on_A_9_0
-              ...__generated_on_B_9_1
+              ..._generated_on_A_9_0
+              ..._generated_on_B_9_1
             }
           }
         },
@@ -5204,15 +5204,15 @@ describe('Fragment autogeneration', () => {
           {
             t {
               __typename
-              ...__generated_on_A_10_0
+              ..._generated_on_A_10_0
             }
             t2 {
               __typename
-              ...__generated_on_A_10_0
+              ..._generated_on_A_10_0
             }
           }
           
-          fragment __generated_on_A_10_0 on A {
+          fragment _generated_on_A_10_0 on A {
             x
             y
           }
