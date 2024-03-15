@@ -3,11 +3,10 @@ import {
   isCompositeType,
   Schema,
   SchemaRootKind,
-} from '../../dist/definitions';
-import { buildSchema } from '../../dist/buildSchema';
-import { FederationBlueprint } from '../../dist/federation';
-import { FragmentRestrictionAtType, MutableSelectionSet, NamedFragmentDefinition, Operation, operationFromDocument, parseOperation } from '../../dist/operations';
-import './matchers';
+} from '../definitions';
+import { buildSchema } from '../buildSchema';
+import { FederationBlueprint } from '../federation';
+import { FragmentRestrictionAtType, MutableSelectionSet, NamedFragmentDefinition, Operation, operationFromDocument, parseOperation } from '../operations';
 import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, parse, SelectionNode, SelectionSetNode, validate } from 'graphql';
 import { assert } from '../utils';
 import gql from 'graphql-tag';

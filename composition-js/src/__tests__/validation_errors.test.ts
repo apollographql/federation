@@ -1,6 +1,5 @@
 import { CompositionResult } from '../compose';
 import gql from 'graphql-tag';
-import './matchers';
 import { composeAsFed2Subgraphs } from './testHelper';
 
 function errorMessages(r: CompositionResult): string[] {
