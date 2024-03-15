@@ -1,8 +1,6 @@
 // Make this file a module (See: https://github.com/microsoft/TypeScript/issues/17736)
 export { };
 
-// TODO: this is the same than in definition.test.ts. Could we move those to a common place (but is it worth having
-// a new module for that)? Maybe there is a better, more jest-native, way to do this.
 // Note(Sylvain): I initially added those because I didn't figure out a way to make `toMatchSnapshotInline` work
 // with strings cleanly: I always either ended up with indentation issuels, or the result looks very ugly in the
 // tests. But it could be I just don't understand well enough how it work.
