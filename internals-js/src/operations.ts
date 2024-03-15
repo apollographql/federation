@@ -1553,13 +1553,13 @@ export class SelectionSet {
    */
   minimizeSelectionSet(
     namedFragments: NamedFragments = new NamedFragments(),
-    seenSelections: Map<number, [SelectionSet, NamedFragmentDefinition][]> = new Map(),
+    seenSelections: Map<string, [SelectionSet, NamedFragmentDefinition][]> = new Map(),
   ): [SelectionSet, NamedFragments] {
     const minimizedSelectionSet = this.lazyMap((selection) => {
       if (selection.kind === 'FragmentSelection' && selection.element.typeCondition && selection.element.appliedDirectives.length === 0 && selection.selectionSet) {
         // No proper hash code, so we use a unique enough number that's cheap to
         // compute and handle collisions as necessary.
-        const mockHashCode = selection.key().length + selection.selectionSet.selections().length;
+        const mockHashCode = `on${selection.element.typeCondition}` + selection.selectionSet.selections().length;
         const equivalentSelectionSetCandidates = seenSelections.get(mockHashCode);
         if (equivalentSelectionSetCandidates) {
           // See if any candidates have an equivalent selection set, i.e. {x y} and {y x}.
@@ -1576,7 +1576,7 @@ export class SelectionSet {
         const [minimizedSelectionSet] = selection.selectionSet.minimizeSelectionSet(namedFragments, seenSelections);
         const fragmentDefinition = new NamedFragmentDefinition(
           this.parentType.schema(),
-          `_generated_on_${selection.element.typeCondition!.name}_${mockHashCode}_${equivalentSelectionSetCandidates?.length ?? 0}`,
+          `_generated_${mockHashCode}_${equivalentSelectionSetCandidates?.length ?? 0}`,
           selection.element.typeCondition
         ).setSelectionSet(minimizedSelectionSet);
 
