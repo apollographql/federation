@@ -2880,7 +2880,7 @@ class FieldsConflictValidator {
         continue;
       }
 
-      // We're basically checking [FieldInSetCanMerge](https://spec.graphql.org/draft/#FieldsInSetCanMerge()),
+      // We're basically checking [FieldsInSetCanMerge](https://spec.graphql.org/draft/#FieldsInSetCanMerge()),
       // but from 2 set of fields (`thisFields` and `thatFields`) of the same response that we know individually
       // merge already.
       for (const [thisField, thisValidator] of thisFields.entries()) {
