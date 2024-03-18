@@ -1582,10 +1582,10 @@ export class SelectionSet {
 
         // Create a new "hash code" bucket or add to the existing one.
         if (!equivalentSelectionSetCandidates) {
-          seenSelections.set(mockHashCode, [[minimizedSelectionSet, fragmentDefinition]]);
+          seenSelections.set(mockHashCode, [[selection.selectionSet, fragmentDefinition]]);
           namedFragments.add(fragmentDefinition);
         } else {
-          equivalentSelectionSetCandidates.push([minimizedSelectionSet, fragmentDefinition]);
+          equivalentSelectionSetCandidates.push([selection.selectionSet, fragmentDefinition]);
         }
 
         return new FragmentSpreadSelection(this.parentType, namedFragments, fragmentDefinition, []);
