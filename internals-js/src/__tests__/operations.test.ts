@@ -3100,6 +3100,38 @@ describe('named fragment selection set restrictions at type', () => {
     return frag.expandedSelectionSetAtType(type);
   }
 
+  test('for fragment on object types', () => {
+    const schema = parseSchema(`
+      type Query {
+        t1: T1
+      }
+
+      type T1 {
+        x: Int
+        y: Int
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      {
+        t1 {
+          ...FonT1
+        }
+      }
+
+      fragment FonT1 on T1 {
+        x
+        y
+      }
+    `);
+
+    const frag = operation.fragments?.get('FonT1')!;
+
+    let { selectionSet, validator } = expandAtType(frag, schema, 'T1');
+    expect(selectionSet.toString()).toBe('{ x y }');
+    expect(validator?.toString()).toBeUndefined();
+  });
+
   test('for fragment on interfaces', () => {
     const schema = parseSchema(`
       type Query {
@@ -3159,10 +3191,24 @@ describe('named fragment selection set restrictions at type', () => {
 
     let { selectionSet, validator } = expandAtType(frag, schema, 'I1');
     expect(selectionSet.toString()).toBe('{ x ... on T1 { x } ... on T2 { x } ... on I2 { x } ... on I3 { x } }');
-    expect(validator?.toString()).toBeUndefined();
+    // Note: Due to `FieldsInSetCanMerge` rule, we can't use trimmed validators for
+    // fragments on non-object types.
+    expect(validator?.toString()).toMatchString(`
+      {
+        x: [
+          I1.x
+          T1.x
+          T2.x
+          I2.x
+          I3.x
+        ]
+      }
+      `);
 
     ({ selectionSet, validator } = expandAtType(frag, schema, 'T1'));
     expect(selectionSet.toString()).toBe('{ x }');
+    // Note: Fragments on non-object types always have the full validator and thus
+    // results in the same validator regardless of the type they are expanded at.
     // Note: one could remark that having `T1.x` in the `validator` below is a tad weird: this is
     // because in this case `normalized` removed that fragment and so when we do `normalized.minus(original)`,
     // then it shows up. It a tad difficult to avoid this however and it's ok for what we do (`validator`
@@ -3170,6 +3216,7 @@ describe('named fragment selection set restrictions at type', () => {
     expect(validator?.toString()).toMatchString(`
       {
         x: [
+          I1.x
           T1.x
           T2.x
           I2.x
@@ -3239,8 +3286,16 @@ describe('named fragment selection set restrictions at type', () => {
     // this happens due to the "lifting" of selection mentioned above, is a bit hard to avoid,
     // and is essentially harmess (it may result in a bit more cpu cycles in some cases but
     // that is likely negligible).
+    // Note: Due to `FieldsInSetCanMerge` rule, we can't use trimmed validators for
+    // fragments on non-object types.
     expect(validator?.toString()).toMatchString(`
       {
+        x: [
+          T1.x
+        ]
+        z: [
+          T2.z
+        ]
         y: [
           T1.y
         ]
@@ -3252,8 +3307,13 @@ describe('named fragment selection set restrictions at type', () => {
 
     ({ selectionSet, validator } = expandAtType(frag, schema, 'U2'));
     expect(selectionSet.toString()).toBe('{ ... on T1 { x y } }');
+    // Note: Fragments on non-object types always have the full validator and thus
+    // results in the same validator regardless of the type they are expanded at.
     expect(validator?.toString()).toMatchString(`
       {
+        x: [
+          T1.x
+        ]
         z: [
           T2.z
         ]
@@ -3268,10 +3328,15 @@ describe('named fragment selection set restrictions at type', () => {
 
     ({ selectionSet, validator } = expandAtType(frag, schema, 'U3'));
     expect(selectionSet.toString()).toBe('{ ... on T2 { z w } }');
+    // Note: Fragments on non-object types always have the full validator and thus
+    // results in the same validator regardless of the type they are expanded at.
     expect(validator?.toString()).toMatchString(`
       {
         x: [
           T1.x
+        ]
+        z: [
+          T2.z
         ]
         y: [
           T1.y
