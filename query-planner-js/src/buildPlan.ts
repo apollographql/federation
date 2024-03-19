@@ -597,7 +597,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
   private newDependencyGraph(): FetchDependencyGraph {
     const { supergraphSchema, federatedQueryGraph } = this.parameters;
     const rootType = this.isTopLevel && this.hasDefers ? supergraphSchema.schemaDefinition.rootType(this.rootKind) : undefined;
-    return FetchDependencyGraph.create(supergraphSchema, federatedQueryGraph, this.startFetchIdGen, rootType);
+    return FetchDependencyGraph.create(supergraphSchema, federatedQueryGraph, this.startFetchIdGen, rootType, this.parameters.config.generateQueryFragments);
   }
 
   // Moves the first closed branch to after any branch having more options.
@@ -907,6 +907,7 @@ class FetchGroup {
     // key for that. Having it here saves us from re-computing it more than once.
     readonly subgraphAndMergeAtKey?: string,
     private cachedCost?: number,
+    private generateQueryFragments: boolean = false,
     // Cache used to save unecessary recomputation of the `isUseless` method.
     private isKnownUseful: boolean = false,
     private readonly inputRewrites: FetchDataRewrite[] = [],
@@ -934,6 +935,7 @@ class FetchGroup {
     hasInputs,
     mergeAt,
     deferRef,
+    generateQueryFragments,
   }: {
     dependencyGraph: FetchDependencyGraph,
     index: number,
@@ -943,6 +945,7 @@ class FetchGroup {
     hasInputs: boolean,
     mergeAt?: ResponsePath,
     deferRef?: string,
+    generateQueryFragments: boolean,
   }): FetchGroup {
     // Sanity checks that the selection parent type belongs to the schema of the subgraph we're querying.
     assert(parentType.schema() === dependencyGraph.subgraphSchemas.get(subgraphName), `Expected parent type ${parentType} to belong to ${subgraphName}`);
@@ -957,7 +960,9 @@ class FetchGroup {
       hasInputs ? new GroupInputs(dependencyGraph.supergraphSchema) : undefined,
       mergeAt,
       deferRef,
-      hasInputs ? `${toValidGraphQLName(subgraphName)}-${mergeAt?.join('::') ?? ''}` : undefined
+      hasInputs ? `${toValidGraphQLName(subgraphName)}-${mergeAt?.join('::') ?? ''}` : undefined,
+      undefined,
+      generateQueryFragments,
     );
   }
 
@@ -976,6 +981,7 @@ class FetchGroup {
       this.deferRef,
       this.subgraphAndMergeAtKey,
       this.cachedCost,
+      this.generateQueryFragments,
       this.isKnownUseful,
       [...this.inputRewrites],
     );
@@ -1516,7 +1522,11 @@ class FetchGroup {
           operationName,
         );
 
-    operation = operation.optimize(fragments?.forSubgraph(this.subgraphName, subgraphSchema));
+    if (this.generateQueryFragments) {
+      operation = operation.generateQueryFragments();
+    } else {
+      operation = operation.optimize(fragments?.forSubgraph(this.subgraphName, subgraphSchema));
+    }
 
     const operationDocument = operationToDocument(operation);
     const fetchNode: FetchNode = {
@@ -2060,11 +2070,12 @@ class FetchDependencyGraph {
     private readonly rootGroups: MapWithCachedArrays<string, FetchGroup>,
     readonly groups: FetchGroup[],
     readonly deferTracking: DeferTracking,
+    readonly generateQueryFragments: boolean,
   ) {
     this.fetchIdGen = startingIdGen;
   }
 
-  static create(supergraphSchema: Schema, federatedQueryGraph: QueryGraph, startingIdGen: number, rootTypeForDefer: CompositeType | undefined) {
+  static create(supergraphSchema: Schema, federatedQueryGraph: QueryGraph, startingIdGen: number, rootTypeForDefer: CompositeType | undefined, generateQueryFragments: boolean) {
     return new FetchDependencyGraph(
       supergraphSchema,
       federatedQueryGraph.sources,
@@ -2073,6 +2084,7 @@ class FetchDependencyGraph {
       new MapWithCachedArrays(),
       [],
       DeferTracking.empty(rootTypeForDefer),
+      generateQueryFragments,
     );
   }
 
@@ -2097,6 +2109,7 @@ class FetchDependencyGraph {
       new MapWithCachedArrays<string, FetchGroup>(),
       new Array(this.groups.length),
       this.deferTracking.clone(),
+      this.generateQueryFragments,
     );
 
     for (const group of this.groups) {
@@ -2186,6 +2199,7 @@ class FetchDependencyGraph {
       hasInputs,
       mergeAt,
       deferRef,
+      generateQueryFragments: this.generateQueryFragments,
     });
     this.groups.push(newGroup);
     return newGroup;
@@ -3485,9 +3499,9 @@ function computeRootParallelBestPlan(
 function createEmptyPlan(
   parameters: PlanningParameters<RootVertex>,
 ): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
-  const { supergraphSchema, federatedQueryGraph, root } = parameters;
+  const { supergraphSchema, federatedQueryGraph, root, config } = parameters;
   return [
-    FetchDependencyGraph.create(supergraphSchema, federatedQueryGraph, 0, undefined),
+    FetchDependencyGraph.create(supergraphSchema, federatedQueryGraph, 0, undefined, config.generateQueryFragments),
     PathTree.createOp(federatedQueryGraph, root),
     0
   ];
@@ -3524,7 +3538,17 @@ function computeRootSerialDependencyGraph(
       // }
       // then we should _not_ merge the 2 `mut1` fields (contrarily to what happens on queried fields).
       prevPaths = prevPaths.concat(newPaths);
-      prevDepGraph = computeRootFetchGroups(FetchDependencyGraph.create(supergraphSchema, federatedQueryGraph, startingFetchId, rootType), prevPaths, root.rootKind);
+      prevDepGraph = computeRootFetchGroups(
+        FetchDependencyGraph.create(
+          supergraphSchema,
+          federatedQueryGraph,
+          startingFetchId,
+          rootType,
+          parameters.config.generateQueryFragments,
+        ),
+        prevPaths,
+        root.rootKind,
+      );
     } else {
       startingFetchId = prevDepGraph.nextFetchId();
       graphs.push(prevDepGraph);
@@ -3805,7 +3829,7 @@ function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTr
   // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
   const rootType = pathTree.vertex.type;
   assert(isCompositeType(rootType), () => `Should not have condition on non-selectable type ${rootType}`);
-  const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType} );
+  const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType } );
   computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(), emptyDeferContext);
   return dependencyGraph;
 }

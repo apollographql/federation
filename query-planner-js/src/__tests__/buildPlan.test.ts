@@ -5042,6 +5042,190 @@ describe('Named fragments preservation', () => {
   });
 });
 
+describe('Fragment autogeneration', () => {
+  const subgraph = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        t: T
+        t2: T
+      }
+
+      union T = A | B
+
+      type A {
+        x: Int
+        y: Int
+        t: T
+      }
+
+      type B {
+        z: Int
+      }
+    `,
+  };
+
+  it('respects generateQueryFragments option', () => {
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph], {
+      generateQueryFragments: true,
+    });
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            ... on A {
+              x
+              y
+            }
+            ... on B {
+              z
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ..._generated_onA2_0
+              ..._generated_onB1_0
+            }
+          }
+          
+          fragment _generated_onA2_0 on A {
+            x
+            y
+          }
+          
+          fragment _generated_onB1_0 on B {
+            z
+          }
+        },
+      }
+    `);
+  });
+
+  it('handles nested fragment generation', () => {
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph], {
+      generateQueryFragments: true,
+    });
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            ... on A {
+              x
+              y
+              t {
+                ... on A {
+                  x
+                }
+                ... on B {
+                  z
+                }
+              }
+            }
+            ... on B {
+              z
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ..._generated_onA3_0
+              ..._generated_onB1_0
+            }
+          }
+          
+          fragment _generated_onA1_0 on A {
+            x
+          }
+          
+          fragment _generated_onB1_0 on B {
+            z
+          }
+          
+          fragment _generated_onA3_0 on A {
+            x
+            y
+            t {
+              __typename
+              ..._generated_onA1_0
+              ..._generated_onB1_0
+            }
+          }
+        },
+      }
+    `);
+  });
+
+  it("identifies and reuses equivalent fragments that aren't identical", () => {
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph], {
+      generateQueryFragments: true,
+    });
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            ... on A {
+              x
+              y
+            }
+          }
+          t2 {
+            ... on A {
+              y
+              x
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ..._generated_onA2_0
+            }
+            t2 {
+              __typename
+              ..._generated_onA2_0
+            }
+          }
+          
+          fragment _generated_onA2_0 on A {
+            x
+            y
+          }
+        },
+      }
+    `);
+  });
+});
+
 test('works with key chains', () => {
   const subgraph1 = {
     name: 'Subgraph1',
