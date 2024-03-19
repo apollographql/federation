@@ -2478,7 +2478,7 @@ export function selectionOfElement(element: OperationElement, subSelection?: Sel
   return element.kind === 'Field' ? new FieldSelection(element, subSelection) : new InlineFragmentSelection(element, subSelection!);
 }
 
-export type Selection = FieldSelection | FragmentSelection | FragmentSpreadSelection;
+export type Selection = FieldSelection | FragmentSelection;
 abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf extends undefined | never, TOwnType extends AbstractSelection<TElement, TIsLeaf, TOwnType>> {
   constructor(
     readonly element: TElement,
