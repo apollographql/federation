@@ -5088,6 +5088,7 @@ describe('Fragment autogeneration', () => {
 
     const plan = queryPlanner.buildQueryPlan(operation);
 
+    // Note: `... on B {}` won't be replaced, since it has only one field.
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Fetch(service: "Subgraph1") {
@@ -5095,17 +5096,15 @@ describe('Fragment autogeneration', () => {
             t {
               __typename
               ..._generated_onA2_0
-              ..._generated_onB1_0
+              ... on B {
+                z
+              }
             }
           }
           
           fragment _generated_onA2_0 on A {
             x
             y
-          }
-          
-          fragment _generated_onB1_0 on B {
-            z
           }
         },
       }
@@ -5127,14 +5126,67 @@ describe('Fragment autogeneration', () => {
               t {
                 ... on A {
                   x
+                  y
                 }
                 ... on B {
                   z
                 }
               }
             }
-            ... on B {
-              z
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+
+    // Note: `... on B {}` won't be replaced, since it has only one field.
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ..._generated_onA3_0
+            }
+          }
+          
+          fragment _generated_onA2_0 on A {
+            x
+            y
+          }
+          
+          fragment _generated_onA3_0 on A {
+            x
+            y
+            t {
+              __typename
+              ..._generated_onA2_0
+              ... on B {
+                z
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+
+  it('handles fragments with one non-leaf field', () => {
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph], {
+      generateQueryFragments: true,
+    });
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            ... on A {
+              t {
+                ... on B {
+                  z
+                }
+              }
             }
           }
         }
@@ -5149,26 +5201,16 @@ describe('Fragment autogeneration', () => {
           {
             t {
               __typename
-              ..._generated_onA3_0
-              ..._generated_onB1_0
+              ..._generated_onA1_0
             }
           }
           
           fragment _generated_onA1_0 on A {
-            x
-          }
-          
-          fragment _generated_onB1_0 on B {
-            z
-          }
-          
-          fragment _generated_onA3_0 on A {
-            x
-            y
             t {
               __typename
-              ..._generated_onA1_0
-              ..._generated_onB1_0
+              ... on B {
+                z
+              }
             }
           }
         },
