@@ -50,17 +50,6 @@ export type QueryPlannerConfig = {
     enableDefer?: boolean,
   }
 
-  /**
-   * Enables type conditioned fetching.
-   * This flag is a workaround, which may yield significant
-   * performance degradation when computing query plans,
-   * and increase query plan size.
-   *
-   * If you aren't aware of this flag, you probably don't need it.
-   * Defaults to false (meaning that the @defer are ignored).
-   */
-  typeConditionedFetching?: boolean,
-
   cache?: QueryPlanCache,
 
   /**
@@ -134,7 +123,6 @@ export function enforceQueryPlannerConfigDefaults(
       pathsLimit: null,
       ...config?.debug,
     },
-    typeConditionedFetching: false,
   };
 }
 
