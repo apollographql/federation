@@ -5172,6 +5172,52 @@ describe('Fragment autogeneration', () => {
     `);
   });
 
+  it('handles fragments with one non-leaf field', () => {
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph], {
+      generateQueryFragments: true,
+    });
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            ... on A {
+              t {
+                ... on B {
+                  z
+                }
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ..._generated_onA1_0
+            }
+          }
+          
+          fragment _generated_onA1_0 on A {
+            t {
+              __typename
+              ... on B {
+                z
+              }
+            }
+          }
+        },
+      }
+    `);
+  });
+
   it("identifies and reuses equivalent fragments that aren't identical", () => {
     const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph], {
       generateQueryFragments: true,

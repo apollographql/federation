@@ -1400,7 +1400,7 @@ export class NamedFragments {
   //   enough of a niche case that we ignore it. Note in particular that one sub-case of this rule that is likely
   //   to be common is when the subset ends up being just `__typename`: this would basically mean the fragment
   //   don't really apply to the subgraph, and that this will ensure this is the case.
-  private selectionSetIsWorthUsing(selectionSet: SelectionSet): boolean {
+  static selectionSetIsWorthUsing(selectionSet: SelectionSet): boolean {
     const selections = selectionSet.selections();
     if (selections.length === 0) {
       return false;
@@ -1423,7 +1423,7 @@ export class NamedFragments {
       // Rebasing can leave some inefficiencies in some case (particularly when a spread has to be "expanded", see `FragmentSpreadSelection.rebaseOn`),
       // so we do a top-level normalization to keep things clean.
       rebasedSelection = rebasedSelection.normalize({ parentType: rebasedType });
-      return this.selectionSetIsWorthUsing(rebasedSelection)
+      return NamedFragments.selectionSetIsWorthUsing(rebasedSelection)
         ? new NamedFragmentDefinition(schema, fragment.name, rebasedType).setSelectionSet(rebasedSelection)
         : undefined;
     });
@@ -1557,7 +1557,7 @@ export class SelectionSet {
   ): [SelectionSet, NamedFragments] {
     const minimizedSelectionSet = this.lazyMap((selection) => {
       if (selection.kind === 'FragmentSelection' && selection.element.typeCondition && selection.element.appliedDirectives.length === 0
-          && selection.selectionSet && selection.selectionSet.selections().length > 1 ) {
+          && selection.selectionSet && NamedFragments.selectionSetIsWorthUsing(selection.selectionSet) ) {
         // No proper hash code, so we use a unique enough number that's cheap to
         // compute and handle collisions as necessary.
         const mockHashCode = `on${selection.element.typeCondition}` + selection.selectionSet.selections().length;
