@@ -1556,7 +1556,8 @@ export class SelectionSet {
     seenSelections: Map<string, [SelectionSet, NamedFragmentDefinition][]> = new Map(),
   ): [SelectionSet, NamedFragments] {
     const minimizedSelectionSet = this.lazyMap((selection) => {
-      if (selection.kind === 'FragmentSelection' && selection.element.typeCondition && selection.element.appliedDirectives.length === 0 && selection.selectionSet) {
+      if (selection.kind === 'FragmentSelection' && selection.element.typeCondition && selection.element.appliedDirectives.length === 0
+          && selection.selectionSet && selection.selectionSet.selections().length > 1 ) {
         // No proper hash code, so we use a unique enough number that's cheap to
         // compute and handle collisions as necessary.
         const mockHashCode = `on${selection.element.typeCondition}` + selection.selectionSet.selections().length;
@@ -1596,7 +1597,7 @@ export class SelectionSet {
       }
       return selection;
     });
-    
+
     return [minimizedSelectionSet, namedFragments];
   }
 
