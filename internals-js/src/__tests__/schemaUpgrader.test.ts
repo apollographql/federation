@@ -2,7 +2,6 @@ import { FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS_UPGRADED, printSchema } fro
 import { ObjectType } from '../definitions';
 import { buildSubgraph, Subgraphs } from '../federation';
 import { UpgradeChangeID, UpgradeResult, upgradeSubgraphsIfNecessary } from '../schemaUpgrader';
-import './matchers';
 
 function changeMessages(res: UpgradeResult, subgraphName: string, id: UpgradeChangeID): string[] {
   const changes = res.changes?.get(subgraphName)?.get(id);

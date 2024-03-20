@@ -6,7 +6,7 @@ subtitle: Manage supergraph CI/CD with Apollo GraphOS
 
 import ManagedFederationDiagram from '../../shared/diagrams/managed-federation.mdx';
 
-[Apollo GraphOS](/graphos/) provides **managed federation** support for graphs that use Apollo Federation.
+[Apollo GraphOS](/graphos/) provides managed federation support for graphs that use Apollo Federation.
 
 With managed federation, you maintain subgraphs and delegate GraphOS to manage CI/CD tasks including the validation, composition, and update of your supergraph:
 
@@ -22,19 +22,19 @@ Managed federation helps your organization safely validate, coordinate, deploy, 
 
 ### Router stability
 
-You can modify subgraph schemas (and even add or remove entire subgraphs) _without_ needing to modify or redeploy your router. Your router is the point of entry to your entire graph, and it should maximize its uptime.
+You can modify subgraph schemas (and even add or remove entire subgraphs) without needing to modify or redeploy your router. Your router is the point of entry to your entire graph, and it should maximize its uptime.
 
 ### Composition stability
 
 Whenever your router obtains an updated configuration from Apollo, it knows that the updated set of subgraph schemas will compose, because the configuration includes the composed supergraph schema.
 
-The router _also_ knows that your subgraphs are prepared to handle operations against the updated set of schemas. This is because your subgraphs should publish their updated schemas as part of their deployment, meaning they're definitely running by the time the router is aware of the configuration change.
+The router also knows that your subgraphs are prepared to handle operations against the updated set of schemas. This is because your subgraphs should publish their updated schemas as part of their deployment, meaning they're definitely running by the time the router is aware of the configuration change.
 
-And whenever a subgraph accidentally pushes a schema change that _doesn't_ compose, GraphOS continues to provide the most recent _valid_ configuration to your router.
+And whenever a subgraph accidentally pushes a schema change that doesn't compose, GraphOS continues to provide the most recent valid configuration to your router.
 
 ### Schema flexibility
 
-By using a configuration manager that's external to your router, you help ensure the safety of certain schema changes. For example, if you want to migrate a type or field from one subgraph's schema to another, you can perform this migration safely _only_ if you externalize your configuration.
+By using a configuration manager that's external to your router, you help ensure the safety of certain schema changes. For example, if you want to migrate a type or field from one subgraph's schema to another, you can perform this migration safely only if you externalize your configuration.
 
 <hr/>
 

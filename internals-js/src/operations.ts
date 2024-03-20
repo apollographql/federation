@@ -974,6 +974,18 @@ export class Operation {
     return this.withUpdatedSelectionSetAndFragments(optimizedSelection, finalFragments ?? undefined);
   }
 
+  generateQueryFragments(): Operation {
+    const [minimizedSelectionSet, fragments] = this.selectionSet.minimizeSelectionSet();
+    return new Operation(
+      this.schema,
+      this.rootKind,
+      minimizedSelectionSet,
+      this.variableDefinitions,
+      fragments,
+      this.name,
+    );
+  }
+
   expandAllFragments(): Operation {
     // We clear up the fragments since we've expanded all.
     // Also note that expanding fragment usually generate unecessary fragments/inefficient selections, so it
@@ -1534,6 +1546,59 @@ export class SelectionSet {
   ) {
     this._keyedSelections = keyedSelections;
     this._selections = mapValues(keyedSelections);
+  }
+
+  /**
+   * Takes a selection set and extracts inline fragments into named fragments,
+   * reusing generated named fragments when possible.
+   */
+  minimizeSelectionSet(
+    namedFragments: NamedFragments = new NamedFragments(),
+    seenSelections: Map<string, [SelectionSet, NamedFragmentDefinition][]> = new Map(),
+  ): [SelectionSet, NamedFragments] {
+    const minimizedSelectionSet = this.lazyMap((selection) => {
+      if (selection.kind === 'FragmentSelection' && selection.element.typeCondition && selection.element.appliedDirectives.length === 0 && selection.selectionSet) {
+        // No proper hash code, so we use a unique enough number that's cheap to
+        // compute and handle collisions as necessary.
+        const mockHashCode = `on${selection.element.typeCondition}` + selection.selectionSet.selections().length;
+        const equivalentSelectionSetCandidates = seenSelections.get(mockHashCode);
+        if (equivalentSelectionSetCandidates) {
+          // See if any candidates have an equivalent selection set, i.e. {x y} and {y x}.
+          const match = equivalentSelectionSetCandidates.find(([candidateSet]) => candidateSet.equals(selection.selectionSet!));
+          if (match) {
+            // If we found a match, we can reuse the fragment (but we still need
+            // to create a new FragmentSpread since parent types may differ).
+            return new FragmentSpreadSelection(this.parentType, namedFragments, match[1], []);
+          }
+        }
+
+        // No match, so we need to create a new fragment. First, we minimize the
+        // selection set before creating the fragment with it.
+        const [minimizedSelectionSet] = selection.selectionSet.minimizeSelectionSet(namedFragments, seenSelections);
+        const fragmentDefinition = new NamedFragmentDefinition(
+          this.parentType.schema(),
+          `_generated_${mockHashCode}_${equivalentSelectionSetCandidates?.length ?? 0}`,
+          selection.element.typeCondition
+        ).setSelectionSet(minimizedSelectionSet);
+
+        // Create a new "hash code" bucket or add to the existing one.
+        if (!equivalentSelectionSetCandidates) {
+          seenSelections.set(mockHashCode, [[selection.selectionSet, fragmentDefinition]]);
+          namedFragments.add(fragmentDefinition);
+        } else {
+          equivalentSelectionSetCandidates.push([selection.selectionSet, fragmentDefinition]);
+        }
+
+        return new FragmentSpreadSelection(this.parentType, namedFragments, fragmentDefinition, []);
+      } else if (selection.kind === 'FieldSelection') {
+        if (selection.selectionSet) {
+          selection = selection.withUpdatedSelectionSet(selection.selectionSet.minimizeSelectionSet(namedFragments, seenSelections)[0]);
+        }
+      }
+      return selection;
+    });
+    
+    return [minimizedSelectionSet, namedFragments];
   }
 
   selectionsInReverseOrder(): readonly Selection[] {

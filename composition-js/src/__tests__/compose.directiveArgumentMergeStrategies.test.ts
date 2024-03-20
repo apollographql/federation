@@ -17,7 +17,6 @@ import {
 import { DirectiveLocation } from "graphql";
 import gql from "graphql-tag";
 import { assertCompositionSuccess, composeAsFed2Subgraphs } from "./testHelper";
-import './matchers';
 import {
   registerKnownFeature,
   unregisterKnownFeatures,

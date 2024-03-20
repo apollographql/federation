@@ -123,7 +123,7 @@ new Federation 2 (on the [main branch](https://github.com/apollographql/federati
 * New composition hints help you understand how schema definitions influence query planning and performance. We’ve integrated them into the powerful tools for Apollo Federation:
   * Apollo Workbench shows composition hints in the problems tray with new hover tips.
   * Rover includes composition hints in both standard and structured JSON output so you can integrate them with other tools in your pipeline.
-  * Apollo Studio uses composition hints to help you ensure design guidelines and best practices.
+  * GraphOS Studio uses composition hints to help you ensure design guidelines and best practices.
 
 * v2 Gateway can run supergraph schemas produced using either Federation 1 composition or the new Federation 2 composition.
   * Supergraph schemas specify the [core features](https://specs.apollo.dev/) they require for `SECURITY` and `EXECUTION`

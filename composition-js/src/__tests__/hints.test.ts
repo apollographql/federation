@@ -7,7 +7,7 @@ import {
 } from '../hints';
 import { MergeResult, mergeSubgraphs } from '../merging';
 import { assertCompositionSuccess, composeAsFed2Subgraphs } from './testHelper';
-import { formatExpectedToMatchReceived } from './matchers/toMatchString';
+import { formatExpectedToMatchReceived } from 'apollo-federation-integration-testsuite/src/matchers/toMatchString';
 import { composeServices } from '../compose';
 
 function mergeDocuments(...documents: DocumentNode[]): MergeResult {
@@ -1353,4 +1353,86 @@ describe('when a directive causes an implicit federation version upgrade', () =>
     assertCompositionSuccess(result);
     expect(result).toNotRaiseHints();
   });
-})
+});
+
+describe('when a partially-defined type is marked @external or all fields are marked @external', () => {
+  describe('value types', () => {
+    it('with type marked @external', () => {
+      const meSubgraph = gql`
+        type Query {
+          me: Account
+        }
+
+        type Account @key(fields: "id") {
+          id: ID!
+          name: String
+          permissions: Permissions
+        }
+
+        type Permissions {
+          canView: Boolean
+          canEdit: Boolean
+        }
+      `;
+
+      const accountSubgraph = gql`
+        type Query {
+          account: Account
+        }
+
+        type Account @key(fields: "id") {
+          id: ID!
+          permissions: Permissions @external
+          isViewer: Boolean @requires(fields: "permissions { canView }")
+        }
+
+        type Permissions @external {
+          canView: Boolean
+        }
+      `;
+
+      const result = mergeDocuments(meSubgraph, accountSubgraph);
+      expect(result).toNotRaiseHints();
+    });
+  
+    it('with all fields marked @external', () => {
+      const meSubgraph = gql`
+        type Query {
+          me: Account
+        }
+
+        type Account @key(fields: "id") {
+          id: ID!
+          name: String
+          permissions: Permissions
+        }
+
+        type Permissions {
+          canView: Boolean
+          canEdit: Boolean
+          canDelete: Boolean
+        }
+      `;
+
+      const accountSubgraph = gql`
+        type Query {
+          account: Account
+        }
+
+        type Account @key(fields: "id") {
+          id: ID!
+          permissions: Permissions @external
+          isViewer: Boolean @requires(fields: "permissions { canView canEdit }")
+        }
+
+        type Permissions {
+          canView: Boolean @external
+          canEdit: Boolean @external
+        }
+      `;
+
+      const result = mergeDocuments(meSubgraph, accountSubgraph);
+      expect(result).toNotRaiseHints();
+    });
+  });
+});

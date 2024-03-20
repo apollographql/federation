@@ -965,9 +965,9 @@ class Merger {
         typeDescription = 'interface'
         break;
     }
-    for (const source of sources) {
+    for (const [index, source] of sources.entries()) {
       // As soon as we find a subgraph that has the type but not the field, we hint.
-      if (source && !source.field(field.name)) {
+      if (source && !source.field(field.name) && !this.areAllFieldsExternal(index, source)) {
         this.mismatchReporter.reportMismatchHint({
           code: hintId,
           message: `Field "${field.coordinate}" of ${typeDescription} type "${dest}" is defined in some but not all subgraphs that define "${dest}": `,
@@ -1081,6 +1081,10 @@ class Merger {
     return this.metadata(sourceIdx).isFieldFullyExternal(field);
   }
 
+  private areAllFieldsExternal(sourceIdx: number, type: ObjectType | InterfaceType): boolean {
+    return type.fields().every(f => this.isExternal(sourceIdx, f));
+  }
+
   private validateAndFilterExternal(sources: (FieldDefinition<any> | undefined)[]): (FieldDefinition<any> | undefined)[] {
     const filtered: (FieldDefinition<any> | undefined)[] = [];
     for (const [i, source] of sources.entries()) {
@@ -1150,7 +1154,7 @@ class Merger {
          return {
            result: true,
            conflictingDirective: directive,
-           subgraph: subgraphName,
+           subgraph: this.names[fromIdx],
          };
        }
     }

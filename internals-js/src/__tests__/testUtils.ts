@@ -1,6 +1,5 @@
 import { DocumentNode } from "graphql";
 import { asFed2SubgraphDocument, buildSubgraph, errorCauses } from "..";
-import './matchers';
 
 // Builds the provided subgraph (using name 'S' for the subgraph) and, if the
 // subgraph is invalid/has errors, return those errors as a list of [code, message].

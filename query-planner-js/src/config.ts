@@ -34,6 +34,14 @@ export type QueryPlannerConfig = {
    */
   reuseQueryFragments?: boolean,
 
+  /**
+   * If enabled, the query planner will extract inline fragments into fragment
+   * definitions before sending queries to subgraphs. This can significantly
+   * reduce the size of the query sent to subgraphs, but may increase the time
+   * it takes to plan the query.
+   */
+  generateQueryFragments?: boolean,
+
   // Side-note: implemented as an object instead of single boolean because we expect to add more to this soon
   // enough. In particular, once defer-passthrough to subgraphs is implemented, the idea would be to add a
   // new `passthroughSubgraphs` option that is the list of subgraph to which we can pass-through some @defer
@@ -108,6 +116,7 @@ export function enforceQueryPlannerConfigDefaults(
   return {
     exposeDocumentNodeInFetchNode: false,
     reuseQueryFragments: true,
+    generateQueryFragments: false,
     cache: new InMemoryLRUCache<QueryPlan>({maxSize: Math.pow(2, 20) * 50 }),
     ...config,
     incrementalDelivery: {

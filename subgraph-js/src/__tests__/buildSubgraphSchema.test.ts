@@ -12,7 +12,6 @@ import {
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
 import { typeSerializer } from 'apollo-federation-integration-testsuite';
 import { errorCauses } from '@apollo/federation-internals';
-import './matchers';
 
 expect.addSnapshotSerializer(typeSerializer);
 
