@@ -1390,28 +1390,6 @@ export class NamedFragments {
     });
   }
 
-  // When we rebase named fragments on a subgraph schema, only a subset of what the fragment handles may belong
-  // to that particular subgraph. And there are a few sub-cases where that subset is such that we basically need or
-  // want to consider to ignore the fragment for that subgraph, and that is when:
-  // 1. the subset that apply is actually empty. The fragment wouldn't be valid in this case anyway.
-  // 2. the subset is a single leaf field: in that case, using the one field directly is just shorter than using
-  //   the fragment, so we consider the fragment don't really apply to that subgraph. Technically, using the
-  //   fragment could still be of value if the fragment name is a lot smaller than the one field name, but it's
-  //   enough of a niche case that we ignore it. Note in particular that one sub-case of this rule that is likely
-  //   to be common is when the subset ends up being just `__typename`: this would basically mean the fragment
-  //   don't really apply to the subgraph, and that this will ensure this is the case.
-  static selectionSetIsWorthUsing(selectionSet: SelectionSet): boolean {
-    const selections = selectionSet.selections();
-    if (selections.length === 0) {
-      return false;
-    }
-    if (selections.length === 1) {
-      const s = selections[0];
-      return !(s.kind === 'FieldSelection' && s.element.isLeafField());
-    }
-    return true;
-  }
-
   rebaseOn(schema: Schema): NamedFragments | undefined {
     return this.mapInDependencyOrder((fragment, newFragments) => {
       const rebasedType = schema.type(fragment.selectionSet.parentType.name);
@@ -1423,7 +1401,7 @@ export class NamedFragments {
       // Rebasing can leave some inefficiencies in some case (particularly when a spread has to be "expanded", see `FragmentSpreadSelection.rebaseOn`),
       // so we do a top-level normalization to keep things clean.
       rebasedSelection = rebasedSelection.normalize({ parentType: rebasedType });
-      return NamedFragments.selectionSetIsWorthUsing(rebasedSelection)
+      return selectionSetIsWorthReusing(rebasedSelection)
         ? new NamedFragmentDefinition(schema, fragment.name, rebasedType).setSelectionSet(rebasedSelection)
         : undefined;
     });
@@ -1557,7 +1535,7 @@ export class SelectionSet {
   ): [SelectionSet, NamedFragments] {
     const minimizedSelectionSet = this.lazyMap((selection) => {
       if (selection.kind === 'FragmentSelection' && selection.element.typeCondition && selection.element.appliedDirectives.length === 0
-          && selection.selectionSet && NamedFragments.selectionSetIsWorthUsing(selection.selectionSet) ) {
+          && selection.selectionSet && selectionSetIsWorthReusing(selection.selectionSet) ) {
         // No proper hash code, so we use a unique enough number that's cheap to
         // compute and handle collisions as necessary.
         const mockHashCode = `on${selection.element.typeCondition}` + selection.selectionSet.selections().length;
@@ -2144,6 +2122,35 @@ export class SelectionSet {
     }
   }
 }
+
+// `selectionSetIsWorthReusing` is used to determine whether we want to factor out
+// given selection set into a named fragment so it can be reused across the query.
+// Currently, it is used in these cases:
+// 1) to reuse existing named fragments in subgraph queries (when reuseQueryFragments is on)
+// 2) to factor selection sets into named fragments (when generateQueryFragments is on).
+//
+// When we rebase named fragments on a subgraph schema, only a subset of what the fragment handles may belong
+// to that particular subgraph. And there are a few sub-cases where that subset is such that we basically need or
+// want to consider to ignore the fragment for that subgraph, and that is when:
+// 1. the subset that apply is actually empty. The fragment wouldn't be valid in this case anyway.
+// 2. the subset is a single leaf field: in that case, using the one field directly is just shorter than using
+//   the fragment, so we consider the fragment don't really apply to that subgraph. Technically, using the
+//   fragment could still be of value if the fragment name is a lot smaller than the one field name, but it's
+//   enough of a niche case that we ignore it. Note in particular that one sub-case of this rule that is likely
+//   to be common is when the subset ends up being just `__typename`: this would basically mean the fragment
+//   don't really apply to the subgraph, and that this will ensure this is the case.
+function selectionSetIsWorthReusing(selectionSet: SelectionSet): boolean {
+  const selections = selectionSet.selections();
+  if (selections.length === 0) {
+    return false;
+  }
+  if (selections.length === 1) {
+    const s = selections[0];
+    return !(s.kind === 'FieldSelection' && s.element.isLeafField());
+  }
+  return true;
+}
+
 
 type PathBasedUpdate = { path: OperationPath, selections?: Selection | SelectionSet | readonly Selection[] };
 type SelectionUpdate = Selection | PathBasedUpdate;
