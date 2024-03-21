@@ -14,7 +14,7 @@
     "Introduction": "/",
     "Quickstart": {
       "Project setup": "/quickstart/setup",
-      "Composition in Apollo Studio": "/quickstart/studio-composition",
+      "Composition in GraphOS Studio": "/quickstart/studio-composition",
       "Local composition": "/quickstart/local-composition",
       "Working with subgraphs": "/quickstart/local-subgraphs"
     },
