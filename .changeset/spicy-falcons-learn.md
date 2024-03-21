@@ -1,7 +1,7 @@
 ---
-"apollo-federation-integration-testsuite": minor
-"@apollo/query-planner": minor
-"@apollo/federation-internals": minor
+"apollo-federation-integration-testsuite": patch
+"@apollo/query-planner": patch
+"@apollo/federation-internals": patch
 ---
 
 Add new `generateQueryFragments` option to query planner config
