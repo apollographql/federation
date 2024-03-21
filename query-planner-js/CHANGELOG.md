@@ -1,5 +1,19 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.7.2
+
+### Patch Changes
+
+- When auto-upgrading a subgraph (i.e. one that does not explicitly @link the federation spec) do not go past v2.4. This is so that subgraphs will not inadvertently require the latest join spec (which cause the router or gateway not to start if running an older version). ([#2933](https://github.com/apollographql/federation/pull/2933))
+
+- Add new `generateQueryFragments` option to query planner config ([#2958](https://github.com/apollographql/federation/pull/2958))
+
+  If enabled, the query planner will extract inline fragments into fragment definitions before sending queries to subgraphs. This can significantly reduce the size of the query sent to subgraphs, but may increase the time it takes to plan the query.
+
+- Updated dependencies [[`33b937b18d3c7ca6af14b904696b536399e597d1`](https://github.com/apollographql/federation/commit/33b937b18d3c7ca6af14b904696b536399e597d1), [`09cd3e55e810ee513127b7440f5b11af7540c9b0`](https://github.com/apollographql/federation/commit/09cd3e55e810ee513127b7440f5b11af7540c9b0), [`d7189a86c27891af408d3d0184db6133d3342967`](https://github.com/apollographql/federation/commit/d7189a86c27891af408d3d0184db6133d3342967)]:
+  - @apollo/federation-internals@2.7.2
+  - @apollo/query-graphs@2.7.2
+
 ## 2.7.1
 
 ### Patch Changes

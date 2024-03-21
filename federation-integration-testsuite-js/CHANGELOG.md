@@ -1,5 +1,13 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.7.2
+
+### Patch Changes
+
+- Add new `generateQueryFragments` option to query planner config ([#2958](https://github.com/apollographql/federation/pull/2958))
+
+  If enabled, the query planner will extract inline fragments into fragment definitions before sending queries to subgraphs. This can significantly reduce the size of the query sent to subgraphs, but may increase the time it takes to plan the query.
+
 ## 2.7.1
 
 ## 2.7.0

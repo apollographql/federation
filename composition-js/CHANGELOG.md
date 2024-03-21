@@ -1,5 +1,19 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.7.2
+
+### Patch Changes
+
+- When a linked directive requires a federation version higher than the linked federation spec, upgrade to the implied version and issue a hint ([#2929](https://github.com/apollographql/federation/pull/2929))
+
+- Stop emitting "inconsistent value type" hints against definitions where the type is marked `@external` or all fields are marked `@external`. ([#2951](https://github.com/apollographql/federation/pull/2951))
+
+- Introduce a new composition hint pertaining specifically to progressive `@override` usage (when a `label` argument is present). ([#2922](https://github.com/apollographql/federation/pull/2922))
+
+- Updated dependencies [[`33b937b18d3c7ca6af14b904696b536399e597d1`](https://github.com/apollographql/federation/commit/33b937b18d3c7ca6af14b904696b536399e597d1), [`09cd3e55e810ee513127b7440f5b11af7540c9b0`](https://github.com/apollographql/federation/commit/09cd3e55e810ee513127b7440f5b11af7540c9b0), [`d7189a86c27891af408d3d0184db6133d3342967`](https://github.com/apollographql/federation/commit/d7189a86c27891af408d3d0184db6133d3342967)]:
+  - @apollo/federation-internals@2.7.2
+  - @apollo/query-graphs@2.7.2
+
 ## 2.7.1
 
 ### Patch Changes
