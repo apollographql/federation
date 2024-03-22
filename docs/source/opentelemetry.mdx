@@ -3,11 +3,13 @@ title: OpenTelemetry in Apollo Federation
 sidebar_title: OpenTelemetry
 ---
 
-[OpenTelemetry](https://opentelemetry.io/) is a collection of open-source tools for generating and processing telemetry data (such as logs and metrics) from different systems in a generic, consistent way.
+[OpenTelemetry](https://opentelemetry.io/) is a collection of open-source tools for generating and processing telemetry data (such as logs, traces, and metrics) from different systems in a generic and consistent way.
 
 You can configure your gateway, your individual subgraphs, or even a monolothic Apollo Server instance to emit telemetry related to processing GraphQL operations.
 
 Additionally, the `@apollo/gateway` library provides built-in OpenTelemetry instrumentation to emit [gateway-specific spans](#gateway-specific-spans) for operation traces.
+
+If you are using Apollo Router, it comes [pre-built with support for OpenTelemetry](/router/configuration/telemetry/overview).
 
 <Note>
 

@@ -1,5 +1,16 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.7.2
+
+### Patch Changes
+
+- Remove out-of-band reporting in the gateway and provide a warning for users who have the endpoint configured. ([#2946](https://github.com/apollographql/federation/pull/2946))
+
+- Updated dependencies [[`33b937b18d3c7ca6af14b904696b536399e597d1`](https://github.com/apollographql/federation/commit/33b937b18d3c7ca6af14b904696b536399e597d1), [`09cd3e55e810ee513127b7440f5b11af7540c9b0`](https://github.com/apollographql/federation/commit/09cd3e55e810ee513127b7440f5b11af7540c9b0), [`d7189a86c27891af408d3d0184db6133d3342967`](https://github.com/apollographql/federation/commit/d7189a86c27891af408d3d0184db6133d3342967), [`33506bef6d755c58400081824167711c1747ee40`](https://github.com/apollographql/federation/commit/33506bef6d755c58400081824167711c1747ee40), [`1f72f2a361a83ebaaf15ae052f5ca9a93fc18bfc`](https://github.com/apollographql/federation/commit/1f72f2a361a83ebaaf15ae052f5ca9a93fc18bfc)]:
+  - @apollo/composition@2.7.2
+  - @apollo/federation-internals@2.7.2
+  - @apollo/query-planner@2.7.2
+
 ## 2.7.1
 
 ### Patch Changes
