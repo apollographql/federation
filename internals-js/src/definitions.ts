@@ -392,26 +392,11 @@ export class DirectiveTargetElement<T extends DirectiveTargetElement<T>> {
   }
 
   appliedDirectivesToDirectiveNodes() : ConstDirectiveNode[] | undefined {
-    if (this.appliedDirectives.length == 0) {
-      return undefined;
-    }
-
-    return this.appliedDirectives.map(directive => {
-      return {
-        kind: Kind.DIRECTIVE,
-        name: {
-          kind: Kind.NAME,
-          value: directive.name,
-        },
-        arguments: directive.argumentsToAST()
-      };
-    });
+    return directivesToDirectiveNodes(this.appliedDirectives);
   }
 
   appliedDirectivesToString(): string {
-    return this.appliedDirectives.length == 0
-      ? ''
-      : ' ' + this.appliedDirectives.join(' ');
+    return directivesToString(this.appliedDirectives);
   }
 
   collectVariablesInAppliedDirectives(collector: VariableCollector) {
@@ -3255,6 +3240,37 @@ export class Directive<
     const args = entries.length == 0 ? '' : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v, this.argumentType(n))}`).join(', ') + ')';
     return `@${this.name}${args}`;
   }
+}
+
+/**
+ * Formats a Directive array as a string (with a leading space, if present).
+ */
+export function directivesToString(directives?: readonly Directive<any>[])
+  : string
+{
+  return (!directives || directives.length == 0)
+        ? ''
+        : ' ' + directives.join(' ');
+}
+
+/**
+ * Converts a Directive array into DirectiveNode array.
+ */
+export function directivesToDirectiveNodes(directives?: readonly Directive<any>[])
+  : ConstDirectiveNode[] | undefined
+{
+  return (!directives || directives.length === 0)
+    ? undefined
+    : directives.map(directive => {
+      return {
+        kind: Kind.DIRECTIVE,
+        name: {
+          kind: Kind.NAME,
+          value: directive.name,
+        },
+        arguments: directive.argumentsToAST()
+      };
+    });
 }
 
 /**
