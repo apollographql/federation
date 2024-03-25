@@ -16,6 +16,7 @@ import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
 import {
   composeAndCreatePlanner,
   composeAndCreatePlannerWithOptions,
+  findFetchNodes,
 } from './testHelper';
 import { enforceQueryPlannerConfigDefaults } from '../config';
 
@@ -8386,3 +8387,138 @@ describe('handles fragments with directive conditions', () => {
     `);
   });
 });
+
+describe('handles operations with directives', () => {
+  const subgraphA = {
+    name: 'subgraphA',
+    typeDefs: gql`
+      directive @operation on MUTATION | QUERY | SUBSCRIPTION
+      directive @field on FIELD
+
+      type Foo @key(fields: "id") {
+        id: ID!
+        bar: String
+        t: T!
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+      }
+
+      type Query {
+        foo: Foo
+      }
+
+      type Mutation {
+        updateFoo(bar: String): Foo
+      }
+    `,
+  };
+
+  const subgraphB = {
+    name: 'subgraphB',
+    typeDefs: gql`
+      directive @operation on MUTATION | QUERY | SUBSCRIPTION
+      directive @field on FIELD
+
+      type Foo @key(fields: "id") {
+        id: ID!
+        baz: Int
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        f1: String
+      }
+    `,
+  };
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraphA, subgraphB);
+
+  test('if directives at the operation level are passed down to subgraph queries', () => {
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query Operation @operation {
+          foo @field {
+            bar @field
+            baz @field
+            t @field {
+              f1 @field
+            }
+          }
+        }
+      `,
+    );
+
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+
+    const A_fetch_nodes = findFetchNodes(subgraphA.name, queryPlan.node);
+    expect(A_fetch_nodes).toHaveLength(1);
+    // Note: The query is expected to carry the `@operation` directive.
+    expect(parse(A_fetch_nodes[0].operation)).toMatchInlineSnapshot(`
+      query Operation__subgraphA__0 @operation {
+        foo @field {
+          __typename
+          id
+          bar @field
+          t @field {
+            __typename
+            id
+          }
+        }
+      }
+    `);
+
+    const B_fetch_nodes = findFetchNodes(subgraphB.name, queryPlan.node);
+    expect(B_fetch_nodes).toHaveLength(2);
+    // Note: The query is expected to carry the `@operation` directive.
+    expect(parse(B_fetch_nodes[0].operation)).toMatchInlineSnapshot(`
+      query Operation__subgraphB__1($representations: [_Any!]!) @operation {
+        _entities(representations: $representations) {
+          ... on Foo {
+            baz @field
+          }
+        }
+      }
+    `);
+    // Note: The query is expected to carry the `@operation` directive.
+    expect(parse(B_fetch_nodes[1].operation)).toMatchInlineSnapshot(`
+      query Operation__subgraphB__2($representations: [_Any!]!) @operation {
+        _entities(representations: $representations) {
+          ... on T {
+            f1 @field
+          }
+        }
+      }
+    `);
+  }); // end of `test`
+
+  test('if directives on mutations are passed down to subgraph queries', () => {
+    const operation = operationFromDocument(
+      api,
+      gql`
+        mutation TestMutation @operation {
+          updateFoo(bar: "something") @field {
+            id @field
+            bar @field
+          }
+        }
+      `,
+    );
+
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+
+    const A_fetch_nodes = findFetchNodes(subgraphA.name, queryPlan.node);
+    expect(A_fetch_nodes).toHaveLength(1);
+    // Note: The query is expected to carry the `@operation` directive.
+    expect(parse(A_fetch_nodes[0].operation)).toMatchInlineSnapshot(`
+      mutation TestMutation__subgraphA__0 @operation {
+        updateFoo(bar: "something") @field {
+          id @field
+          bar @field
+        }
+      }
+    `);
+  }); // end of `test`
+}); // end of `describe`
