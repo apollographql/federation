@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.7.3
+
+### Patch Changes
+
+- Fixed query planner to pass the directives from original query to subgraph operations (#2961) ([#2967](https://github.com/apollographql/federation/pull/2967))
+
+- Updated dependencies [[`a494631918156f0431ceace74281c076cf1d5d51`](https://github.com/apollographql/federation/commit/a494631918156f0431ceace74281c076cf1d5d51)]:
+  - @apollo/federation-internals@2.7.3
+  - @apollo/query-graphs@2.7.3
+
 ## 2.7.2
 
 ### Patch Changes
