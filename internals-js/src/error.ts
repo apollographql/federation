@@ -333,7 +333,7 @@ const CONTEXT_NOT_SET = makeCodeDefinition(
 
 const CONTEXT_INVALID_SELECTION= makeCodeDefinition(
   'CONTEXT_INVALID_SELECTION',
-  'Selection within a context is not valid for contextual type.',
+  'Selection within @fromContext must resolve to a single field.',
   { addedIn: '2.8.0' },
 );
 

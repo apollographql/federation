@@ -50,7 +50,7 @@ export type JoinFieldDirectiveArguments = {
   external?: boolean,
   usedOverridden?: boolean,
   overrideLabel?: string,
-  requiredArguments?: {
+  contextArguments?: {
     name: string,
     type: string,
     context: string,
@@ -163,14 +163,16 @@ export class JoinSpecDefinition extends FeatureDefinition {
       // progressive override
       joinField.addArgument('overrideLabel', schema.stringType());
 
+      const fieldValue = this.addScalarType(schema, 'FieldValue');
+
       // set context
-      const requireType = schema.addType(new InputObjectType('join__RequireArgument'));
+      const requireType = schema.addType(new InputObjectType('join__ContextArgument'));
       requireType.addField('name', new NonNullType(schema.stringType()));
       requireType.addField('type', new NonNullType(schema.stringType()));
       requireType.addField('context', new NonNullType(schema.stringType()));
-      requireType.addField('selection', new NonNullType(joinFieldSet));
+      requireType.addField('selection', new NonNullType(fieldValue));
 
-      joinField.addArgument('requiredArguments', new ListType(new NonNullType(requireType)));
+      joinField.addArgument('contextArguments', new ListType(new NonNullType(requireType)));
     }
 
     if (this.isV01()) {

@@ -80,13 +80,13 @@ describe('composition', () => {
 
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, requiredArguments: [join__RequireArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
       directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
 
-      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false, contexts: [String!]) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
       directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
 
@@ -99,21 +99,22 @@ describe('composition', () => {
         V2 @join__enumValue(graph: SUBGRAPH2)
       }
 
+      input join__ContextArgument {
+        name: String!
+        type: String!
+        context: String!
+        selection: join__FieldValue!
+      }
+
       scalar join__DirectiveArguments
 
       scalar join__FieldSet
 
+      scalar join__FieldValue
+
       enum join__Graph {
         SUBGRAPH1 @join__graph(name: "Subgraph1", url: "https://Subgraph1")
         SUBGRAPH2 @join__graph(name: "Subgraph2", url: "https://Subgraph2")
-      }
-
-      input join__RequireArgument {
-        position: Int!
-        fromContext: String!
-        name: String!
-        type: String!
-        selection: join__FieldSet!
       }
 
       scalar link__Import
@@ -240,13 +241,13 @@ describe('composition', () => {
 
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, requiredArguments: [join__RequireArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
       directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
 
-      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false, contexts: [String!]) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
       directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
 
@@ -259,21 +260,22 @@ describe('composition', () => {
         V2 @join__enumValue(graph: SUBGRAPH2)
       }
 
+      input join__ContextArgument {
+        context: String!
+        name: String!
+        selection: join__FieldValue!
+        type: String!
+      }
+
       scalar join__DirectiveArguments
 
       scalar join__FieldSet
 
+      scalar join__FieldValue
+
       enum join__Graph {
         SUBGRAPH1 @join__graph(name: "Subgraph1", url: "https://Subgraph1")
         SUBGRAPH2 @join__graph(name: "Subgraph2", url: "https://Subgraph2")
-      }
-
-      input join__RequireArgument {
-        fromContext: String!
-        name: String!
-        position: Int!
-        selection: join__FieldSet!
-        type: String!
       }
 
       scalar link__Import
@@ -2521,7 +2523,7 @@ describe('composition', () => {
 
       directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
 
-      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false, contexts: [String!]) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
       directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
 

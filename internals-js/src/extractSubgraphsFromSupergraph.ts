@@ -40,7 +40,8 @@ import { parseSelectionSet } from "./operations";
 import fs from 'fs';
 import path from 'path';
 import { validateStringContainsBoolean } from "./utils";
-import { errorCauses, printErrors } from ".";
+import { errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
+import { Kind, TypeNode, parseType } from 'graphql';
 
 function filteredTypes(
   supergraph: Schema,
@@ -356,7 +357,7 @@ function addEmptyType<T extends NamedType>(
   assert(typeApplications.length > 0, `Missing @join__type on ${type}`)
   const subgraphsInfo: SubgraphTypeInfo<T> = new Map<string, { type: T, subgraph: Subgraph }>();
   for (const application of typeApplications) {
-    const { graph, key, extension, resolvable, isInterfaceObject } = application.arguments();
+    const { graph, key, extension, resolvable, isInterfaceObject, contexts } = application.arguments();
     let subgraphInfo = subgraphsInfo.get(graph);
     if (!subgraphInfo) {
       const subgraph = getSubgraph(application);
@@ -370,6 +371,18 @@ function addEmptyType<T extends NamedType>(
       const subgraphType = subgraph.schema.addType(newNamedType(kind, type.name)) as T;
       if (isInterfaceObject) {
         subgraphType.applyDirective('interfaceObject');
+      }
+      if (contexts) {
+        const contextDirective = subgraph.metadata().contextDirective();
+        for (const context of contexts) {
+          if (!isFederationDirectiveDefinedInSchema(contextDirective)) {
+            throw new Error(`@context directive is not defined in the subgraph schema: ${subgraph.name}`);
+          } else {
+            subgraphType.applyDirective(contextDirective, {
+              name: context,
+            });
+          }
+        }
       }
       subgraphInfo = { type: subgraphType, subgraph };
       subgraphsInfo.set(graph, subgraphInfo);
@@ -583,6 +596,22 @@ function errorToString(e: any,): string {
   return causes ? printErrors(causes) : String(e);
 }
 
+const typeFromTypeNode = (typeNode: TypeNode, schema: Schema): Type => {
+  if (typeNode.kind === Kind.NON_NULL_TYPE) {
+    const type = typeFromTypeNode(typeNode.type, schema);
+    assert(type.kind !== 'NonNullType', 'A non-null type cannot be nested in another non-null type');
+    return new NonNullType(type);
+  } else if (typeNode.kind === Kind.LIST_TYPE) {
+    return new ListType(typeFromTypeNode(typeNode.type, schema));
+  }
+
+  const type = schema.type(typeNode.name.value);
+  if (!type) {
+    throw new Error(`Type ${typeNode.name.value} not found in schema`);
+  }
+  return type;
+};
+
 function addSubgraphField({
   field,
   type,
@@ -609,6 +638,21 @@ function addSubgraphField({
   }
   if (joinFieldArgs?.provides) {
     subgraphField.applyDirective(subgraph.metadata().providesDirective(), {'fields': joinFieldArgs.provides});
+  }
+  if (joinFieldArgs?.contextArguments) {
+    const fromContextDirective = subgraph.metadata().fromContextDirective();
+    if (!isFederationDirectiveDefinedInSchema(fromContextDirective)) {
+      throw new Error(`@context directive is not defined in the subgraph schema: ${subgraph.name}`);
+    } else {
+      for (const arg of joinFieldArgs.contextArguments) {
+        const typeNode = parseType(arg.type);
+        subgraphField.addArgument(arg.name, typeFromTypeNode(typeNode, subgraph.schema));
+        const argOnField = subgraphField.argument(arg.name);
+        argOnField?.applyDirective(fromContextDirective, {
+          field: `\$${arg.context} ${arg.selection}`,
+        });
+      }
+    }
   }
   const external = !!joinFieldArgs?.external;
   if (external) {

@@ -3874,7 +3874,7 @@ export function parseSelectionSet({
   return selectionSet;
 }
 
-function parseOperationAST(source: string): OperationDefinitionNode {
+export function parseOperationAST(source: string): OperationDefinitionNode {
   const parsed = parse(source);
   validate(parsed.definitions.length === 1, () => 'Selections should contain a single definitions, found ' + parsed.definitions.length);
   const def = parsed.definitions[0];
