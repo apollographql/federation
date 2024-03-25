@@ -973,6 +973,18 @@ export class Operation {
     return this.withUpdatedSelectionSetAndFragments(optimizedSelection, finalFragments ?? undefined);
   }
 
+  generateQueryFragments(): Operation {
+    const [minimizedSelectionSet, fragments] = this.selectionSet.minimizeSelectionSet();
+    return new Operation(
+      this.schema,
+      this.rootKind,
+      minimizedSelectionSet,
+      this.variableDefinitions,
+      fragments,
+      this.name,
+    );
+  }
+
   expandAllFragments(): Operation {
     // We clear up the fragments since we've expanded all.
     // Also note that expanding fragment usually generate unecessary fragments/inefficient selections, so it
@@ -1378,28 +1390,6 @@ export class NamedFragments {
     });
   }
 
-  // When we rebase named fragments on a subgraph schema, only a subset of what the fragment handles may belong
-  // to that particular subgraph. And there are a few sub-cases where that subset is such that we basically need or
-  // want to consider to ignore the fragment for that subgraph, and that is when:
-  // 1. the subset that apply is actually empty. The fragment wouldn't be valid in this case anyway.
-  // 2. the subset is a single leaf field: in that case, using the one field directly is just shorter than using
-  //   the fragment, so we consider the fragment don't really apply to that subgraph. Technically, using the
-  //   fragment could still be of value if the fragment name is a lot smaller than the one field name, but it's
-  //   enough of a niche case that we ignore it. Note in particular that one sub-case of this rule that is likely
-  //   to be common is when the subset ends up being just `__typename`: this would basically mean the fragment
-  //   don't really apply to the subgraph, and that this will ensure this is the case.
-  private selectionSetIsWorthUsing(selectionSet: SelectionSet): boolean {
-    const selections = selectionSet.selections();
-    if (selections.length === 0) {
-      return false;
-    }
-    if (selections.length === 1) {
-      const s = selections[0];
-      return !(s.kind === 'FieldSelection' && s.element.isLeafField());
-    }
-    return true;
-  }
-
   rebaseOn(schema: Schema): NamedFragments | undefined {
     return this.mapInDependencyOrder((fragment, newFragments) => {
       const rebasedType = schema.type(fragment.selectionSet.parentType.name);
@@ -1411,7 +1401,7 @@ export class NamedFragments {
       // Rebasing can leave some inefficiencies in some case (particularly when a spread has to be "expanded", see `FragmentSpreadSelection.rebaseOn`),
       // so we do a top-level normalization to keep things clean.
       rebasedSelection = rebasedSelection.normalize({ parentType: rebasedType });
-      return this.selectionSetIsWorthUsing(rebasedSelection)
+      return rebasedSelection.isWorthUsing()
         ? new NamedFragmentDefinition(schema, fragment.name, rebasedType).setSelectionSet(rebasedSelection)
         : undefined;
     });
@@ -1533,6 +1523,60 @@ export class SelectionSet {
   ) {
     this._keyedSelections = keyedSelections;
     this._selections = mapValues(keyedSelections);
+  }
+
+  /**
+   * Takes a selection set and extracts inline fragments into named fragments,
+   * reusing generated named fragments when possible.
+   */
+  minimizeSelectionSet(
+    namedFragments: NamedFragments = new NamedFragments(),
+    seenSelections: Map<string, [SelectionSet, NamedFragmentDefinition][]> = new Map(),
+  ): [SelectionSet, NamedFragments] {
+    const minimizedSelectionSet = this.lazyMap((selection) => {
+      if (selection.kind === 'FragmentSelection' && selection.element.typeCondition && selection.element.appliedDirectives.length === 0
+          && selection.selectionSet && selection.selectionSet.isWorthUsing() ) {
+        // No proper hash code, so we use a unique enough number that's cheap to
+        // compute and handle collisions as necessary.
+        const mockHashCode = `on${selection.element.typeCondition}` + selection.selectionSet.selections().length;
+        const equivalentSelectionSetCandidates = seenSelections.get(mockHashCode);
+        if (equivalentSelectionSetCandidates) {
+          // See if any candidates have an equivalent selection set, i.e. {x y} and {y x}.
+          const match = equivalentSelectionSetCandidates.find(([candidateSet]) => candidateSet.equals(selection.selectionSet!));
+          if (match) {
+            // If we found a match, we can reuse the fragment (but we still need
+            // to create a new FragmentSpread since parent types may differ).
+            return new FragmentSpreadSelection(this.parentType, namedFragments, match[1], []);
+          }
+        }
+
+        // No match, so we need to create a new fragment. First, we minimize the
+        // selection set before creating the fragment with it.
+        const [minimizedSelectionSet] = selection.selectionSet.minimizeSelectionSet(namedFragments, seenSelections);
+        const fragmentDefinition = new NamedFragmentDefinition(
+          this.parentType.schema(),
+          `_generated_${mockHashCode}_${equivalentSelectionSetCandidates?.length ?? 0}`,
+          selection.element.typeCondition
+        ).setSelectionSet(minimizedSelectionSet);
+
+        // Create a new "hash code" bucket or add to the existing one.
+        if (!equivalentSelectionSetCandidates) {
+          seenSelections.set(mockHashCode, [[selection.selectionSet, fragmentDefinition]]);
+          namedFragments.add(fragmentDefinition);
+        } else {
+          equivalentSelectionSetCandidates.push([selection.selectionSet, fragmentDefinition]);
+        }
+
+        return new FragmentSpreadSelection(this.parentType, namedFragments, fragmentDefinition, []);
+      } else if (selection.kind === 'FieldSelection') {
+        if (selection.selectionSet) {
+          selection = selection.withUpdatedSelectionSet(selection.selectionSet.minimizeSelectionSet(namedFragments, seenSelections)[0]);
+        }
+      }
+      return selection;
+    });
+
+    return [minimizedSelectionSet, namedFragments];
   }
 
   selectionsInReverseOrder(): readonly Selection[] {
@@ -2076,6 +2120,34 @@ export class SelectionSet {
         ? '{\n' + selectionsToString  + '\n' + indent + '}'
         : selectionsToString;
     }
+  }
+
+  // `isWorthUsing` method is used to determine whether we want to factor out
+  // given selection set into a named fragment so it can be reused across the query.
+  // Currently, it is used in these cases:
+  // 1) to reuse existing named fragments in subgraph queries (when reuseQueryFragments is on)
+  // 2) to factor selection sets into named fragments (when generateQueryFragments is on).
+  //
+  // When we rebase named fragments on a subgraph schema, only a subset of what the fragment handles may belong
+  // to that particular subgraph. And there are a few sub-cases where that subset is such that we basically need or
+  // want to consider to ignore the fragment for that subgraph, and that is when:
+  // 1. the subset that apply is actually empty. The fragment wouldn't be valid in this case anyway.
+  // 2. the subset is a single leaf field: in that case, using the one field directly is just shorter than using
+  //   the fragment, so we consider the fragment don't really apply to that subgraph. Technically, using the
+  //   fragment could still be of value if the fragment name is a lot smaller than the one field name, but it's
+  //   enough of a niche case that we ignore it. Note in particular that one sub-case of this rule that is likely
+  //   to be common is when the subset ends up being just `__typename`: this would basically mean the fragment
+  //   don't really apply to the subgraph, and that this will ensure this is the case.
+  isWorthUsing(): boolean {
+    const selections = this.selections();
+    if (selections.length === 0) {
+      return false;
+    }
+    if (selections.length === 1) {
+      const s = selections[0];
+      return !(s.kind === 'FieldSelection' && s.element.isLeafField());
+    }
+    return true;
   }
 }
 

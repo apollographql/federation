@@ -6,8 +6,9 @@ import {
   HINTS,
 } from '../hints';
 import { MergeResult, mergeSubgraphs } from '../merging';
-import { composeAsFed2Subgraphs } from './testHelper';
-import { formatExpectedToMatchReceived } from './matchers/toMatchString';
+import { assertCompositionSuccess, composeAsFed2Subgraphs } from './testHelper';
+import { formatExpectedToMatchReceived } from 'apollo-federation-integration-testsuite/src/matchers/toMatchString';
+import { composeServices } from '../compose';
 
 function mergeDocuments(...documents: DocumentNode[]): MergeResult {
   const subgraphs = new Subgraphs();
@@ -899,6 +900,64 @@ describe('hint tests related to the @override directive', () => {
       'T.id'
     );
   });
+
+  it('hint when progressive @override migration is in progress', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int
+        f: Int @override(from: "Subgraph2", label: "percent(1)")
+      }
+    `;
+
+    const subgraph2 = gql`
+    type T @key(fields: "id"){
+      id: Int
+      f: Int
+    }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+
+    // We don't want to see the related hint for non-progressive overrides that
+    // suggest removing the original field.
+    expect(result.hints).toHaveLength(1);
+    expect(result).toRaiseHint(
+      HINTS.OVERRIDE_MIGRATION_IN_PROGRESS,
+      `Field "T.f" is currently being migrated with progressive @override. Once the migration is complete, remove the field from subgraph "Subgraph2".`,
+      'T.f',
+    );
+  });
+
+  it('hint when progressive @override migration is in progress (for a referenced field)', () => {
+    const subgraph1 = gql`
+      type Query {
+        a: Int
+      }
+
+      type T @key(fields: "id"){
+        id: Int @override(from: "Subgraph2", label: "percent(1)")
+      }
+    `;
+
+    const subgraph2 = gql`
+      type T @key(fields: "id"){
+        id: Int
+      }
+    `;
+    const result = mergeDocuments(subgraph1, subgraph2);
+
+    // We don't want to see the related hint for non-progressive overrides that
+    // suggest removing the original field.
+    expect(result.hints).toHaveLength(1);
+    expect(result).toRaiseHint(
+      HINTS.OVERRIDE_MIGRATION_IN_PROGRESS,
+      `Field "T.id" on subgraph "Subgraph2" is currently being migrated via progressive @override. It is still used in some federation directive(s) (@key, @requires, and/or @provides) and/or to satisfy interface constraint(s). Once the migration is complete, consider marking it @external explicitly or removing it along with its references.`,
+      'T.id'
+    );
+  });
 });
 
 describe('on non-repeatable directives used with incompatible arguments', () => {
@@ -1175,5 +1234,205 @@ describe('when shared field has intersecting but non equal runtime types in diff
       `,
       'E.s',
     );
+  });
+});
+
+describe('when a directive causes an implicit federation version upgrade', () => {
+  const olderFederationSchema = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key"])
+
+    type Query {
+      a: String!
+    }
+  `;
+
+  const newerFederationSchema = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key"])
+
+    type Query {
+      b: String!
+    }
+  `;
+
+  const autoUpgradedSchema = gql`
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@shareable"])
+      @link(url: "https://specs.apollo.dev/source/v0.1", import: [
+        "@sourceAPI"
+        "@sourceType"
+        "@sourceField"
+      ])
+      @sourceAPI(
+        name: "A"
+        http: { baseURL: "https://api.a.com/v1" }
+      )
+      {
+        query: Query
+      }
+
+    type Query @shareable {
+      resources: [Resource!]! @sourceField(
+        api: "A"
+        http: { GET: "/resources" }
+      )
+    }
+
+    type Resource @shareable @key(fields: "id") @sourceType(
+      api: "A"
+      http: { GET: "/resources/{id}" }
+      selection: "id description"
+    ) {
+      id: ID!
+      description: String!
+    }
+  `;
+
+  it('should hint that the version was upgraded to satisfy directive requirements', () => {
+    const result = composeServices([
+      {
+        name: 'already-newest',
+        typeDefs: newerFederationSchema,
+      },
+      {
+        name: 'old-but-not-upgraded',
+        typeDefs: olderFederationSchema,
+      },
+      {
+        name: 'upgraded',
+        typeDefs: autoUpgradedSchema,
+      }
+    ]);
+
+    assertCompositionSuccess(result);
+    expect(result).toRaiseHint(
+      HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+      'Subgraph upgraded has been implicitly upgraded from federation v2.5 to v2.7',
+      '@link'
+    );
+  });
+
+  it('should show separate hints for each upgraded subgraph', () => {
+    const result = composeServices([
+      {
+        name: 'upgraded-1',
+        typeDefs: autoUpgradedSchema,
+      },
+      {
+        name: 'upgraded-2',
+        typeDefs: autoUpgradedSchema
+      },
+    ]);
+
+    assertCompositionSuccess(result);
+    expect(result).toRaiseHint(
+      HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+      'Subgraph upgraded-1 has been implicitly upgraded from federation v2.5 to v2.7',
+      '@link'
+    );
+    expect(result).toRaiseHint(
+      HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+      'Subgraph upgraded-2 has been implicitly upgraded from federation v2.5 to v2.7',
+      '@link'
+    );
+  });
+
+  it('should not raise hints if the only upgrade is caused by a link directly to the federation spec', () => {
+    const result = composeServices([
+      {
+        name: 'already-newest',
+        typeDefs: newerFederationSchema,
+      },
+      {
+        name: 'old-but-not-upgraded',
+        typeDefs: olderFederationSchema,
+      },
+    ]);
+
+    assertCompositionSuccess(result);
+    expect(result).toNotRaiseHints();
+  });
+});
+
+describe('when a partially-defined type is marked @external or all fields are marked @external', () => {
+  describe('value types', () => {
+    it('with type marked @external', () => {
+      const meSubgraph = gql`
+        type Query {
+          me: Account
+        }
+
+        type Account @key(fields: "id") {
+          id: ID!
+          name: String
+          permissions: Permissions
+        }
+
+        type Permissions {
+          canView: Boolean
+          canEdit: Boolean
+        }
+      `;
+
+      const accountSubgraph = gql`
+        type Query {
+          account: Account
+        }
+
+        type Account @key(fields: "id") {
+          id: ID!
+          permissions: Permissions @external
+          isViewer: Boolean @requires(fields: "permissions { canView }")
+        }
+
+        type Permissions @external {
+          canView: Boolean
+        }
+      `;
+
+      const result = mergeDocuments(meSubgraph, accountSubgraph);
+      expect(result).toNotRaiseHints();
+    });
+  
+    it('with all fields marked @external', () => {
+      const meSubgraph = gql`
+        type Query {
+          me: Account
+        }
+
+        type Account @key(fields: "id") {
+          id: ID!
+          name: String
+          permissions: Permissions
+        }
+
+        type Permissions {
+          canView: Boolean
+          canEdit: Boolean
+          canDelete: Boolean
+        }
+      `;
+
+      const accountSubgraph = gql`
+        type Query {
+          account: Account
+        }
+
+        type Account @key(fields: "id") {
+          id: ID!
+          permissions: Permissions @external
+          isViewer: Boolean @requires(fields: "permissions { canView canEdit }")
+        }
+
+        type Permissions {
+          canView: Boolean @external
+          canEdit: Boolean @external
+        }
+      `;
+
+      const result = mergeDocuments(meSubgraph, accountSubgraph);
+      expect(result).toNotRaiseHints();
+    });
   });
 });

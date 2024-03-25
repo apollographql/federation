@@ -80,9 +80,6 @@ export const mockCloudConfigUrl2 =
 export const mockCloudConfigUrl3 =
   'https://example3.cloud-config-url.com/cloudconfig/';
 
-export const mockOutOfBandReporterUrl =
-  'https://example.outofbandreporter.com/monitoring/';
-
 export function mockSupergraphSdlRequestIfAfter(ifAfter: string | null, url: string | RegExp = mockCloudConfigUrl1) {
   return gatewayNock(url).post('/', {
     query: SUPERGRAPH_SDL_QUERY,
@@ -139,19 +136,4 @@ export function mockSupergraphSdlRequestIfAfterUnchanged(
 
 export function mockSupergraphSdlRequestSuccess({supergraphSdl = getTestingSupergraphSdl(), url = mockCloudConfigUrl1}: {supergraphSdl?: string, url?: string | RegExp} = {}) {
   return mockSupergraphSdlRequestSuccessIfAfter(null, undefined, supergraphSdl, url);
-}
-
-export function mockOutOfBandReportRequest() {
-  return gatewayNock(mockOutOfBandReporterUrl).post('/', () => true);
-}
-
-export function mockOutOfBandReportRequestSuccess() {
-  return mockOutOfBandReportRequest().reply(
-    200,
-    JSON.stringify({
-      data: {
-        reportError: true
-      },
-    }),
-  );
 }

@@ -73,8 +73,6 @@ export class UplinkSupergraphManager implements SupergraphManager {
   private onFailureToFetchSupergraphSdlAfterInit?: FailureToFetchSupergraphSdlAfterInit;
   private timerRef: NodeJS.Timeout | null = null;
   private state: State;
-  private errorReportingEndpoint: string | undefined =
-    process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT ?? undefined;
   private compositionId?: string;
   private fetchCount: number = 0;
   private mostRecentSuccessfulFetchAt?: Date;
@@ -135,6 +133,9 @@ export class UplinkSupergraphManager implements SupergraphManager {
     this.onFailureToFetchSupergraphSdlAfterInit =
       onFailureToFetchSupergraphSdlAfterInit;
 
+    if (!!process.env.APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT) {
+      this.logger.warn('Out-of-band error reporting is no longer used by Apollo. You may remove the `APOLLO_OUT_OF_BAND_REPORTER_ENDPOINT` environment variable at your convenience.');
+    }
     this.state = { phase: 'constructed' };
   }
 
@@ -208,7 +209,6 @@ export class UplinkSupergraphManager implements SupergraphManager {
         graphRef: this.graphRef,
         apiKey: this.apiKey,
         endpoints: this.uplinkEndpoints,
-        errorReportingEndpoint: this.errorReportingEndpoint,
         fetcher: this.fetcher,
         compositionId: this.compositionId ?? null,
         maxRetries,

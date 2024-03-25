@@ -3,11 +3,11 @@ title: Federation quickstart
 description: Part 3 - Local composition
 ---
 
-[Back in Part 2](./studio-composition/), we used managed federation with Apollo Studio to compose our router's supergraph schema. Next, let's try out composing _locally_ with the Rover CLI.
+[Back in Part 2](./studio-composition/), we used managed federation with GraphOS Studio to compose our router's supergraph schema. Next, let's try out composing locally with the Rover CLI.
 
 ## 1. Provide subgraph details
 
-Like Apollo Studio, the Rover CLI needs the following information about each of our subgraphs to compose them:
+Like GraphOS Studio, the Rover CLI needs the following information about each of our subgraphs to compose them:
 
 * The subgraph's schema
 * The URL of the subgraph's GraphQL endpoint (which must be accessible by the router)
@@ -31,8 +31,8 @@ subgraphs:
 
 As you can see, we're providing the same URL as the value of two different fields. These fields serve different purposes:
 
-* `routing_url` is the URL the _router_ will use to send GraphQL operations to the subgraph at runtime.
-* `schema.subgraph_url` is the URL that _Rover_ will use to fetch the subgraph schema for composition purposes.
+* `routing_url` is the URL the router will use to send GraphQL operations to the subgraph at runtime.
+* `schema.subgraph_url` is the URL that Rover will use to fetch the subgraph schema for composition purposes.
 
 These URLs might theoretically differ. The YAML file also supports providing a subgraph's schema as a local file path, or as a registered graph ref that Rover can fetch from Apollo (for details, [see the Rover docs](/rover/commands/supergraphs/#composing-a-supergraph-schema)).
 
@@ -40,7 +40,11 @@ These URLs might theoretically differ. The YAML file also supports providing a s
 
 Now that our configuration file is ready, we can compose our supergraph schema. To do that, we'll use Rover's `supergraph compose` command.
 
-> [Haven't installed the latest version of Rover?](./setup/#install-the-rover-cli)
+<Tip>
+
+[Install the latest version of Rover, if you haven't already.](./setup/#install-the-rover-cli)
+
+</Tip>
 
 From your project directory, run the following command in your terminal:
 
@@ -48,11 +52,15 @@ From your project directory, run the following command in your terminal:
 rover supergraph compose --config ./supergraph-config.yaml
 ```
 
-> ⚠️ **Important:** The first time you run this command with a Federation 2 YAML configuration, Rover installs a separate plugin and prompts you to accept the terms and conditions of the ELv2 license.
->
-> To automatically accept this prompt (especially important for CI environments), add `APOLLO_ELV2_LICENSE=accept` to the beginning of the command.
->
-> [Learn more about ELv2.](/resources/elastic-license-v2-faq/)
+<Note>
+
+The first time you run this command with a Federation 2 YAML configuration, Rover installs a separate plugin and prompts you to accept the terms and conditions of the ELv2 license.
+
+To automatically accept this prompt (especially important for CI environments), add `APOLLO_ELV2_LICENSE=accept` to the beginning of the command.
+
+[Learn more about ELv2.](/resources/elastic-license-v2-faq/)
+
+</Note>
 
 Rover outputs the following supergraph schema:
 
@@ -191,10 +199,10 @@ type SubmitReviewResponse
 
 As you can see, this composed schema includes all of the types and fields from our subgraph schemas, along with many additional directives that the router uses to route incoming operations.
 
-Now, append ` > supergraph.graphql` to the above command to write the composed schema to a file:
+Now, append ` --output supergraph.graphql` to the above command to write the composed schema to a file:
 
 ```shell
-rover supergraph compose --config ./supergraph-config.yaml > supergraph.graphql
+rover supergraph compose --config ./supergraph-config.yaml --output supergraph.graphql
 ```
 
 ## 3. Provide the composed schema to the router
@@ -205,11 +213,15 @@ To provide a Rover-composed supergraph schema to our router, we pass it as a com
 ./router --supergraph=supergraph.graphql
 ```
 
-> For brevity, we're skipping setting the `APOLLO_KEY` environment variable here. It isn't _required_ if you provide your schema with `--supergraph`, however you _do_ need to provide it to enable federated trace reporting.
+<Note>
 
-This time, the router reads your static supergraph schema from a file. This does _not_ communicate with Apollo Studio, which means it's well suited to local development or CI environments where you don't want to introduce an external dependency.
+For brevity, we're skipping setting the `APOLLO_KEY` environment variable here. Although it isn't required if you provide your schema with `--supergraph`, you do need to provide it to enable federated trace reporting.
 
-> [Learn more about router configuration options.](/router/configuration/overview/)
+</Note>
+
+This time, the router reads your static supergraph schema from a file. This does not communicate with GraphOS Studio, which means it's well suited to local development or CI environments where you don't want to introduce an external dependency.
+
+[Learn more about router configuration options.](/router/configuration/overview/)
 
 ---
 

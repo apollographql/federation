@@ -84,6 +84,7 @@ import {
   FederationTypeName,
   FEDERATION1_TYPES,
   FEDERATION1_DIRECTIVES,
+  FederationSpecDefinition,
 } from "./specs/federationSpec";
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
@@ -98,10 +99,18 @@ import {
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
-const federationSpec = FEDERATION_VERSIONS.latest();
+const federationSpec = (version?: FeatureVersion): FederationSpecDefinition => {
+  if (!version) return FEDERATION_VERSIONS.latest();
+  const spec = FEDERATION_VERSIONS.find(version);
+  assert(spec, `Federation spec version ${version} is not known`);
+  return spec;
+};
+
 // Some users rely on auto-expanding fed v1 graphs with fed v2 directives. While technically we should only expand @tag
 // directive from v2 definitions, we will continue expanding other directives (up to v2.4) to ensure backwards compatibility.
-const autoExpandedFederationSpec = FEDERATION_VERSIONS.find(new FeatureVersion(2, 4))!;
+const autoExpandedFederationSpec = federationSpec(new FeatureVersion(2, 4));
+
+const latestFederationSpec = federationSpec();
 
 // We don't let user use this as a subgraph name. That allows us to use it in `query graphs` to name the source of roots
 // in the "federated query graph" without worrying about conflict (see `FEDERATED_GRAPH_ROOT_SOURCE` in `querygraph.ts`).
@@ -860,7 +869,7 @@ export class FederationMetadata {
   }
 
   federationFeature(): CoreFeature | undefined {
-    return this.schema.coreFeatures?.getByIdentity(federationSpec.identity);
+    return this.schema.coreFeatures?.getByIdentity(latestFederationSpec.identity);
   }
 
   private externalTester(): ExternalTester {
@@ -922,7 +931,7 @@ export class FederationMetadata {
     if (this.isFed2Schema()) {
       const coreFeatures = this.schema.coreFeatures;
       assert(coreFeatures, 'Schema should be a core schema');
-      const federationFeature = coreFeatures.getByIdentity(federationSpec.identity);
+      const federationFeature = coreFeatures.getByIdentity(latestFederationSpec.identity);
       assert(federationFeature, 'Schema should have the federation feature');
       return federationFeature.directiveNameInSchema(name);
     } else {
@@ -944,7 +953,7 @@ export class FederationMetadata {
     if (this.isFed2Schema()) {
       const coreFeatures = this.schema.coreFeatures;
       assert(coreFeatures, 'Schema should be a core schema');
-      const federationFeature = coreFeatures.getByIdentity(federationSpec.identity);
+      const federationFeature = coreFeatures.getByIdentity(latestFederationSpec.identity);
       assert(federationFeature, 'Schema should have the federation feature');
       return federationFeature.typeNameInSchema(name);
     } else {
@@ -1515,7 +1524,7 @@ function findUnusedNamedForLinkDirective(schema: Schema): string | undefined {
   }
 }
 
-export function setSchemaAsFed2Subgraph(schema: Schema) {
+export function setSchemaAsFed2Subgraph(schema: Schema, useLatest: boolean = false) {
   let core = schema.coreFeatures;
   let spec: CoreSpecDefinition;
   if (core) {
@@ -1534,11 +1543,16 @@ export function setSchemaAsFed2Subgraph(schema: Schema) {
     assert(core, 'Schema should now be a core schema');
   }
 
-  assert(!core.getByIdentity(federationSpec.identity), 'Schema already set as a federation subgraph');
+  const fedSpec = useLatest ? latestFederationSpec : autoExpandedFederationSpec;
+
+  assert(!core.getByIdentity(fedSpec.identity), 'Schema already set as a federation subgraph');
   schema.schemaDefinition.applyDirective(
     core.coreItself.nameInSchema,
     {
-      url: federationSpec.url.toString(),
+      // note that there is a mismatch between url and directives that are imported. This is because
+      // we want to maintain backward compatibility for those who have already upgraded and we had been upgrading the url to
+      // latest, but we never automatically import directives that exist past 2.4
+      url: fedSpec.url.toString(),
       import: autoExpandedFederationSpec.directiveSpecs().map((spec) => `@${spec.name}`),
     }
   );
@@ -1554,18 +1568,21 @@ export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apo
 // This is the full @link declaration that is added when upgrading fed v1 subgraphs to v2 version. It should only be used by tests.
 export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 
+// This is the federation @link for tests that go through the SchemaUpgrader.
+export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS_UPGRADED = '@link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
+
 /**
  * Given a document that is assumed to _not_ be a fed2 schema (it does not have a `@link` to the federation spec),
  * returns an equivalent document that `@link` to the last known federation spec.
  *
  * @param document - the document to "augment".
- * @param options.addAsSchemaExtension - defines whethere the added `@link` is added as a schema extension (`extend schema`) or
+ * @param options.addAsSchemaExtension - defines whether the added `@link` is added as a schema extension (`extend schema`) or
  *   added to the schema definition. Defaults to `true` (added as an extension), as this mimics what we tends to write manually.
  * @param options.includeAllImports - defines whether we should auto import ALL latest federation v2 directive definitions or include
  *   only limited set of directives (i.e. federation v2.4 definitions)
  */
 export function asFed2SubgraphDocument(document: DocumentNode, options?: { addAsSchemaExtension?: boolean, includeAllImports?: boolean }): DocumentNode {
-  const importedDirectives = options?.includeAllImports ? federationSpec.directiveSpecs() : autoExpandedFederationSpec.directiveSpecs();
+  const importedDirectives = options?.includeAllImports ? latestFederationSpec.directiveSpecs() : autoExpandedFederationSpec.directiveSpecs();
   const directiveToAdd: ConstDirectiveNode = ({
     kind: Kind.DIRECTIVE,
     name: { kind: Kind.NAME, value: linkDirectiveDefaultName },
@@ -1573,7 +1590,7 @@ export function asFed2SubgraphDocument(document: DocumentNode, options?: { addAs
       {
         kind: Kind.ARGUMENT,
         name: { kind: Kind.NAME, value: 'url' },
-        value: { kind: Kind.STRING, value: federationSpec.url.toString() }
+        value: { kind: Kind.STRING, value: latestFederationSpec.url.toString() }
       },
       {
         kind: Kind.ARGUMENT,
@@ -1699,7 +1716,7 @@ export function buildSubgraph(
 
 export function newEmptyFederation2Schema(config?: SchemaConfig): Schema {
   const schema = new Schema(new FederationBlueprint(true), config);
-  setSchemaAsFed2Subgraph(schema);
+  setSchemaAsFed2Subgraph(schema, true);
   return schema;
 }
 
