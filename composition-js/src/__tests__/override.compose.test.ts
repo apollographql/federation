@@ -974,7 +974,7 @@ describe("composition involving @override directive", () => {
       expect(result.supergraphSdl).toMatchInlineSnapshot(`
         "schema
           @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
-          @link(url: \\"https://specs.apollo.dev/join/v0.4\\", for: EXECUTION)
+          @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
         {
           query: Query
         }
@@ -989,7 +989,7 @@ describe("composition involving @override directive", () => {
 
         directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
 
-        directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false, contexts: [String!]) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+        directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
         directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
 

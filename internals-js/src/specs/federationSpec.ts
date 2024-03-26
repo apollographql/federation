@@ -19,6 +19,7 @@ import { AUTHENTICATED_VERSIONS } from "./authenticatedSpec";
 import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
 import { POLICY_VERSIONS } from './policySpec';
 import { SOURCE_VERSIONS } from './sourceSpec';
+import { CONTEXT_VERSIONS } from './contextSpec';
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -89,18 +90,6 @@ const providesDirectiveSpec = createDirectiveSpecification({
 const legacyFederationTypes = [
   fieldSetTypeSpec,
 ];
-
-const contextSpec = createDirectiveSpecification({
-  name: FederationDirectiveName.CONTEXT,
-  locations: [DirectiveLocation.INTERFACE, DirectiveLocation.OBJECT, DirectiveLocation.UNION],
-  args: [{ name: 'name', type: (schema) =>new NonNullType(schema.stringType()) }],
-});
-
-const fromContextSpec = createDirectiveSpecification({
-  name: FederationDirectiveName.FROM_CONTEXT,
-  locations: [DirectiveLocation.ARGUMENT_DEFINITION],
-  args: [{ name: 'field', type: (schema) => schema.stringType() }],
-});
 
 const legacyFederationDirectives = [
   keyDirectiveSpec,
@@ -194,8 +183,10 @@ export class FederationSpecDefinition extends FeatureDefinition {
 
     if (version.gte(new FeatureVersion(2, 7))) {
       this.registerSubFeature(SOURCE_VERSIONS.find(new FeatureVersion(0, 1))!);
-      this.registerDirective(contextSpec);
-      this.registerDirective(fromContextSpec);
+    }
+    
+    if (version.gte(new FeatureVersion(2, 8))) {
+      this.registerSubFeature(CONTEXT_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
   }
 }
@@ -208,6 +199,7 @@ export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefiniti
   .add(new FederationSpecDefinition(new FeatureVersion(2, 4)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 5)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 6)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 7)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 7)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 8)));
 
 registerKnownFeature(FEDERATION_VERSIONS);

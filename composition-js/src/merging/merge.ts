@@ -79,6 +79,7 @@ import {
   parseContext,
   CoreFeature,
   Subgraph,
+  StaticArgumentsTransform,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -294,7 +295,7 @@ class Merger {
   readonly merged: Schema = new Schema();
   readonly subgraphNamesToJoinSpecName: Map<string, string>;
   readonly mergedFederationDirectiveNames = new Set<string>();
-  readonly mergedFederationDirectiveInSupergraph = new Map<string, { definition: DirectiveDefinition, argumentsMerger?: ArgumentMerger }>();
+  readonly mergedFederationDirectiveInSupergraph = new Map<string, { definition: DirectiveDefinition, argumentsMerger?: ArgumentMerger, staticArgumentTransform?: StaticArgumentsTransform }>();
   readonly enumUsages = new Map<string, EnumTypeUsage>();
   private composeDirectiveManager: ComposeDirectiveManager;
   private mismatchReporter: MismatchReporter;
@@ -459,6 +460,7 @@ class Merger {
       this.mergedFederationDirectiveInSupergraph.set(specInSupergraph.url.name, {
         definition: this.merged.directive(nameInSupergraph)!,
         argumentsMerger,
+        staticArgumentTransform: compositionSpec.staticArgumentTransform,
       });
     }
   }
@@ -861,25 +863,6 @@ class Merger {
     }
   }
 
-  private addTypeToContextMap(type: CompositeType, contexts: string[]) {
-    for (const context of contexts) {
-      if (this.contextToTypeMap.has(context)) {
-        this.contextToTypeMap.get(context)!.types.add(type);
-      } else {
-        this.contextToTypeMap.set(context, { types: new Set([type]), usages: [] });
-      }
-
-    }
-  }
-
-  // private addUsageToContextMap(context: string, selection: string, argumentDefinition: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>>) {
-  //   if (this.contextToTypeMap.has(context)) {
-  //     this.contextToTypeMap.get(context)!.usages.push({ usage: selection, argumentDefinition });
-  //   } else {
-  //     this.contextToTypeMap.set(context, { types: new Set(), usages: [{ usage: selection, argumentDefinition }] });
-  //   }
-  // }
-
   private addJoinType(sources: (NamedType | undefined)[], dest: NamedType) {
     const joinTypeDirective = this.joinSpec.typeDirective(this.merged);
     for (const [idx, source] of sources.entries()) {
@@ -895,15 +878,6 @@ class Merger {
       const isInterfaceObject = sourceMetadata.isInterfaceObjectType(source) ? true : undefined;
       const keys = source.appliedDirectivesOf(sourceMetadata.keyDirective());
       const name = this.joinSpecName(idx);
-      const contextDirective = sourceMetadata.contextDirective();
-      let contexts: string[] | undefined = undefined;
-      if (isFederationDirectiveDefinedInSchema(contextDirective) && isCompositeType(dest)) {
-        const appliedDirectives = source.appliedDirectivesOf(contextDirective);
-        if (appliedDirectives.length > 0) {
-          contexts = appliedDirectives.map(d => d.arguments().name);
-          this.addTypeToContextMap(dest, contexts);
-        }
-      }
 
       if (!keys.length) {
         dest.applyDirective(joinTypeDirective, { graph: name, isInterfaceObject });
@@ -911,7 +885,7 @@ class Merger {
         for (const key of keys) {
           const extension = key.ofExtension() || source.hasAppliedDirective(sourceMetadata.extendsDirective()) ? true : undefined;
           const { resolvable } = key.arguments();
-          dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields, extension, resolvable, isInterfaceObject, contexts });
+          dest.applyDirective(joinTypeDirective, { graph: name, key: key.arguments().fields, extension, resolvable, isInterfaceObject });
         }
       }
     }
@@ -1765,7 +1739,7 @@ class Merger {
           assert(context, 'Context should be defined');
           assert(selection, 'Selection should be defined');
           return {
-            context,
+            context: `${this.subgraphs.values()[idx].name}__${context}`,
             name: arg.name,
             type: arg.type!.toString(),
             selection,
@@ -2677,11 +2651,15 @@ class Merger {
       return;
     }
 
+    const directiveInSupergraph = this.mergedFederationDirectiveInSupergraph.get(name);
+    
     if (dest.schema().directive(name)?.repeatable) {
       // For repeatable directives, we simply include each application found but with exact duplicates removed
       while (perSource.length > 0) {
         const directive = this.pickNextDirective(perSource);
-        dest.applyDirective(directive.name, directive.arguments(false));
+        
+        const transformedArgs = directiveInSupergraph && directiveInSupergraph.staticArgumentTransform && directiveInSupergraph.staticArgumentTransform(this.subgraphs.values()[0], directive.arguments(false));
+        dest.applyDirective(directive.name, transformedArgs ?? directive.arguments(false));
         // We remove every instances of this particular application. That is we remove any other applicaiton with
         // the same arguments. Note that when doing so, we include default values. This allows "merging" 2 applications
         // when one rely on the default value while another don't but explicitely uses that exact default value.

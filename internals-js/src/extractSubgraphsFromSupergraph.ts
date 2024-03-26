@@ -357,7 +357,7 @@ function addEmptyType<T extends NamedType>(
   assert(typeApplications.length > 0, `Missing @join__type on ${type}`)
   const subgraphsInfo: SubgraphTypeInfo<T> = new Map<string, { type: T, subgraph: Subgraph }>();
   for (const application of typeApplications) {
-    const { graph, key, extension, resolvable, isInterfaceObject, contexts } = application.arguments();
+    const { graph, key, extension, resolvable, isInterfaceObject } = application.arguments();
     let subgraphInfo = subgraphsInfo.get(graph);
     if (!subgraphInfo) {
       const subgraph = getSubgraph(application);
@@ -372,18 +372,6 @@ function addEmptyType<T extends NamedType>(
       if (isInterfaceObject) {
         subgraphType.applyDirective('interfaceObject');
       }
-      if (contexts) {
-        const contextDirective = subgraph.metadata().contextDirective();
-        for (const context of contexts) {
-          if (!isFederationDirectiveDefinedInSchema(contextDirective)) {
-            throw new Error(`@context directive is not defined in the subgraph schema: ${subgraph.name}`);
-          } else {
-            subgraphType.applyDirective(contextDirective, {
-              name: context,
-            });
-          }
-        }
-      }
       subgraphInfo = { type: subgraphType, subgraph };
       subgraphsInfo.set(graph, subgraphInfo);
     }
@@ -393,6 +381,21 @@ function addEmptyType<T extends NamedType>(
       if (extension) {
         directive.setOfExtension(subgraphInfo.type.newExtension());
       }
+    }
+  }
+  
+  const contextApplications = type.appliedDirectivesOf('context'); // TODO: is there a better way to get this?
+  // for every application, apply the context directive to the correct subgraph
+  for (const application of contextApplications) {
+    const { name } = application.arguments();
+    const match = name.match(/(.*?)__([\s\S]*)/);
+    const graph = match ? match[1] : undefined;
+    const context = match ? match[2] : undefined;
+    
+    const subgraphInfo = subgraphsInfo.get(graph ? graph.toUpperCase() : undefined);
+    const contextDirective = subgraphInfo?.subgraph.metadata().contextDirective();
+    if (subgraphInfo && contextDirective && isFederationDirectiveDefinedInSchema(contextDirective)) {
+      subgraphInfo.type.applyDirective(contextDirective, {name: context});
     }
   }
   return subgraphsInfo;
@@ -645,11 +648,17 @@ function addSubgraphField({
       throw new Error(`@context directive is not defined in the subgraph schema: ${subgraph.name}`);
     } else {
       for (const arg of joinFieldArgs.contextArguments) {
+        // this code will remove the subgraph name from the context
+        const match = arg.context.match(/.*?__([\s\S]*)/);
+        if (!match) {
+          throw new Error(`Invalid context argument: ${arg.context}`);
+        }
+        
         const typeNode = parseType(arg.type);
         subgraphField.addArgument(arg.name, typeFromTypeNode(typeNode, subgraph.schema));
         const argOnField = subgraphField.argument(arg.name);
         argOnField?.applyDirective(fromContextDirective, {
-          field: `\$${arg.context} ${arg.selection}`,
+          field: `\$${match[1]} ${arg.selection}`,
         });
       }
     }
