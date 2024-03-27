@@ -74,8 +74,12 @@ import {
   LinkDirectiveArgs,
   sourceIdentity,
   FeatureUrl,
+  isFederationDirectiveDefinedInSchema,
+  parseSelectionSet,
+  parseContext,
   CoreFeature,
   Subgraph,
+  StaticArgumentsTransform,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -291,7 +295,7 @@ class Merger {
   readonly merged: Schema = new Schema();
   readonly subgraphNamesToJoinSpecName: Map<string, string>;
   readonly mergedFederationDirectiveNames = new Set<string>();
-  readonly mergedFederationDirectiveInSupergraph = new Map<string, { definition: DirectiveDefinition, argumentsMerger?: ArgumentMerger }>();
+  readonly mergedFederationDirectiveInSupergraph = new Map<string, { definition: DirectiveDefinition, argumentsMerger?: ArgumentMerger, staticArgumentTransform?: StaticArgumentsTransform }>();
   readonly enumUsages = new Map<string, EnumTypeUsage>();
   private composeDirectiveManager: ComposeDirectiveManager;
   private mismatchReporter: MismatchReporter;
@@ -306,6 +310,7 @@ class Merger {
   private latestFedVersionUsed: FeatureVersion;
   private joinDirectiveIdentityURLs = new Set<string>();
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
+  private contextToTypeMap = new Map<string, { types: Set<CompositeType>, usages: { usage: string, argumentDefinition: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>> }[] }>();
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.latestFedVersionUsed = this.getLatestFederationVersionUsed();
@@ -455,6 +460,7 @@ class Merger {
       this.mergedFederationDirectiveInSupergraph.set(specInSupergraph.url.name, {
         definition: this.merged.directive(nameInSupergraph)!,
         argumentsMerger,
+        staticArgumentTransform: compositionSpec.staticArgumentTransform,
       });
     }
   }
@@ -872,6 +878,7 @@ class Merger {
       const isInterfaceObject = sourceMetadata.isInterfaceObjectType(source) ? true : undefined;
       const keys = source.appliedDirectivesOf(sourceMetadata.keyDirective());
       const name = this.joinSpecName(idx);
+
       if (!keys.length) {
         dest.applyDirective(joinTypeDirective, { graph: name, isInterfaceObject });
       } else {
@@ -1709,6 +1716,37 @@ class Merger {
         continue;
       }
 
+      const fromContextDirective = this.subgraphs.values()[idx].metadata().fromContextDirective();
+
+      const contextArguments = (source.kind === 'FieldDefinition' ? source.arguments() : [])
+        .map((arg): {
+          context: string,
+          name: string,
+          type: string,
+          selection: string,
+        } | undefined => {
+          if (!isFederationDirectiveDefinedInSchema(fromContextDirective)) {
+            return undefined;
+          }
+          const appliedDirectives = arg.appliedDirectivesOf(fromContextDirective);
+          if (appliedDirectives.length === 0) {
+            return undefined;
+          }
+          assert(appliedDirectives.length === 1, 'There should be at most one @fromContext directive applied to an argument');
+          const directive = appliedDirectives[0];
+          const { context, selection } = parseContext(directive.arguments().field);
+          // these are validated in the subgraph validation phase
+          assert(context, 'Context should be defined');
+          assert(selection, 'Selection should be defined');
+          return {
+            context: `${this.subgraphs.values()[idx].name}__${context}`,
+            name: arg.name,
+            type: arg.type!.toString(),
+            selection,
+          };
+        })
+        .filter(isDefined);
+
       const external = this.isExternal(idx, source);
       const sourceMeta = this.subgraphs.values()[idx].metadata();
       const name = this.joinSpecName(idx);
@@ -1721,10 +1759,10 @@ class Merger {
         external: external ? true : undefined,
         usedOverridden: usedOverridden ? true : undefined,
         overrideLabel: mergeContext.overrideLabel(idx),
+        contextArguments: contextArguments.length > 0 ? contextArguments : undefined,
       });
     }
   }
-
   private getFieldSet(element: SchemaElement<any, any>, directive: DirectiveDefinition<{fields: string}>): string | undefined {
     const applications = element.appliedDirectivesOf(directive);
     assert(applications.length <= 1, () => `Found more than one application of ${directive} on ${element}`);
@@ -1847,6 +1885,29 @@ class Merger {
       // some path. Done because this helps reusing our "reportMismatchHint" method
       // in those cases.
       const arg = dest.addArgument(argName);
+
+      const isContextualArg = (index: number, arg: ArgumentDefinition<DirectiveDefinition<any>> | ArgumentDefinition<FieldDefinition<any>>) => {
+        const fromContextDirective = this.metadata(index).fromContextDirective();
+        return fromContextDirective && isFederationDirectiveDefinedInSchema(fromContextDirective) && arg.appliedDirectivesOf(fromContextDirective).length >= 1;
+      }
+      const hasContextual = sources.map((s, idx) => {
+        const arg = s?.argument(argName);
+        return arg && isContextualArg(idx, arg);
+      });
+
+      if (hasContextual.some((c) => c === true)) {
+        // If any of the sources has a contextual argument, then we need to remove it from the supergraph
+        // and ensure that all the sources have it.
+        if (hasContextual.some((c) => c === false)) {
+          this.errors.push(ERRORS.CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS.err(
+            `Argument "${arg.coordinate}" is contextual in some subgraphs but not in all subgraphs: it is contextual in ${printSubgraphNames(hasContextual.map((c, i) => c ? this.names[i] : undefined).filter(isDefined))} but not in ${printSubgraphNames(hasContextual.map((c, i) => c ? undefined : this.names[i]).filter(isDefined))}`,
+            { nodes: sourceASTs(...sources.map((s) => s?.argument(argName))) },
+          ));
+        }
+        arg.remove();
+        continue;
+      }
+
       // If all the sources that have the field have the argument, we do merge it
       // and we're good, but otherwise ...
       if (sources.some((s) => s && !s.argument(argName))) {
@@ -2590,11 +2651,15 @@ class Merger {
       return;
     }
 
+    const directiveInSupergraph = this.mergedFederationDirectiveInSupergraph.get(name);
+    
     if (dest.schema().directive(name)?.repeatable) {
       // For repeatable directives, we simply include each application found but with exact duplicates removed
       while (perSource.length > 0) {
         const directive = this.pickNextDirective(perSource);
-        dest.applyDirective(directive.name, directive.arguments(false));
+        
+        const transformedArgs = directiveInSupergraph && directiveInSupergraph.staticArgumentTransform && directiveInSupergraph.staticArgumentTransform(this.subgraphs.values()[0], directive.arguments(false));
+        dest.applyDirective(directive.name, transformedArgs ?? directive.arguments(false));
         // We remove every instances of this particular application. That is we remove any other applicaiton with
         // the same arguments. Note that when doing so, we include default values. This allows "merging" 2 applications
         // when one rely on the default value while another don't but explicitely uses that exact default value.
@@ -2980,7 +3045,44 @@ class Merger {
         }
       }
     }
+    this.validateContextUsages();
+  }
 
+  // private traverseSelectionSetForType(
+  //   selection: string,
+  //   type: ObjectType,
+  // ) {
+  //   const selectionSet = new SelectionSet(type, )
+  // }
+
+  private validateContextUsages() {
+    // For each usage of a context, we need to validate that all set contexts could fulfill the selection of the context
+    this.contextToTypeMap.forEach(({ usages, types }, context) => {
+      for (const { usage, argumentDefinition } of usages) {
+        if (types.size === 0) {
+          this.errors.push(ERRORS.CONTEXT_NOT_SET.err(
+            `Context "${context}" is used in "${argumentDefinition.coordinate}" but is never set in any subgraph.`,
+            { nodes: sourceASTs(argumentDefinition) }
+          ));
+        }
+        // const resolvedTypes = [];
+        for (const type of types) {
+          // now ensure that for each type, the selection is satisfiable and collect the resolved type
+          try {
+            parseSelectionSet({ parentType: type, source: usage });
+          } catch (error) {
+            if (error instanceof GraphQLError) {
+              this.errors.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+                `Context "${context}" is used in "${argumentDefinition.coordinate}" but the selection is invalid: ${error.message}`,
+                { nodes: sourceASTs(argumentDefinition) }
+              ));
+            } else {
+              throw error;
+            }
+          }
+        }
+      }
+    });
   }
 
   private updateInaccessibleErrorsWithLinkToSubgraphs(
