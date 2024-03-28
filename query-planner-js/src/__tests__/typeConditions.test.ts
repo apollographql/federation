@@ -848,6 +848,7 @@ describe('Type Condition field merging', () => {
         typeDefs: gql`
           type Query {
             search: [SearchResult]
+            oneSearch: SearchResult
           }
 
           union SearchResult = MovieResult | ArticleResult
@@ -856,11 +857,13 @@ describe('Type Condition field merging', () => {
           type MovieResult @key(fields: "id") {
             id: ID!
             sections: [Section]
+            oneSection: Section
           }
 
           type ArticleResult @key(fields: "id") {
             id: ID!
             sections: [Section]
+            oneSection: Section
           }
 
           type EntityCollectionSection @key(fields: "id") {
@@ -878,6 +881,28 @@ describe('Type Condition field merging', () => {
       api,
       gql`
         query Search($movieParams: String, $articleParams: String) {
+          oneSearch {
+            __typename
+            ... on MovieResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $movieParams)
+                }
+              }
+            }
+            ... on ArticleResult {
+              id
+              sections {
+                ... on EntityCollectionSection {
+                  id
+                  artwork(params: $articleParams)
+                  title
+                }
+              }
+            }
+          }
           search {
             __typename
             ... on MovieResult {
@@ -912,6 +937,29 @@ describe('Type Condition field merging', () => {
         Sequence {
           Fetch(service: "searchSubgraph") {
             {
+              oneSearch {
+                __typename
+                ... on MovieResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
+                    }
+                  }
+                }
+                ... on ArticleResult {
+                  id
+                  sections {
+                    __typename
+                    ... on EntityCollectionSection {
+                      __typename
+                      id
+                    }
+                  }
+                }
+              }
               search {
                 __typename
                 ... on MovieResult {
@@ -938,6 +986,37 @@ describe('Type Condition field merging', () => {
             }
           },
           Parallel {
+            Flatten(path: ".oneSearch|[MovieResult].sections.@") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $movieParams)
+                  }
+                }
+              },
+            },
+            Flatten(path: ".oneSearch|[ArticleResult].sections.@") {
+              Fetch(service: "artworkSubgraph") {
+                {
+                  ... on EntityCollectionSection {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on EntityCollectionSection {
+                    artwork(params: $articleParams)
+                    title
+                  }
+                }
+              },
+            },
             Flatten(path: ".search.@|[MovieResult].sections.@") {
               Fetch(service: "artworkSubgraph") {
                 {
