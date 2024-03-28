@@ -57,10 +57,11 @@ import {
   isDefined,
   InterfaceType,
   FragmentSelection,
-  possibleRuntimeTypes,
   typesCanBeMerged,
   Supergraph,
   sameType,
+  possibleRuntimeTypes,
+  NamedType,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -378,6 +379,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
   private stack: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][];
   private readonly closedBranches: ClosedBranch<RV>[] = [];
   private readonly optionsLimit: number | null;
+  private readonly typeConditionedFetching: boolean;
 
   constructor(
     readonly parameters: PlanningParameters<RV>,
@@ -391,6 +393,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     excludedConditions: ExcludedConditions = [],
   ) {
     const { root, federatedQueryGraph } = parameters;
+    this.typeConditionedFetching = parameters.typeConditionedFetching || false;
     this.isTopLevel = isRootVertex(root);
     this.optionsLimit = parameters.config.debug?.pathsLimit;
     this.conditionResolver = cachingConditionResolver(
@@ -738,6 +741,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     this.bestPlan = [best.graph, best.tree, cost];
   }
 
+  // TODO: this will be a fun one
   private cost(dependencyGraph: FetchDependencyGraph): number {
     const { main, deferred } = dependencyGraph.process(this.costFunction, this.rootKind);
     return deferred.length === 0
@@ -747,8 +751,8 @@ class QueryPlanningTraversal<RV extends Vertex> {
 
   private updatedDependencyGraph(dependencyGraph: FetchDependencyGraph, tree: OpPathTree<RV>): FetchDependencyGraph {
     return isRootPathTree(tree)
-      ? computeRootFetchGroups(dependencyGraph, tree, this.rootKind)
-      : computeNonRootFetchGroups(dependencyGraph, tree, this.rootKind);
+      ? computeRootFetchGroups(dependencyGraph, tree, this.rootKind, this.typeConditionedFetching)
+      : computeNonRootFetchGroups(dependencyGraph, tree, this.rootKind, this.typeConditionedFetching);
   }
 
   private resolveConditionPlan(edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions): ConditionResolution {
@@ -1779,16 +1783,22 @@ function filterOperationPath(path: OperationPath, schema: Schema): OperationPath
   }).filter(isDefined);
 }
 
-class GroupPath {
+// TODO: remove export once everything works
+export class GroupPath {
   private constructor(
     private readonly fullPath: OperationPath,
     private readonly pathInGroup: OperationPath,
     private readonly responsePath: ResponsePath,
+    private readonly typeConditionedFetching: boolean,
+    private possibleTypes: ObjectType[],
+    private childConditions: ObjectType[],
   ) {
   }
 
-  static empty(): GroupPath {
-    return new GroupPath([], [], []);
+  static empty(typeConditionedFetching: boolean, rootType: CompositeType): GroupPath {
+    const pst = Array.from(possibleRuntimeTypes(rootType));
+    pst.sort();
+    return new GroupPath([], [], [], typeConditionedFetching, pst, []);
   }
 
   inGroup(): OperationPath {
@@ -1808,6 +1818,9 @@ class GroupPath {
       this.fullPath,
       newGroupContext,
       this.responsePath,
+      this.typeConditionedFetching,
+      this.possibleTypes,
+      this.childConditions,
     );
   }
 
@@ -1820,36 +1833,108 @@ class GroupPath {
       // implements it (in the supergraph).
       concatOperationPaths(pathOfGroupInParent, filterOperationPath(this.pathInGroup, parentSchema)),
       this.responsePath,
+      this.typeConditionedFetching,
+      this.possibleTypes,
+      this.childConditions
     );
   }
 
-  private updatedResponsePath(element: OperationElement) {
-    if (element.kind !== 'Field') {
-      return this.responsePath;
-    }
+  // TODO: make it private again once everything works
+  /* private */ updatedResponsePath(element: OperationElement, elementPossibleTypes: ObjectType[]): [ResponsePath, ObjectType[]] {
+    switch (element.kind){
+      case 'FragmentElement':
+        return [this.responsePath, elementPossibleTypes];
+      case 'Field':
+        let newPath = this.responsePath;
+        if (this.childConditions.length > 0) {
+          const conditions = `|[${this.childConditions.join(',')}]`;
+          const previousLastElement = newPath[newPath.length -1] as string || '';
 
-    let type = element.definition.type!;
-    const newPath = this.responsePath.concat(element.responseName());
-    while (!isNamedType(type)) {
-      if (isListType(type)) {
-        newPath.push('@');
-      }
-      type = type.ofType;
+          if (previousLastElement.startsWith('|[')) {
+            newPath = [...newPath.slice(0, -1), conditions];
+          } else {
+            newPath = [...newPath.slice(0, -1), `${previousLastElement}${conditions}`];
+          }
+        }
+        let type = element.definition.type!;
+        if (newPath.length === 0 && this.typeConditionedFetching) {
+          newPath = newPath.concat('');
+        }
+        newPath = newPath.concat(`${element.responseName()}`);
+        while (!isNamedType(type)) {
+          if (isListType(type)) {
+            newPath.push('@');
+          }
+          type = type.ofType;
+        }
+        return [newPath, []];
     }
-    return newPath;
   }
 
   add(element: OperationElement): GroupPath {
+    const newPossibleTypes = this.computeNewPossibleTypes(element);
+
+    const [responsePath, childConditions] = this.updatedResponsePath(element, newPossibleTypes);
     return new GroupPath(
       this.fullPath.concat(element),
       this.pathInGroup.concat(element),
-      this.updatedResponsePath(element),
+      responsePath,
+      this.typeConditionedFetching,
+      newPossibleTypes,
+      childConditions
     );
   }
 
   toString() {
-    return `[${this.fullPath}]:[${this.pathInGroup}]`;
+    return this.inResponse().join('.');
   }
+
+  computeNewPossibleTypes(element: OperationElement): ObjectType[] {
+    if (!this.typeConditionedFetching) {
+      return [];
+    }
+    switch (element.kind){
+      case 'FragmentElement':
+        if (!element.typeCondition) {
+          return this.possibleTypes;
+        }
+        const elementPossibleTypes = possibleRuntimeTypes(element.typeCondition);
+        return this.possibleTypes.filter((pt) => elementPossibleTypes.some((ept) => ept.name === pt.name));
+      case 'Field':
+        return this.advanceFieldType(element);
+    }
+  }
+
+
+  advanceFieldType(element: Field): ObjectType[] {
+    if (!isCompositeType(element.baseType())) {
+      return [];
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const res = Array.from(new Set(this.possibleTypes.map((pt) => possibleRuntimeTypes(baseType(pt.field(element.name)!.type!) as CompositeType)).flat()));
+    res.sort();
+    return res;
+  }
+
+
+  //   // Get all possible types
+  //   // If element is a fragment, use its type condition
+  //   const elementPossibleTypes = element.kind === 'FragmentElement' && !!element.typeCondition ? Array.from(possibleRuntimeTypes(element.typeCondition)): [];
+  //   // no type condition
+  //   if (elementPossibleTypes.length === 0) {
+  //     return this.possibleTypes as ObjectType[];
+  //   }
+  //   let actualPossibleTypes = [];
+  //   // intersect this.elementPossibleTypes with elementPossibleTypes
+  //   if (elementPossibleTypes.length !== 0) {
+  //   } else {
+  //     actualPossibleTypes = this.possibleTypes;
+  //   }
+
+  //   const newPossibleTypes = computeNewPossibleTypes(element, actualPossibleTypes);
+  //   return newPossibleTypes;
+  // }
 }
 
 class DeferTracking {
@@ -2136,6 +2221,11 @@ class FetchDependencyGraph {
     }
 
     return cloned;
+  }
+
+
+  supergraphSchemaType(typeName: string): NamedType | undefined {
+    return this.supergraphSchema.type(typeName)
   }
 
   getOrCreateRootFetchGroup({
@@ -2917,6 +3007,7 @@ type PlanningParameters<RV extends Vertex> = {
   inconsistentAbstractTypesRuntimes: Set<string>,
   config: Concrete<QueryPlannerConfig>,
   overrideConditions: Map<string, boolean>,
+  typeConditionedFetching: boolean,
 }
 
 interface BuildQueryPlanOptions {
@@ -2928,6 +3019,15 @@ interface BuildQueryPlanOptions {
    * progressive @override feature.
    */
   overrideConditions?: Map<string, boolean>,
+  /**
+   * Enables type conditioned fetching.
+   * This flag is a workaround, which may yield significant
+   * performance degradation when computing query plans,
+   * and increase query plan size.
+   *
+   * If you aren't aware of this flag, you probably don't need it.
+   */
+  typeConditionedFetching?: boolean,
 }
 
 export class QueryPlanner {
@@ -3119,6 +3219,7 @@ export class QueryPlanner {
       statistics,
       inconsistentAbstractTypesRuntimes: this.inconsistentAbstractTypesRuntimes,
       config: this.config,
+      typeConditionedFetching: options?.typeConditionedFetching || false,
       overrideConditions,
     }
 
@@ -3554,6 +3655,7 @@ function computeRootSerialDependencyGraph(
         ),
         prevPaths,
         root.rootKind,
+        parameters.typeConditionedFetching
       );
     } else {
       startingFetchId = prevDepGraph.nextFetchId();
@@ -3817,7 +3919,7 @@ function samePathsInParents(first: OperationPath | undefined, second: OperationP
   return !!second && sameOperationPaths(first, second);
 }
 
-function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpRootPathTree, rootKind: SchemaRootKind): FetchDependencyGraph {
+function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpRootPathTree, rootKind: SchemaRootKind, typeConditionedFetching: boolean): FetchDependencyGraph {
   // The root of the pathTree is one of the "fake" root of the subgraphs graph, which belongs to no subgraph but points to each ones.
   // So we "unpack" the first level of the tree to find out our top level groups (and initialize our stack).
   // Note that we can safely ignore the triggers of that first level as it will all be free transition, and we know we cannot have conditions.
@@ -3827,18 +3929,24 @@ function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree:
     // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
     const rootType = edge.tail.type as ObjectType;
     const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType });
-    computeGroupsForTree(dependencyGraph, child, group, GroupPath.empty(), emptyDeferContext);
+    // If a type is in a subgraph, it has to be in the supergraph.
+    // A root type has to be a Composite type.
+    const rootTypeInSupergraph = dependencyGraph.supergraphSchemaType(rootType.name) as CompositeType;
+    computeGroupsForTree(dependencyGraph, child, group, GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph), emptyDeferContext);
   }
   return dependencyGraph;
 }
 
-function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpPathTree, rootKind: SchemaRootKind): FetchDependencyGraph {
+function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpPathTree, rootKind: SchemaRootKind, typeConditionedFetching: boolean): FetchDependencyGraph {
   const subgraphName = pathTree.vertex.source;
   // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
   const rootType = pathTree.vertex.type;
   assert(isCompositeType(rootType), () => `Should not have condition on non-selectable type ${rootType}`);
-  const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType } );
-  computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(), emptyDeferContext);
+  const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType} );
+  // If a type is in a subgraph, it has to be in the supergraph.
+    // A root type has to be a Composite type.
+    const rootTypeInSupergraph = dependencyGraph.supergraphSchemaType(rootType.name) as CompositeType;
+  computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph), emptyDeferContext);
   return dependencyGraph;
 }
 
@@ -3984,6 +4092,7 @@ function computeGroupsForTree(
             //    key from X to I, and then Y to I), then the same fetch is properly reused. Note that it is ok to do so
             //    since 1) inputs are based on the supergraph schema, so I is going to exist there and 2) we wrap the input
             //    selection properly against `sourceType` below anyway.
+            // TODO: here
             const newGroup = dependencyGraph.getOrCreateKeyFetchGroup({
               subgraphName: edge.tail.source,
               mergeAt: path.inResponse(),
