@@ -1787,13 +1787,13 @@ export class GroupPath {
     private readonly pathInGroup: OperationPath,
     private readonly responsePath: ResponsePath,
     private readonly typeConditionedFetching: boolean,
-    private possibleTypes: ObjectType[],
-    private childConditions: ObjectType[],
+    private readonly possibleTypes: ObjectType[],
+    private readonly possibleTypesAfterLastField: ObjectType[],
   ) {
   }
 
   static empty(typeConditionedFetching: boolean, rootType: CompositeType): GroupPath {
-    const pst = Array.from(possibleRuntimeTypes(rootType));
+    const pst = !typeConditionedFetching ? []: Array.from(possibleRuntimeTypes(rootType));
     pst.sort();
     return new GroupPath([], [], [], typeConditionedFetching, pst, []);
   }
@@ -1817,7 +1817,7 @@ export class GroupPath {
       this.responsePath,
       this.typeConditionedFetching,
       this.possibleTypes,
-      this.childConditions,
+      this.possibleTypesAfterLastField,
     );
   }
 
@@ -1832,7 +1832,7 @@ export class GroupPath {
       this.responsePath,
       this.typeConditionedFetching,
       this.possibleTypes,
-      this.childConditions
+      this.possibleTypesAfterLastField
     );
   }
 
@@ -1843,8 +1843,8 @@ export class GroupPath {
         return [this.responsePath, elementPossibleTypes];
       case 'Field':
         let newPath = this.responsePath;
-        if (this.childConditions.length > 0) {
-          const conditions = `|[${this.childConditions.join(',')}]`;
+        if (this.possibleTypesAfterLastField.length > 0) {
+          const conditions = `|[${this.possibleTypesAfterLastField.join(',')}]`;
           const previousLastElement = newPath[newPath.length -1] as string || '';
 
           if (previousLastElement.startsWith('|[')) {
@@ -1871,14 +1871,14 @@ export class GroupPath {
   add(element: OperationElement): GroupPath {
     const newPossibleTypes = this.computeNewPossibleTypes(element);
 
-    const [responsePath, childConditions] = this.updatedResponsePath(element, newPossibleTypes);
+    const [responsePath, possibleTypesAfterLastField] = this.updatedResponsePath(element, newPossibleTypes);
     return new GroupPath(
       this.fullPath.concat(element),
       this.pathInGroup.concat(element),
       responsePath,
       this.typeConditionedFetching,
       newPossibleTypes,
-      childConditions
+      possibleTypesAfterLastField
     );
   }
 
@@ -1913,25 +1913,6 @@ export class GroupPath {
     res.sort();
     return res;
   }
-
-
-  //   // Get all possible types
-  //   // If element is a fragment, use its type condition
-  //   const elementPossibleTypes = element.kind === 'FragmentElement' && !!element.typeCondition ? Array.from(possibleRuntimeTypes(element.typeCondition)): [];
-  //   // no type condition
-  //   if (elementPossibleTypes.length === 0) {
-  //     return this.possibleTypes as ObjectType[];
-  //   }
-  //   let actualPossibleTypes = [];
-  //   // intersect this.elementPossibleTypes with elementPossibleTypes
-  //   if (elementPossibleTypes.length !== 0) {
-  //   } else {
-  //     actualPossibleTypes = this.possibleTypes;
-  //   }
-
-  //   const newPossibleTypes = computeNewPossibleTypes(element, actualPossibleTypes);
-  //   return newPossibleTypes;
-  // }
 }
 
 class DeferTracking {
@@ -3936,8 +3917,8 @@ function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTr
   assert(isCompositeType(rootType), () => `Should not have condition on non-selectable type ${rootType}`);
   const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType} );
   // If a type is in a subgraph, it has to be in the supergraph.
-    // A root type has to be a Composite type.
-    const rootTypeInSupergraph = dependencyGraph.supergraphSchemaType(rootType.name) as CompositeType;
+  // A root type has to be a Composite type.
+  const rootTypeInSupergraph = dependencyGraph.supergraphSchemaType(rootType.name) as CompositeType;
   computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph), emptyDeferContext);
   return dependencyGraph;
 }
@@ -4084,7 +4065,6 @@ function computeGroupsForTree(
             //    key from X to I, and then Y to I), then the same fetch is properly reused. Note that it is ok to do so
             //    since 1) inputs are based on the supergraph schema, so I is going to exist there and 2) we wrap the input
             //    selection properly against `sourceType` below anyway.
-            // TODO: here
             const newGroup = dependencyGraph.getOrCreateKeyFetchGroup({
               subgraphName: edge.tail.source,
               mergeAt: path.inResponse(),
