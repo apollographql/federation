@@ -6,7 +6,8 @@
     "internals-js",
     "query-graphs-js",
     "query-planner-js",
-    "subgraph-js"
+    "subgraph-js",
+    "testing-wasm"
   ],
   "sandboxes": [],
   "node": "18"

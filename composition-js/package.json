@@ -28,7 +28,8 @@
   },
   "dependencies": {
     "@apollo/federation-internals": "2.7.2",
-    "@apollo/query-graphs": "2.7.2"
+    "@apollo/query-graphs": "2.7.2",
+    "fake-composition-wasm": "0.1.0"
   },
   "peerDependencies": {
     "graphql": "^16.5.0"

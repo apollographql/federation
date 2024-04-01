@@ -17,6 +17,7 @@ import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/
 import { mergeSubgraphs } from "./merging";
 import { validateGraphComposition } from "./validate";
 import { CompositionHint } from "./hints";
+import { validate_graph_composition_wasm } from 'fake-composition-wasm';
 
 export type CompositionResult = CompositionFailure | CompositionSuccess;
 
@@ -46,6 +47,7 @@ function validateCompositionOptions(options: CompositionOptions) {
 }
 
 export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}): CompositionResult {
+  validate_graph_composition_wasm();
   validateCompositionOptions(options);
 
   const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
