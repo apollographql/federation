@@ -47,7 +47,12 @@ function validateCompositionOptions(options: CompositionOptions) {
 
 export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}): CompositionResult {
   const { validate_graph_composition_wasm } = require('fake-composition-wasm');
-  validate_graph_composition_wasm();
+  try {
+  console.log(validate_graph_composition_wasm("type Query { hello: String }"));
+  console.log(validate_graph_composition_wasm("type Query { hello: NotARealScalar }"));
+  } catch (e) {
+    console.log(e);
+  }
   validateCompositionOptions(options);
 
   const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);

@@ -1,5 +1,8 @@
 {
   "name": "fake-composition-wasm",
+  "collaborators": [
+    "Lenny Burdette <lenny@apollographql.com>"
+  ],
   "version": "0.1.0",
   "files": [
     "fake_composition_wasm_bg.wasm",
