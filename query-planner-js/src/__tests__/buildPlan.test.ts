@@ -5125,7 +5125,7 @@ describe('Named fragments preservation', () => {
       { reuseQueryFragments: true },
     );
 
-    let query = gql`
+    const query = gql`
       query Search {
         theEntity {
           ... on EntityTypeA {
@@ -5151,7 +5151,7 @@ describe('Named fragments preservation', () => {
     const operation = operationFromDocument(api, query, { validate: true });
 
     const plan = queryPlanner.buildQueryPlan(operation);
-    let validationErrors = validateSubFetches(plan.node, subgraph2);
+    const validationErrors = validateSubFetches(plan.node, subgraph2);
     expect(validationErrors).toHaveLength(0);
   });
 });
@@ -5172,21 +5172,21 @@ function validateSubFetches(
   if (!plan) {
     return [];
   }
-  let fetches = findFetchNodes(subgraphDef.name, plan);
-  var results: {
+  const fetches = findFetchNodes(subgraphDef.name, plan);
+  const results: {
     errors: readonly GraphQLError[];
     serviceName: string;
     fetchNode: FetchNode;
   }[] = [];
-  for (let fetch of fetches) {
-    let subgraphName: string = fetch.serviceName;
-    let operation: string = fetch.operation;
-    let subgraph = buildSubgraph(
+  for (const fetch of fetches) {
+    const subgraphName: string = fetch.serviceName;
+    const operation: string = fetch.operation;
+    const subgraph = buildSubgraph(
       subgraphName,
       'http://subgraph',
       subgraphDef.typeDefs,
     );
-    let gql_errors = validate(
+    const gql_errors = validate(
       subgraph.schema.toGraphQLJSSchema(),
       parse(operation),
     );

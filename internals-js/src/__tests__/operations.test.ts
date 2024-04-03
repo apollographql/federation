@@ -3127,7 +3127,7 @@ describe('named fragment selection set restrictions at type', () => {
 
     const frag = operation.fragments?.get('FonT1')!;
 
-    let { selectionSet, validator } = expandAtType(frag, schema, 'T1');
+    const { selectionSet, validator } = expandAtType(frag, schema, 'T1');
     expect(selectionSet.toString()).toBe('{ x y }');
     expect(validator?.toString()).toBeUndefined();
   });
