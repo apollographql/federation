@@ -1224,7 +1224,7 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     const expandedSelectionSet = this.expandedSelectionSet();
     const selectionSet = expandedSelectionSet.normalize({ parentType: type });
 
-    if( ! isObjectType(this.typeCondition) ) {
+    if (!isObjectType(this.typeCondition)) {
       // When the type condition of the fragment is not an object type, the `FieldsInSetCanMerge` rule is more
       // restrictive and any fields can create conflicts. Thus, we have to use the full validator in this case.
       // (see https://github.com/graphql/graphql-spec/issues/1085 for details.)

@@ -10,7 +10,9 @@ import gql from 'graphql-tag';
 import {
   FetchNode,
   FlattenNode,
+  PlanNode,
   SequenceNode,
+  SubscriptionNode,
   serializeQueryPlan,
 } from '../QueryPlan';
 import {
@@ -5160,7 +5162,7 @@ describe('Named fragments preservation', () => {
  * @param subgraphs
  */
 function validateSubFetches(
-  plan: any,
+  plan: PlanNode | SubscriptionNode | undefined,
   subgraphDef: ServiceDefinition,
 ): {
   errors: readonly GraphQLError[];
