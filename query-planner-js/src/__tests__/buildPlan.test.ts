@@ -4,15 +4,24 @@ import {
   operationFromDocument,
   ServiceDefinition,
   Supergraph,
+  buildSubgraph,
 } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import {
   FetchNode,
   FlattenNode,
+  PlanNode,
   SequenceNode,
+  SubscriptionNode,
   serializeQueryPlan,
 } from '../QueryPlan';
-import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
+import {
+  FieldNode,
+  OperationDefinitionNode,
+  parse,
+  validate,
+  GraphQLError,
+} from 'graphql';
 import {
   composeAndCreatePlanner,
   composeAndCreatePlannerWithOptions,
@@ -5041,7 +5050,156 @@ describe('Named fragments preservation', () => {
       }
     `);
   });
+
+  it('validates fragments on non-object types across spreads', () => {
+    const subgraph1 = {
+      name: 'subgraph1',
+      typeDefs: gql`
+        type Query {
+          theEntity: AnyEntity
+        }
+
+        union AnyEntity = EntityTypeA | EntityTypeB
+
+        type EntityTypeA @key(fields: "unifiedEntityId") {
+          unifiedEntityId: ID!
+          unifiedEntity: UnifiedEntity
+        }
+
+        type EntityTypeB @key(fields: "unifiedEntityId") {
+          unifiedEntityId: ID!
+          unifiedEntity: UnifiedEntity
+        }
+
+        interface UnifiedEntity {
+          id: ID!
+        }
+
+        type Generic implements UnifiedEntity @key(fields: "id") {
+          id: ID!
+        }
+
+        type Movie implements UnifiedEntity @key(fields: "id") {
+          id: ID!
+        }
+
+        type Show implements UnifiedEntity @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'subgraph2',
+      typeDefs: gql`
+        interface Video {
+          videoId: Int!
+          taglineMessage(uiContext: String): String
+        }
+
+        interface UnifiedEntity {
+          id: ID!
+        }
+
+        type Generic implements UnifiedEntity @key(fields: "id") {
+          id: ID!
+          taglineMessage(uiContext: String): String
+        }
+
+        type Movie implements UnifiedEntity & Video @key(fields: "id") {
+          videoId: Int!
+          id: ID!
+          taglineMessage(uiContext: String): String
+        }
+
+        type Show implements UnifiedEntity & Video @key(fields: "id") {
+          videoId: Int!
+          id: ID!
+          taglineMessage(uiContext: String): String
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      [subgraph1, subgraph2],
+      { reuseQueryFragments: true },
+    );
+
+    const query = gql`
+      query Search {
+        theEntity {
+          ... on EntityTypeA {
+            unifiedEntity {
+              ... on Generic {
+                taglineMessage(uiContext: "Generic")
+              }
+            }
+          }
+          ... on EntityTypeB {
+            unifiedEntity {
+              ...VideoSummary
+            }
+          }
+        }
+      }
+
+      fragment VideoSummary on Video {
+        videoId # Note: This extra field selection is necessary, so this fragment is not ignored.
+        taglineMessage(uiContext: "Video")
+      }
+    `;
+    const operation = operationFromDocument(api, query, { validate: true });
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    const validationErrors = validateSubFetches(plan.node, subgraph2);
+    expect(validationErrors).toHaveLength(0);
+  });
 });
+
+/**
+ * For each fetch in a PlanNode validate the generated operation is actually spec valid against its subgraph schema
+ * @param plan
+ * @param subgraphs
+ */
+function validateSubFetches(
+  plan: PlanNode | SubscriptionNode | undefined,
+  subgraphDef: ServiceDefinition,
+): {
+  errors: readonly GraphQLError[];
+  serviceName: string;
+  fetchNode: FetchNode;
+}[] {
+  if (!plan) {
+    return [];
+  }
+  const fetches = findFetchNodes(subgraphDef.name, plan);
+  const results: {
+    errors: readonly GraphQLError[];
+    serviceName: string;
+    fetchNode: FetchNode;
+  }[] = [];
+  for (const fetch of fetches) {
+    const subgraphName: string = fetch.serviceName;
+    const operation: string = fetch.operation;
+    const subgraph = buildSubgraph(
+      subgraphName,
+      'http://subgraph',
+      subgraphDef.typeDefs,
+    );
+    const gql_errors = validate(
+      subgraph.schema.toGraphQLJSSchema(),
+      parse(operation),
+    );
+    if (gql_errors.length > 0) {
+      results.push({
+        errors: gql_errors,
+        serviceName: subgraphName,
+        fetchNode: fetch,
+      });
+    }
+  }
+  return results;
+}
 
 describe('Fragment autogeneration', () => {
   const subgraph = {

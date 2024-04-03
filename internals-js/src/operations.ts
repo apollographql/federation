@@ -1224,6 +1224,14 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     const expandedSelectionSet = this.expandedSelectionSet();
     const selectionSet = expandedSelectionSet.normalize({ parentType: type });
 
+    if (!isObjectType(this.typeCondition)) {
+      // When the type condition of the fragment is not an object type, the `FieldsInSetCanMerge` rule is more
+      // restrictive and any fields can create conflicts. Thus, we have to use the full validator in this case.
+      // (see https://github.com/graphql/graphql-spec/issues/1085 for details.)
+      const validator = FieldsConflictValidator.build(expandedSelectionSet);
+      return { selectionSet, validator };
+    }
+
     // Note that `trimmed` is the difference of 2 selections that may not have been normalized on the same parent type,
     // so in practice, it is possible that `trimmed` contains some of the selections that `selectionSet` contains, but
     // that they have been simplified in `selectionSet` in such a way that the `minus` call does not see it. However,
@@ -2880,7 +2888,7 @@ class FieldsConflictValidator {
         continue;
       }
 
-      // We're basically checking [FieldInSetCanMerge](https://spec.graphql.org/draft/#FieldsInSetCanMerge()),
+      // We're basically checking [FieldsInSetCanMerge](https://spec.graphql.org/draft/#FieldsInSetCanMerge()),
       // but from 2 set of fields (`thisFields` and `thatFields`) of the same response that we know individually
       // merge already.
       for (const [thisField, thisValidator] of thisFields.entries()) {
