@@ -47,12 +47,12 @@ function validateCompositionOptions(options: CompositionOptions) {
 
 export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}): CompositionResult {
   const { validate_graph_composition_wasm } = require('fake-composition-wasm');
-  try {
-  console.log(validate_graph_composition_wasm("type Query { hello: String }"));
-  console.log(validate_graph_composition_wasm("type Query { hello: NotARealScalar }"));
-  } catch (e) {
-    console.log(e);
-  }
+  // try {
+  //   console.log(validate_graph_composition_wasm("type Query { hello: String }"));
+  //   console.log(validate_graph_composition_wasm("type Query { hello: NotARealScalar }"));
+  // } catch (e) {
+  //   console.log(e);
+  // }
   validateCompositionOptions(options);
 
   const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
@@ -62,6 +62,11 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
 
   const toMerge = upgradeResult.subgraphs;
   const validationErrors = toMerge.validate();
+
+  // toMerge.values().forEach(subgraph => {
+  //   const sdl = printSchema(subgraph.schema);
+  //   console.log(validate_graph_composition_wasm(sdl));
+  // });
   if (validationErrors) {
     return { errors: validationErrors };
   }
@@ -90,6 +95,12 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
       options.sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions),
     );
   } catch (err) {
+    return { errors: [err] };
+  }
+
+  try {
+    console.log(validate_graph_composition_wasm(supergraphSdl));
+  } catch(err) {
     return { errors: [err] };
   }
 
