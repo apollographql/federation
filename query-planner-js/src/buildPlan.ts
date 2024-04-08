@@ -1795,7 +1795,7 @@ export class GroupPath {
   static empty(typeConditionedFetching: boolean, rootType: CompositeType): GroupPath {
     const pst = !typeConditionedFetching ? []: Array.from(possibleRuntimeTypes(rootType));
     pst.sort();
-    return new GroupPath([], [], [], typeConditionedFetching, pst, []);
+    return new GroupPath([], [], [], typeConditionedFetching, pst, pst);
   }
 
   inGroup(): OperationPath {
@@ -1837,14 +1837,14 @@ export class GroupPath {
   }
 
   // TODO: make it private again once everything works
-  /* private */ updatedResponsePath(element: OperationElement, elementPossibleTypes: ObjectType[]): [ResponsePath, ObjectType[]] {
+  /* private */ updatedResponsePath(element: OperationElement): ResponsePath {
     switch (element.kind){
       case 'FragmentElement':
-        return [this.responsePath, elementPossibleTypes];
+        return this.responsePath;
       case 'Field':
         let newPath = this.responsePath;
-        if (this.possibleTypesAfterLastField.length > 0) {
-          const conditions = `|[${this.possibleTypesAfterLastField.join(',')}]`;
+        if (this.possibleTypesAfterLastField.length !== this.possibleTypes.length) {
+          const conditions = `|[${this.possibleTypes.join(',')}]`;
           const previousLastElement = newPath[newPath.length -1] as string || '';
 
           if (previousLastElement.startsWith('|[')) {
@@ -1864,21 +1864,20 @@ export class GroupPath {
           }
           type = type.ofType;
         }
-        return [newPath, []];
+        return newPath;
     }
   }
 
   add(element: OperationElement): GroupPath {
+    const responsePath = this.updatedResponsePath(element);
     const newPossibleTypes = this.computeNewPossibleTypes(element);
-
-    const [responsePath, possibleTypesAfterLastField] = this.updatedResponsePath(element, newPossibleTypes);
     return new GroupPath(
       this.fullPath.concat(element),
       this.pathInGroup.concat(element),
       responsePath,
       this.typeConditionedFetching,
       newPossibleTypes,
-      possibleTypesAfterLastField
+      element.kind === 'Field'? newPossibleTypes: this.possibleTypesAfterLastField
     );
   }
 

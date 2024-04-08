@@ -352,6 +352,7 @@ async function executeNode(
       });
     }
     case 'Flatten': {
+      assert(!node.path.some((segment) => { segment.toString().includes(`[`)}), "Type conditions are not supported in the gateway");
       return new Trace.QueryPlanNode({
         flatten: new Trace.QueryPlanNode.FlattenNode({
           responsePath: node.path.map(
