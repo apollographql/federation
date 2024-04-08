@@ -894,3 +894,46 @@ If different subgraphs use different versions of a directive's corresponding spe
 
 </tbody>
 </table>
+
+## Sharing data with contexts
+
+<MinVersion version="2.8">
+
+### `@context`
+
+</MinVersion>
+
+The `@context` directive defines a named context from which any field of the annotated type can be passed to a getter of the context (a field annotated with [`@fromContext`](#fromcontext)). 
+
+```graphql
+directive @context(name: String!) on OBJECT | INTERFACE | UNION;
+```
+
+A `@context` directive must be applied to an object, interface, or union type. A type can be annotated with one or more `@context` directives.
+
+Each `@context` must be defined with a name that's unique within the supergraph.
+
+
+<MinVersion version="2.8">
+
+### `@fromContext`
+
+</MinVersion>
+
+The `@fromContext` directive sets the context from which to get the value of the annotated field.
+
+```graphql
+scalar FieldValue;
+
+directive @fromContext(field: FieldValue!) on ARGUMENT_DEFINITION;
+```
+
+A `@fromContext` directive must be used as an argument on a field. Its field value, `FieldValue`, must contain the name of a valid context—one defined by `@context`—and a selection of a field from the context's type.
+
+The selection syntax for `@fromContext` used in its `FieldValue` is GraphQL field selection syntax with some added rules: 
+- The first element must be the name of a context defined by `@context` and prefixed with `$` (for example, `$myContext`). This is the only context that can be referenced by the annotated field.
+- The `@skip` and `@include` directives must not be used.
+- Top-level type conditions must not overlap with one another, so that the field can be resolved to a single value.
+- All fields referenced in the `FieldValue` must be expressed within the current subgraph. If necessary, the fields must be annotated with `@external`.
+
+When the same contextual value is set in multiple places, the `FieldValue` must resolve all types from each place into a single value that matches the parameter type. 
