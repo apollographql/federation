@@ -1780,8 +1780,7 @@ function filterOperationPath(path: OperationPath, schema: Schema): OperationPath
   }).filter(isDefined);
 }
 
-// TODO: remove export once everything works
-export class GroupPath {
+class GroupPath {
   private constructor(
     private readonly fullPath: OperationPath,
     private readonly pathInGroup: OperationPath,
@@ -1836,8 +1835,7 @@ export class GroupPath {
     );
   }
 
-  // TODO: make it private again once everything works
-  /* private */ updatedResponsePath(element: OperationElement): ResponsePath {
+  private updatedResponsePath(element: OperationElement): ResponsePath {
     switch (element.kind){
       case 'FragmentElement':
         return this.responsePath;
