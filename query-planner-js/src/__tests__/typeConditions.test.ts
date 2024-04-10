@@ -288,14 +288,12 @@ describe('Type Condition field merging', () => {
         f2: [U1]
       }
 
-      type T1 implements I2 & I1
-        @key(fields: "id") {
+      type T1 implements I2 & I1 @key(fields: "id") {
         id: ID!
         f2: [U1]
       }
 
-      type T5 implements I2 & I1
-        @key(fields: "id") {
+      type T5 implements I2 & I1 @key(fields: "id") {
         id: ID!
         f2: [U1]
       }
@@ -547,7 +545,7 @@ describe('Type Condition field merging', () => {
         typeDefs: gql`
           type Query {
             f1: [U1]
-            onef1: U1
+            oneF1: U1
           }
 
           union U1 = T1 | T2
@@ -580,7 +578,7 @@ describe('Type Condition field merging', () => {
       api,
       gql`
         query f1($p1: String, $p2: String) {
-          onef1 {
+          oneF1 {
             __typename
             ... on T1 {
               id
@@ -636,7 +634,7 @@ describe('Type Condition field merging', () => {
         Sequence {
           Fetch(service: "s1") {
             {
-              onef1 {
+              oneF1 {
                 __typename
                 ... on T1 {
                   id
@@ -685,7 +683,7 @@ describe('Type Condition field merging', () => {
             }
           },
           Parallel {
-            Flatten(path: ".onef1|[T1].f2.@") {
+            Flatten(path: ".oneF1|[T1].f2.@") {
               Fetch(service: "s2") {
                 {
                   ... on T3 {
@@ -700,7 +698,7 @@ describe('Type Condition field merging', () => {
                 }
               },
             },
-            Flatten(path: ".onef1|[T2].f2.@") {
+            Flatten(path: ".oneF1|[T2].f2.@") {
               Fetch(service: "s2") {
                 {
                   ... on T3 {
