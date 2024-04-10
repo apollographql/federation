@@ -12,6 +12,7 @@
   ],
   "sidebar": {
     "Introduction": "/",
+    "Changelog": "/federation-versions",
     "Quickstart": {
       "Project setup": "/quickstart/setup",
       "Composition in GraphOS Studio": "/quickstart/studio-composition",
@@ -64,7 +65,6 @@
       "Changes from Federation 1": "/federation-2/new-in-federation-2",
       "Steps to move": "/federation-2/moving-to-federation-2",
       "Backward compatibility": "/federation-2/backward-compatibility"
-    },
-    "Changelog": "/federation-versions"
+    }
   }
 }
