@@ -741,7 +741,6 @@ class QueryPlanningTraversal<RV extends Vertex> {
     this.bestPlan = [best.graph, best.tree, cost];
   }
 
-  // TODO: this will be a fun one
   private cost(dependencyGraph: FetchDependencyGraph): number {
     const { main, deferred } = dependencyGraph.process(this.costFunction, this.rootKind);
     return deferred.length === 0
@@ -1792,9 +1791,9 @@ class GroupPath {
   }
 
   static empty(typeConditionedFetching: boolean, rootType: CompositeType): GroupPath {
-    const pst = !typeConditionedFetching ? []: Array.from(possibleRuntimeTypes(rootType));
-    pst.sort();
-    return new GroupPath([], [], [], typeConditionedFetching, pst, pst);
+    const rootPossibleRuntimeTypes = typeConditionedFetching ? Array.from(possibleRuntimeTypes(rootType)): [];
+    rootPossibleRuntimeTypes.sort();
+    return new GroupPath([], [], [], typeConditionedFetching, rootPossibleRuntimeTypes, rootPossibleRuntimeTypes);
   }
 
   inGroup(): OperationPath {
@@ -1905,8 +1904,16 @@ class GroupPath {
       return [];
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const res = Array.from(new Set(this.possibleTypes.map((pt) => possibleRuntimeTypes(baseType(pt.field(element.name)!.type!) as CompositeType)).flat()));
+    const res = Array.from(
+      new Set(
+        this.possibleTypes.map(
+          (pt) => possibleRuntimeTypes(
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            baseType(pt.field(element.name)!.type!) as CompositeType
+          )
+        ).flat()
+      )
+    );
     res.sort();
     return res;
   }

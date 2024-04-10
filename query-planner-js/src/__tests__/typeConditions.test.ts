@@ -4,51 +4,51 @@ import { composeAndCreatePlanner } from './testHelper';
 
 describe('Type Condition field merging', () => {
   const subgraph1 = {
-    name: 'searchSubgraph',
+    name: 's1',
     typeDefs: gql`
       type Query {
-        search: [SearchResult]
+        f1: [U1]
       }
 
-      union SearchResult = MovieResult | ArticleResult
-      union Section = EntityCollectionSection | GallerySection
+      union U1 = T1 | T2
+      union U2 = T3 | T4
 
-      type MovieResult @key(fields: "id") {
+      type T1 @key(fields: "id") {
         id: ID!
-        sections: [Section]
+        f2: [U2]
       }
 
-      type ArticleResult @key(fields: "id") {
+      type T2 @key(fields: "id") {
         id: ID!
-        sections: [Section]
+        f2: [U2]
       }
 
-      type EntityCollectionSection @key(fields: "id") {
+      type T3 @key(fields: "id") {
         id: ID!
       }
 
-      type GallerySection @key(fields: "id") {
+      type T4 @key(fields: "id") {
         id: ID!
       }
     `,
   };
 
   const subgraph2 = {
-    name: 'artworkSubgraph',
+    name: 's2',
     typeDefs: gql`
       type Query {
         me: String
       }
 
-      type EntityCollectionSection @key(fields: "id") {
+      type T3 @key(fields: "id") {
         id: ID!
-        title: String
-        artwork(params: String): String
+        f2: String
+        f3(params: String): String
       }
 
-      type GallerySection @key(fields: "id") {
+      type T4 @key(fields: "id") {
         id: ID!
-        artwork(params: String): String
+        f3(params: String): String
       }
     `,
   };
@@ -59,25 +59,25 @@ describe('Type Condition field merging', () => {
     const operation = operationFromDocument(
       api,
       gql`
-        query Search($movieParams: String, $articleParams: String) {
-          search {
+        query f1($p1: String, $p2: String) {
+          f1 {
             __typename
-            ... on MovieResult {
+            ... on T1 {
               id
-              sections {
-                ... on EntityCollectionSection {
+              f2 {
+                ... on T3 {
                   id
-                  artwork(params: $movieParams)
+                  f3(params: $p1)
                 }
               }
             }
-            ... on ArticleResult {
+            ... on T2 {
               id
-              sections {
-                ... on EntityCollectionSection {
+              f2 {
+                ... on T3 {
                   id
-                  artwork(params: $articleParams)
-                  title
+                  f3(params: $p2)
+                  f2
                 }
               }
             }
@@ -92,25 +92,25 @@ describe('Type Condition field merging', () => {
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
-          Fetch(service: "searchSubgraph") {
+          Fetch(service: "s1") {
             {
-              search {
+              f1 {
                 __typename
-                ... on MovieResult {
+                ... on T1 {
                   id
-                  sections {
+                  f2 {
                     __typename
-                    ... on EntityCollectionSection {
+                    ... on T3 {
                       __typename
                       id
                     }
                   }
                 }
-                ... on ArticleResult {
+                ... on T2 {
                   id
-                  sections {
+                  f2 {
                     __typename
-                    ... on EntityCollectionSection {
+                    ... on T3 {
                       __typename
                       id
                     }
@@ -119,18 +119,18 @@ describe('Type Condition field merging', () => {
               }
             }
           },
-          Flatten(path: "search.@.sections.@") {
-            Fetch(service: "artworkSubgraph") {
+          Flatten(path: "f1.@.f2.@") {
+            Fetch(service: "s2") {
               {
-                ... on EntityCollectionSection {
+                ... on T3 {
                   __typename
                   id
                 }
               } =>
               {
-                ... on EntityCollectionSection {
-                  artwork(params: $movieParams)
-                  title
+                ... on T3 {
+                  f3(params: $p1)
+                  f2
                 }
               }
             },
@@ -144,30 +144,30 @@ describe('Type Condition field merging', () => {
     const operation = operationFromDocument(
       api,
       gql`
-        query Search($movieResultParam: String, $articleResultParam: String) {
-          search {
-            ... on MovieResult {
-              sections {
-                ... on EntityCollectionSection {
+        query f1($p1: String, $p2: String) {
+          f1 {
+            ... on T1 {
+              f2 {
+                ... on T3 {
                   id
-                  title
-                  artwork(params: $movieResultParam)
+                  f2
+                  f3(params: $p1)
                 }
-                ... on GallerySection {
-                  artwork(params: $movieResultParam)
+                ... on T4 {
+                  f3(params: $p1)
                   id
                 }
               }
               id
             }
-            ... on ArticleResult {
+            ... on T2 {
               id
-              sections {
-                ... on GallerySection {
-                  artwork(params: $articleResultParam)
+              f2 {
+                ... on T4 {
+                  f3(params: $p2)
                 }
-                ... on EntityCollectionSection {
-                  artwork(params: $articleResultParam)
+                ... on T3 {
+                  f3(params: $p2)
                 }
               }
             }
@@ -182,33 +182,33 @@ describe('Type Condition field merging', () => {
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
-          Fetch(service: "searchSubgraph") {
+          Fetch(service: "s1") {
             {
-              search {
+              f1 {
                 __typename
-                ... on MovieResult {
-                  sections {
+                ... on T1 {
+                  f2 {
                     __typename
-                    ... on EntityCollectionSection {
+                    ... on T3 {
                       __typename
                       id
                     }
-                    ... on GallerySection {
+                    ... on T4 {
                       __typename
                       id
                     }
                   }
                   id
                 }
-                ... on ArticleResult {
+                ... on T2 {
                   id
-                  sections {
+                  f2 {
                     __typename
-                    ... on GallerySection {
+                    ... on T4 {
                       __typename
                       id
                     }
-                    ... on EntityCollectionSection {
+                    ... on T3 {
                       __typename
                       id
                     }
@@ -218,47 +218,47 @@ describe('Type Condition field merging', () => {
             }
           },
           Parallel {
-            Flatten(path: ".search.@|[MovieResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
+            Flatten(path: ".f1.@|[T1].f2.@") {
+              Fetch(service: "s2") {
                 {
-                  ... on EntityCollectionSection {
+                  ... on T3 {
                     __typename
                     id
                   }
-                  ... on GallerySection {
+                  ... on T4 {
                     __typename
                     id
                   }
                 } =>
                 {
-                  ... on EntityCollectionSection {
-                    title
-                    artwork(params: $movieResultParam)
+                  ... on T3 {
+                    f2
+                    f3(params: $p1)
                   }
-                  ... on GallerySection {
-                    artwork(params: $movieResultParam)
+                  ... on T4 {
+                    f3(params: $p1)
                   }
                 }
               },
             },
-            Flatten(path: ".search.@|[ArticleResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
+            Flatten(path: ".f1.@|[T2].f2.@") {
+              Fetch(service: "s2") {
                 {
-                  ... on GallerySection {
+                  ... on T4 {
                     __typename
                     id
                   }
-                  ... on EntityCollectionSection {
+                  ... on T3 {
                     __typename
                     id
                   }
                 } =>
                 {
-                  ... on GallerySection {
-                    artwork(params: $articleResultParam)
+                  ... on T4 {
+                    f3(params: $p2)
                   }
-                  ... on EntityCollectionSection {
-                    artwork(params: $articleResultParam)
+                  ... on T3 {
+                    f3(params: $p2)
                   }
                 }
               },
@@ -270,46 +270,46 @@ describe('Type Condition field merging', () => {
   });
 
   const subgraph3 = {
-    name: 'searchSubgraph',
+    name: 's1',
     typeDefs: gql`
       type Query {
-        search: [SearchResult]
+        f1: [I1]
       }
 
-      union Section = EntityCollectionSection | GallerySection
+      union U1 = T3 | T4
 
-      interface SearchResult @key(fields: "id") {
+      interface I1 @key(fields: "id") {
         id: ID!
-        sections: [Section]
+        f2: [U1]
       }
 
-      interface VideoResult implements SearchResult @key(fields: "id") {
+      interface I2 implements I1 @key(fields: "id") {
         id: ID!
-        sections: [Section]
+        f2: [U1]
       }
 
-      type MovieResult implements VideoResult & SearchResult
+      type T1 implements I2 & I1
         @key(fields: "id") {
         id: ID!
-        sections: [Section]
+        f2: [U1]
       }
 
-      type SeriesResult implements VideoResult & SearchResult
+      type T5 implements I2 & I1
         @key(fields: "id") {
         id: ID!
-        sections: [Section]
+        f2: [U1]
       }
 
-      type ArticleResult implements SearchResult @key(fields: "id") {
+      type T2 implements I1 @key(fields: "id") {
         id: ID!
-        sections: [Section]
+        f2: [U1]
       }
 
-      type EntityCollectionSection @key(fields: "id") {
+      type T3 @key(fields: "id") {
         id: ID!
       }
 
-      type GallerySection @key(fields: "id") {
+      type T4 @key(fields: "id") {
         id: ID!
       }
     `,
@@ -321,25 +321,25 @@ describe('Type Condition field merging', () => {
     const operation = operationFromDocument(
       api2,
       gql`
-        query Search($movieParams: String, $articleParams: String) {
-          search {
+        query f1($p1: String, $p2: String) {
+          f1 {
             __typename
-            ... on MovieResult {
+            ... on T1 {
               id
-              sections {
-                ... on EntityCollectionSection {
+              f2 {
+                ... on T3 {
                   id
-                  artwork(params: $movieParams)
+                  f3(params: $p1)
                 }
               }
             }
-            ... on ArticleResult {
+            ... on T2 {
               id
-              sections {
-                ... on EntityCollectionSection {
+              f2 {
+                ... on T3 {
                   id
-                  artwork(params: $articleParams)
-                  title
+                  f3(params: $p2)
+                  f2
                 }
               }
             }
@@ -354,25 +354,25 @@ describe('Type Condition field merging', () => {
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
-          Fetch(service: "searchSubgraph") {
+          Fetch(service: "s1") {
             {
-              search {
+              f1 {
                 __typename
-                ... on MovieResult {
+                ... on T1 {
                   id
-                  sections {
+                  f2 {
                     __typename
-                    ... on EntityCollectionSection {
+                    ... on T3 {
                       __typename
                       id
                     }
                   }
                 }
-                ... on ArticleResult {
+                ... on T2 {
                   id
-                  sections {
+                  f2 {
                     __typename
-                    ... on EntityCollectionSection {
+                    ... on T3 {
                       __typename
                       id
                     }
@@ -382,33 +382,33 @@ describe('Type Condition field merging', () => {
             }
           },
           Parallel {
-            Flatten(path: ".search.@|[MovieResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
+            Flatten(path: ".f1.@|[T1].f2.@") {
+              Fetch(service: "s2") {
                 {
-                  ... on EntityCollectionSection {
+                  ... on T3 {
                     __typename
                     id
                   }
                 } =>
                 {
-                  ... on EntityCollectionSection {
-                    artwork(params: $movieParams)
+                  ... on T3 {
+                    f3(params: $p1)
                   }
                 }
               },
             },
-            Flatten(path: ".search.@|[ArticleResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
+            Flatten(path: ".f1.@|[T2].f2.@") {
+              Fetch(service: "s2") {
                 {
-                  ... on EntityCollectionSection {
+                  ... on T3 {
                     __typename
                     id
                   }
                 } =>
                 {
-                  ... on EntityCollectionSection {
-                    artwork(params: $articleParams)
-                    title
+                  ... on T3 {
+                    f3(params: $p2)
+                    f2
                   }
                 }
               },
@@ -425,25 +425,25 @@ describe('Type Condition field merging', () => {
     const operation = operationFromDocument(
       api2,
       gql`
-        query Search($movieParams: String, $articleParams: String) {
-          search {
+        query f1($p1: String, $p2: String) {
+          f1 {
             __typename
-            ... on SearchResult {
+            ... on I1 {
               id
-              sections {
-                ... on EntityCollectionSection {
+              f2 {
+                ... on T3 {
                   id
-                  artwork(params: $movieParams)
+                  f3(params: $p1)
                 }
               }
             }
-            ... on ArticleResult {
+            ... on T2 {
               id
-              sections {
-                ... on EntityCollectionSection {
+              f2 {
+                ... on T3 {
                   id
-                  artwork(params: $articleParams)
-                  title
+                  f3(params: $p2)
+                  f2
                 }
               }
             }
@@ -458,23 +458,23 @@ describe('Type Condition field merging', () => {
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
-          Fetch(service: "searchSubgraph") {
+          Fetch(service: "s1") {
             {
-              search {
+              f1 {
                 __typename
                 id
-                sections {
+                f2 {
                   __typename
-                  ... on EntityCollectionSection {
+                  ... on T3 {
                     __typename
                     id
                   }
                 }
-                ... on ArticleResult {
+                ... on T2 {
                   id
-                  sections {
+                  f2 {
                     __typename
-                    ... on EntityCollectionSection {
+                    ... on T3 {
                       __typename
                       id
                     }
@@ -484,33 +484,33 @@ describe('Type Condition field merging', () => {
             }
           },
           Parallel {
-            Flatten(path: ".search.@.sections.@") {
-              Fetch(service: "artworkSubgraph") {
+            Flatten(path: ".f1.@.f2.@") {
+              Fetch(service: "s2") {
                 {
-                  ... on EntityCollectionSection {
+                  ... on T3 {
                     __typename
                     id
                   }
                 } =>
                 {
-                  ... on EntityCollectionSection {
-                    artwork(params: $movieParams)
+                  ... on T3 {
+                    f3(params: $p1)
                   }
                 }
               },
             },
-            Flatten(path: ".search.@|[ArticleResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
+            Flatten(path: ".f1.@|[T2].f2.@") {
+              Fetch(service: "s2") {
                 {
-                  ... on EntityCollectionSection {
+                  ... on T3 {
                     __typename
                     id
                   }
                 } =>
                 {
-                  ... on EntityCollectionSection {
-                    artwork(params: $articleParams)
-                    title
+                  ... on T3 {
+                    f3(params: $p2)
+                    f2
                   }
                 }
               },
@@ -524,52 +524,52 @@ describe('Type Condition field merging', () => {
   test('does generate type conditions with interface fragment', () => {
     const [api, queryPlanner] = composeAndCreatePlanner(
       {
-        name: 'artworkSubgraph',
+        name: 's2',
         typeDefs: gql`
           type Query {
             me: String
           }
 
-          type EntityCollectionSection @key(fields: "id") {
+          type T3 @key(fields: "id") {
             id: ID!
-            title: String
-            artwork(params: String): String
+            f2: String
+            f3(params: String): String
           }
 
-          type GallerySection @key(fields: "id") {
+          type T4 @key(fields: "id") {
             id: ID!
-            artwork(params: String): String
+            f3(params: String): String
           }
         `,
       },
       {
-        name: 'searchSubgraph',
+        name: 's1',
         typeDefs: gql`
           type Query {
-            search: [SearchResult]
-            oneSearch: SearchResult
+            f1: [U1]
+            onef1: U1
           }
 
-          union SearchResult = MovieResult | ArticleResult
-          union Section = EntityCollectionSection | GallerySection
+          union U1 = T1 | T2
+          union U2 = T3 | T4
 
-          type MovieResult @key(fields: "id") {
+          type T1 @key(fields: "id") {
             id: ID!
-            sections: [Section]
-            oneSection: Section
+            f2: [U2]
+            oneU2: U2
           }
 
-          type ArticleResult @key(fields: "id") {
+          type T2 @key(fields: "id") {
             id: ID!
-            sections: [Section]
-            oneSection: Section
+            f2: [U2]
+            oneU2: U2
           }
 
-          type EntityCollectionSection @key(fields: "id") {
+          type T3 @key(fields: "id") {
             id: ID!
           }
 
-          type GallerySection @key(fields: "id") {
+          type T4 @key(fields: "id") {
             id: ID!
           }
         `,
@@ -579,47 +579,47 @@ describe('Type Condition field merging', () => {
     const operation = operationFromDocument(
       api,
       gql`
-        query Search($movieParams: String, $articleParams: String) {
-          oneSearch {
+        query f1($p1: String, $p2: String) {
+          onef1 {
             __typename
-            ... on MovieResult {
+            ... on T1 {
               id
-              sections {
-                ... on EntityCollectionSection {
+              f2 {
+                ... on T3 {
                   id
-                  artwork(params: $movieParams)
+                  f3(params: $p1)
                 }
               }
             }
-            ... on ArticleResult {
+            ... on T2 {
               id
-              sections {
-                ... on EntityCollectionSection {
+              f2 {
+                ... on T3 {
                   id
-                  artwork(params: $articleParams)
-                  title
+                  f3(params: $p2)
+                  f2
                 }
               }
             }
           }
-          search {
+          f1 {
             __typename
-            ... on MovieResult {
+            ... on T1 {
               id
-              sections {
-                ... on EntityCollectionSection {
+              f2 {
+                ... on T3 {
                   id
-                  artwork(params: $movieParams)
+                  f3(params: $p1)
                 }
               }
             }
-            ... on ArticleResult {
+            ... on T2 {
               id
-              sections {
-                ... on EntityCollectionSection {
+              f2 {
+                ... on T3 {
                   id
-                  artwork(params: $articleParams)
-                  title
+                  f3(params: $p2)
+                  f2
                 }
               }
             }
@@ -634,48 +634,48 @@ describe('Type Condition field merging', () => {
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
-          Fetch(service: "searchSubgraph") {
+          Fetch(service: "s1") {
             {
-              oneSearch {
+              onef1 {
                 __typename
-                ... on MovieResult {
+                ... on T1 {
                   id
-                  sections {
+                  f2 {
                     __typename
-                    ... on EntityCollectionSection {
+                    ... on T3 {
                       __typename
                       id
                     }
                   }
                 }
-                ... on ArticleResult {
+                ... on T2 {
                   id
-                  sections {
+                  f2 {
                     __typename
-                    ... on EntityCollectionSection {
+                    ... on T3 {
                       __typename
                       id
                     }
                   }
                 }
               }
-              search {
+              f1 {
                 __typename
-                ... on MovieResult {
+                ... on T1 {
                   id
-                  sections {
+                  f2 {
                     __typename
-                    ... on EntityCollectionSection {
+                    ... on T3 {
                       __typename
                       id
                     }
                   }
                 }
-                ... on ArticleResult {
+                ... on T2 {
                   id
-                  sections {
+                  f2 {
                     __typename
-                    ... on EntityCollectionSection {
+                    ... on T3 {
                       __typename
                       id
                     }
@@ -685,64 +685,64 @@ describe('Type Condition field merging', () => {
             }
           },
           Parallel {
-            Flatten(path: ".oneSearch|[MovieResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
+            Flatten(path: ".onef1|[T1].f2.@") {
+              Fetch(service: "s2") {
                 {
-                  ... on EntityCollectionSection {
+                  ... on T3 {
                     __typename
                     id
                   }
                 } =>
                 {
-                  ... on EntityCollectionSection {
-                    artwork(params: $movieParams)
+                  ... on T3 {
+                    f3(params: $p1)
                   }
                 }
               },
             },
-            Flatten(path: ".oneSearch|[ArticleResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
+            Flatten(path: ".onef1|[T2].f2.@") {
+              Fetch(service: "s2") {
                 {
-                  ... on EntityCollectionSection {
+                  ... on T3 {
                     __typename
                     id
                   }
                 } =>
                 {
-                  ... on EntityCollectionSection {
-                    artwork(params: $articleParams)
-                    title
+                  ... on T3 {
+                    f3(params: $p2)
+                    f2
                   }
                 }
               },
             },
-            Flatten(path: ".search.@|[MovieResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
+            Flatten(path: ".f1.@|[T1].f2.@") {
+              Fetch(service: "s2") {
                 {
-                  ... on EntityCollectionSection {
+                  ... on T3 {
                     __typename
                     id
                   }
                 } =>
                 {
-                  ... on EntityCollectionSection {
-                    artwork(params: $movieParams)
+                  ... on T3 {
+                    f3(params: $p1)
                   }
                 }
               },
             },
-            Flatten(path: ".search.@|[ArticleResult].sections.@") {
-              Fetch(service: "artworkSubgraph") {
+            Flatten(path: ".f1.@|[T2].f2.@") {
+              Fetch(service: "s2") {
                 {
-                  ... on EntityCollectionSection {
+                  ... on T3 {
                     __typename
                     id
                   }
                 } =>
                 {
-                  ... on EntityCollectionSection {
-                    artwork(params: $articleParams)
-                    title
+                  ... on T3 {
+                    f3(params: $p2)
+                    f2
                   }
                 }
               },
