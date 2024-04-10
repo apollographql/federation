@@ -4,13 +4,18 @@ description: Learn the error codes you can receive if composition fails.
 toc: false
 ---
 
-When Apollo Gateway attempts to compose the schemas provided by your [subgraphs](./building-supergraphs/subgraphs-overview/) into a supergraph schema, it confirms that:
+When Apollo Federation attempts to compose the schemas provided by your [subgraphs](./building-supergraphs/subgraphs-overview/) into a supergraph schema, it confirms that:
 
-- The subgraphs are valid
+- The subgraphs have valid GraphQL and Federation syntax
 - The resulting supergraph schema is valid
-- The gateway has all of the information it needs to execute operations against the resulting schema
+- The router/gateway has all of the information it needs to execute operations against the resulting schema
 
-If Apollo Gateway encounters an error, composition fails. This document lists subgraph validation and composition error codes, along with their root causes.
+If composition encounters an error, it fails to create the supergraph and will not pick up any subgraph changes. This document lists subgraph validation and composition error codes, along with their root causes.
+
+<Note>
+Composition might find a schema that technically valid but it can flag potential improvements or hints. These will not throw an error but will be logged as part of the composition build step.
+To learn more, see our docs on [composition hints](/federation/hints/).
+</Note>
 
 ### Errors
 
