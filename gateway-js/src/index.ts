@@ -57,6 +57,7 @@ import {
   LocalCompose,
 } from './supergraphManagers';
 import {
+  assert,
   operationFromDocument,
   Schema,
   ServiceDefinition,
@@ -568,6 +569,9 @@ export class ApolloGateway implements GatewayInterface {
     this.queryPlanStore.clear();
     this.apiSchema = supergraph.apiSchema();
     this.schema = addExtensions(this.apiSchema.toGraphQLJSSchema());
+
+    assert(!this.config.queryPlannerConfig?.typeConditionedFetching, "Type conditions are not supported in the gateway");
+
     this.queryPlanner = new QueryPlanner(supergraph, this.config.queryPlannerConfig);
 
     // Notify onSchemaChange listeners of the updated schema

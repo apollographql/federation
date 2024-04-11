@@ -1,6 +1,9 @@
 import { operationFromDocument } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
-import { composeAndCreatePlanner } from './testHelper';
+import {
+  composeAndCreatePlanner,
+  composeAndCreatePlannerWithOptions,
+} from './testHelper';
 
 describe('Type Condition field merging', () => {
   const subgraph1 = {
@@ -54,6 +57,12 @@ describe('Type Condition field merging', () => {
   };
 
   const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+  const [_, queryPlannerWithTypeConditionedFetching] =
+    composeAndCreatePlannerWithOptions(
+      [subgraph1, subgraph2],
+      { typeConditionedFetching: true },
+      false,
+    );
 
   test('does eagerly merge fields on different type conditions if flag is absent', () => {
     const operation = operationFromDocument(
@@ -86,9 +95,7 @@ describe('Type Condition field merging', () => {
       `,
     );
 
-    const plan = queryPlanner.buildQueryPlan(operation, {
-      typeConditionedFetching: false,
-    });
+    const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -176,9 +183,8 @@ describe('Type Condition field merging', () => {
       `,
     );
 
-    const plan = queryPlanner.buildQueryPlan(operation, {
-      typeConditionedFetching: true,
-    });
+    const plan =
+      queryPlannerWithTypeConditionedFetching.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -314,7 +320,11 @@ describe('Type Condition field merging', () => {
   };
 
   test('does not eagerly merge fields on different type conditions if flag is present with interface', () => {
-    const [api2, queryPlanner2] = composeAndCreatePlanner(subgraph3, subgraph2);
+    const [api2, queryPlanner2] = composeAndCreatePlannerWithOptions(
+      [subgraph3, subgraph2],
+      { typeConditionedFetching: true },
+      false,
+    );
 
     const operation = operationFromDocument(
       api2,
@@ -346,9 +356,7 @@ describe('Type Condition field merging', () => {
       `,
     );
 
-    const plan = queryPlanner2.buildQueryPlan(operation, {
-      typeConditionedFetching: true,
-    });
+    const plan = queryPlanner2.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -418,7 +426,10 @@ describe('Type Condition field merging', () => {
   });
 
   test('does generate type conditions with interface fragment', () => {
-    const [api2, queryPlanner2] = composeAndCreatePlanner(subgraph3, subgraph2);
+    const [api2, queryPlanner2] = composeAndCreatePlannerWithOptions(
+      [subgraph3, subgraph2],
+      { typeConditionedFetching: true },
+    );
 
     const operation = operationFromDocument(
       api2,
@@ -450,9 +461,7 @@ describe('Type Condition field merging', () => {
       `,
     );
 
-    const plan = queryPlanner2.buildQueryPlan(operation, {
-      typeConditionedFetching: true,
-    });
+    const plan = queryPlanner2.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
@@ -520,58 +529,61 @@ describe('Type Condition field merging', () => {
   });
 
   test('does generate type conditions with interface fragment', () => {
-    const [api, queryPlanner] = composeAndCreatePlanner(
-      {
-        name: 's2',
-        typeDefs: gql`
-          type Query {
-            me: String
-          }
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      [
+        {
+          name: 's2',
+          typeDefs: gql`
+            type Query {
+              me: String
+            }
 
-          type T3 @key(fields: "id") {
-            id: ID!
-            f2: String
-            f3(params: String): String
-          }
+            type T3 @key(fields: "id") {
+              id: ID!
+              f2: String
+              f3(params: String): String
+            }
 
-          type T4 @key(fields: "id") {
-            id: ID!
-            f3(params: String): String
-          }
-        `,
-      },
-      {
-        name: 's1',
-        typeDefs: gql`
-          type Query {
-            f1: [U1]
-            oneF1: U1
-          }
+            type T4 @key(fields: "id") {
+              id: ID!
+              f3(params: String): String
+            }
+          `,
+        },
+        {
+          name: 's1',
+          typeDefs: gql`
+            type Query {
+              f1: [U1]
+              oneF1: U1
+            }
 
-          union U1 = T1 | T2
-          union U2 = T3 | T4
+            union U1 = T1 | T2
+            union U2 = T3 | T4
 
-          type T1 @key(fields: "id") {
-            id: ID!
-            f2: [U2]
-            oneU2: U2
-          }
+            type T1 @key(fields: "id") {
+              id: ID!
+              f2: [U2]
+              oneU2: U2
+            }
 
-          type T2 @key(fields: "id") {
-            id: ID!
-            f2: [U2]
-            oneU2: U2
-          }
+            type T2 @key(fields: "id") {
+              id: ID!
+              f2: [U2]
+              oneU2: U2
+            }
 
-          type T3 @key(fields: "id") {
-            id: ID!
-          }
+            type T3 @key(fields: "id") {
+              id: ID!
+            }
 
-          type T4 @key(fields: "id") {
-            id: ID!
-          }
-        `,
-      },
+            type T4 @key(fields: "id") {
+              id: ID!
+            }
+          `,
+        },
+      ],
+      { typeConditionedFetching: true },
     );
 
     const operation = operationFromDocument(
@@ -626,9 +638,7 @@ describe('Type Condition field merging', () => {
       `,
     );
 
-    const plan = queryPlanner.buildQueryPlan(operation, {
-      typeConditionedFetching: true,
-    });
+    const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {

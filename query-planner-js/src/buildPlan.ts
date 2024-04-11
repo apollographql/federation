@@ -389,11 +389,12 @@ class QueryPlanningTraversal<RV extends Vertex> {
     private readonly rootKind: SchemaRootKind,
     readonly costFunction: CostFunction,
     initialContext: PathContext,
+    typeConditionedFetching: boolean,
     excludedDestinations: ExcludedDestinations = [],
     excludedConditions: ExcludedConditions = [],
   ) {
     const { root, federatedQueryGraph } = parameters;
-    this.typeConditionedFetching = parameters.typeConditionedFetching || false;
+    this.typeConditionedFetching = typeConditionedFetching || false;
     this.isTopLevel = isRootVertex(root);
     this.optionsLimit = parameters.config.debug?.pathsLimit;
     this.conditionResolver = cachingConditionResolver(
@@ -766,6 +767,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       'query',
       this.costFunction,
       context,
+      this.typeConditionedFetching,
       excludedDestinations,
       addConditionExclusion(excludedConditions, edge.conditions),
     ).findBestPlan();
@@ -2989,7 +2991,6 @@ type PlanningParameters<RV extends Vertex> = {
   inconsistentAbstractTypesRuntimes: Set<string>,
   config: Concrete<QueryPlannerConfig>,
   overrideConditions: Map<string, boolean>,
-  typeConditionedFetching: boolean,
 }
 
 interface BuildQueryPlanOptions {
@@ -3001,15 +3002,6 @@ interface BuildQueryPlanOptions {
    * progressive @override feature.
    */
   overrideConditions?: Map<string, boolean>,
-  /**
-   * Enables type conditioned fetching.
-   * This flag is a workaround, which may yield significant
-   * performance degradation when computing query plans,
-   * and increase query plan size.
-   *
-   * If you aren't aware of this flag, you probably don't need it.
-   */
-  typeConditionedFetching?: boolean,
 }
 
 export class QueryPlanner {
@@ -3200,7 +3192,6 @@ export class QueryPlanner {
       statistics,
       inconsistentAbstractTypesRuntimes: this.inconsistentAbstractTypesRuntimes,
       config: this.config,
-      typeConditionedFetching: options?.typeConditionedFetching || false,
       overrideConditions,
     }
 
@@ -3575,6 +3566,7 @@ function computeRootParallelBestPlan(
     parameters.root.rootKind,
     defaultCostFunction,
     emptyContext,
+    parameters.config.typeConditionedFetching,
   );
   const plan = planningTraversal.findBestPlan();
   // Getting no plan means the query is essentially unsatisfiable (it's a valid query, but we can prove it will never return a result),
@@ -3634,7 +3626,7 @@ function computeRootSerialDependencyGraph(
         ),
         prevPaths,
         root.rootKind,
-        parameters.typeConditionedFetching
+        parameters.config.typeConditionedFetching
       );
     } else {
       startingFetchId = prevDepGraph.nextFetchId();
