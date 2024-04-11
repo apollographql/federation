@@ -1,0 +1,17 @@
+{
+  "mode": "pre",
+  "tag": "testing",
+  "initialVersions": {
+    "@apollo/composition": "2.7.2",
+    "apollo-federation-integration-testsuite": "2.7.2",
+    "@apollo/gateway": "2.7.2",
+    "@apollo/federation-internals": "2.7.2",
+    "@apollo/query-graphs": "2.7.2",
+    "@apollo/query-planner": "2.7.2",
+    "@apollo/subgraph": "2.7.2"
+  },
+  "changesets": [
+    "invalid-reused-fragment",
+    "six-shoes-fly"
+  ]
+}
