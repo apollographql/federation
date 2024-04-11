@@ -164,6 +164,182 @@ describe('caching', () => {
  * have basic end-to-end testing, thus ensuring those feature don't break in places we didn't expect.
  */
 describe('end-to-end features', () => {
+  it('@override without progressive', async () => {
+    const subgraphA = {
+      name: 'A',
+      url: 'https://A',
+      typeDefs: gql`
+        extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.7"
+            import: ["@key", "@override"]
+          )
+
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "k") {
+          k: ID
+          x: Int
+        }
+      `,
+      resolvers: {
+        Query: {
+          t: () => ({
+            k: 42,
+            x: 1,
+          }),
+        },
+      },
+    };
+
+    const subgraphB = {
+      name: 'B',
+      url: 'https://B',
+      typeDefs: gql`
+        extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.7"
+            import: ["@key", "@override"]
+          )
+
+        type T @key(fields: "k") {
+          k: ID
+          x: Int @override(from: "A")
+        }
+      `,
+      resolvers: {
+        T: {
+          __resolveReference: ({ k }: { k: string }) => {
+            return k === '42' ? { x: 2 } : undefined;
+          },
+        },
+      },
+    };
+
+    services = await startSubgraphsAndGateway([subgraphA, subgraphB]);
+    const limit = 1000;
+    const query = `
+      {
+        t {
+          k
+          x
+        }
+      }
+    `;
+    let hitsA = 0;
+    let hitsB = 0;
+    for (let i = 0; i < limit; i++) {
+      const response = await services.queryGateway(query);
+      const result = await response.json();
+      if (result.data.t.x === 1) {
+        hitsA++;
+      }
+      if (result.data.t.x === 2) {
+        hitsB++;
+      }
+    }
+    expect(hitsB).toEqual(1000);
+    expect(hitsA).toEqual(0);
+
+    const supergraphSdl = services.gateway.__testing().supergraphSdl;
+    expect(supergraphSdl).toBeDefined();
+    const supergraph = buildSchema(supergraphSdl!);
+    const typeT = supergraph.type('T') as ObjectType;
+    expect(
+      typeT.field('x')?.appliedDirectivesOf('@override').toString(),
+    ).toStrictEqual('');
+  });
+
+  it('@override with progressive override', async () => {
+    const subgraphA = {
+      name: 'A',
+      url: 'https://A',
+      typeDefs: gql`
+        extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.7"
+            import: ["@key", "@override"]
+          )
+
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "k") {
+          k: ID
+          x: Int
+        }
+      `,
+      resolvers: {
+        Query: {
+          t: () => ({
+            k: 42,
+            x: 1,
+          }),
+        },
+      },
+    };
+
+    const subgraphB = {
+      name: 'B',
+      url: 'https://B',
+      typeDefs: gql`
+        extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.7"
+            import: ["@key", "@override"]
+          )
+
+        type T @key(fields: "k") {
+          k: ID
+          x: Int @override(from: "A", label: "percent(50)")
+        }
+      `,
+      resolvers: {
+        T: {
+          __resolveReference: ({ k }: { k: string }) => {
+            return k === '42' ? { x: 2 } : undefined;
+          },
+        },
+      },
+    };
+
+    services = await startSubgraphsAndGateway([subgraphA, subgraphB]);
+    const limit = 1000;
+    const query = `
+      {
+        t {
+          k
+          x
+        }
+      }
+    `;
+    let hitsA = 0;
+    let hitsB = 0;
+    for (let i = 0; i < limit; i++) {
+      const response = await services.queryGateway(query);
+      const result = await response.json();
+      if (result.data.t.x === 1) {
+        hitsA++;
+      }
+      if (result.data.t.x === 2) {
+        hitsB++;
+      }
+    }
+    expect(hitsB).toBeGreaterThan(0);
+    expect(hitsA).toBeGreaterThanOrEqual(0);
+
+    const supergraphSdl = services.gateway.__testing().supergraphSdl;
+    expect(supergraphSdl).toBeDefined();
+    const supergraph = buildSchema(supergraphSdl!);
+    const typeT = supergraph.type('T') as ObjectType;
+    expect(
+      typeT.field('x')?.appliedDirectivesOf('@override').toString(),
+    ).toStrictEqual('');
+  });
+
   it('@tag renaming', async () => {
     const subgraphA = {
       name: 'A',
