@@ -395,7 +395,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     this.optionsLimit = parameters.config.debug?.pathsLimit;
     this.conditionResolver = cachingConditionResolver(
       federatedQueryGraph,
-      (edge, context, excludedEdges, excludedConditions) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions),
+      (edge, context, excludedEdges, excludedConditions, extras) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions, extras),
     );
 
     const initialPath: OpGraphPath<RV> = GraphPath.create(federatedQueryGraph, root);
@@ -751,13 +751,13 @@ class QueryPlanningTraversal<RV extends Vertex> {
       : computeNonRootFetchGroups(dependencyGraph, tree, this.rootKind);
   }
 
-  private resolveConditionPlan(edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions): ConditionResolution {
+  private resolveConditionPlan(edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions, extraConditions?: SelectionSet): ConditionResolution {
     const bestPlan = new QueryPlanningTraversal(
       {
         ...this.parameters,
         root: edge.head,
       },
-      edge.conditions!,
+      (edge.conditions || extraConditions)!,
       0,
       false,
       'query',
@@ -792,6 +792,7 @@ type ParentRelation = {
 const conditionsMemoizer = (selectionSet: SelectionSet) => ({ conditions: conditionsOfSelectionSet(selectionSet) });
 
 class GroupInputs {
+  readonly usedContexts = new Set<string>;
   private readonly perType = new Map<string, MutableSelectionSet>();
   onUpdateCallback?: () => void | undefined = undefined;
 
@@ -811,6 +812,10 @@ class GroupInputs {
     }
     typeSelection.updates().add(selection);
     this.onUpdateCallback?.();
+  }
+  
+  addContext(context: string) {
+    this.usedContexts.add(context);
   }
 
   addAll(other: GroupInputs) {
@@ -841,6 +846,14 @@ class GroupInputs {
         return false;
       }
     }
+    if (this.usedContexts.size < other.usedContexts.size) {
+      return false;
+    }
+    for (const c of other.usedContexts) {
+      if (!this.usedContexts.has(c)) {
+        return false;
+      }
+    }
     return true;
   }
 
@@ -855,6 +868,14 @@ class GroupInputs {
         return false;
       }
     }
+    if (this.usedContexts.size !== other.usedContexts.size) {
+      return false;
+    }
+    for (const c of other.usedContexts) {
+      if (!this.usedContexts.has(c)) {
+        return false;
+      }
+    }
     return true;
   }
 
@@ -862,6 +883,9 @@ class GroupInputs {
     const cloned = new GroupInputs(this.supergraphSchema);
     for (const [type, selection] of this.perType.entries()) {
       cloned.perType.set(type, selection.clone());
+    }
+    for (const c of this.usedContexts) {
+      cloned.usedContexts.add(c);
     }
     return cloned;
   }
@@ -891,6 +915,9 @@ class FetchGroup {
 
   // Set in some code-path to indicate that the selection of the group not be optimized away even if it "looks" useless.
   mustPreserveSelection: boolean = false;
+
+  // context may not be get and set within the same fetch group, so we need to track which contexts are set
+  contextSelections?: Map<string, SelectionSet>;
 
   private constructor(
     readonly dependencyGraph: FetchDependencyGraph,
@@ -1141,6 +1168,12 @@ class FetchGroup {
     if (rewrites) {
       rewrites.forEach((r) => this.inputRewrites.push(r));
     }
+  }
+  
+  addInputContext(context: string) {
+    assert(this._inputs, "Shouldn't try to add inputs to a root fetch group");
+
+    this._inputs.addContext(context);
   }
 
   copyInputsOf(other: FetchGroup) {
@@ -4110,13 +4143,20 @@ function computeGroupsForTree(
           });
           assert(updatedOperation, () => `Extracting @defer from ${operation} should not have resulted in no operation`);
 
-          const updated = {
+          
+          let updated;
+          
+          const { parameterToContext } = tree;
+          const groupContextSelections = group.contextSelections;
+
+          updated = {
             tree: child,
             group,
             path,
             context,
-            deferContext: updatedDeferContext
+            deferContext: updatedDeferContext,
           };
+
           if (conditions) {
             // We have @requires or some other dependency to create groups for.
             const requireResult = handleRequires(
@@ -4130,6 +4170,17 @@ function computeGroupsForTree(
             );
             updated.group = requireResult.group;
             updated.path = requireResult.path;
+            
+            if (tree.contextToSelection) {
+              // each of the selections that could be used in a @fromContext paramter should be saved to the fetch group.
+              // This will also be important in determining when it is necessary to draw a new fetch group boundary
+              if (updated.group.contextSelections === undefined) {
+                updated.group.contextSelections = new Map();
+              }
+              for (const [key, value] of tree.contextToSelection) {
+                updated.group.contextSelections.set(key, value);  
+              }
+            }
             updateCreatedGroups(createdGroups, ...requireResult.createdGroups);
           }
 
@@ -4173,7 +4224,55 @@ function computeGroupsForTree(
             updated.path = updated.path.add(updatedOperation);
           }
 
-          stack.push(updated);
+          // if we're going to start using context variables, every variable used must be set in a different parent
+          // fetch group or else we need to create a new one
+          if (parameterToContext && groupContextSelections && Array.from(parameterToContext.values()).some(c => groupContextSelections.has(c))) { 
+            // let's find the edge that will be used as an entry to the new type in the subgraph
+            const entityVertex = dependencyGraph.federatedQueryGraph.verticesForType(edge.head.type.name).find(v => v.source === edge.tail.source);
+            assert(entityVertex, () => `Could not find entity entry edge for ${edge.head.source}`);
+            const keyResolutionEdge = dependencyGraph.federatedQueryGraph.outEdges(entityVertex).find(e => e.transition.kind === 'KeyResolution');
+            assert(keyResolutionEdge, () => `Could not find key resolution edge for ${edge.head.source}`);
+            
+            const type = edge.head.type as CompositeType;
+            const newGroup = dependencyGraph.getOrCreateKeyFetchGroup({
+              subgraphName: edge.tail.source,
+              mergeAt: path.inResponse(),
+              type,
+              parent: { group, path: path.inGroup() },
+              conditionsGroups: [],
+            });
+            newGroup.addParent({ group, path: path.inGroup() });
+            for (const [_, value] of parameterToContext) {
+              newGroup.addInputContext(value); 
+            }
+            
+            const inputType = dependencyGraph.typeForFetchInputs(type.name);
+            const inputSelections = newCompositeTypeSelectionSet(inputType);
+            inputSelections.updates().add(keyResolutionEdge.conditions!);
+            newGroup.addInputs(
+              wrapInputsSelections(inputType, inputSelections.get(), context), // TODO: is the context right
+              computeInputRewritesOnKeyFetch(inputType.name, type),
+            );
+            
+            updateCreatedGroups(createdGroups, newGroup);
+            
+            // TODO: There is currently a problem where we are getting the current field in the previous fetch group, where
+            // we really want to get the condition only. To be fixed.
+            if (conditions) {
+              stack.push(updated);
+            }
+            
+            stack.push({
+              tree, 
+              group: newGroup,
+              path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, type, context)),
+              context,
+              deferContext: updatedDeferContext,
+            });
+            
+          } else {
+            stack.push(updated);
+          }
         }
       }
     }

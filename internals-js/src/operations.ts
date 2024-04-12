@@ -231,6 +231,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     definition: FieldDefinition<any>,
     assumeValid: boolean = false,
     variableDefinitions?: VariableDefinitions,
+    contextualArguments?: string[],
   ): boolean {
     assert(assumeValid || variableDefinitions, 'Must provide variable definitions if validation is needed');
 
@@ -250,7 +251,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     for (const argDef of definition.arguments()) {
       const appliedValue = this.argumentValue(argDef.name);
       if (appliedValue === undefined) {
-        if (argDef.defaultValue === undefined && !isNullableType(argDef.type!)) {
+        if (argDef.defaultValue === undefined && !isNullableType(argDef.type!) && !contextualArguments || !contextualArguments?.includes(argDef.name)) {
           return false;
         }
       } else {
@@ -278,8 +279,10 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     for (const argDef of this.definition.arguments()) {
       const appliedValue = this.argumentValue(argDef.name);
       if (appliedValue === undefined) {
+        // TODO: This is a hack that will not work if directives are renamed. Not sure how to fix as we're missing metadata
+        const isContextualArg = !!argDef.appliedDirectives.find(d => d.name === 'federation__fromContext');
         validate(
-          argDef.defaultValue !== undefined || isNullableType(argDef.type!),
+          argDef.defaultValue !== undefined || isNullableType(argDef.type!) || isContextualArg,
           () => `Missing mandatory value for argument "${argDef.name}" of field "${this.definition.coordinate}" in selection "${this}"`);
       } else {
         validate(

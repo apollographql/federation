@@ -441,3 +441,13 @@ export function findLast<T>(array: T[], predicate: (t: T) => boolean): T | undef
   }
   return undefined;
 }
+
+export function mergeMapOrNull<K,V>(m1: Map<K, V> | null, m2: Map<K, V> | null): Map<K, V> | null {
+  if (!m1) {
+    return m2;
+  }
+  if (!m2) {
+    return m1;
+  }
+  return new Map<K, V>([...m1, ...m2]);
+}

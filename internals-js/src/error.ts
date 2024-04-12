@@ -343,6 +343,12 @@ const NO_CONTEXT_IN_SELECTION = makeCodeDefinition(
   { addedIn: '2.8.0' },
 );
 
+const CONTEXT_NO_RESOLVABLE_KEY = makeCodeDefinition(
+  'CONTEXT_NO_RESOLVABLE_KEY',
+  'If an ObjectType uses a @fromContext, at least one of its keys must be resolvable.',
+  { addedIn: '2.8.0' },
+);
+
 const EXTERNAL_TYPE_MISMATCH = makeCodeDefinition(
   'EXTERNAL_TYPE_MISMATCH',
   'An `@external` field has a type that is incompatible with the declaration(s) of that field in other subgraphs.',
@@ -743,6 +749,7 @@ export const ERRORS = {
   CONTEXT_NOT_SET,
   CONTEXT_INVALID_SELECTION,
   NO_CONTEXT_IN_SELECTION,
+  CONTEXT_NO_RESOLVABLE_KEY,
   EXTERNAL_TYPE_MISMATCH,
   EXTERNAL_ARGUMENT_MISSING,
   EXTERNAL_ARGUMENT_TYPE_MISMATCH,

@@ -36,6 +36,7 @@ import {
   Supergraph,
   NamedSchemaElement,
   validateSupergraph,
+  parseContext,
 } from '@apollo/federation-internals';
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution, InterfaceObjectFakeDownCast } from './transition';
@@ -123,6 +124,13 @@ export interface OverrideCondition {
   condition: boolean;
 }
 
+export type ContextCondition = {
+  context: string;
+  namedParameter: string;
+  selection: string;
+  typesWithContextSet: Set<string>;
+}
+
 /**
  * An edge of a query graph.
  *
@@ -131,7 +139,9 @@ export interface OverrideCondition {
  */
 export class Edge {
   private _conditions?: SelectionSet;
-
+  
+  public requiredContexts: ContextCondition[] = [];
+  
   constructor(
     /**
      * Index used for this edge in the query graph it is part of (note that this index is "scoped" within
@@ -178,8 +188,17 @@ export class Edge {
      * matches the query plan parameters, this edge can be taken.
      */
     public overrideCondition?: OverrideCondition,
+    
+    /**
+     * Potentially multiple context conditions. When @fromContext is used on a argument definition, the edge connecting the type to the 
+     * argument needs to reflect that the condition must be satisifed in order for the edge to be taken
+     */
+    requiredContexts?: ContextCondition[],
   ) {
     this._conditions = conditions;
+    if (requiredContexts) {
+      this.requiredContexts = [...requiredContexts];
+    }
   }
 
   get conditions(): SelectionSet | undefined {
@@ -229,6 +248,7 @@ export class Edge {
       this.transition,
       this._conditions,
       this.overrideCondition,
+      this.requiredContexts,
     );
   }
 
@@ -236,6 +256,10 @@ export class Edge {
     this._conditions = this._conditions
       ? new SelectionSetUpdates().add(this._conditions).add(newConditions).toSelectionSet(this._conditions.parentType)
       : newConditions;
+  }
+  
+  addToContextConditions(contextConditions: ContextCondition[]) {
+    this.requiredContexts.push(...contextConditions);
   }
 
   isKeyOrRootTypeEdgeToSelf(): boolean {
@@ -848,6 +872,66 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
       updateEdgeWithOverrideCondition(fromSubgraph, label, false);
     }
   }
+ 
+  /** 
+   * Now we'll handle instances of @fromContext. For each instance where @fromContext exists, I want to add edges back to each place
+   * place where the context is set, along with conditions on the edge that goes to the field
+  */
+  for (const [i, subgraph] of subgraphs.entries()) {
+    const subgraphSchema = schemas[i];
+    const subgraphMetadata = federationMetadata(subgraphSchema);
+    assert(subgraphMetadata, `Subgraph ${i} is not a valid federation subgraph`);
+    
+    const contextNameToTypes: Map<string, Set<string>> = new Map();
+    
+    for (const application of subgraphMetadata.contextDirective().applications()) {
+      const { name: context } = application.arguments();
+        if (contextNameToTypes.has(context)) {
+          contextNameToTypes.get(context)!.add(application.parent.name);
+        } else {
+          contextNameToTypes.set(context, new Set([application.parent.name]));
+        }
+    }
+    
+    const coordinateMap: Map<string, ContextCondition[]> = new Map();
+    for (const application of subgraphMetadata.fromContextDirective().applications()) {
+      const { field } = application.arguments();
+      const { context, selection } = parseContext(field);
+      
+      assert(context, () => `FieldValue has invalid format. Context not found ${field}`);
+      assert(selection, () => `FieldValue has invalid format. Selection not found ${field}`);
+      const namedParameter = application.parent.name;
+      const fieldCoordinate = application.parent.parent.coordinate;
+      const typesWithContextSet = contextNameToTypes.get(context);
+      assert(typesWithContextSet, () => `Context ${context} is never set in subgraph`);
+      const z = coordinateMap.get(fieldCoordinate);
+      if (z) {
+        z.push({ namedParameter, context, selection, typesWithContextSet });
+      } else {
+        coordinateMap.set(fieldCoordinate, [{ namedParameter, context, selection, typesWithContextSet }]);
+      }
+    }
+
+    simpleTraversal(
+      subgraph,
+      _v => { return undefined; },
+      e => {
+        if (e.head.type.kind === 'ObjectType' && e.tail.type.kind === 'ScalarType') {
+          const coordinate = `${e.head.type.name}.${e.transition.toString()}`;
+          const requiredContexts = coordinateMap.get(coordinate);
+          if (requiredContexts) {
+            const headInSupergraph = builder.vertexForTypeAndSubgraph(e.head.type.name, subgraph.name);
+            assert(headInSupergraph, () => `Vertex for type ${e.head.type.name} not found in supergraph`);
+            const edgeInSupergraph = builder.edge(headInSupergraph, e.index);
+            e.addToContextConditions(requiredContexts);
+            edgeInSupergraph.addToContextConditions(requiredContexts);
+          }
+        }
+        return true;
+      }
+    );
+   
+  }
 
   // Now we handle @provides
   let provideId = 0;
@@ -1024,15 +1108,19 @@ class GraphBuilder {
     const indexes = this.typesToVertices.get(typeName);
     return indexes == undefined ? [] : indexes.map(i => this.vertices[i]);
   }
+  
+  vertexForTypeAndSubgraph(typeName: string, source: string): Vertex | undefined {
+    return this.verticesForType(typeName).find(v => v.source === source);
+  }
 
   root(kind: SchemaRootKind): Vertex | undefined {
     return this.rootVertices.get(kind);
   }
 
-  addEdge(head: Vertex, tail: Vertex, transition: Transition, conditions?: SelectionSet, overrideCondition?: OverrideCondition) {
+  addEdge(head: Vertex, tail: Vertex, transition: Transition, conditions?: SelectionSet, overrideCondition?: OverrideCondition, requiredContexts?: ContextCondition[]) {
     const headOutEdges = this.outEdges[head.index];
     const tailInEdges = this.inEdges[tail.index];
-    const edge = new Edge(headOutEdges.length, head, tail, transition, conditions, overrideCondition);
+    const edge = new Edge(headOutEdges.length, head, tail, transition, conditions, overrideCondition, requiredContexts);
     headOutEdges.push(edge);
     tailInEdges.push(edge);
 
@@ -1111,7 +1199,7 @@ class GraphBuilder {
       const newHead = this.getOrCopyVertex(vertex, offset, graph);
       for (const edge of graph.outEdges(vertex, true)) {
         const newTail = this.getOrCopyVertex(edge.tail, offset, graph);
-        this.addEdge(newHead, newTail, edge.transition, edge.conditions);
+        this.addEdge(newHead, newTail, edge.transition, edge.conditions, edge.overrideCondition, edge.requiredContexts);
       }
     }
     this.nextIndex += graph.verticesCount();
@@ -1150,7 +1238,7 @@ class GraphBuilder {
     newVertex.provideId = provideId;
     newVertex.hasReachableCrossSubgraphEdges = vertex.hasReachableCrossSubgraphEdges;
     for (const edge of this.outEdges[vertex.index]) {
-      this.addEdge(newVertex, edge.tail, edge.transition, edge.conditions);
+      this.addEdge(newVertex, edge.tail, edge.transition, edge.conditions, edge.overrideCondition, edge.requiredContexts);
     }
     return newVertex;
   }
@@ -1163,7 +1251,7 @@ class GraphBuilder {
    * @returns the newly created edge that, as of this method returning, replaces `edge`.
    */
   updateEdgeTail(edge: Edge, newTail: Vertex): Edge {
-    const newEdge = new Edge(edge.index, edge.head, newTail, edge.transition, edge.conditions, edge.overrideCondition);
+    const newEdge = new Edge(edge.index, edge.head, newTail, edge.transition, edge.conditions, edge.overrideCondition, edge.requiredContexts);
     this.outEdges[edge.head.index][edge.index] = newEdge;
     // For in-edge, we need to remove the edge from the inputs of the previous tail,
     // and add it to the new tail.

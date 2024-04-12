@@ -20,6 +20,7 @@ export const DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
   'https://specs.apollo.dev/tag/v0.3',
   'https://specs.apollo.dev/inaccessible/v0.1',
   'https://specs.apollo.dev/inaccessible/v0.2',
+  'https://specs.apollo.dev/context/v0.1',
 ]);
 
 const coreVersionZeroDotOneUrl = FeatureUrl.parse('https://specs.apollo.dev/core/v0.1');

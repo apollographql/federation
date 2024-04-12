@@ -32,6 +32,7 @@ import {
   OutputType,
   WrapperType,
   isWrapperType,
+  isNonNullType,
 } from "./definitions";
 import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues, assertUnreachable } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -502,6 +503,28 @@ const validateSelectionFormat = ({
   }
 }
 
+/**
+ * Check to see if the requested type can be fulfilled by the fulfilling type. For example, String! can always be used for String
+ * 
+ */
+function canFulfillType(requestedType: NamedType | InputType, fulfillingType: NamedType | InputType): boolean {
+  assert(requestedType.kind !== 'ObjectType' 
+    && requestedType.kind !== 'UnionType' && 
+    fulfillingType.kind !== 'ObjectType' && 
+    fulfillingType.kind !== 'UnionType', 'Expected an input type or wrapped input type');
+    
+  if (requestedType.toString() === fulfillingType.toString()) {
+    return true;
+  }
+  if (isWrapperType(requestedType) && isWrapperType(fulfillingType)) {
+    return canFulfillType(requestedType.baseType(), fulfillingType.baseType());
+  }
+  if (!isNonNullType(requestedType) && isNonNullType(fulfillingType)) {
+    return canFulfillType(requestedType, fulfillingType.baseType());
+  }
+  return false;
+}
+
 function validateFieldValue({
   context,
   selection,
@@ -516,6 +539,7 @@ function validateFieldValue({
   errorCollector: GraphQLError[],
 }): void {
   const expectedType = fromContextParent.type;
+  assert(expectedType, 'Expected a type');
   const {
     selectionType,
   } = validateSelectionFormat({ context, selection, fromContextParent, errorCollector });
@@ -528,68 +552,78 @@ function validateFieldValue({
   for (const location of setContextLocations) {
     // for each location, we need to validate that the selection will result in exactly one field being selected
     // the number of selection sets created will be the same
-    const selectionSet = parseSelectionSet({ parentType: location,  source: selection});
-    if (selectionType === 'field') {
-      const { resolvedType } = validateFieldValueType({
-        currentType: location,
-        selectionSet,
-        errorCollector,
-      });
-      if (resolvedType === undefined || resolvedType.toString() !== expectedType?.toString()) {
+    const explodedTypes = location.kind === 'UnionType' ? location.types() : [location];
+    for (const explodedType of explodedTypes) {
+      let selectionSet: SelectionSet;
+      try {
+        selectionSet = parseSelectionSet({ parentType: explodedType,  source: selection});
+      } catch (e) {
         errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
-          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: the type of the selection does not match the expected type "${expectedType?.toString()}"`,
+          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid for type ${explodedType.name}. Error: ${e.message}`,
           { nodes: sourceASTs(fromContextParent) }
         ));
         return;
       }
-    } else if (selectionType === 'inlineFragment') {
-      // ensure that each location maps to exactly one fragment
-      const types = selectionSet.selections()
-        .filter((s): s is FragmentSelection => s.kind === 'FragmentSelection')
-        .filter(s => {
-          const { typeCondition } = s.element;
-          assert(typeCondition, 'Expected a type condition on FragmentSelection');
-          if (typeCondition.kind === 'ObjectType') {
-            return location.name === typeCondition.name;
-          } else if (typeCondition.kind === 'InterfaceType') {
-            return location.kind === 'InterfaceType' ? location.name === typeCondition.name : typeCondition.isPossibleRuntimeType(location);
-          } else if (typeCondition.kind === 'UnionType') {
-            if (location.kind === 'InterfaceType') {
-              return false;
-            } else if (location.kind === 'UnionType') {
-              return typeCondition.name === location.name;
-            } else {
-              return typeCondition.types().includes(location);
-            }
-          } else {
-            assertUnreachable(typeCondition);
-          }
-        });
-
-      if (types.length === 0) {
-        errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
-          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: no type condition matches the location "${location.coordinate}"`,
-          { nodes: sourceASTs(fromContextParent) }
-        ));
-        return;
-      } else if (types.length > 1) {
-        errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
-          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: multiple type conditions match the location "${location.coordinate}"`,
-          { nodes: sourceASTs(fromContextParent) }
-        ));
-        return;
-      } else {
+      if (selectionType === 'field') {
         const { resolvedType } = validateFieldValueType({
-          currentType: location,
-          selectionSet: types[0].selectionSet,
+          currentType: explodedType,
+          selectionSet,
           errorCollector,
         });
-        if (resolvedType === undefined || resolvedType.toString() !== expectedType?.toString()) {
+        if (resolvedType === undefined || !canFulfillType(expectedType!, resolvedType)) {
           errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
             `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: the type of the selection does not match the expected type "${expectedType?.toString()}"`,
             { nodes: sourceASTs(fromContextParent) }
           ));
           return;
+        }
+      } else if (selectionType === 'inlineFragment') {
+        // ensure that each explodedType maps to exactly one fragment
+        const types = selectionSet.selections()
+          .filter((s): s is FragmentSelection => s.kind === 'FragmentSelection')
+          .filter(s => {
+            const { typeCondition } = s.element;
+            assert(typeCondition, 'Expected a type condition on FragmentSelection');
+            if (typeCondition.kind === 'ObjectType') {
+              return explodedType.name === typeCondition.name;
+            } else if (typeCondition.kind === 'InterfaceType') {
+              return explodedType.kind === 'InterfaceType' ? explodedType.name === typeCondition.name : typeCondition.isPossibleRuntimeType(explodedType);
+            } else if (typeCondition.kind === 'UnionType') {
+              if (explodedType.kind === 'InterfaceType') {
+                return false;
+              } else {
+                return typeCondition.types().includes(explodedType);
+              }
+            } else {
+              assertUnreachable(typeCondition);
+            }
+          });
+
+        if (types.length === 0) {
+          errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+            `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: no type condition matches the location "${explodedType.coordinate}"`,
+            { nodes: sourceASTs(fromContextParent) }
+          ));
+          return;
+        } else if (types.length > 1) {
+          errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+            `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: multiple type conditions match the location "${explodedType.coordinate}"`,
+            { nodes: sourceASTs(fromContextParent) }
+          ));
+          return;
+        } else {
+          const { resolvedType } = validateFieldValueType({
+            currentType: explodedType,
+            selectionSet: types[0].selectionSet,
+            errorCollector,
+          });
+          if (resolvedType === undefined || !canFulfillType(expectedType!, resolvedType)) {
+            errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+              `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: the type of the selection does not match the expected type "${expectedType?.toString()}"`,
+              { nodes: sourceASTs(fromContextParent) }
+            ));
+            return;
+          }
         }
       }
     }
@@ -664,7 +698,14 @@ export function collectUsedFields(metadata: FederationMetadata): Set<FieldDefini
     },
     usedFields,
   );
-
+  
+  // also for @fromContext
+  collectUsedFieldsForFromContext<CompositeType>(
+    metadata,
+    type => type,
+    usedFields,
+  );
+    
   // Collects all fields used to satisfy an interface constraint
   for (const itfType of metadata.schema.interfaceTypes()) {
     const runtimeTypes = itfType.possibleRuntimeTypes();
@@ -679,6 +720,81 @@ export function collectUsedFields(metadata: FederationMetadata): Set<FieldDefini
   }
 
   return usedFields;
+}
+
+function collectUsedFieldsForFromContext<TParent extends SchemaElement<any, any>>(
+  metadata: FederationMetadata,
+  targetTypeExtractor: (element: TParent) => CompositeType | undefined,
+  usedFieldDefs: Set<FieldDefinition<CompositeType>>
+) {
+  const fromContextDirective = metadata.fromContextDirective();
+  const contextDirective = metadata.contextDirective();
+  
+  // if one of the directives is not defined, there's nothing to validate
+  if (!isFederationDirectiveDefinedInSchema(fromContextDirective) || !isFederationDirectiveDefinedInSchema(contextDirective)) {
+    return;  
+  }
+  
+  // build the list of context entry points
+  const entryPoints = new Map<string, Set<CompositeType>>();
+  for (const application of contextDirective.applications()) {
+    const type = targetTypeExtractor(application.parent! as TParent);
+    if (!type) {
+      // Means the application is wrong: we ignore it here as later validation will detect it
+      continue;
+    }
+    const context = application.arguments().name;
+    if (!entryPoints.has(context)) {
+      entryPoints.set(context, new Set());
+    }
+    entryPoints.get(context)!.add(type);    
+  }
+  
+  for (const application of fromContextDirective.applications()) {
+    const type = targetTypeExtractor(application.parent! as TParent);
+    if (!type) {
+      // Means the application is wrong: we ignore it here as later validation will detect it
+      continue;
+    }
+
+    const fieldValue = application.arguments().field;
+    const { context, selection } = parseContext(fieldValue);
+    
+    if (!context) {
+      continue;
+    }
+    
+    // now we need to collect all the fields used for every type that they could be used for
+    const contextTypes = entryPoints.get(context);
+    if (!contextTypes) {
+      continue;
+    }
+    
+    for (const contextType of contextTypes) {
+      try {
+        // helper function 
+        const fieldAccessor = (t: CompositeType, f: string) => {
+          const field = t.field(f);
+          if (field) {
+            usedFieldDefs.add(field);
+            if (isInterfaceType(t)) {
+              for (const implType of t.possibleRuntimeTypes()) {
+                const implField = implType.field(f);
+                if (implField) {
+                  usedFieldDefs.add(implField);
+                }
+              }
+            }
+          }
+          return field;
+        };
+        
+        parseSelectionSet({ parentType: contextType, source: selection, fieldAccessor });
+      } catch (e) {
+        // ignore the error, it will be caught later
+      }
+    }
+  }
 }
 
 function collectUsedFieldsForDirective<TParent extends SchemaElement<any, any>>(
@@ -719,7 +835,6 @@ function validateAllExternalFieldsUsed(metadata: FederationMetadata, errorCollec
       if (!metadata.isFieldExternal(field) || metadata.isFieldUsed(field)) {
         continue;
       }
-
       errorCollector.push(ERRORS.EXTERNAL_UNUSED.err(
         `Field "${field.coordinate}" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
         + ' the field declaration has no use and should be removed (or the field should not be @external).',
@@ -1406,6 +1521,17 @@ export class FederationBlueprint extends SchemaBlueprint {
               errorCollector,
             });
           }
+        }
+        
+        // validate that there is at least one resolvable key on the type
+        const keyDirective = metadata.keyDirective();
+        const objectType = parent.parent.parent;
+        const keyApplications = objectType.appliedDirectivesOf(keyDirective);
+        if (!keyApplications.some(app => app.arguments().resolvable || app.arguments().resolvable === undefined)) {
+          errorCollector.push(ERRORS.CONTEXT_NO_RESOLVABLE_KEY.err(
+            `Object "${objectType.coordinate}" has no resolvable key but has an a field with a contextual argument.`,
+            { nodes: sourceASTs(objectType) }
+          ));
         }
       }
     }

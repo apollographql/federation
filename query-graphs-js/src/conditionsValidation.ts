@@ -1,4 +1,4 @@
-import { Schema, Selection } from "@apollo/federation-internals";
+import { Schema, Selection, SelectionSet } from "@apollo/federation-internals";
 import {
     ConditionResolution,
   ConditionResolver,
@@ -82,8 +82,9 @@ export function simpleValidationConditionResolver({
     context: PathContext,
     excludedDestinations: ExcludedDestinations,
     excludedConditions: ExcludedConditions,
+    extraConditions?: SelectionSet,
   ): ConditionResolution => {
-    const conditions = edge.conditions!;
+    const conditions = (edge.conditions ?? extraConditions)!; // TODO: ensure that only one is set
     excludedConditions = addConditionExclusion(excludedConditions, conditions);
 
     const initialPath: OpGraphPath = GraphPath.create(queryGraph, edge.head);
