@@ -4,18 +4,28 @@ import {
   operationFromDocument,
   ServiceDefinition,
   Supergraph,
+  buildSubgraph,
 } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import {
   FetchNode,
   FlattenNode,
+  PlanNode,
   SequenceNode,
+  SubscriptionNode,
   serializeQueryPlan,
 } from '../QueryPlan';
-import { FieldNode, OperationDefinitionNode, parse } from 'graphql';
+import {
+  FieldNode,
+  OperationDefinitionNode,
+  parse,
+  validate,
+  GraphQLError,
+} from 'graphql';
 import {
   composeAndCreatePlanner,
   composeAndCreatePlannerWithOptions,
+  findFetchNodes,
 } from './testHelper';
 import { enforceQueryPlannerConfigDefaults } from '../config';
 
@@ -5040,7 +5050,156 @@ describe('Named fragments preservation', () => {
       }
     `);
   });
+
+  it('validates fragments on non-object types across spreads', () => {
+    const subgraph1 = {
+      name: 'subgraph1',
+      typeDefs: gql`
+        type Query {
+          theEntity: AnyEntity
+        }
+
+        union AnyEntity = EntityTypeA | EntityTypeB
+
+        type EntityTypeA @key(fields: "unifiedEntityId") {
+          unifiedEntityId: ID!
+          unifiedEntity: UnifiedEntity
+        }
+
+        type EntityTypeB @key(fields: "unifiedEntityId") {
+          unifiedEntityId: ID!
+          unifiedEntity: UnifiedEntity
+        }
+
+        interface UnifiedEntity {
+          id: ID!
+        }
+
+        type Generic implements UnifiedEntity @key(fields: "id") {
+          id: ID!
+        }
+
+        type Movie implements UnifiedEntity @key(fields: "id") {
+          id: ID!
+        }
+
+        type Show implements UnifiedEntity @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'subgraph2',
+      typeDefs: gql`
+        interface Video {
+          videoId: Int!
+          taglineMessage(uiContext: String): String
+        }
+
+        interface UnifiedEntity {
+          id: ID!
+        }
+
+        type Generic implements UnifiedEntity @key(fields: "id") {
+          id: ID!
+          taglineMessage(uiContext: String): String
+        }
+
+        type Movie implements UnifiedEntity & Video @key(fields: "id") {
+          videoId: Int!
+          id: ID!
+          taglineMessage(uiContext: String): String
+        }
+
+        type Show implements UnifiedEntity & Video @key(fields: "id") {
+          videoId: Int!
+          id: ID!
+          taglineMessage(uiContext: String): String
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      [subgraph1, subgraph2],
+      { reuseQueryFragments: true },
+    );
+
+    const query = gql`
+      query Search {
+        theEntity {
+          ... on EntityTypeA {
+            unifiedEntity {
+              ... on Generic {
+                taglineMessage(uiContext: "Generic")
+              }
+            }
+          }
+          ... on EntityTypeB {
+            unifiedEntity {
+              ...VideoSummary
+            }
+          }
+        }
+      }
+
+      fragment VideoSummary on Video {
+        videoId # Note: This extra field selection is necessary, so this fragment is not ignored.
+        taglineMessage(uiContext: "Video")
+      }
+    `;
+    const operation = operationFromDocument(api, query, { validate: true });
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    const validationErrors = validateSubFetches(plan.node, subgraph2);
+    expect(validationErrors).toHaveLength(0);
+  });
 });
+
+/**
+ * For each fetch in a PlanNode validate the generated operation is actually spec valid against its subgraph schema
+ * @param plan
+ * @param subgraphs
+ */
+function validateSubFetches(
+  plan: PlanNode | SubscriptionNode | undefined,
+  subgraphDef: ServiceDefinition,
+): {
+  errors: readonly GraphQLError[];
+  serviceName: string;
+  fetchNode: FetchNode;
+}[] {
+  if (!plan) {
+    return [];
+  }
+  const fetches = findFetchNodes(subgraphDef.name, plan);
+  const results: {
+    errors: readonly GraphQLError[];
+    serviceName: string;
+    fetchNode: FetchNode;
+  }[] = [];
+  for (const fetch of fetches) {
+    const subgraphName: string = fetch.serviceName;
+    const operation: string = fetch.operation;
+    const subgraph = buildSubgraph(
+      subgraphName,
+      'http://subgraph',
+      subgraphDef.typeDefs,
+    );
+    const gql_errors = validate(
+      subgraph.schema.toGraphQLJSSchema(),
+      parse(operation),
+    );
+    if (gql_errors.length > 0) {
+      results.push({
+        errors: gql_errors,
+        serviceName: subgraphName,
+        fetchNode: fetch,
+      });
+    }
+  }
+  return results;
+}
 
 describe('Fragment autogeneration', () => {
   const subgraph = {
@@ -8386,3 +8545,138 @@ describe('handles fragments with directive conditions', () => {
     `);
   });
 });
+
+describe('handles operations with directives', () => {
+  const subgraphA = {
+    name: 'subgraphA',
+    typeDefs: gql`
+      directive @operation on MUTATION | QUERY | SUBSCRIPTION
+      directive @field on FIELD
+
+      type Foo @key(fields: "id") {
+        id: ID!
+        bar: String
+        t: T!
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+      }
+
+      type Query {
+        foo: Foo
+      }
+
+      type Mutation {
+        updateFoo(bar: String): Foo
+      }
+    `,
+  };
+
+  const subgraphB = {
+    name: 'subgraphB',
+    typeDefs: gql`
+      directive @operation on MUTATION | QUERY | SUBSCRIPTION
+      directive @field on FIELD
+
+      type Foo @key(fields: "id") {
+        id: ID!
+        baz: Int
+      }
+
+      type T @key(fields: "id") {
+        id: ID!
+        f1: String
+      }
+    `,
+  };
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraphA, subgraphB);
+
+  test('if directives at the operation level are passed down to subgraph queries', () => {
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query Operation @operation {
+          foo @field {
+            bar @field
+            baz @field
+            t @field {
+              f1 @field
+            }
+          }
+        }
+      `,
+    );
+
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+
+    const A_fetch_nodes = findFetchNodes(subgraphA.name, queryPlan.node);
+    expect(A_fetch_nodes).toHaveLength(1);
+    // Note: The query is expected to carry the `@operation` directive.
+    expect(parse(A_fetch_nodes[0].operation)).toMatchInlineSnapshot(`
+      query Operation__subgraphA__0 @operation {
+        foo @field {
+          __typename
+          id
+          bar @field
+          t @field {
+            __typename
+            id
+          }
+        }
+      }
+    `);
+
+    const B_fetch_nodes = findFetchNodes(subgraphB.name, queryPlan.node);
+    expect(B_fetch_nodes).toHaveLength(2);
+    // Note: The query is expected to carry the `@operation` directive.
+    expect(parse(B_fetch_nodes[0].operation)).toMatchInlineSnapshot(`
+      query Operation__subgraphB__1($representations: [_Any!]!) @operation {
+        _entities(representations: $representations) {
+          ... on Foo {
+            baz @field
+          }
+        }
+      }
+    `);
+    // Note: The query is expected to carry the `@operation` directive.
+    expect(parse(B_fetch_nodes[1].operation)).toMatchInlineSnapshot(`
+      query Operation__subgraphB__2($representations: [_Any!]!) @operation {
+        _entities(representations: $representations) {
+          ... on T {
+            f1 @field
+          }
+        }
+      }
+    `);
+  }); // end of `test`
+
+  test('if directives on mutations are passed down to subgraph queries', () => {
+    const operation = operationFromDocument(
+      api,
+      gql`
+        mutation TestMutation @operation {
+          updateFoo(bar: "something") @field {
+            id @field
+            bar @field
+          }
+        }
+      `,
+    );
+
+    const queryPlan = queryPlanner.buildQueryPlan(operation);
+
+    const A_fetch_nodes = findFetchNodes(subgraphA.name, queryPlan.node);
+    expect(A_fetch_nodes).toHaveLength(1);
+    // Note: The query is expected to carry the `@operation` directive.
+    expect(parse(A_fetch_nodes[0].operation)).toMatchInlineSnapshot(`
+      mutation TestMutation__subgraphA__0 @operation {
+        updateFoo(bar: "something") @field {
+          id @field
+          bar @field
+        }
+      }
+    `);
+  }); // end of `test`
+}); // end of `describe`

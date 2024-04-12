@@ -1502,6 +1502,7 @@ class FetchGroup {
     variableDefinitions: VariableDefinitions,
     fragments?: RebasedFragments,
     operationName?: string,
+    directives?: readonly Directive<any>[],
   ) : PlanNode | undefined {
     if (this.selection.isEmpty()) {
       return undefined;
@@ -1518,6 +1519,7 @@ class FetchGroup {
           selection,
           variableDefinitions,
           operationName,
+          directives,
         )
       : operationForQueryFetch(
           subgraphSchema,
@@ -1525,6 +1527,7 @@ class FetchGroup {
           selection,
           variableDefinitions,
           operationName,
+          directives,
         );
 
     if (this.generateQueryFragments) {
@@ -3171,6 +3174,7 @@ export class QueryPlanner {
       variableDefinitions: operation.variableDefinitions,
       fragments: fragments ? new RebasedFragments(fragments) : undefined,
       operationName: operation.name,
+      directives: operation.directives,
       assignedDeferLabels,
     });
 
@@ -3381,7 +3385,8 @@ export class QueryPlanner {
       updatedSelectionSet,
       operation.variableDefinitions,
       operation.fragments,
-      operation.name
+      operation.name,
+      operation.directives,
     );
   }
 
@@ -3535,7 +3540,8 @@ function withoutIntrospection(operation: Operation): Operation {
     operation.selectionSet.lazyMap((s) => isIntrospectionSelection(s) ? undefined : s),
     operation.variableDefinitions,
     operation.fragments,
-    operation.name
+    operation.name,
+    operation.directives,
   );
 }
 
@@ -3673,19 +3679,21 @@ function fetchGroupToPlanProcessor({
   variableDefinitions,
   fragments,
   operationName,
+  directives,
   assignedDeferLabels,
 }: {
   config: Concrete<QueryPlannerConfig>,
   variableDefinitions: VariableDefinitions,
   fragments?: RebasedFragments,
   operationName?: string,
+  directives?: readonly Directive<any>[],
   assignedDeferLabels?: Set<string>,
 }): FetchGroupProcessor<PlanNode | undefined, DeferredNode> {
   let counter = 0;
   return {
     onFetchGroup: (group: FetchGroup, handledConditions: Conditions) => {
       const opName = operationName ? `${operationName}__${toValidGraphQLName(group.subgraphName)}__${counter++}` : undefined;
-      return group.toPlanNode(config, handledConditions, variableDefinitions, fragments, opName);
+      return group.toPlanNode(config, handledConditions, variableDefinitions, fragments, opName, directives);
     },
     onConditions: (conditions: Conditions, value: PlanNode | undefined) => {
       if (!value) {
@@ -4749,7 +4757,8 @@ function operationForEntitiesFetch(
   subgraphSchema: Schema,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  operationName?: string
+  operationName?: string,
+  directives?: readonly Directive<any>[],
 ): Operation {
   const variableDefinitions = new VariableDefinitions();
   variableDefinitions.add(representationsVariableDefinition(subgraphSchema));
@@ -4776,7 +4785,7 @@ function operationForEntitiesFetch(
 
   // Note that this is called _before_ named fragments reuse is attempted, so there is not spread in
   // the selection, hence the `undefined` for fragments.
-  return new Operation(subgraphSchema, 'query', entitiesCall, variableDefinitions, undefined, operationName);
+  return new Operation(subgraphSchema, 'query', entitiesCall, variableDefinitions, undefined, operationName, directives);
 }
 
 function operationForQueryFetch(
@@ -4784,9 +4793,12 @@ function operationForQueryFetch(
   rootKind: SchemaRootKind,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  operationName?: string
+  operationName?: string,
+  directives?: readonly Directive<any>[],
 ): Operation {
   // Note that this is called _before_ named fragments reuse is attempted, so there is not spread in
   // the selection, hence the `undefined` for fragments.
-  return new Operation(subgraphSchema, rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), undefined, operationName);
+  return new Operation(subgraphSchema, rootKind, selectionSet,
+                       allVariableDefinitions.filter(selectionSet.usedVariables()),
+                       /*fragments*/undefined, operationName, directives);
 }
