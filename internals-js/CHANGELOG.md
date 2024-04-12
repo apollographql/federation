@@ -1,5 +1,13 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.7.3
+
+### Patch Changes
+
+- Fix a query planning bug where invalid subgraph queries are generated with `reuseQueryFragments` set true. ([#2952](https://github.com/apollographql/federation/issues/2952)) ([#2963](https://github.com/apollographql/federation/pull/2963))
+
+- Fixed query planner to pass the directives from original query to subgraph operations (#2961) ([#2967](https://github.com/apollographql/federation/pull/2967))
+
 ## 2.7.2
 
 ### Patch Changes
