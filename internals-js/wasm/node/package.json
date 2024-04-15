@@ -1,0 +1,14 @@
+{
+  "name": "federation-internals-wasm",
+  "collaborators": [
+    "Ben Newman <ben@apollographql.com>"
+  ],
+  "version": "0.1.0",
+  "files": [
+    "federation_internals_wasm_bg.wasm",
+    "federation_internals_wasm.js",
+    "federation_internals_wasm.d.ts"
+  ],
+  "main": "federation_internals_wasm.js",
+  "types": "federation_internals_wasm.d.ts"
+}

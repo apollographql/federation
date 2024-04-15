@@ -1,0 +1,15 @@
+[package]
+name = "federation-internals-wasm"
+version = "0.1.0"
+authors = ["Ben Newman <ben@apollographql.com>"]
+edition = "2021"
+rust-version = "1.72.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+apollo-parser = "0.7.7"
+js-sys = "0.3.69"
+line-col = "0.2.1"
+wasm-bindgen = "0.2.92"

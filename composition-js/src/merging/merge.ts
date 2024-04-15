@@ -73,10 +73,10 @@ import {
   InaccessibleSpecDefinition,
   LinkDirectiveArgs,
   sourceIdentity,
+  connectIdentity,
   FeatureUrl,
   CoreFeature,
   Subgraph,
-  connectIdentity,
   coreFeatureDefinitionIfKnown,
   FeatureDefinition,
 } from "@apollo/federation-internals";

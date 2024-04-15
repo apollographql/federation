@@ -1,14 +1,16 @@
-import { DirectiveLocation, GraphQLError } from 'graphql';
-import { CorePurpose, FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
+import { DirectiveLocation, GraphQLError, Source, print } from 'graphql';
+import { CorePurpose, FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion, LinkDirectiveArgs } from "./coreSpec";
 import {
   Schema,
   NonNullType,
   InputObjectType,
   InputFieldDefinition,
   ListType,
+  DirectiveDefinition,
 } from '../definitions';
 import { registerKnownFeature } from '../knownCoreFeatures';
 import { createDirectiveSpecification } from '../directiveAndTypeSpecification';
+import { ERRORS } from '../error';
 
 export const connectIdentity = 'https://specs.apollo.dev/connect';
 
@@ -22,7 +24,7 @@ const HTTP_HEADER_MAPPING = "HTTPHeaderMapping";
 
 export class ConnectSpecDefinition extends FeatureDefinition {
   constructor(version: FeatureVersion, readonly minimumFederationVersion: FeatureVersion) {
-    super(new FeatureUrl(connectIdentity, 'connect', version), minimumFederationVersion);
+    super(new FeatureUrl(connectIdentity, CONNECT, version), minimumFederationVersion);
 
     this.registerDirective(createDirectiveSpecification({
       name: CONNECT,
@@ -138,7 +140,114 @@ export class ConnectSpecDefinition extends FeatureDefinition {
   get defaultCorePurpose(): CorePurpose {
     return 'EXECUTION';
   }
+
+  sourceDirective(schema: Schema) {
+    return this.directive<SourceDirectiveArgs>(schema, 'source')!;
+  }
+
+  connectDirective(schema: Schema) {
+    return this.directive<ConnectDirectiveArgs>(schema, 'connect')!;
+  }
+
+  private getConnectDirectives(schema: Schema) {
+    const result: {
+      source?: DirectiveDefinition<SourceDirectiveArgs>;
+      connect?: DirectiveDefinition<ConnectDirectiveArgs>;
+    } = {};
+
+    schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')
+      .forEach(linkDirective => {
+        const { url, import: imports } = linkDirective.arguments();
+        const featureUrl = FeatureUrl.maybeParse(url);
+        if (imports && featureUrl && featureUrl.identity === connectIdentity) {
+          imports.forEach(nameOrRename => {
+            const originalName = typeof nameOrRename === 'string' ? nameOrRename : nameOrRename.name;
+            const importedName = typeof nameOrRename === 'string' ? nameOrRename : nameOrRename.as || originalName;
+            const importedNameWithoutAt = importedName.replace(/^@/, '');
+
+            if (originalName === '@source') {
+              result.source = schema.directive(importedNameWithoutAt) as DirectiveDefinition<SourceDirectiveArgs>;
+            } else if (originalName === '@connect') {
+              result.connect = schema.directive(importedNameWithoutAt) as DirectiveDefinition<ConnectDirectiveArgs>;
+            }
+          });
+        }
+      });
+
+    return result;
+  }
+
+  override validateSubgraphSchema(schema: Schema): GraphQLError[] {
+    const errors = super.validateSubgraphSchema(schema);
+    const {
+      source: sourceAPI,
+      connect: sourceField,
+    } = this.getConnectDirectives(schema);
+
+    if (!(sourceAPI || sourceField)) {
+      // If none of the @source* directives are present, nothing needs
+      // validating.
+      return [];
+    }
+
+    errors.push(...this.validateConnectDirectives(schema));
+
+    return errors;
+  }
+
+  private validateConnectDirectives(schema: Schema): GraphQLError[] {
+    try {
+      const { validate_connect_directives } =
+        require('../../wasm/node') as typeof import('../../wasm/node');
+      const source = print(schema.toAST());
+      return validate_connect_directives(source).map(
+        raw => ERRORS.WASM_VALIDATION_ERROR.err(raw.message, {
+          source: new Source(source),
+          positions: [raw.index],
+        }),
+      );
+    } catch (e: any) {
+      return [ERRORS.WASM_LOAD_ERROR.err(
+        `Error loading WASM module: ${e.message || e}`,
+      )];
+    }
+  }
 }
+
+export type SourceDirectiveArgs = {
+  name: string;
+  http?: SourceDirectiveHTTP;
+};
+
+export type SourceDirectiveHTTP = {
+  baseURL: string;
+  headers?: HTTPHeaderMapping[];
+};
+
+type HTTPHeaderMapping = {
+  name: string;
+  as?: string;
+  value?: string;
+};
+
+type URLPathTemplate = string;
+type JSONSelection = string;
+
+export type ConnectDirectiveArgs = {
+  source: string;
+  http?: ConnectDirectiveHTTP;
+  selection?: JSONSelection;
+};
+
+export type ConnectDirectiveHTTP = {
+  GET?: URLPathTemplate;
+  POST?: URLPathTemplate;
+  PUT?: URLPathTemplate;
+  PATCH?: URLPathTemplate;
+  DELETE?: URLPathTemplate;
+  body?: JSONSelection;
+  headers?: HTTPHeaderMapping[];
+};
 
 export const CONNECT_VERSIONS = new FeatureDefinitions<ConnectSpecDefinition>(connectIdentity)
   .add(new ConnectSpecDefinition(new FeatureVersion(0, 1), new FeatureVersion(2, 8)));
