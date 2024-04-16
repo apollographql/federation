@@ -3174,7 +3174,7 @@ export class QueryPlanner {
       variableDefinitions: operation.variableDefinitions,
       fragments: fragments ? new RebasedFragments(fragments) : undefined,
       operationName: operation.name,
-      directives: operation.directives,
+      directives: operation.appliedDirectives,
       assignedDeferLabels,
     });
 
@@ -3380,13 +3380,13 @@ export class QueryPlanner {
       return operation;
     }
     return new Operation(
-      operation.schema,
+      operation.schema(),
       operation.rootKind,
       updatedSelectionSet,
       operation.variableDefinitions,
       operation.fragments,
       operation.name,
-      operation.directives,
+      operation.appliedDirectives,
     );
   }
 
@@ -3535,13 +3535,13 @@ function withoutIntrospection(operation: Operation): Operation {
   }
 
   return new Operation(
-    operation.schema,
+    operation.schema(),
     operation.rootKind,
     operation.selectionSet.lazyMap((s) => isIntrospectionSelection(s) ? undefined : s),
     operation.variableDefinitions,
     operation.fragments,
     operation.name,
-    operation.directives,
+    operation.appliedDirectives,
   );
 }
 
