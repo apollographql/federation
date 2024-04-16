@@ -1,5 +1,7 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.7.3
+
 ## 2.7.2
 
 ### Patch Changes
