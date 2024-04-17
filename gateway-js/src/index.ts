@@ -781,7 +781,7 @@ export class ApolloGateway implements GatewayInterface {
             span.setStatus({ code: SpanStatusCode.ERROR });
             return { errors: validationErrors };
           }
-          let queryPlan = await this.queryPlanStore.get(queryPlanStoreKey);
+          let queryPlan
 
           if (!queryPlan) {
             queryPlan = tracer.startActiveSpan(
@@ -802,7 +802,9 @@ export class ApolloGateway implements GatewayInterface {
                     { operationName: request.operationName },
                   );
                   // TODO(#631): Can we be sure the query planner has been initialized here?
-                  return this.queryPlanner!.buildQueryPlan(operation);
+                  return this.queryPlanner!.buildQueryPlan(operation, {
+                    overrideConditions: new Map(Object.entries({ "percent(50)": Math.random() * 100 > 50 }))
+                  });
                 } catch (err) {
                   recordExceptions(span, [err], this.config.telemetry);
                   span.setStatus({ code: SpanStatusCode.ERROR });

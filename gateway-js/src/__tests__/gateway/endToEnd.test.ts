@@ -329,7 +329,7 @@ describe('end-to-end features', () => {
       }
     }
     expect(hitsB).toBeGreaterThan(0);
-    expect(hitsA).toBeGreaterThanOrEqual(0);
+    expect(hitsA).toBeGreaterThan(0);
 
     const supergraphSdl = services.gateway.__testing().supergraphSdl;
     expect(supergraphSdl).toBeDefined();
