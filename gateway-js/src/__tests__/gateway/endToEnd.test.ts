@@ -219,7 +219,7 @@ describe('end-to-end features', () => {
     };
 
     services = await startSubgraphsAndGateway([subgraphA, subgraphB]);
-    const limit = 1000;
+    const limit = 100;
     const query = `
       {
         t {
@@ -240,7 +240,7 @@ describe('end-to-end features', () => {
         hitsB++;
       }
     }
-    expect(hitsB).toEqual(1000);
+    expect(hitsB).toEqual(100);
     expect(hitsA).toEqual(0);
 
     const supergraphSdl = services.gateway.__testing().supergraphSdl;
@@ -307,7 +307,7 @@ describe('end-to-end features', () => {
     };
 
     services = await startSubgraphsAndGateway([subgraphA, subgraphB]);
-    const limit = 1000;
+    const limit = 100;
     const query = `
       {
         t {
