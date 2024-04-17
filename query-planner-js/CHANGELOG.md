@@ -1,5 +1,23 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.7.3
+
+### Patch Changes
+
+- Fix a query planning bug where invalid subgraph queries are generated with `reuseQueryFragments` set true. ([#2952](https://github.com/apollographql/federation/issues/2952)) ([#2963](https://github.com/apollographql/federation/pull/2963))
+
+- Type conditioned fetching ([#2949](https://github.com/apollographql/federation/pull/2949))
+
+  When querying a field that is in a path of 2 or more unions, the query planner was not able to handle different selections and would aggressively collapse selections in fetches yielding an incorrect plan.
+
+  This change introduces new syntax to express type conditions in (key and flatten) paths. Type conditioned fetching can be enabled through a flag, and execution is supported in the router only. (#2938)
+
+- Fixed query planner to pass the directives from original query to subgraph operations (#2961) ([#2967](https://github.com/apollographql/federation/pull/2967))
+
+- Updated dependencies [[`ec04c50b4fb832bfd281ecf9c0c2dd7656431b96`](https://github.com/apollographql/federation/commit/ec04c50b4fb832bfd281ecf9c0c2dd7656431b96), [`a494631918156f0431ceace74281c076cf1d5d51`](https://github.com/apollographql/federation/commit/a494631918156f0431ceace74281c076cf1d5d51)]:
+  - @apollo/federation-internals@2.7.3
+  - @apollo/query-graphs@2.7.3
+
 ## 2.7.2
 
 ### Patch Changes

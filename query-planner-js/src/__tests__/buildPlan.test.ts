@@ -8679,4 +8679,44 @@ describe('handles operations with directives', () => {
       }
     `);
   }); // end of `test`
+
+  test('if directives with arguments applied on queries are ok', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        directive @noArgs on QUERY
+        directive @withArgs(arg1: String) on QUERY
+
+        type Query {
+          test: String!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        directive @noArgs on QUERY
+        directive @withArgs(arg1: String) on QUERY
+      `,
+    };
+
+    const query = gql`
+      query @noArgs @withArgs(arg1: "hi") {
+        test
+      }
+    `;
+
+    const [api, qp] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const op = operationFromDocument(api, query);
+    const queryPlan = qp.buildQueryPlan(op);
+    const fetch_nodes = findFetchNodes(subgraph1.name, queryPlan.node);
+    expect(fetch_nodes).toHaveLength(1);
+    // Note: The query is expected to carry the `@noArgs` and `@withArgs` directive.
+    expect(parse(fetch_nodes[0].operation)).toMatchInlineSnapshot(`
+      query @noArgs @withArgs(arg1: "hi") {
+        test
+      }
+    `);
+  });
 }); // end of `describe`

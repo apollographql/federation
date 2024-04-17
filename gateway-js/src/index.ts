@@ -57,6 +57,7 @@ import {
   LocalCompose,
 } from './supergraphManagers';
 import {
+  assert,
   operationFromDocument,
   Schema,
   ServiceDefinition,
@@ -186,7 +187,7 @@ export class ApolloGateway implements GatewayInterface {
       this.pollIntervalInMs = this.config?.pollIntervalInMs;
     }
 
-    this.issueConfigurationWarningsIfApplicable();
+    this.validateConfigAndEmitWarnings();
 
     this.logger.debug('Gateway successfully initialized (but not yet loaded)');
     this.state = { phase: 'initialized' };
@@ -213,7 +214,9 @@ export class ApolloGateway implements GatewayInterface {
     });
   }
 
-  private issueConfigurationWarningsIfApplicable() {
+  private validateConfigAndEmitWarnings() {
+    assert(!this.config.queryPlannerConfig?.typeConditionedFetching, "Type conditions are not supported in the gateway");
+
     // Warn against using the pollInterval and a serviceList simultaneously
     // TODO(trevor:removeServiceList)
     if (this.pollIntervalInMs && isServiceListConfig(this.config)) {
@@ -568,6 +571,7 @@ export class ApolloGateway implements GatewayInterface {
     this.queryPlanStore.clear();
     this.apiSchema = supergraph.apiSchema();
     this.schema = addExtensions(this.apiSchema.toGraphQLJSSchema());
+
     this.queryPlanner = new QueryPlanner(supergraph, this.config.queryPlannerConfig);
 
     // Notify onSchemaChange listeners of the updated schema
