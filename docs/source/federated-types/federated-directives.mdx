@@ -903,7 +903,7 @@ If different subgraphs use different versions of a directive's corresponding spe
 
 </MinVersion>
 
-The `@context` directive defines a named context from which any field of the annotated type can be passed to a getter of the context (a field annotated with [`@fromContext`](#fromcontext)). 
+The `@context` directive defines a named context from which any field of the annotated type can be passed to a receiver of the context (a field annotated with [`@fromContext`](#fromcontext)). 
 
 ```graphql
 directive @context(name: String!) on OBJECT | INTERFACE | UNION;
