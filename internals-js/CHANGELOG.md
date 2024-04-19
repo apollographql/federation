@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.7.4
+
+### Patch Changes
+
+- Fixed a regression created by PR (#2967), where directives would not be properly attached to their parent. (#2982) ([#2984](https://github.com/apollographql/federation/pull/2984))
+
 ## 2.7.3
 
 ### Patch Changes
