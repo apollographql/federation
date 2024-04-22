@@ -251,7 +251,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     for (const argDef of definition.arguments()) {
       const appliedValue = this.argumentValue(argDef.name);
       if (appliedValue === undefined) {
-        if (argDef.defaultValue === undefined && !isNullableType(argDef.type!) && !contextualArguments || !contextualArguments?.includes(argDef.name)) {
+        if (argDef.defaultValue === undefined && !isNullableType(argDef.type!) && (!contextualArguments || !contextualArguments?.includes(argDef.name))) {
           return false;
         }
       } else {

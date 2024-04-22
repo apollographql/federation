@@ -1880,7 +1880,15 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
         if (e !== null && !contextMap.has(cxt.context) && !someSelectionUnsatisfied) {
           const parentType = e.head.type;
           if (isCompositeType(parentType) && cxt.typesWithContextSet.has(parentType.name)) {
-            const selectionSet = parseSelectionSet({ parentType, source: cxt.selection });
+            let selectionSet = parseSelectionSet({ parentType, source: cxt.selection });
+            
+            // If there are multiple FragmentSelections, we want to pick out the one that matches the parentType 
+            if (selectionSet.selections().length > 1) {
+              const fragmentSelection = selectionSet.selections().find(s => s.kind === 'FragmentSelection' && s.element.typeCondition?.name === parentType.name);
+              if (fragmentSelection) {
+                selectionSet = fragmentSelection.selectionSet!;
+              }
+            }
             const resolution = conditionResolver(e, context, excludedEdges, excludedConditions, selectionSet);
             contextMap.set(cxt.context, { selectionSet, level, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, uuid: uuidv4() });
             someSelectionUnsatisfied = someSelectionUnsatisfied || !resolution.satisfied;
