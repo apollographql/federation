@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.7.4
+
+### Patch Changes
+
+- Fixed a regression created by PR (#2967), where directives would not be properly attached to their parent. (#2982) ([#2984](https://github.com/apollographql/federation/pull/2984))
+
+- Ensure query variables used in the directives applied at the operation level are retained in subgraph queries (#2986) ([#2986](https://github.com/apollographql/federation/pull/2986))
+
+- Updated dependencies [[`d80b7f0ca1456567a0866a32d2b2abf940598f77`](https://github.com/apollographql/federation/commit/d80b7f0ca1456567a0866a32d2b2abf940598f77)]:
+  - @apollo/federation-internals@2.7.4
+  - @apollo/query-graphs@2.7.4
+
 ## 2.7.3
 
 ### Patch Changes
