@@ -168,6 +168,17 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   baseType(): NamedType {
     return baseType(this.definition.type!);
   }
+  
+  withUpdatedArguments(newArgs: TArgs): Field<TArgs> {
+    const newField = new Field<TArgs>(
+      this.definition,
+      this.args ? this.args.merge(newArgs) : newArgs,
+      this.appliedDirectives,
+      this.alias,
+    );
+    this.copyAttachementsTo(newField);
+    return newField;
+  }
 
   withUpdatedDefinition(newDefinition: FieldDefinition<any>): Field<TArgs> {
     const newField = new Field<TArgs>(

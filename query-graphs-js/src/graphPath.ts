@@ -36,6 +36,9 @@ import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRoo
 import { DownCast, Transition } from "./transition";
 import { PathContext, emptyContext } from "./pathContext";
 import { v4 as uuidv4 } from 'uuid';
+import { customAlphabet } from 'nanoid';
+
+const idGen = customAlphabet('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
 
 const debug = newDebugLogger('path');
 
@@ -520,11 +523,21 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     }
     
     const { edgeConditions, contextToSelection, parameterToContext } = this.mergeEdgeConditionsWithResolution(conditionsResolution);
-
+    const lastParameterToContext = parameterToContext[parameterToContext.length-1];
+    let newTrigger = trigger;
+    if (lastParameterToContext !== null && (trigger as any).kind === 'Field') {
+      // If this is the last edge that reaches a contextual element, we should update the trigger to use the contextual arguments
+      const args = Array.from(lastParameterToContext).reduce((acc: {[key: string]: any}, [key, value]: [string, string]) => {
+        acc[key] = `$${value}`;
+        return acc;
+      }, {});
+      newTrigger = (trigger as Field).withUpdatedArguments(args) as TTrigger;
+    }
+      
     return new GraphPath({
       ...this.props,
       tail: edge ? edge.tail : this.tail,
-      edgeTriggers: this.props.edgeTriggers.concat(trigger),
+      edgeTriggers: this.props.edgeTriggers.concat(newTrigger),
       edgeIndexes: this.props.edgeIndexes.concat((edge ? edge.index : null) as number | TNullEdge),
       edgeConditions,
       subgraphEnteringEdge,
@@ -1890,7 +1903,8 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
               }
             }
             const resolution = conditionResolver(e, context, excludedEdges, excludedConditions, selectionSet);
-            contextMap.set(cxt.context, { selectionSet, level, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, uuid: uuidv4() });
+            
+            contextMap.set(cxt.context, { selectionSet, level, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, uuid: idGen(12) });
             someSelectionUnsatisfied = someSelectionUnsatisfied || !resolution.satisfied;
             if (resolution.cost === -1 || totalCost === -1) {
               totalCost = -1;

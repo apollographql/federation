@@ -4143,7 +4143,6 @@ function computeGroupsForTree(
           });
           assert(updatedOperation, () => `Extracting @defer from ${operation} should not have resulted in no operation`);
 
-          
           let updated;
           
           const { parameterToContext } = tree;
@@ -4718,7 +4717,9 @@ function inputsForRequire(
   assert(inputType && isCompositeType(inputType), () => `Type ${inputTypeName} should exist in the supergraph and be a composite type`);
 
   const fullSelectionSet = newCompositeTypeSelectionSet(inputType);
-  fullSelectionSet.updates().add(edge.conditions!);
+  if (edge.conditions) {
+    fullSelectionSet.updates().add(edge.conditions);
+  }
   let keyInputs: MutableSelectionSet | undefined = undefined;
   if (includeKeyInputs) {
     const keyCondition = getLocallySatisfiableKey(dependencyGraph.federatedQueryGraph, edge.head);
