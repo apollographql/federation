@@ -61,6 +61,7 @@ import {
   typesCanBeMerged,
   Supergraph,
   sameType,
+  assertUnreachable,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -96,7 +97,7 @@ import {
   FEDERATED_GRAPH_ROOT_SOURCE,
 } from "@apollo/query-graphs";
 import { stripIgnoredCharacters, print, OperationTypeNode, SelectionSetNode, Kind } from "graphql";
-import { DeferredNode, FetchDataRewrite } from ".";
+import { DeferredNode, FetchDataRewrite, FetchDataValueSetter } from ".";
 import { Conditions, conditionsOfSelectionSet, isConstantCondition, mergeConditions, removeConditionsFromSelectionSet, updatedConditions } from "./conditions";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig, validateQueryPlannerConfig } from "./config";
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
@@ -1181,7 +1182,11 @@ class FetchGroup {
       this.inputs?.addAll(other.inputs);
 
       if (other.inputRewrites) {
-        other.inputRewrites.forEach((r) => this.inputRewrites.push(r));
+        other.inputRewrites.forEach((r) => {
+          if (!this.inputRewrites.some((r2) => r2 === r)) {
+            this.inputRewrites.push(r);
+          }
+        });
       }
     }
   }
@@ -1627,6 +1632,35 @@ type FieldToAlias = {
   path: string[],
   responseName: string,
   alias: string,
+}
+
+function createPathFromSelection(selection: Selection): string[] {
+  const path: string[] = [];
+  
+  const helper = (sel: Selection) => {
+    if (sel.kind === 'FieldSelection') {
+      path.push(sel.element.name);
+    } else if (sel.kind === 'FragmentSelection') {
+      path.push(`... ${sel.element.typeCondition ? sel.element.typeCondition.name : ''}`);
+    } else {
+      assertUnreachable(sel);
+    }
+    const ss = sel.selectionSet;
+    if (ss && ss.selections().length > 0) {
+      helper(ss.selections()[0]);
+    }
+  };
+  
+  helper(selection);
+  return path;
+}
+
+function selectionAsFetchDataValueSetter(selection: Selection, alias: string): FetchDataValueSetter {
+  return {
+    kind: 'ValueSetter',
+    path: createPathFromSelection(selection),
+    setValueTo: alias,
+  }  
 }
 
 function computeAliasesForNonMergingFields(selections: SelectionSetAtPath[], aliasCollector: FieldToAlias[]) {
@@ -4177,7 +4211,7 @@ function computeGroupsForTree(
                 updated.group.contextSelections = new Map();
               }
               for (const [key, value] of tree.contextToSelection) {
-                updated.group.contextSelections.set(key, value);  
+                updated.group.contextSelections.set(key, value);
               }
             }
             updateCreatedGroups(createdGroups, ...requireResult.createdGroups);
@@ -4252,7 +4286,18 @@ function computeGroupsForTree(
               wrapInputsSelections(inputType, inputSelections.get(), context), // TODO: is the context right
               computeInputRewritesOnKeyFetch(inputType.name, type),
             );
-            
+
+            for (const [key, value] of group.contextSelections ?? []) {
+              const it = dependencyGraph.typeForFetchInputs(value.parentType.name);
+              const selections = newCompositeTypeSelectionSet(it);
+              selections.updates().add(value.selections());
+              
+              newGroup.addInputs(
+                wrapInputsSelections(it, selections.get(), context),
+                [selectionAsFetchDataValueSetter(selections.get().selections()[1], key)]
+              );
+            }
+
             updateCreatedGroups(createdGroups, newGroup);
             
             // TODO: There is currently a problem where we are getting the current field in the previous fetch group, where
