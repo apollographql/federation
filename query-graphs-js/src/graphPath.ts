@@ -36,9 +36,6 @@ import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRoo
 import { DownCast, Transition } from "./transition";
 import { PathContext, emptyContext } from "./pathContext";
 import { v4 as uuidv4 } from 'uuid';
-import { customAlphabet } from 'nanoid';
-
-const idGen = customAlphabet('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ');
 
 const debug = newDebugLogger('path');
 
@@ -589,8 +586,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       if (contextToSelection[idx] === null) {
         contextToSelection[idx] = new Map<string, SelectionSet>();
       }
-      contextToSelection[idx]?.set(entry.uuid, entry.selectionSet);
-      parameterToContext[parameterToContext.length-1]?.set(entry.paramName, entry.uuid);
+      contextToSelection[idx]?.set(entry.id, entry.selectionSet);
+      parameterToContext[parameterToContext.length-1]?.set(entry.paramName, entry.id);
     }
     return {
       edgeConditions,
@@ -966,7 +963,7 @@ type ContextMapEntry = {
   selectionSet: SelectionSet,
   inboundEdge: Edge,
   paramName: string,
-  uuid: string, // a random string because a single context might have different values depending on usage
+  id: string,
 }
   
 export type ConditionResolution = {
@@ -1903,8 +1900,9 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
               }
             }
             const resolution = conditionResolver(e, context, excludedEdges, excludedConditions, selectionSet);
-            
-            contextMap.set(cxt.context, { selectionSet, level, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, uuid: idGen(12) });
+            assert(edge.transition.kind === 'FieldCollection', () => `Expected edge to be a FieldCollection edge, got ${edge.transition.kind}`);
+            const id = `${cxt.subgraphName}_${edge.head.type.name}_${edge.transition.definition.name}_${cxt.namedParameter}`;
+            contextMap.set(cxt.context, { selectionSet, level, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, id });
             someSelectionUnsatisfied = someSelectionUnsatisfied || !resolution.satisfied;
             if (resolution.cost === -1 || totalCost === -1) {
               totalCost = -1;

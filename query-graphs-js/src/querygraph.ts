@@ -126,6 +126,7 @@ export interface OverrideCondition {
 
 export type ContextCondition = {
   context: string;
+  subgraphName: string;
   namedParameter: string;
   selection: string;
   typesWithContextSet: Set<string>;
@@ -906,9 +907,9 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
       assert(typesWithContextSet, () => `Context ${context} is never set in subgraph`);
       const z = coordinateMap.get(fieldCoordinate);
       if (z) {
-        z.push({ namedParameter, context, selection, typesWithContextSet });
+        z.push({ namedParameter, context, selection, typesWithContextSet, subgraphName: subgraph.name });
       } else {
-        coordinateMap.set(fieldCoordinate, [{ namedParameter, context, selection, typesWithContextSet }]);
+        coordinateMap.set(fieldCoordinate, [{ namedParameter, context, selection, typesWithContextSet, subgraphName: subgraph.name }]);
       }
     }
 
