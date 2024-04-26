@@ -4300,12 +4300,12 @@ function computeGroupsForTree(
 
             updateCreatedGroups(createdGroups, newGroup);
             
-            // TODO: There is currently a problem where we are getting the current field in the previous fetch group, where
-            // we really want to get the condition only. To be fixed.
-            if (conditions) {
-              stack.push(updated);
-            }
-            
+            // TODO: 
+            // partition the tree into children with and without triggers. The children with triggers should be processed in the 
+            // child FetchGroup, and those without in the parent.
+            // if (conditions) {
+            //   stack.push(updated);
+            // }
             stack.push({
               tree, 
               group: newGroup,
