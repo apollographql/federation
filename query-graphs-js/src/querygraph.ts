@@ -192,7 +192,7 @@ export class Edge {
     
     /**
      * Potentially multiple context conditions. When @fromContext is used on a argument definition, the edge connecting the type to the 
-     * argument needs to reflect that the condition must be satisifed in order for the edge to be taken
+     * argument needs to reflect that the condition must be satisfied in order for the edge to be taken
      */
     requiredContexts?: ContextCondition[],
   ) {

@@ -298,7 +298,7 @@ describe('setContext tests', () => {
         type U @key(fields: "id") {
           id: ID!
           field (
-            a: String! @fromContext(field: "$nocontext { prop }")
+            a: String! @fromContext(field: "$unknown { prop }")
           ): Int!
         }
       `
@@ -321,7 +321,7 @@ describe('setContext tests', () => {
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     expect(result.schema).toBeUndefined();
     expect(result.errors?.length).toBe(1);
-    expect(result.errors?.[0].message).toBe('[Subgraph1] Context \"nocontext\" is used at location \"U.field(a:)\" but is never set.');
+    expect(result.errors?.[0].message).toBe('[Subgraph1] Context \"unknown\" is used at location \"U.field(a:)\" but is never set.');
   });
 
   it('resolved field is not available in context', () => {
@@ -652,7 +652,7 @@ describe('setContext tests', () => {
     assertCompositionSuccess(result);    
   });
 
-  it('type condition on union, but a member of the union doesnt have property', () => {
+  it("type condition on union, but a member of the union doesn't have property", () => {
     const subgraph1 = {
       name: 'Subgraph1',
       utl: 'https://Subgraph1',
@@ -880,7 +880,7 @@ describe('setContext tests', () => {
     assertCompositionSuccess(result);
   });
   
-  // Since it's possible that we have to call into the same subggraph with multiple fetch groups where we would have previously used only one,
+  // Since it's possible that we have to call into the same subgraph with multiple fetch groups where we would have previously used only one,
   // we need to verify that there is a resolvable key on the object that uses a context.
   it('at least one key on an object that uses a context must be resolvable', () => {
     const subgraph1 = {

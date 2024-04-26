@@ -4205,7 +4205,7 @@ function computeGroupsForTree(
             updated.path = requireResult.path;
             
             if (tree.contextToSelection) {
-              // each of the selections that could be used in a @fromContext paramter should be saved to the fetch group.
+              // each of the selections that could be used in a @fromContext parameter should be saved to the fetch group.
               // This will also be important in determining when it is necessary to draw a new fetch group boundary
               if (updated.group.contextSelections === undefined) {
                 updated.group.contextSelections = new Map();
