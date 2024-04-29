@@ -1,5 +1,5 @@
 import { arrayEquals, assert, copyWitNewLength, mergeMapOrNull, SelectionSet } from "@apollo/federation-internals";
-import { GraphPath, OpGraphPath, OpTrigger, PathIterator } from "./graphPath";
+import { GraphPath, OpGraphPath, OpTrigger, PathIterator, ContextAtUsageEntry } from "./graphPath";
 import { Edge, QueryGraph, RootVertex, isRootVertex, Vertex } from "./querygraph";
 import { isPathContext } from "./pathContext";
 
@@ -25,7 +25,7 @@ type Child<TTrigger, RV extends Vertex, TNullEdge extends null | never> = {
 
 function findTriggerIdx<TTrigger, TElements>(
   triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
-  forIndex: [TTrigger, OpPathTree | null, TElements, Map<string, SelectionSet> | null, Map<string, string> | null][] | [TTrigger, OpPathTree | null, TElements][],
+  forIndex: [TTrigger, OpPathTree | null, TElements, Map<string, SelectionSet> | null, Map<string, ContextAtUsageEntry> | null][] | [TTrigger, OpPathTree | null, TElements][],
   trigger: TTrigger
 ): number {
   for (let i = 0; i < forIndex.length; i++) {
@@ -49,7 +49,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     private readonly triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
     private readonly childs: Child<TTrigger, Vertex, TNullEdge>[],
     readonly contextToSelection: Map<string, SelectionSet> | null,
-    readonly parameterToContext: Map<string, string> | null,
+    readonly parameterToContext: Map<string, ContextAtUsageEntry> | null,
   ) {
   }
 
@@ -88,7 +88,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
   ): PathTree<TTrigger, RV, TNullEdge> {
     const maxEdges = graph.outEdgesCount(currentVertex);
     // We store 'null' edges at `maxEdges` index
-    const forEdgeIndex: [TTrigger, OpPathTree | null, IterAndSelection<TTrigger, TNullEdge>[], Map<string, SelectionSet> | null, Map<string, string> | null][][] = new Array(maxEdges + 1);
+    const forEdgeIndex: [TTrigger, OpPathTree | null, IterAndSelection<TTrigger, TNullEdge>[], Map<string, SelectionSet> | null, Map<string, ContextAtUsageEntry> | null][][] = new Array(maxEdges + 1);
     const newVertices: Vertex[] = new Array(maxEdges);
     const order: number[] = new Array(maxEdges + 1);
     let currentOrder = 0;
@@ -133,7 +133,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     }
 
     let mergedContextToSelection: Map<string, SelectionSet> | null = null;
-    let mergedParameterToContext: Map<string, string> | null = null;
+    let mergedParameterToContext: Map<string, ContextAtUsageEntry> | null = null;
     
     const childs: Child<TTrigger, Vertex, TNullEdge>[] = new Array(totalChilds);
     let idx = 0;

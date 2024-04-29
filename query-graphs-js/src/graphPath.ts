@@ -40,6 +40,12 @@ import { v4 as uuidv4 } from 'uuid';
 
 const debug = newDebugLogger('path');
 
+export type ContextAtUsageEntry = { 
+  contextId: string, 
+  relativePath: string[],
+  selectionSet: SelectionSet,
+};
+
 function updateRuntimeTypes(currentRuntimeTypes: readonly ObjectType[], edge: Edge | null): readonly ObjectType[] {
   if (!edge) {
     return currentRuntimeTypes;
@@ -167,10 +173,10 @@ type PathProps<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | ne
   readonly contextToSelection: readonly (Map<string, SelectionSet> | null)[],
   
   /** This parameter is for mapping contexts back to the parameter used to collect the field */
-  readonly parameterToContext: readonly (Map<string, string> | null)[],
+  readonly parameterToContext: readonly (Map<string, ContextAtUsageEntry> | null)[],
 }
 
-export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> implements Iterable<[Edge | TNullEdge, TTrigger, OpPathTree | null, Map<string, SelectionSet> | null, Map<string, string> | null]> {
+export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> implements Iterable<[Edge | TNullEdge, TTrigger, OpPathTree | null, Map<string, SelectionSet> | null, Map<string, ContextAtUsageEntry> | null]> {
   private constructor(
     private readonly props: PathProps<TTrigger, RV, TNullEdge>,
   ) {
@@ -372,7 +378,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     return {
       currentIndex: 0,
       currentVertex: this.root,
-      next(): IteratorResult<[Edge | TNullEdge, TTrigger, OpPathTree | null, Map<string, SelectionSet> | null, Map<string, string> | null]> {
+      next(): IteratorResult<[Edge | TNullEdge, TTrigger, OpPathTree | null, Map<string, SelectionSet> | null, Map<string, ContextAtUsageEntry> | null]> {
         if (this.currentIndex >= path.size) {
           return { done: true, value: undefined };
         }
@@ -525,8 +531,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     let newTrigger = trigger;
     if (lastParameterToContext !== null && (trigger as any).kind === 'Field') {
       // If this is the last edge that reaches a contextual element, we should update the trigger to use the contextual arguments
-      const args = Array.from(lastParameterToContext).reduce((acc: {[key: string]: any}, [key, value]: [string, string]) => {
-        acc[key] = new Variable(value);
+      const args = Array.from(lastParameterToContext).reduce((acc: {[key: string]: any}, [key, value]: [string, ContextAtUsageEntry]) => {
+        acc[key] = new Variable(value.contextId);
         return acc;
       }, {});
       newTrigger = (trigger as Field).withUpdatedArguments(args) as TTrigger;
@@ -558,7 +564,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
   private mergeEdgeConditionsWithResolution(conditionsResolution: ConditionResolution): {
     edgeConditions: (OpPathTree | null)[],
     contextToSelection: (Map<string, SelectionSet> | null)[],
-    parameterToContext: (Map<string, string> | null)[],
+    parameterToContext: (Map<string, ContextAtUsageEntry> | null)[],
   }{
     const edgeConditions = this.props.edgeConditions.concat(conditionsResolution.pathTree ?? null);
     const contextToSelection = this.props.contextToSelection.concat(null);
@@ -572,7 +578,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       };
     }
     
-    parameterToContext[parameterToContext.length-1] = new Map<string, string>();    
+    parameterToContext[parameterToContext.length-1] = new Map();
     
     for (const [_, entry] of conditionsResolution.contextMap) {
       const idx = edgeConditions.length - entry.level -1;
@@ -587,7 +593,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
         contextToSelection[idx] = new Map<string, SelectionSet>();
       }
       contextToSelection[idx]?.set(entry.id, entry.selectionSet);
-      parameterToContext[parameterToContext.length-1]?.set(entry.paramName, entry.id);
+      parameterToContext[parameterToContext.length-1]?.set(entry.paramName, { contextId: entry.id, relativePath: Array(entry.level).fill(".."), selectionSet: entry.selectionSet } );
     }
     return {
       edgeConditions,
@@ -883,7 +889,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
   }
 }
 
-export interface PathIterator<TTrigger, TNullEdge extends null | never = never> extends Iterator<[Edge | TNullEdge, TTrigger, OpPathTree | null, Map<string, SelectionSet> | null, Map<string, string> | null]> {
+export interface PathIterator<TTrigger, TNullEdge extends null | never = never> extends Iterator<[Edge | TNullEdge, TTrigger, OpPathTree | null, Map<string, SelectionSet> | null, Map<string, ContextAtUsageEntry> | null]> {
   currentIndex: number,
   currentVertex: Vertex
 }

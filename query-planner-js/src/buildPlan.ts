@@ -929,6 +929,7 @@ class FetchGroup {
     readonly isEntityFetch: boolean,
     private _selection: MutableSelectionSet<{ conditions: Conditions}>,
     private _inputs?: GroupInputs,
+    private _contextInputs?: FetchDataKeyRenamer[],
     readonly mergeAt?: ResponsePath,
     readonly deferRef?: string,
     // Some of the processing on the dependency graph checks for groups to the same subgraph and same mergeAt, and we use this
@@ -986,6 +987,7 @@ class FetchGroup {
       hasInputs,
       MutableSelectionSet.emptyWithMemoized(parentType, conditionsMemoizer),
       hasInputs ? new GroupInputs(dependencyGraph.supergraphSchema) : undefined,
+      undefined,
       mergeAt,
       deferRef,
       hasInputs ? `${toValidGraphQLName(subgraphName)}-${mergeAt?.join('::') ?? ''}` : undefined,
@@ -1005,6 +1007,7 @@ class FetchGroup {
       this.isEntityFetch,
       this._selection.clone(),
       this._inputs?.clone(),
+      this._contextInputs ? this._contextInputs.map((c) => ({ ...c})) : undefined,
       this.mergeAt,
       this.deferRef,
       this.subgraphAndMergeAtKey,
@@ -1587,6 +1590,7 @@ class FetchGroup {
       operationDocumentNode: queryPlannerConfig.exposeDocumentNodeInFetchNode ? operationDocument : undefined,
       inputRewrites: this.inputRewrites.length === 0 ? undefined : this.inputRewrites,
       outputRewrites: outputRewrites.length === 0 ? undefined : outputRewrites,
+      contextRewrites: this._contextInputs,
     };
 
     return this.isTopLevel
@@ -1596,6 +1600,15 @@ class FetchGroup {
         path: this.mergeAt!,
         node: fetchNode,
       };
+  }
+  
+  addContextRenamer(renamer: FetchDataKeyRenamer) {
+    if (!this._contextInputs) {
+      this._contextInputs = [];
+    }
+    if (!this._contextInputs.some((c) => c.renameKeyTo === renamer.renameKeyTo)) {
+      this._contextInputs.push(renamer);
+    }
   }
 
   toString(): string {
@@ -1663,10 +1676,10 @@ function createPathFromSelection(selection: Selection): string[] {
   return path;
 }
 
-function selectionAsFetchDataValueSetter(selection: Selection, alias: string): FetchDataKeyRenamer {
+function selectionAsKeyRenamer(selection: Selection, relPath: string[], alias: string): FetchDataKeyRenamer {
   return {
     kind: 'KeyRenamer',
-    path: createPathFromSelection(selection),
+    path: relPath.concat(createPathFromSelection(selection)),
     renameKeyTo: alias,
   }  
 }
@@ -4267,7 +4280,7 @@ function computeGroupsForTree(
 
           // if we're going to start using context variables, every variable used must be set in a different parent
           // fetch group or else we need to create a new one
-          if (parameterToContext && groupContextSelections && Array.from(parameterToContext.values()).some(c => groupContextSelections.has(c))) { 
+          if (parameterToContext && groupContextSelections && Array.from(parameterToContext.values()).some(({ contextId }) => groupContextSelections.has(contextId))) { 
             // let's find the edge that will be used as an entry to the new type in the subgraph
             const entityVertex = dependencyGraph.federatedQueryGraph.verticesForType(edge.head.type.name).find(v => v.source === edge.tail.source);
             assert(entityVertex, () => `Could not find entity entry edge for ${edge.head.source}`);
@@ -4283,8 +4296,10 @@ function computeGroupsForTree(
               conditionsGroups: [],
             });
             newGroup.addParent({ group, path: path.inGroup() });
-            for (const [_, value] of parameterToContext) {
-              newGroup.addInputContext(value); 
+            for (const [key, { contextId, selectionSet, relativePath }] of parameterToContext) {
+              newGroup.addInputContext(contextId);
+              const keyRenamer = selectionAsKeyRenamer(selectionSet.selections()[0], relativePath, key);
+              newGroup.addContextRenamer(keyRenamer);
             }
             
             const inputType = dependencyGraph.typeForFetchInputs(type.name);
@@ -4294,17 +4309,6 @@ function computeGroupsForTree(
               wrapInputsSelections(inputType, inputSelections.get(), context), // TODO: is the context right
               computeInputRewritesOnKeyFetch(inputType.name, type),
             );
-
-            for (const [key, value] of group.contextSelections ?? []) {
-              const it = dependencyGraph.typeForFetchInputs(value.parentType.name);
-              const selections = newCompositeTypeSelectionSet(it);
-              selections.updates().add(value.selections());
-              
-              newGroup.addInputs(
-                wrapInputsSelections(it, selections.get(), context),
-                [selectionAsFetchDataValueSetter(selections.get().selections()[1], key)]
-              );
-            }
 
             updateCreatedGroups(createdGroups, newGroup);
             

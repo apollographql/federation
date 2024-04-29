@@ -52,6 +52,9 @@ export interface FetchNode {
   inputRewrites?: FetchDataRewrite[];
   // Similar, but for optional "rewrites" to apply to the data that received from a fetch (and before it is applied to the current in-memory results).
   outputRewrites?: FetchDataRewrite[];
+  
+  // Optional rewrites to apply to the data that is sent as input of this fetch. This is a list of rewrites that should be applied to the data
+  contextRewrites?: FetchDataKeyRenamer[];
 }
 
 /**

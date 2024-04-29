@@ -8481,10 +8481,6 @@ describe('@fromContext impacts on query planning', () => {
                   __typename
                   id
                 }
-                ... on T {
-                  __typename
-                  prop
-                }
               } =>
               {
                 ... on U {
@@ -8625,10 +8621,6 @@ describe('@fromContext impacts on query planning', () => {
                 ... on U {
                   __typename
                   id
-                }
-                ... on T {
-                  __typename
-                  prop
                 }
               } =>
               {
@@ -8806,10 +8798,6 @@ describe('@fromContext impacts on query planning', () => {
                 ... on U {
                   __typename
                   id
-                }
-                ... on T {
-                  __typename
-                  prop
                 }
               } =>
               {
