@@ -97,7 +97,7 @@ import {
   FEDERATED_GRAPH_ROOT_SOURCE,
 } from "@apollo/query-graphs";
 import { stripIgnoredCharacters, print, OperationTypeNode, SelectionSetNode, Kind } from "graphql";
-import { DeferredNode, FetchDataRewrite, FetchDataValueSetter } from ".";
+import { DeferredNode, FetchDataKeyRenamer, FetchDataRewrite } from ".";
 import { Conditions, conditionsOfSelectionSet, isConstantCondition, mergeConditions, removeConditionsFromSelectionSet, updatedConditions } from "./conditions";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig, validateQueryPlannerConfig } from "./config";
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
@@ -1663,11 +1663,11 @@ function createPathFromSelection(selection: Selection): string[] {
   return path;
 }
 
-function selectionAsFetchDataValueSetter(selection: Selection, alias: string): FetchDataValueSetter {
+function selectionAsFetchDataValueSetter(selection: Selection, alias: string): FetchDataKeyRenamer {
   return {
-    kind: 'ValueSetter',
+    kind: 'KeyRenamer',
     path: createPathFromSelection(selection),
-    setValueTo: alias,
+    renameKeyTo: alias,
   }  
 }
 
