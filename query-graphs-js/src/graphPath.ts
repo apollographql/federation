@@ -1901,7 +1901,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
             }
             const resolution = conditionResolver(e, context, excludedEdges, excludedConditions, selectionSet);
             assert(edge.transition.kind === 'FieldCollection', () => `Expected edge to be a FieldCollection edge, got ${edge.transition.kind}`);
-            const id = `${cxt.subgraphName}_${edge.head.type.name}_${edge.transition.definition.name}_${cxt.namedParameter}_1`;
+            const id = `${cxt.subgraphName}_${edge.head.type.name}_${edge.transition.definition.name}_${cxt.namedParameter}`;
             contextMap.set(cxt.context, { selectionSet, level, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, id });
             someSelectionUnsatisfied = someSelectionUnsatisfied || !resolution.satisfied;
             if (resolution.cost === -1 || totalCost === -1) {
