@@ -4296,9 +4296,9 @@ function computeGroupsForTree(
               conditionsGroups: [],
             });
             newGroup.addParent({ group, path: path.inGroup() });
-            for (const [key, { contextId, selectionSet, relativePath }] of parameterToContext) {
+            for (const [_, { contextId, selectionSet, relativePath }] of parameterToContext) {
               newGroup.addInputContext(contextId);
-              const keyRenamer = selectionAsKeyRenamer(selectionSet.selections()[0], relativePath, key);
+              const keyRenamer = selectionAsKeyRenamer(selectionSet.selections()[0], relativePath, contextId);
               newGroup.addContextRenamer(keyRenamer);
             }
             
