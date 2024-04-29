@@ -30,6 +30,7 @@ import {
   isInterfaceType,
   isSubset,
   parseSelectionSet,
+  Variable,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, FEDERATED_GRAPH_ROOT_SOURCE } from "./querygraph";
@@ -525,7 +526,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     if (lastParameterToContext !== null && (trigger as any).kind === 'Field') {
       // If this is the last edge that reaches a contextual element, we should update the trigger to use the contextual arguments
       const args = Array.from(lastParameterToContext).reduce((acc: {[key: string]: any}, [key, value]: [string, string]) => {
-        acc[key] = `$${value}`;
+        acc[key] = new Variable(value);
         return acc;
       }, {});
       newTrigger = (trigger as Field).withUpdatedArguments(args) as TTrigger;
@@ -571,7 +572,6 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       };
     }
     
-    // A context could be used in a different way in a different path, so we need to randomize the context names
     parameterToContext[parameterToContext.length-1] = new Map<string, string>();    
     
     for (const [_, entry] of conditionsResolution.contextMap) {

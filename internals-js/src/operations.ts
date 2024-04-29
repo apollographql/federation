@@ -289,15 +289,17 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     // We need to make sure the field has valid values for every non-optional argument.
     for (const argDef of this.definition.arguments()) {
       const appliedValue = this.argumentValue(argDef.name);
+
+      // TODO: This is a hack that will not work if directives are renamed. Not sure how to fix as we're missing metadata
+      const isContextualArg = !!argDef.appliedDirectives.find(d => d.name === 'federation__fromContext');
+
       if (appliedValue === undefined) {
-        // TODO: This is a hack that will not work if directives are renamed. Not sure how to fix as we're missing metadata
-        const isContextualArg = !!argDef.appliedDirectives.find(d => d.name === 'federation__fromContext');
         validate(
           argDef.defaultValue !== undefined || isNullableType(argDef.type!) || isContextualArg,
           () => `Missing mandatory value for argument "${argDef.name}" of field "${this.definition.coordinate}" in selection "${this}"`);
       } else {
         validate(
-          isValidValue(appliedValue, argDef, variableDefinitions),
+          isValidValue(appliedValue, argDef, variableDefinitions) || isContextualArg,
           () => `Invalid value ${valueToString(appliedValue)} for argument "${argDef.coordinate}" of type ${argDef.type}`)
       }
     }

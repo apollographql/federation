@@ -1539,6 +1539,14 @@ class FetchGroup {
     if (this.selection.isEmpty()) {
       return undefined;
     }
+    
+    // for all contextual arguments, the values will be provided as an inputRewrite rather than in the variableDefintions.
+    // Note that it won't match the actual type, so we just use Int here as a placeholder
+    for (const context of this.inputs?.usedContexts ?? []) {
+      const intType = this.dependencyGraph.supergraphSchema.type('Int')!;
+      assert(intType.kind === 'ScalarType', () => `Expected ${s} to be a scalar type`);
+      variableDefinitions.add(new VariableDefinition(this.dependencyGraph.supergraphSchema, new Variable(context), intType));
+    }
 
     const { selection, outputRewrites } = this.finalizeSelection(variableDefinitions, handledConditions);
 

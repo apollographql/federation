@@ -516,7 +516,7 @@ function canFulfillType(requestedType: NamedType | InputType, fulfillingType: Na
   if (requestedType.toString() === fulfillingType.toString()) {
     return true;
   }
-  if (isWrapperType(requestedType) && isWrapperType(fulfillingType)) {
+  if (isWrapperType(requestedType) && isWrapperType(fulfillingType) && (requestedType.kind === fulfillingType.kind)) {
     return canFulfillType(requestedType.baseType(), fulfillingType.baseType());
   }
   if (!isNonNullType(requestedType) && isNonNullType(fulfillingType)) {
