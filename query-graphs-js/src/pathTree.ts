@@ -49,7 +49,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     private readonly triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
     private readonly childs: Child<TTrigger, Vertex, TNullEdge>[],
     readonly contextToSelection: Map<string, SelectionSet> | null,
-    readonly parameterToContext: Map<string, ContextAtUsageEntry> | null,
+    public parameterToContext: Map<string, ContextAtUsageEntry> | null,
   ) {
   }
 

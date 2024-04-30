@@ -8469,7 +8469,9 @@ describe('@fromContext impacts on query planning', () => {
               t {
                 prop
                 u {
+                  __typename
                   id
+                  b
                 }
               }
             }
@@ -8609,6 +8611,7 @@ describe('@fromContext impacts on query planning', () => {
               {
                 ... on T {
                   u {
+                    __typename
                     id
                   }
                 }
@@ -8707,7 +8710,7 @@ describe('@fromContext impacts on query planning', () => {
     const plan = queryPlanner.buildQueryPlan(operation);
     expect(plan).toMatchInlineSnapshot(``);
   });
-  
+
   it('fromContext fetched as a list', () => {
     const subgraph1 = {
       name: 'Subgraph1',
@@ -8787,7 +8790,9 @@ describe('@fromContext impacts on query planning', () => {
               t {
                 prop
                 u {
+                  __typename
                   id
+                  b
                 }
               }
             }

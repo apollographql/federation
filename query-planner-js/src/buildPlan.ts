@@ -1192,6 +1192,12 @@ class FetchGroup {
           }
         });
       }
+      if (other._contextInputs) {
+        if (!this._contextInputs) {
+          this._contextInputs = [];
+        }
+        this._contextInputs.push(...other._contextInputs);
+      }
     }
   }
 
@@ -4137,7 +4143,7 @@ function computeGroupsForTree(
               mergeAt: path.inResponse(),
               deferRef: updatedDeferContext.activeDeferRef,
             });
-            newGroup.addParent({ group, path: path.inGroup() });
+            newGroup.addParent({ group, path: path.inGroup() });            
             stack.push({
               tree: child,
               group: newGroup,
@@ -4295,13 +4301,17 @@ function computeGroupsForTree(
               parent: { group, path: path.inGroup() },
               conditionsGroups: [],
             });
+
             newGroup.addParent({ group, path: path.inGroup() });
             for (const [_, { contextId, selectionSet, relativePath, subgraphArgType }] of parameterToContext) {
               newGroup.addInputContext(contextId, subgraphArgType);
               const keyRenamer = selectionAsKeyRenamer(selectionSet.selections()[0], relativePath, contextId);
               newGroup.addContextRenamer(keyRenamer);
             }
-            
+            tree.parameterToContext = null;
+            // We also ensure to get the __typename of the current type in the "original" group.
+            group.addAtPath(path.inGroup().concat(new Field(type.typenameField()!)));
+
             const inputType = dependencyGraph.typeForFetchInputs(type.name);
             const inputSelections = newCompositeTypeSelectionSet(inputType);
             inputSelections.updates().add(keyResolutionEdge.conditions!);
