@@ -31,6 +31,7 @@ import {
   isSubset,
   parseSelectionSet,
   Variable,
+  Type,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, FEDERATED_GRAPH_ROOT_SOURCE } from "./querygraph";
@@ -44,6 +45,7 @@ export type ContextAtUsageEntry = {
   contextId: string, 
   relativePath: string[],
   selectionSet: SelectionSet,
+  subgraphArgType: Type,
 };
 
 function updateRuntimeTypes(currentRuntimeTypes: readonly ObjectType[], edge: Edge | null): readonly ObjectType[] {
@@ -593,7 +595,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
         contextToSelection[idx] = new Map<string, SelectionSet>();
       }
       contextToSelection[idx]?.set(entry.id, entry.selectionSet);
-      parameterToContext[parameterToContext.length-1]?.set(entry.paramName, { contextId: entry.id, relativePath: Array(entry.level).fill(".."), selectionSet: entry.selectionSet } );
+      parameterToContext[parameterToContext.length-1]?.set(entry.paramName, { contextId: entry.id, relativePath: Array(entry.level).fill(".."), selectionSet: entry.selectionSet, subgraphArgType: entry.argType } );
     }
     return {
       edgeConditions,
@@ -969,6 +971,7 @@ type ContextMapEntry = {
   selectionSet: SelectionSet,
   inboundEdge: Edge,
   paramName: string,
+  argType: Type,
   id: string,
 }
   
@@ -1908,7 +1911,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
             const resolution = conditionResolver(e, context, excludedEdges, excludedConditions, selectionSet);
             assert(edge.transition.kind === 'FieldCollection', () => `Expected edge to be a FieldCollection edge, got ${edge.transition.kind}`);
             const id = `${cxt.subgraphName}_${edge.head.type.name}_${edge.transition.definition.name}_${cxt.namedParameter}`;
-            contextMap.set(cxt.context, { selectionSet, level, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, id });
+            contextMap.set(cxt.context, { selectionSet, level, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, id, argType: cxt.argType });
             someSelectionUnsatisfied = someSelectionUnsatisfied || !resolution.satisfied;
             if (resolution.cost === -1 || totalCost === -1) {
               totalCost = -1;

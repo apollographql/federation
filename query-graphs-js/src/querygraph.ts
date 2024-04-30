@@ -130,6 +130,7 @@ export type ContextCondition = {
   namedParameter: string;
   selection: string;
   typesWithContextSet: Set<string>;
+  argType: Type,
 }
 
 /**
@@ -907,9 +908,9 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
       assert(typesWithContextSet, () => `Context ${context} is never set in subgraph`);
       const z = coordinateMap.get(fieldCoordinate);
       if (z) {
-        z.push({ namedParameter, context, selection, typesWithContextSet, subgraphName: subgraph.name });
+        z.push({ namedParameter, context, selection, typesWithContextSet, subgraphName: subgraph.name, argType: application.parent.type });
       } else {
-        coordinateMap.set(fieldCoordinate, [{ namedParameter, context, selection, typesWithContextSet, subgraphName: subgraph.name }]);
+        coordinateMap.set(fieldCoordinate, [{ namedParameter, context, selection, typesWithContextSet, subgraphName: subgraph.name, argType: application.parent.type }]);
       }
     }
 

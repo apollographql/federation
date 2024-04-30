@@ -62,6 +62,7 @@ import {
   Supergraph,
   sameType,
   assertUnreachable,
+  isInputType,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -793,7 +794,7 @@ type ParentRelation = {
 const conditionsMemoizer = (selectionSet: SelectionSet) => ({ conditions: conditionsOfSelectionSet(selectionSet) });
 
 class GroupInputs {
-  readonly usedContexts = new Set<string>;
+  readonly usedContexts = new Map<string, Type>;
   private readonly perType = new Map<string, MutableSelectionSet>();
   onUpdateCallback?: () => void | undefined = undefined;
 
@@ -815,8 +816,8 @@ class GroupInputs {
     this.onUpdateCallback?.();
   }
   
-  addContext(context: string) {
-    this.usedContexts.add(context);
+  addContext(context: string, type: Type) {
+    this.usedContexts.set(context, type);
   }
 
   addAll(other: GroupInputs) {
@@ -850,7 +851,7 @@ class GroupInputs {
     if (this.usedContexts.size < other.usedContexts.size) {
       return false;
     }
-    for (const c of other.usedContexts) {
+    for (const [c,_] of other.usedContexts) {
       if (!this.usedContexts.has(c)) {
         return false;
       }
@@ -872,7 +873,7 @@ class GroupInputs {
     if (this.usedContexts.size !== other.usedContexts.size) {
       return false;
     }
-    for (const c of other.usedContexts) {
+    for (const [c,_] of other.usedContexts) {
       if (!this.usedContexts.has(c)) {
         return false;
       }
@@ -885,8 +886,8 @@ class GroupInputs {
     for (const [type, selection] of this.perType.entries()) {
       cloned.perType.set(type, selection.clone());
     }
-    for (const c of this.usedContexts) {
-      cloned.usedContexts.add(c);
+    for (const [c,v] of this.usedContexts) {
+      cloned.usedContexts.set(c,v);
     }
     return cloned;
   }
@@ -1174,10 +1175,10 @@ class FetchGroup {
     }
   }
   
-  addInputContext(context: string) {
+  addInputContext(context: string, type: Type) {
     assert(this._inputs, "Shouldn't try to add inputs to a root fetch group");
 
-    this._inputs.addContext(context);
+    this._inputs.addContext(context, type);
   }
 
   copyInputsOf(other: FetchGroup) {
@@ -1545,10 +1546,9 @@ class FetchGroup {
     
     // for all contextual arguments, the values will be provided as an inputRewrite rather than in the variableDefintions.
     // Note that it won't match the actual type, so we just use String! here as a placeholder
-    for (const context of this.inputs?.usedContexts ?? []) {
-      const stringType = this.dependencyGraph.supergraphSchema.type('String')!;
-      assert(stringType.kind === 'ScalarType', () => `Expected ${stringType} to be a scalar type`);
-      variableDefinitions.add(new VariableDefinition(this.dependencyGraph.supergraphSchema, new Variable(context), new NonNullType(stringType)));
+    for (const [context, type] of this.inputs?.usedContexts ?? []) {
+      assert(isInputType(type), () => `Expected ${type} to be a input type`);
+      variableDefinitions.add(new VariableDefinition(this.dependencyGraph.supergraphSchema, new Variable(context), type));
     }
 
     const { selection, outputRewrites } = this.finalizeSelection(variableDefinitions, handledConditions);
@@ -4296,8 +4296,8 @@ function computeGroupsForTree(
               conditionsGroups: [],
             });
             newGroup.addParent({ group, path: path.inGroup() });
-            for (const [_, { contextId, selectionSet, relativePath }] of parameterToContext) {
-              newGroup.addInputContext(contextId);
+            for (const [_, { contextId, selectionSet, relativePath, subgraphArgType }] of parameterToContext) {
+              newGroup.addInputContext(contextId, subgraphArgType);
               const keyRenamer = selectionAsKeyRenamer(selectionSet.selections()[0], relativePath, contextId);
               newGroup.addContextRenamer(keyRenamer);
             }
