@@ -1196,7 +1196,11 @@ class FetchGroup {
         if (!this._contextInputs) {
           this._contextInputs = [];
         }
-        this._contextInputs.push(...other._contextInputs);
+        other._contextInputs.forEach((r) => {
+          if (!this._contextInputs!.some((r2) => r2 === r)) {
+            this._contextInputs!.push(r);
+          }
+        });
       }
     }
   }
