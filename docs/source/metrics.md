@@ -1,5 +1,5 @@
 ---
-title: Federated trace data
+title: Federated Trace Data
 description: Reporting fine-grained performance metrics
 ---
 

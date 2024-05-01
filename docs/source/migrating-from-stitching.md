@@ -1,5 +1,5 @@
 ---
-title: Migrating from schema stitching
+title: Migrating from Schema Stitching
 description: How to move your services to Apollo Federation
 ---
 
