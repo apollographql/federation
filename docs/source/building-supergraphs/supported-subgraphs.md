@@ -1,6 +1,7 @@
 ---
 title: Federation-Compatible Subgraph Implementations
-description: For use in a federated supergraph
+subtitle: Reference for compatible GraphQL server libraries
+description: Reference for open-source GraphQL server libraries and hosted solutions that are compatible with Apollo Federation.
 ---
 
 The following open-source GraphQL server libraries and hosted solutions support acting as a subgraph in a federated supergraph. Their support is tracked in Apollo's [subgraph compatibility repository](https://github.com/apollographql/apollo-federation-subgraph-compatibility). Check out the repository for details on the compatibility tests listed in the table below.
