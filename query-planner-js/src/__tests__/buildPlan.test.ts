@@ -5215,6 +5215,7 @@ describe('Fragment autogeneration', () => {
       type A {
         x: Int
         y: Int
+        z: Int
         t: T
       }
 
@@ -5420,6 +5421,60 @@ describe('Fragment autogeneration', () => {
           fragment _generated_onA2_0 on A {
             x
             y
+          }
+        },
+      }
+    `);
+  });
+
+  it("handles fragments that are identical except for aliases", () => {
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph], {
+      generateQueryFragments: true,
+    });
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            ... on A {
+              x
+              y
+            }
+          }
+          t2 {
+            ... on A {
+              y
+              z
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ..._generated_onA2_0
+            }
+            t2 {
+              __typename
+              ..._generated_onA2_1
+            }
+          }
+          
+          fragment _generated_onA2_0 on A {
+            x
+            y
+          }
+
+          fragment _generated_onA2_1 on A {
+            y
+            z
           }
         },
       }
