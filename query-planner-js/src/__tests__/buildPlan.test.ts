@@ -5427,7 +5427,7 @@ describe('Fragment autogeneration', () => {
     `);
   });
 
-  it("handles fragments that are identical except for aliases", () => {
+  it('fragments that share a hash but are not identical generate their own fragment definitions', () => {
     const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph], {
       generateQueryFragments: true,
     });
@@ -5471,7 +5471,7 @@ describe('Fragment autogeneration', () => {
             x
             y
           }
-
+          
           fragment _generated_onA2_1 on A {
             y
             z
