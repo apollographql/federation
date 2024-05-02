@@ -14,57 +14,57 @@
     "Introduction": "/",
     "Changelog": "/federation-versions",
     "Quickstart": {
-      "Project setup": "/quickstart/setup",
+      "Project Setup": "/quickstart/setup",
       "Composition in GraphOS Studio": "/quickstart/studio-composition",
-      "Local composition": "/quickstart/local-composition",
-      "Working with subgraphs": "/quickstart/local-subgraphs"
+      "Local Composition": "/quickstart/local-composition",
+      "Working with Subgraphs": "/quickstart/local-subgraphs"
     },
     "Building Your Supergraph": {
       "Subgraphs": "/building-supergraphs/subgraphs-overview",
-      "Supported subgraph libraries": "/building-supergraphs/supported-subgraphs",
-      "Router / Gateway": "/building-supergraphs/router",
-      "Apollo Server subgraphs": "https://apollographql.com/docs/apollo-server/using-federation/apollo-subgraph-setup",
+      "Supported Subgraph Libraries": "/building-supergraphs/supported-subgraphs",
+      "Router": "/building-supergraphs/router",
+      "Apollo Server Subgraphs": "https://apollographql.com/docs/apollo-server/using-federation/apollo-subgraph-setup",
       "JetBrains IDE Support": "/building-supergraphs/jetbrains-ide-support"
     },
     "Federated Schemas": {
       "Overview": "/federated-types/overview",
       "Composition": "/federated-types/composition",
-      "Federated directives": "/federated-types/federated-directives",
-      "Sharing types (value types)": "/federated-types/sharing-types",
-      "Entities (basics)": "/entities",
-      "Entities (advanced)": "/entities-advanced",
-      "Entity interfaces": "/federated-types/interfaces",
-      "Migrating from schema stitching": "/migrating-from-stitching"
+      "Federated Directives": "/federated-types/federated-directives",
+      "Sharing Types (Value Types)": "/federated-types/sharing-types",
+      "Basic Entities": "/entities",
+      "Advanced Entities": "/entities-advanced",
+      "Entity Interfaces": "/federated-types/interfaces",
+      "Migrating from Schema Stitching": "/migrating-from-stitching"
     },
     "Managed Federation": {
       "Overview": "/managed-federation/overview",
       "Setup": "/managed-federation/setup",
       "Uplink": "/managed-federation/uplink",
-      "Federated schema checks": "/managed-federation/federated-schema-checks",
-      "Deployment best practices": "/managed-federation/deployment",
-      "Opt-in error reporting": "/managed-federation/error-reporting",
-      "Studio features": "https://www.apollographql.com/docs/graphos/graphs/federated-graphs"
+      "Federated Schema Checks": "/managed-federation/federated-schema-checks",
+      "Deployment Best Practices": "/managed-federation/deployment",
+      "Opt-In Error Reporting": "/managed-federation/error-reporting",
+      "Studio Features": "https://www.apollographql.com/docs/graphos/graphs/federated-graphs"
     },
     "Performance": {
       "Caching": "/performance/caching",
       "Monitoring": "/performance/monitoring",
-      "Query plans": "/query-plans"
+      "Query Plans": "/query-plans"
     },
     "Debugging & Metrics": {
-      "Error codes": "/errors",
-      "Composition hints": "/hints",
-      "Federated trace data": "/metrics",
+      "Error Codes": "/errors",
+      "Composition Hints": "/hints",
+      "Federated Trace Data": "/metrics",
       "OpenTelemetry": "/opentelemetry"
     },
     "API Reference": {
-      "Subgraph specification": "/subgraph-spec",
+      "Subgraph Specification": "/subgraph-spec",
       "@apollo/subgraph": "https://apollographql.com/docs/apollo-server/using-federation/api/apollo-subgraph",
       "@apollo/gateway": "https://apollographql.com/docs/apollo-server/using-federation/api/apollo-gateway"
     },
     "Moving from Federation 1": {
       "Changes from Federation 1": "/federation-2/new-in-federation-2",
-      "Steps to move": "/federation-2/moving-to-federation-2",
-      "Backward compatibility": "/federation-2/backward-compatibility"
+      "Steps to Move": "/federation-2/moving-to-federation-2",
+      "Backward Compatibility": "/federation-2/backward-compatibility"
     }
   }
 }
