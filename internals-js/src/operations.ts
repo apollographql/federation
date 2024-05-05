@@ -48,6 +48,8 @@ import {
   isObjectType,
   NamedType,
   isUnionType,
+  directivesToString,
+  directivesToDirectiveNodes,
 } from "./definitions";
 import { isInterfaceObjectType } from "./federation";
 import { ERRORS } from "./error";
@@ -893,15 +895,16 @@ function computeFragmentsToKeep(
   return toExpand.size === 0 ? fragments : fragments.filter((f) => !toExpand.has(f.name));
 }
 
-// TODO Operations can also have directives
-export class Operation {
+export class Operation extends DirectiveTargetElement<Operation> {
   constructor(
-    readonly schema: Schema,
+    schema: Schema,
     readonly rootKind: SchemaRootKind,
     readonly selectionSet: SelectionSet,
     readonly variableDefinitions: VariableDefinitions,
     readonly fragments?: NamedFragments,
-    readonly name?: string) {
+    readonly name?: string,
+    directives: readonly Directive<any>[] = []) {
+      super(schema, directives);
   }
 
   // Returns a copy of this operation with the provided updated selection set.
@@ -912,12 +915,13 @@ export class Operation {
     }
 
     return new Operation(
-      this.schema,
+      this.schema(),
       this.rootKind,
       newSelectionSet,
       this.variableDefinitions,
       this.fragments,
-      this.name
+      this.name,
+      this.appliedDirectives,
     );
   }
 
@@ -928,12 +932,13 @@ export class Operation {
     }
 
     return new Operation(
-      this.schema,
+      this.schema(),
       this.rootKind,
       newSelectionSet,
       this.variableDefinitions,
       newFragments,
-      this.name
+      this.name,
+      this.appliedDirectives,
     );
   }
 
@@ -992,12 +997,13 @@ export class Operation {
   generateQueryFragments(): Operation {
     const [minimizedSelectionSet, fragments] = this.selectionSet.minimizeSelectionSet();
     return new Operation(
-      this.schema,
+      this.schema(),
       this.rootKind,
       minimizedSelectionSet,
       this.variableDefinitions,
       fragments,
       this.name,
+      this.appliedDirectives,
     );
   }
 
@@ -1069,7 +1075,7 @@ export class Operation {
   }
 
   toString(expandFragments: boolean = false, prettyPrint: boolean = true): string {
-    return this.selectionSet.toOperationString(this.rootKind, this.variableDefinitions, this.fragments, this.name, expandFragments, prettyPrint);
+    return this.selectionSet.toOperationString(this.rootKind, this.variableDefinitions, this.fragments, this.name, this.appliedDirectives, expandFragments, prettyPrint);
   }
 }
 
@@ -1234,6 +1240,14 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
   private computeExpandedSelectionSetAtType(type: CompositeType): FragmentRestrictionAtType {
     const expandedSelectionSet = this.expandedSelectionSet();
     const selectionSet = expandedSelectionSet.normalize({ parentType: type });
+
+    if (!isObjectType(this.typeCondition)) {
+      // When the type condition of the fragment is not an object type, the `FieldsInSetCanMerge` rule is more
+      // restrictive and any fields can create conflicts. Thus, we have to use the full validator in this case.
+      // (see https://github.com/graphql/graphql-spec/issues/1085 for details.)
+      const validator = FieldsConflictValidator.build(expandedSelectionSet);
+      return { selectionSet, validator };
+    }
 
     // Note that `trimmed` is the difference of 2 selections that may not have been normalized on the same parent type,
     // so in practice, it is possible that `trimmed` contains some of the selections that `selectionSet` contains, but
@@ -1556,6 +1570,7 @@ export class SelectionSet {
         // compute and handle collisions as necessary.
         const mockHashCode = `on${selection.element.typeCondition}` + selection.selectionSet.selections().length;
         const equivalentSelectionSetCandidates = seenSelections.get(mockHashCode);
+
         if (equivalentSelectionSetCandidates) {
           // See if any candidates have an equivalent selection set, i.e. {x y} and {y x}.
           const match = equivalentSelectionSetCandidates.find(([candidateSet]) => candidateSet.equals(selection.selectionSet!));
@@ -1574,13 +1589,13 @@ export class SelectionSet {
           `_generated_${mockHashCode}_${equivalentSelectionSetCandidates?.length ?? 0}`,
           selection.element.typeCondition
         ).setSelectionSet(minimizedSelectionSet);
+        namedFragments.add(fragmentDefinition);
 
         // Create a new "hash code" bucket or add to the existing one.
-        if (!equivalentSelectionSetCandidates) {
-          seenSelections.set(mockHashCode, [[selection.selectionSet, fragmentDefinition]]);
-          namedFragments.add(fragmentDefinition);
-        } else {
+        if (equivalentSelectionSetCandidates) {
           equivalentSelectionSetCandidates.push([selection.selectionSet, fragmentDefinition]);
+        } else {
+            seenSelections.set(mockHashCode, [[selection.selectionSet, fragmentDefinition]]);
         }
 
         return new FragmentSpreadSelection(this.parentType, namedFragments, fragmentDefinition, []);
@@ -2093,6 +2108,7 @@ export class SelectionSet {
     variableDefinitions: VariableDefinitions,
     fragments: NamedFragments | undefined,
     operationName?: string,
+    directives?: readonly Directive<any>[],
     expandFragments: boolean = false,
     prettyPrint: boolean = true
   ): string {
@@ -2106,7 +2122,8 @@ export class SelectionSet {
     const nameAndVariables = operationName
       ? " " + (operationName + (variableDefinitions.isEmpty() ? "" : variableDefinitions.toString()))
       : (variableDefinitions.isEmpty() ? "" : " " + variableDefinitions.toString());
-    return fragmentsDefinitions + rootKind + nameAndVariables + " " + this.toString(expandFragments, true, indent);
+    const directives_str = directivesToString(directives);
+    return fragmentsDefinitions + rootKind + nameAndVariables + directives_str + " " + this.toString(expandFragments, true, indent);
   }
 
   /**
@@ -2889,7 +2906,7 @@ class FieldsConflictValidator {
         continue;
       }
 
-      // We're basically checking [FieldInSetCanMerge](https://spec.graphql.org/draft/#FieldsInSetCanMerge()),
+      // We're basically checking [FieldsInSetCanMerge](https://spec.graphql.org/draft/#FieldsInSetCanMerge()),
       // but from 2 set of fields (`thisFields` and `thatFields`) of the same response that we know individually
       // merge already.
       for (const [thisField, thisValidator] of thisFields.entries()) {
@@ -3578,7 +3595,7 @@ class FragmentSpreadSelection extends FragmentSelection {
 
   key(): string {
     if (!this.computedKey) {
-      this.computedKey = '...' + this.namedFragment.name + (this.spreadDirectives.length === 0 ? '' : ' ' + this.spreadDirectives.join(' '));
+      this.computedKey = '...' + this.namedFragment.name + directivesToString(this.spreadDirectives);
     }
     return this.computedKey;
   }
@@ -3604,18 +3621,7 @@ class FragmentSpreadSelection extends FragmentSelection {
   }
 
   toSelectionNode(): FragmentSpreadNode {
-    const directiveNodes = this.spreadDirectives.length === 0
-      ? undefined
-      : this.spreadDirectives.map(directive => {
-        return {
-          kind: Kind.DIRECTIVE,
-          name: {
-            kind: Kind.NAME,
-            value: directive.name,
-          },
-          arguments: directive.argumentsToAST()
-        } as DirectiveNode;
-      });
+    const directiveNodes = directivesToDirectiveNodes(this.spreadDirectives);
     return {
       kind: Kind.FRAGMENT_SPREAD,
       name: { kind: Kind.NAME, value: this.namedFragment.name },
@@ -3760,9 +3766,7 @@ class FragmentSpreadSelection extends FragmentSelection {
     if (expandFragments) {
       return (indent ?? '') + this.element + ' ' + this.selectionSet.toString(true, true, indent);
     } else {
-      const directives = this.spreadDirectives;
-      const directiveString = directives.length == 0 ? '' : ' ' + directives.join(' ');
-      return (indent ?? '') + '...' + this.namedFragment.name + directiveString;
+      return (indent ?? '') + '...' + this.namedFragment.name + directivesToString(this.spreadDirectives);
     }
   }
 }
@@ -3848,6 +3852,7 @@ export function operationFromDocument(
   }
 ) : Operation {
   let operation: OperationDefinitionNode | undefined;
+  let operation_directives: Directive<any>[] | undefined; // the directives on `operation`
   const operationName = options?.operationName;
   const fragments = new NamedFragments();
   // We do a first pass to collect the operation, and create all named fragment, but without their selection set yet.
@@ -3858,6 +3863,7 @@ export function operationFromDocument(
         validate(!operation || operationName, () => 'Must provide operation name if query contains multiple operations.');
         if (!operationName || (definition.name && definition.name.value === operationName)) {
           operation = definition;
+          operation_directives = directivesOfNodes(schema, definition.directives);
         }
         break;
       case Kind.FRAGMENT_DEFINITION:
@@ -3891,18 +3897,20 @@ export function operationFromDocument(
     }
   });
   fragments.validate(variableDefinitions);
-  return operationFromAST({schema, operation, variableDefinitions, fragments, validateInput: options?.validate});
+  return operationFromAST({schema, operation, operation_directives, variableDefinitions, fragments, validateInput: options?.validate});
 }
 
 function operationFromAST({
   schema,
   operation,
+  operation_directives,
   variableDefinitions,
   fragments,
   validateInput,
 }:{
   schema: Schema,
   operation: OperationDefinitionNode,
+  operation_directives?: Directive<any>[],
   variableDefinitions: VariableDefinitions,
   fragments: NamedFragments,
   validateInput?: boolean,
@@ -3922,7 +3930,8 @@ function operationFromAST({
     }),
     variableDefinitions,
     fragmentsIfAny,
-    operation.name?.value
+    operation.name?.value,
+    operation_directives
   );
 }
 
@@ -3977,6 +3986,7 @@ export function operationToDocument(operation: Operation): DocumentNode {
     name: operation.name ? { kind: Kind.NAME, value: operation.name } : undefined,
     selectionSet: operation.selectionSet.toSelectionSetNode(),
     variableDefinitions: operation.variableDefinitions.toVariableDefinitionNodes(),
+    directives: directivesToDirectiveNodes(operation.appliedDirectives),
   };
   const fragmentASTs: DefinitionNode[] = operation.fragments
     ? operation.fragments?.toFragmentDefinitionNodes()

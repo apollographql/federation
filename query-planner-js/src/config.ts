@@ -108,6 +108,16 @@ export type QueryPlannerConfig = {
      */
     pathsLimit?: number | null
   },
+
+   /**
+   * Enables type conditioned fetching.
+   * This flag is a workaround, which may yield significant
+   * performance degradation when computing query plans,
+   * and increase query plan size.
+   *
+   * If you aren't aware of this flag, you probably don't need it.
+   */
+    typeConditionedFetching?: boolean,
 }
 
 export function enforceQueryPlannerConfigDefaults(
@@ -132,6 +142,7 @@ export function enforceQueryPlannerConfigDefaults(
       pathsLimit: null,
       ...config?.debug,
     },
+    typeConditionedFetching: config?.typeConditionedFetching || false,
   };
 }
 

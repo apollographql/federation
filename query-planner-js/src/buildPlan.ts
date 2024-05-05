@@ -25,6 +25,7 @@ import {
   Variable,
   VariableDefinition,
   VariableDefinitions,
+  VariableCollector,
   newDebugLogger,
   selectionOfElement,
   selectionSetOfElement,
@@ -57,12 +58,13 @@ import {
   isDefined,
   InterfaceType,
   FragmentSelection,
-  possibleRuntimeTypes,
   typesCanBeMerged,
   Supergraph,
   sameType,
   assertUnreachable,
   isInputType,
+  possibleRuntimeTypes,
+  NamedType,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -380,6 +382,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
   private stack: [Selection, SimultaneousPathsWithLazyIndirectPaths<RV>[]][];
   private readonly closedBranches: ClosedBranch<RV>[] = [];
   private readonly optionsLimit: number | null;
+  private readonly typeConditionedFetching: boolean;
 
   constructor(
     readonly parameters: PlanningParameters<RV>,
@@ -389,10 +392,12 @@ class QueryPlanningTraversal<RV extends Vertex> {
     private readonly rootKind: SchemaRootKind,
     readonly costFunction: CostFunction,
     initialContext: PathContext,
+    typeConditionedFetching: boolean,
     excludedDestinations: ExcludedDestinations = [],
     excludedConditions: ExcludedConditions = [],
   ) {
     const { root, federatedQueryGraph } = parameters;
+    this.typeConditionedFetching = typeConditionedFetching || false;
     this.isTopLevel = isRootVertex(root);
     this.optionsLimit = parameters.config.debug?.pathsLimit;
     this.conditionResolver = cachingConditionResolver(
@@ -749,8 +754,8 @@ class QueryPlanningTraversal<RV extends Vertex> {
 
   private updatedDependencyGraph(dependencyGraph: FetchDependencyGraph, tree: OpPathTree<RV>): FetchDependencyGraph {
     return isRootPathTree(tree)
-      ? computeRootFetchGroups(dependencyGraph, tree, this.rootKind)
-      : computeNonRootFetchGroups(dependencyGraph, tree, this.rootKind);
+      ? computeRootFetchGroups(dependencyGraph, tree, this.rootKind, this.typeConditionedFetching)
+      : computeNonRootFetchGroups(dependencyGraph, tree, this.rootKind, this.typeConditionedFetching);
   }
 
   private resolveConditionPlan(edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions, extraConditions?: SelectionSet): ConditionResolution {
@@ -765,6 +770,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       'query',
       this.costFunction,
       context,
+      this.typeConditionedFetching,
       excludedDestinations,
       addConditionExclusion(excludedConditions, edge.conditions),
     ).findBestPlan();
@@ -1549,6 +1555,7 @@ class FetchGroup {
     variableDefinitions: VariableDefinitions,
     fragments?: RebasedFragments,
     operationName?: string,
+    directives?: readonly Directive<any>[],
   ) : PlanNode | undefined {
     if (this.selection.isEmpty()) {
       return undefined;
@@ -1572,6 +1579,7 @@ class FetchGroup {
           selection,
           variableDefinitions,
           operationName,
+          directives,
         )
       : operationForQueryFetch(
           subgraphSchema,
@@ -1579,6 +1587,7 @@ class FetchGroup {
           selection,
           variableDefinitions,
           operationName,
+          directives,
         );
 
     if (this.generateQueryFragments) {
@@ -1879,11 +1888,16 @@ class GroupPath {
     private readonly fullPath: OperationPath,
     private readonly pathInGroup: OperationPath,
     private readonly responsePath: ResponsePath,
+    private readonly typeConditionedFetching: boolean,
+    private readonly possibleTypes: ObjectType[],
+    private readonly possibleTypesAfterLastField: ObjectType[],
   ) {
   }
 
-  static empty(): GroupPath {
-    return new GroupPath([], [], []);
+  static empty(typeConditionedFetching: boolean, rootType: CompositeType): GroupPath {
+    const rootPossibleRuntimeTypes = typeConditionedFetching ? Array.from(possibleRuntimeTypes(rootType)): [];
+    rootPossibleRuntimeTypes.sort();
+    return new GroupPath([], [], [], typeConditionedFetching, rootPossibleRuntimeTypes, rootPossibleRuntimeTypes);
   }
 
   inGroup(): OperationPath {
@@ -1903,6 +1917,9 @@ class GroupPath {
       this.fullPath,
       newGroupContext,
       this.responsePath,
+      this.typeConditionedFetching,
+      this.possibleTypes,
+      this.possibleTypesAfterLastField,
     );
   }
 
@@ -1915,35 +1932,94 @@ class GroupPath {
       // implements it (in the supergraph).
       concatOperationPaths(pathOfGroupInParent, filterOperationPath(this.pathInGroup, parentSchema)),
       this.responsePath,
+      this.typeConditionedFetching,
+      this.possibleTypes,
+      this.possibleTypesAfterLastField
     );
   }
 
-  private updatedResponsePath(element: OperationElement) {
-    if (element.kind !== 'Field') {
-      return this.responsePath;
-    }
+  private updatedResponsePath(element: OperationElement): ResponsePath {
+    switch (element.kind){
+      case 'FragmentElement':
+        return this.responsePath;
+      case 'Field':
+        let newPath = this.responsePath;
+        if (this.possibleTypesAfterLastField.length !== this.possibleTypes.length) {
+          const conditions = `|[${this.possibleTypes.join(',')}]`;
+          const previousLastElement = newPath[newPath.length -1] as string || '';
 
-    let type = element.definition.type!;
-    const newPath = this.responsePath.concat(element.responseName());
-    while (!isNamedType(type)) {
-      if (isListType(type)) {
-        newPath.push('@');
-      }
-      type = type.ofType;
+          if (previousLastElement.startsWith('|[')) {
+            newPath = [...newPath.slice(0, -1), conditions];
+          } else {
+            newPath = [...newPath.slice(0, -1), `${previousLastElement}${conditions}`];
+          }
+        }
+        let type = element.definition.type!;
+        if (newPath.length === 0 && this.typeConditionedFetching) {
+          newPath = newPath.concat('');
+        }
+        newPath = newPath.concat(`${element.responseName()}`);
+        while (!isNamedType(type)) {
+          if (isListType(type)) {
+            newPath.push('@');
+          }
+          type = type.ofType;
+        }
+        return newPath;
     }
-    return newPath;
   }
 
   add(element: OperationElement): GroupPath {
+    const responsePath = this.updatedResponsePath(element);
+    const newPossibleTypes = this.computeNewPossibleTypes(element);
     return new GroupPath(
       this.fullPath.concat(element),
       this.pathInGroup.concat(element),
-      this.updatedResponsePath(element),
+      responsePath,
+      this.typeConditionedFetching,
+      newPossibleTypes,
+      element.kind === 'Field'? newPossibleTypes: this.possibleTypesAfterLastField
     );
   }
 
   toString() {
-    return `[${this.fullPath}]:[${this.pathInGroup}]`;
+    return this.inResponse().join('.');
+  }
+
+  computeNewPossibleTypes(element: OperationElement): ObjectType[] {
+    if (!this.typeConditionedFetching) {
+      return [];
+    }
+    switch (element.kind){
+      case 'FragmentElement':
+        if (!element.typeCondition) {
+          return this.possibleTypes;
+        }
+        const elementPossibleTypes = possibleRuntimeTypes(element.typeCondition);
+        return this.possibleTypes.filter((pt) => elementPossibleTypes.some((ept) => ept.name === pt.name));
+      case 'Field':
+        return this.advanceFieldType(element);
+    }
+  }
+
+
+  advanceFieldType(element: Field): ObjectType[] {
+    if (!isCompositeType(element.baseType())) {
+      return [];
+    }
+
+    const res = Array.from(
+      new Set(
+        this.possibleTypes.map(
+          (pt) => possibleRuntimeTypes(
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            baseType(pt.field(element.name)!.type!) as CompositeType
+          )
+        ).flat()
+      )
+    );
+    res.sort();
+    return res;
   }
 }
 
@@ -2231,6 +2307,11 @@ class FetchDependencyGraph {
     }
 
     return cloned;
+  }
+
+
+  supergraphSchemaType(typeName: string): NamedType | undefined {
+    return this.supergraphSchema.type(typeName)
   }
 
   getOrCreateRootFetchGroup({
@@ -3192,6 +3273,7 @@ export class QueryPlanner {
       variableDefinitions: operation.variableDefinitions,
       fragments: fragments ? new RebasedFragments(fragments) : undefined,
       operationName: operation.name,
+      directives: operation.appliedDirectives,
       assignedDeferLabels,
     });
 
@@ -3397,12 +3479,13 @@ export class QueryPlanner {
       return operation;
     }
     return new Operation(
-      operation.schema,
+      operation.schema(),
       operation.rootKind,
       updatedSelectionSet,
       operation.variableDefinitions,
       operation.fragments,
-      operation.name
+      operation.name,
+      operation.appliedDirectives,
     );
   }
 
@@ -3551,12 +3634,13 @@ function withoutIntrospection(operation: Operation): Operation {
   }
 
   return new Operation(
-    operation.schema,
+    operation.schema(),
     operation.rootKind,
     operation.selectionSet.lazyMap((s) => isIntrospectionSelection(s) ? undefined : s),
     operation.variableDefinitions,
     operation.fragments,
-    operation.name
+    operation.name,
+    operation.appliedDirectives,
   );
 }
 
@@ -3587,6 +3671,7 @@ function computeRootParallelBestPlan(
     parameters.root.rootKind,
     defaultCostFunction,
     emptyContext,
+    parameters.config.typeConditionedFetching,
   );
   const plan = planningTraversal.findBestPlan();
   // Getting no plan means the query is essentially unsatisfiable (it's a valid query, but we can prove it will never return a result),
@@ -3646,6 +3731,7 @@ function computeRootSerialDependencyGraph(
         ),
         prevPaths,
         root.rootKind,
+        parameters.config.typeConditionedFetching
       );
     } else {
       startingFetchId = prevDepGraph.nextFetchId();
@@ -3692,19 +3778,21 @@ function fetchGroupToPlanProcessor({
   variableDefinitions,
   fragments,
   operationName,
+  directives,
   assignedDeferLabels,
 }: {
   config: Concrete<QueryPlannerConfig>,
   variableDefinitions: VariableDefinitions,
   fragments?: RebasedFragments,
   operationName?: string,
+  directives?: readonly Directive<any>[],
   assignedDeferLabels?: Set<string>,
 }): FetchGroupProcessor<PlanNode | undefined, DeferredNode> {
   let counter = 0;
   return {
     onFetchGroup: (group: FetchGroup, handledConditions: Conditions) => {
       const opName = operationName ? `${operationName}__${toValidGraphQLName(group.subgraphName)}__${counter++}` : undefined;
-      return group.toPlanNode(config, handledConditions, variableDefinitions, fragments, opName);
+      return group.toPlanNode(config, handledConditions, variableDefinitions, fragments, opName, directives);
     },
     onConditions: (conditions: Conditions, value: PlanNode | undefined) => {
       if (!value) {
@@ -3907,7 +3995,7 @@ function samePathsInParents(first: OperationPath | undefined, second: OperationP
   return !!second && sameOperationPaths(first, second);
 }
 
-function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpRootPathTree, rootKind: SchemaRootKind): FetchDependencyGraph {
+function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpRootPathTree, rootKind: SchemaRootKind, typeConditionedFetching: boolean): FetchDependencyGraph {
   // The root of the pathTree is one of the "fake" root of the subgraphs graph, which belongs to no subgraph but points to each ones.
   // So we "unpack" the first level of the tree to find out our top level groups (and initialize our stack).
   // Note that we can safely ignore the triggers of that first level as it will all be free transition, and we know we cannot have conditions.
@@ -3917,18 +4005,24 @@ function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree:
     // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
     const rootType = edge.tail.type as ObjectType;
     const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType });
-    computeGroupsForTree(dependencyGraph, child, group, GroupPath.empty(), emptyDeferContext);
+    // If a type is in a subgraph, it has to be in the supergraph.
+    // A root type has to be a Composite type.
+    const rootTypeInSupergraph = dependencyGraph.supergraphSchemaType(rootType.name) as CompositeType;
+    computeGroupsForTree(dependencyGraph, child, group, GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph), emptyDeferContext);
   }
   return dependencyGraph;
 }
 
-function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpPathTree, rootKind: SchemaRootKind): FetchDependencyGraph {
+function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree: OpPathTree, rootKind: SchemaRootKind, typeConditionedFetching: boolean): FetchDependencyGraph {
   const subgraphName = pathTree.vertex.source;
   // The edge tail type is one of the subgraph root type, so it has to be an ObjectType.
   const rootType = pathTree.vertex.type;
   assert(isCompositeType(rootType), () => `Should not have condition on non-selectable type ${rootType}`);
-  const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType } );
-  computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(), emptyDeferContext);
+  const group = dependencyGraph.getOrCreateRootFetchGroup({ subgraphName, rootKind, parentType: rootType} );
+  // If a type is in a subgraph, it has to be in the supergraph.
+  // A root type has to be a Composite type.
+  const rootTypeInSupergraph = dependencyGraph.supergraphSchemaType(rootType.name) as CompositeType;
+  computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph), emptyDeferContext);
   return dependencyGraph;
 }
 
@@ -4831,16 +4925,31 @@ function representationsVariableDefinition(schema: Schema): VariableDefinition {
   return new VariableDefinition(schema, representationsVariable, representationsType);
 }
 
+// Collects all variables used in the operation to be created.
+// - It's computed based on its selection set and directives.
+function collectUsedVariables(selectionSet: SelectionSet, operationDirectives?: readonly Directive<any>[]) {
+  const collector = new VariableCollector();
+  selectionSet.collectVariables(collector);
+
+  if (operationDirectives) {
+    for (const applied of operationDirectives) {
+      collector.collectInArguments(applied.arguments());
+    }
+  }
+  return collector.variables();
+}
+
 function operationForEntitiesFetch(
   subgraphSchema: Schema,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  operationName?: string
+  operationName?: string,
+  directives?: readonly Directive<any>[],
 ): Operation {
   const variableDefinitions = new VariableDefinitions();
   variableDefinitions.add(representationsVariableDefinition(subgraphSchema));
   variableDefinitions.addAll(
-    allVariableDefinitions.filter(selectionSet.usedVariables()),
+    allVariableDefinitions.filter(collectUsedVariables(selectionSet, directives)),
   );
 
   const queryType = subgraphSchema.schemaDefinition.rootType('query');
@@ -4862,7 +4971,7 @@ function operationForEntitiesFetch(
 
   // Note that this is called _before_ named fragments reuse is attempted, so there is not spread in
   // the selection, hence the `undefined` for fragments.
-  return new Operation(subgraphSchema, 'query', entitiesCall, variableDefinitions, undefined, operationName);
+  return new Operation(subgraphSchema, 'query', entitiesCall, variableDefinitions, undefined, operationName, directives);
 }
 
 function operationForQueryFetch(
@@ -4870,9 +4979,12 @@ function operationForQueryFetch(
   rootKind: SchemaRootKind,
   selectionSet: SelectionSet,
   allVariableDefinitions: VariableDefinitions,
-  operationName?: string
+  operationName?: string,
+  directives?: readonly Directive<any>[],
 ): Operation {
   // Note that this is called _before_ named fragments reuse is attempted, so there is not spread in
   // the selection, hence the `undefined` for fragments.
-  return new Operation(subgraphSchema, rootKind, selectionSet, allVariableDefinitions.filter(selectionSet.usedVariables()), undefined, operationName);
+  return new Operation(subgraphSchema, rootKind, selectionSet,
+                       allVariableDefinitions.filter(collectUsedVariables(selectionSet, directives)),
+                       /*fragments*/undefined, operationName, directives);
 }
