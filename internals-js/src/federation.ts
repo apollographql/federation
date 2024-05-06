@@ -31,8 +31,9 @@ import {
   InputType,
   OutputType,
   WrapperType,
-  isWrapperType,
   isNonNullType,
+  isLeafType,
+  isListType,
 } from "./definitions";
 import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues, assertUnreachable } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -97,6 +98,7 @@ import {
   SourceFieldDirectiveArgs,
   SourceTypeDirectiveArgs,
 } from "./specs/sourceSpec";
+import { isSubtype } from './types';
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -394,7 +396,7 @@ const validateFieldValueType = ({
   const selections = selectionSet.selections();
   assert(selections.length === 1, 'Expected exactly one field to be selected');
 
-  const typesArray = selections.map((selection) => {
+  const typesArray = selections.map((selection): { resolvedType: InputType | undefined } => {
     if (selection.kind !== 'FieldSelection') {
       return { resolvedType: undefined };
     }
@@ -412,9 +414,8 @@ const validateFieldValueType = ({
       }
       return { resolvedType: wrapResolvedType({ originalType: type, resolvedType}) };
     }
-    assert(type.kind === 'ScalarType' || type.kind === 'EnumType' || (isWrapperType(type) && type.baseType().kind === 'ScalarType'),
-      'Expected a scalar or enum type');
-    return { resolvedType: type };
+    assert(isLeafType(baseType(type)), 'Expected a leaf type');
+    return { resolvedType: type as InputType };
   });
   return typesArray.reduce((acc, { resolvedType }) => {
     if (acc.resolvedType?.toString() === resolvedType?.toString()) {
@@ -503,26 +504,17 @@ const validateSelectionFormat = ({
   }
 }
 
-/**
- * Check to see if the requested type can be fulfilled by the fulfilling type. For example, String! can always be used for String
- * 
- */
-function canFulfillType(requestedType: NamedType | InputType, fulfillingType: NamedType | InputType): boolean {
-  assert(requestedType.kind !== 'ObjectType' 
-    && requestedType.kind !== 'UnionType' && 
-    fulfillingType.kind !== 'ObjectType' && 
-    fulfillingType.kind !== 'UnionType', 'Expected an input type or wrapped input type');
-    
-  if (requestedType.toString() === fulfillingType.toString()) {
-    return true;
+// implementation of spec https://spec.graphql.org/draft/#IsValidImplementationFieldType()
+function isValidImplementationFieldType(fieldType: NamedType | InputType, implementedFieldType: NamedType | InputType): boolean {
+  if (isNonNullType(fieldType)) {
+    const nullableType = fieldType.baseType();
+    const implementedNullableType = isNonNullType(implementedFieldType) ? implementedFieldType.baseType() : implementedFieldType;
+    return isValidImplementationFieldType(nullableType, implementedNullableType);
   }
-  if (isWrapperType(requestedType) && isWrapperType(fulfillingType) && (requestedType.kind === fulfillingType.kind)) {
-    return canFulfillType(requestedType.baseType(), fulfillingType.baseType());
+  if (isListType(fieldType) && isListType(implementedFieldType)) {
+    return isValidImplementationFieldType(fieldType.baseType(), implementedFieldType.baseType());
   }
-  if (!isNonNullType(requestedType) && isNonNullType(fulfillingType)) {
-    return canFulfillType(requestedType, fulfillingType.baseType());
-  }
-  return false;
+  return isSubtype(fieldType, implementedFieldType);
 }
 
 function validateFieldValue({
@@ -570,7 +562,7 @@ function validateFieldValue({
           selectionSet,
           errorCollector,
         });
-        if (resolvedType === undefined || !canFulfillType(expectedType!, resolvedType)) {
+        if (resolvedType === undefined || !isValidImplementationFieldType(expectedType!, resolvedType)) {
           errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
             `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: the type of the selection does not match the expected type "${expectedType?.toString()}"`,
             { nodes: sourceASTs(fromContextParent) }
@@ -617,7 +609,7 @@ function validateFieldValue({
             selectionSet: types[0].selectionSet,
             errorCollector,
           });
-          if (resolvedType === undefined || !canFulfillType(expectedType!, resolvedType)) {
+          if (resolvedType === undefined || !isValidImplementationFieldType(expectedType!, resolvedType)) {
             errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
               `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: the type of the selection does not match the expected type "${expectedType?.toString()}"`,
               { nodes: sourceASTs(fromContextParent) }
