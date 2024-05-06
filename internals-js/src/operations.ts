@@ -3996,3 +3996,17 @@ export function operationToDocument(operation: Operation): DocumentNode {
     definitions: [operationAST as DefinitionNode].concat(fragmentASTs),
   };
 }
+
+export function hasSelectionWithPredicate(selectionSet: SelectionSet, predicate: (s: Selection) => boolean): boolean {
+  for (const selection of selectionSet.selections()) {
+    if (predicate(selection)) {
+      return true;
+    }
+    if (selection.selectionSet) {
+      if (hasSelectionWithPredicate(selection.selectionSet, predicate)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}

@@ -55,7 +55,7 @@ import {
 } from "graphql";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
-import { FragmentSelection, parseOperationAST, parseSelectionSet, SelectionSet } from './operations';
+import { FragmentSelection, hasSelectionWithPredicate, parseOperationAST, parseSelectionSet, Selection, SelectionSet } from './operations';
 import { TAG_VERSIONS } from "./specs/tagSpec";
 import {
   errorCodeDef,
@@ -518,6 +518,28 @@ function isValidImplementationFieldType(fieldType: NamedType | InputType, implem
   return isSubtype(fieldType, implementedFieldType);
 }
 
+function selectionSetHasDirectives(selectionSet: SelectionSet): boolean {
+  return hasSelectionWithPredicate(selectionSet, (s: Selection) => {
+    if (s.kind === 'FieldSelection') {
+      return s.element.appliedDirectives.length > 0;
+    }
+    else if (s.kind === 'FragmentSelection') {
+      return s.element.appliedDirectives.length > 0;
+    } else {
+      assertUnreachable(s);
+    }
+  });
+}
+
+function selectionSetHasAlias(selectionSet: SelectionSet): boolean {
+  return hasSelectionWithPredicate(selectionSet, (s: Selection) => {
+    if (s.kind === 'FieldSelection') {
+      return s.element.alias !== undefined;
+    }
+    return false;
+  });
+}
+
 function validateFieldValue({
   context,
   selection,
@@ -557,6 +579,19 @@ function validateFieldValue({
         ));
         return;
       }
+      if (selectionSetHasDirectives(selectionSet)) {
+        errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: directives are not allowed in the selection`,
+          { nodes: sourceASTs(fromContextParent) }
+        ));
+      }
+      if (selectionSetHasAlias(selectionSet)) {
+        errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: aliases are not allowed in the selection`,
+          { nodes: sourceASTs(fromContextParent) }
+        ));
+      }
+      
       if (selectionType === 'field') {
         const { resolvedType } = validateFieldValueType({
           currentType: explodedType,

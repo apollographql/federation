@@ -925,4 +925,93 @@ describe('setContext tests', () => {
     expect(result.errors?.length).toBe(1);
     expect(result.errors?.[0].message).toBe('[Subgraph1] Object \"U\" has no resolvable key but has an a field with a contextual argument.');    
   });
+  
+  it('context selection contains an alias', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      utl: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T!
+        }
+
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+          field (
+            a: String! @fromContext(field: "$context { foo: prop }")
+          ): Int!
+        }
+      `
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      utl: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.schema).toBeUndefined();
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0].message).toBe('[Subgraph1] Context \"context\" is used in \"U.field(a:)\" but the selection is invalid: aliases are not allowed in the selection');
+  });
+  
+  it('context selection contains a query directive', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      utl: 'https://Subgraph1',
+      typeDefs: gql`
+      directive @foo on FIELD
+        type Query {
+          t: T!
+        }
+
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+          field (
+            a: String! @fromContext(field: "$context { prop @foo }")
+          ): Int!
+        }
+      `
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      utl: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.schema).toBeUndefined();
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0].message).toBe('[Subgraph1] Context \"context\" is used in \"U.field(a:)\" but the selection is invalid: directives are not allowed in the selection');
+  });
 });
