@@ -31,8 +31,6 @@ export class ContextSpecDefinition extends FeatureDefinition {
       )
     );
 
-    this.registerType(createScalarTypeSpecification({ name: ContextDirectiveName.CONTEXT }));
-
     this.contextDirectiveSpec = createDirectiveSpecification({
       name: ContextDirectiveName.CONTEXT,
       locations: [DirectiveLocation.INTERFACE, DirectiveLocation.OBJECT, DirectiveLocation.UNION],
