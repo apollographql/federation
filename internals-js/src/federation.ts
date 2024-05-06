@@ -388,13 +388,26 @@ const validateFieldValueType = ({
   currentType,
   selectionSet,
   errorCollector,
+  metadata,
+  fromContextParent,
 }: {
   currentType: CompositeType,
   selectionSet: SelectionSet,
   errorCollector: GraphQLError[],
+  metadata: FederationMetadata,
+  fromContextParent: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>>,
 }): { resolvedType: InputType | undefined } => {
   const selections = selectionSet.selections();
   assert(selections.length === 1, 'Expected exactly one field to be selected');
+  
+  // ensure that type is not an interfaceObject
+  const interfaceObjectDirective = metadata.interfaceObjectDirective();
+  if (currentType.kind === 'ObjectType' && isFederationDirectiveDefinedInSchema(interfaceObjectDirective) && (currentType.appliedDirectivesOf(interfaceObjectDirective).length > 0)) { 
+    errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+      `Context "is used in "${fromContextParent.coordinate}" but the selection is invalid: One of the types in the selection is an interfaceObject: "${currentType.name}"`,
+      { nodes: sourceASTs(fromContextParent) }
+    ));
+  }
 
   const typesArray = selections.map((selection): { resolvedType: InputType | undefined } => {
     if (selection.kind !== 'FieldSelection') {
@@ -408,6 +421,8 @@ const validateFieldValueType = ({
         currentType,
         selectionSet: childSelectionSet,
         errorCollector,
+        metadata,
+        fromContextParent,
       });
       if (!resolvedType) {
         return { resolvedType: undefined };
@@ -546,12 +561,14 @@ function validateFieldValue({
   fromContextParent,
   setContextLocations,
   errorCollector,
+  metadata,
 } : {
   context: string,
   selection: string,
   fromContextParent: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>>,
   setContextLocations: (ObjectType | InterfaceType | UnionType)[],
   errorCollector: GraphQLError[],
+  metadata: FederationMetadata,
 }): void {
   const expectedType = fromContextParent.type;
   assert(expectedType, 'Expected a type');
@@ -597,6 +614,8 @@ function validateFieldValue({
           currentType: explodedType,
           selectionSet,
           errorCollector,
+          metadata,
+          fromContextParent,
         });
         if (resolvedType === undefined || !isValidImplementationFieldType(expectedType!, resolvedType)) {
           errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
@@ -644,6 +663,8 @@ function validateFieldValue({
             currentType: explodedType,
             selectionSet: types[0].selectionSet,
             errorCollector,
+            metadata,
+            fromContextParent,
           });
           if (resolvedType === undefined || !isValidImplementationFieldType(expectedType!, resolvedType)) {
             errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
@@ -1544,6 +1565,7 @@ export class FederationBlueprint extends SchemaBlueprint {
             fromContextParent: parent,
             setContextLocations: locations,
             errorCollector,
+            metadata,
           });
         }
         
