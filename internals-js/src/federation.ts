@@ -507,9 +507,10 @@ const validateSelectionFormat = ({
 // implementation of spec https://spec.graphql.org/draft/#IsValidImplementationFieldType()
 function isValidImplementationFieldType(fieldType: NamedType | InputType, implementedFieldType: NamedType | InputType): boolean {
   if (isNonNullType(fieldType)) {
-    const nullableType = fieldType.baseType();
-    const implementedNullableType = isNonNullType(implementedFieldType) ? implementedFieldType.baseType() : implementedFieldType;
-    return isValidImplementationFieldType(nullableType, implementedNullableType);
+    if (isNonNullType(implementedFieldType)) {
+      return isValidImplementationFieldType(fieldType.baseType(), implementedFieldType.baseType());
+    }
+    return false;
   }
   if (isListType(fieldType) && isListType(implementedFieldType)) {
     return isValidImplementationFieldType(fieldType.baseType(), implementedFieldType.baseType());
@@ -694,7 +695,6 @@ export function collectUsedFields(metadata: FederationMetadata): Set<FieldDefini
   // also for @fromContext
   collectUsedFieldsForFromContext<CompositeType>(
     metadata,
-    type => type,
     usedFields,
   );
     
@@ -716,7 +716,6 @@ export function collectUsedFields(metadata: FederationMetadata): Set<FieldDefini
 
 function collectUsedFieldsForFromContext<TParent extends SchemaElement<any, any>>(
   metadata: FederationMetadata,
-  targetTypeExtractor: (element: TParent) => CompositeType | undefined,
   usedFieldDefs: Set<FieldDefinition<CompositeType>>
 ) {
   const fromContextDirective = metadata.fromContextDirective();
@@ -730,7 +729,7 @@ function collectUsedFieldsForFromContext<TParent extends SchemaElement<any, any>
   // build the list of context entry points
   const entryPoints = new Map<string, Set<CompositeType>>();
   for (const application of contextDirective.applications()) {
-    const type = targetTypeExtractor(application.parent! as TParent);
+    const type = application.parent;
     if (!type) {
       // Means the application is wrong: we ignore it here as later validation will detect it
       continue;
@@ -739,11 +738,11 @@ function collectUsedFieldsForFromContext<TParent extends SchemaElement<any, any>
     if (!entryPoints.has(context)) {
       entryPoints.set(context, new Set());
     }
-    entryPoints.get(context)!.add(type);    
+    entryPoints.get(context)!.add(type as CompositeType);    
   }
   
   for (const application of fromContextDirective.applications()) {
-    const type = targetTypeExtractor(application.parent! as TParent);
+    const type = application.parent as TParent;
     if (!type) {
       // Means the application is wrong: we ignore it here as later validation will detect it
       continue;
