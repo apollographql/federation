@@ -343,7 +343,7 @@ function fieldSetTargetDescription(directive: Directive<any, {fields: any}>): st
 }
 
 export function parseContext(input: string) {
-  const regex = /^\$([\w\d_]+)\s*([\s\S]+)$/;
+  const regex = /^(?:[\n\r\t ,]|#[^\n\r]*(?![^\n\r]))*\$(?:[\n\r\t ,]|#[^\n\r]*(?![^\n\r]))*([A-Za-z_]\w*(?!\w))([\s\S]*)$/;
   const match = input.match(regex);
   if (!match) {
     return { context: undefined, selection: undefined };
