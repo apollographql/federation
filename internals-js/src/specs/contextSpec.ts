@@ -7,7 +7,7 @@ import {
   FeatureVersion,
 } from "./coreSpec";
 import { NonNullType } from "../definitions";
-import { DirectiveSpecification, createDirectiveSpecification, createScalarTypeSpecification } from "../directiveAndTypeSpecification";
+import { DirectiveSpecification, createDirectiveSpecification } from "../directiveAndTypeSpecification";
 import { registerKnownFeature } from "../knownCoreFeatures";
 import { Subgraph } from '../federation';
 

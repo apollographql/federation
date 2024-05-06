@@ -112,12 +112,6 @@ function fieldSetType(schema: Schema): InputType {
   return new NonNullType(metadata.fieldSetType());
 }
 
-// function fieldValueType(schema: Schema): InputType {
-//   const metadata = federationMetadata(schema);
-//   assert(metadata, `The schema is not a federation subgraph`);
-//   return new NonNullType(metadata.fieldValueType());
-// }
-
 export class FederationSpecDefinition extends FeatureDefinition {
   constructor(version: FeatureVersion) {
     super(new FeatureUrl(federationIdentity, 'federation', version));

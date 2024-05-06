@@ -166,6 +166,8 @@ export class JoinSpecDefinition extends FeatureDefinition {
       const fieldValue = this.addScalarType(schema, 'FieldValue');
 
       // set context
+      // there are no renames that happen within the join spec, so this is fine
+      // note that join spec will only used in supergraph schema
       const requireType = schema.addType(new InputObjectType('join__ContextArgument'));
       requireType.addField('name', new NonNullType(schema.stringType()));
       requireType.addField('type', new NonNullType(schema.stringType()));

@@ -1495,32 +1495,30 @@ export class FederationBlueprint extends SchemaBlueprint {
     }
 
     const fromContextDirective = metadata.fromContextDirective();
-    if (isFederationDirectiveDefinedInSchema(fromContextDirective)) {
-      for (const application of fromContextDirective.applications()) {
-        const { field } = application.arguments();
-        const { context, selection } = parseContext(field);
-        const parent = application.parent as ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>>;
-        if (!context || !selection) {
-          errorCollector.push(ERRORS.NO_CONTEXT_IN_SELECTION.err(
-            `@fromContext argument does not reference a context "${field}".`,
+    for (const application of fromContextDirective.applications()) {
+      const { field } = application.arguments();
+      const { context, selection } = parseContext(field);
+      const parent = application.parent as ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>>;
+      if (!context || !selection) {
+        errorCollector.push(ERRORS.NO_CONTEXT_IN_SELECTION.err(
+          `@fromContext argument does not reference a context "${field}".`,
+          { nodes: sourceASTs(application) }
+        ));
+      } else {
+        const locations = contextToTypeMap.get(context);
+        if (!locations) {
+          errorCollector.push(ERRORS.CONTEXT_NOT_SET.err(
+            `Context "${context}" is used at location "${parent.coordinate}" but is never set.`,
             { nodes: sourceASTs(application) }
           ));
         } else {
-          const locations = contextToTypeMap.get(context);
-          if (!locations) {
-            errorCollector.push(ERRORS.CONTEXT_NOT_SET.err(
-              `Context "${context}" is used at location "${parent.coordinate}" but is never set.`,
-              { nodes: sourceASTs(application) }
-            ));
-          } else {
-            validateFieldValue({
-              context,
-              selection,
-              fromContextParent: parent,
-              setContextLocations: locations,
-              errorCollector,
-            });
-          }
+          validateFieldValue({
+            context,
+            selection,
+            fromContextParent: parent,
+            setContextLocations: locations,
+            errorCollector,
+          });
         }
         
         // validate that there is at least one resolvable key on the type
