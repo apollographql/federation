@@ -4,7 +4,8 @@
   "repository": "github:apollographql/federation",
   "scripts": {
     "clean": "git clean -dfqX -- ./target ./node_modules **/{dist,node_modules}/ ./*/tsconfig*tsbuildinfo",
-    "compile": "tsc --build tsconfig.build.json",
+    "compile": "npm run compile:wasm && tsc --build tsconfig.build.json",
+    "compile:wasm": "wasm-pack build --release --target nodejs --out-dir node internals-js/wasm",
     "compile:clean": "npm run compile -- --clean",
     "watch": "npm run compile && tsc --build tsconfig.json --watch",
     "version": "npm i --package-lock-only && git add package-lock.json",

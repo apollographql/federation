@@ -39,15 +39,14 @@ import {
   KnownTypeNamesRule,
   PossibleTypeExtensionsRule,
   print as printAST,
-  Source,
   GraphQLErrorOptions,
   SchemaDefinitionNode,
   OperationTypeNode,
   OperationTypeDefinitionNode,
-  ConstDirectiveNode,
+  ConstDirectiveNode, parse,
 } from "graphql";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
-import { buildSchema, buildSchemaFromAST } from "./buildSchema";
+import { buildSchemaFromAST } from "./buildSchema";
 import { parseSelectionSet, SelectionSet } from './operations';
 import { TAG_VERSIONS } from "./specs/tagSpec";
 import {
@@ -84,13 +83,9 @@ import {
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
-import { coreFeatureDefinitionIfKnown, validateKnownFeatures } from "./knownCoreFeatures";
+import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
 import { joinIdentity } from "./specs/joinSpec";
-import {
-  SourceAPIDirectiveArgs,
-  SourceFieldDirectiveArgs,
-  SourceTypeDirectiveArgs,
-} from "./specs/sourceSpec";
+import {validateSubgraphSchema} from "./wasm";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -787,18 +782,6 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.POLICY);
   }
 
-  sourceAPIDirective(): Post20FederationDirectiveDefinition<SourceAPIDirectiveArgs> {
-    return this.getPost20FederationDirective(FederationDirectiveName.SOURCE_API);
-  }
-
-  sourceTypeDirective(): Post20FederationDirectiveDefinition<SourceTypeDirectiveArgs> {
-    return this.getPost20FederationDirective(FederationDirectiveName.SOURCE_TYPE);
-  }
-
-  sourceFieldDirective(): Post20FederationDirectiveDefinition<SourceFieldDirectiveArgs> {
-    return this.getPost20FederationDirective(FederationDirectiveName.SOURCE_FIELD);
-  }
-
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives: DirectiveDefinition[] = [
       this.keyDirective(),
@@ -837,19 +820,6 @@ export class FederationMetadata {
     const policyDirective = this.policyDirective();
     if (isFederationDirectiveDefinedInSchema(policyDirective)) {
       baseDirectives.push(policyDirective);
-    }
-
-    const sourceAPIDirective = this.sourceAPIDirective();
-    if (isFederationDirectiveDefinedInSchema(sourceAPIDirective)) {
-      baseDirectives.push(sourceAPIDirective);
-    }
-    const sourceTypeDirective = this.sourceTypeDirective();
-    if (isFederationDirectiveDefinedInSchema(sourceTypeDirective)) {
-      baseDirectives.push(sourceTypeDirective);
-    }
-    const sourceFieldDirective = this.sourceFieldDirective();
-    if (isFederationDirectiveDefinedInSchema(sourceFieldDirective)) {
-      baseDirectives.push(sourceFieldDirective);
     }
 
     return baseDirectives;
@@ -1089,11 +1059,6 @@ export class FederationBlueprint extends SchemaBlueprint {
     validateKeyOnInterfacesAreAlsoOnAllImplementations(metadata, errorCollector);
     validateInterfaceObjectsAreOnEntities(metadata, errorCollector);
 
-    // FeatureDefinition objects passed to registerKnownFeature can register
-    // validation functions for subgraph schemas by overriding the
-    // validateSubgraphSchema method.
-    validateKnownFeatures(schema, errorCollector);
-
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = metadata.tagDirective();
     if (tagDirective) {
@@ -1239,7 +1204,7 @@ export function setSchemaAsFed2Subgraph(schema: Schema, useLatest: boolean = fal
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy", "@sourceAPI", "@sourceType", "@sourceField"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy"])';
 
 // This is the federation @link for tests that go through the asFed2SubgraphDocument function.
 export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
@@ -1376,9 +1341,9 @@ export function buildSubgraph(
   };
   let subgraph: Subgraph;
   try {
-    const schema = typeof source === 'string'
-      ? buildSchema(new Source(source, name), buildOptions)
-      : buildSchemaFromAST(source, buildOptions)
+    const parsed = typeof source === 'string' ? parse(source) : source;
+    const schema =  buildSchemaFromAST(parsed, buildOptions)
+    validateSubgraphSchema(schema, parsed)
     subgraph = new Subgraph(name, url, schema);
   } catch (e) {
     if (e instanceof GraphQLError && name !== FEDERATION_UNNAMED_SUBGRAPH_NAME) {

@@ -6,9 +6,4 @@ set -euo pipefail
 
 cd $(dirname "$0")
 
-rm -rf node
 wasm-pack build --release --target nodejs --out-dir node
-
-# If we neglect to remove this file, nothing within the wasm/node directory will
-# be published to npm, because the default .gitignore ignores everything.
-rm node/.gitignore

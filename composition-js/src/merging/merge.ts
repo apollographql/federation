@@ -72,7 +72,6 @@ import {
   FEDERATION_VERSIONS,
   InaccessibleSpecDefinition,
   LinkDirectiveArgs,
-  sourceIdentity,
   connectIdentity,
   FeatureUrl,
   CoreFeature,
@@ -343,7 +342,6 @@ class Merger {
 
     [ // Represent any applications of directives imported from these spec URLs
       // using @join__directive in the merged supergraph.
-      sourceIdentity,
       connectIdentity,
     ].forEach(url => this.joinDirectiveIdentityURLs.add(url));
   }

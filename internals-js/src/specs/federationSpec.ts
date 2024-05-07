@@ -18,7 +18,6 @@ import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
 import { AUTHENTICATED_VERSIONS } from "./authenticatedSpec";
 import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
 import { POLICY_VERSIONS } from './policySpec';
-import { SOURCE_VERSIONS } from './sourceSpec';
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -41,9 +40,6 @@ export enum FederationDirectiveName {
   AUTHENTICATED = 'authenticated',
   REQUIRES_SCOPES = 'requiresScopes',
   POLICY = 'policy',
-  SOURCE_API = 'sourceAPI',
-  SOURCE_TYPE = 'sourceType',
-  SOURCE_FIELD = 'sourceField',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
@@ -169,10 +165,6 @@ export class FederationSpecDefinition extends FeatureDefinition {
 
     if (version.gte(new FeatureVersion(2, 6))) {
       this.registerSubFeature(POLICY_VERSIONS.find(new FeatureVersion(0, 1))!);
-    }
-
-    if (version.gte(new FeatureVersion(2, 7))) {
-      this.registerSubFeature(SOURCE_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
   }
 }
