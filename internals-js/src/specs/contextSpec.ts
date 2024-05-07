@@ -33,7 +33,7 @@ export class ContextSpecDefinition extends FeatureDefinition {
 
     this.contextDirectiveSpec = createDirectiveSpecification({
       name: ContextDirectiveName.CONTEXT,
-      locations: [DirectiveLocation.INTERFACE, DirectiveLocation.OBJECT, DirectiveLocation.UNION],
+      locations: [DirectiveLocation.INTERFACE, DirectiveLocation.OBJECT],
       args: [{ name: 'name', type: (schema) =>new NonNullType(schema.stringType()) }],
       composes: true,
       repeatable: true,

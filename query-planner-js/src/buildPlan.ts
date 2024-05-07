@@ -61,7 +61,6 @@ import {
   typesCanBeMerged,
   Supergraph,
   sameType,
-  assertUnreachable,
   isInputType,
   possibleRuntimeTypes,
   NamedType,
@@ -1674,33 +1673,52 @@ type FieldToAlias = {
   alias: string,
 }
 
-function createPathFromSelection(selection: Selection): string[] {
-  const path: string[] = [];
+// function createPathFromSelection(selection: Selection): string[] {
+//   const path: string[] = [];
   
-  const helper = (sel: Selection) => {
-    if (sel.kind === 'FieldSelection') {
-      path.push(sel.element.name);
-    } else if (sel.kind === 'FragmentSelection') {
-      path.push(`... ${sel.element.typeCondition ? sel.element.typeCondition.name : ''}`);
-    } else {
-      assertUnreachable(sel);
-    }
-    const ss = sel.selectionSet;
-    if (ss && ss.selections().length > 0) {
-      helper(ss.selections()[0]);
-    }
-  };
+//   const helper = (sel: Selection) => {
+//     if (sel.kind === 'FieldSelection') {
+//       path.push(sel.element.name);
+//     } else if (sel.kind === 'FragmentSelection') {
+//       path.push(`... ${sel.element.typeCondition ? sel.element.typeCondition.name : ''}`);
+//     } else {
+//       assertUnreachable(sel);
+//     }
+//     const ss = sel.selectionSet;
+//     if (ss && ss.selections().length > 0) {
+//       helper(ss.selections()[0]);
+//     }
+//   };
   
-  helper(selection);
-  return path;
-}
+//   helper(selection);
+//   return path;
+// }
 
-function selectionAsKeyRenamer(selection: Selection, relPath: string[], alias: string): FetchDataKeyRenamer {
-  return {
-    kind: 'KeyRenamer',
-    path: relPath.concat(createPathFromSelection(selection)),
-    renameKeyTo: alias,
-  }  
+// function selectionAsKeyRenamer(selection: Selection, relPath: string[], alias: string): FetchDataKeyRenamer {
+//   return {
+//     kind: 'KeyRenamer',
+//     path: relPath.concat(createPathFromSelection(selection)),
+//     renameKeyTo: alias,
+//   }  
+// }
+
+function selectionSetAsKeyRenamers(selectionSet: SelectionSet, relPath: string[], alias: string): FetchDataKeyRenamer[] {
+  return selectionSet.selections().map((selection: Selection): FetchDataKeyRenamer[] | undefined => {
+    if (selection.kind === 'FieldSelection') {
+      return [{
+        kind: 'KeyRenamer',
+        path: [...relPath, selection.element.name],
+        renameKeyTo: alias,
+      }];
+    } else if (selection.kind === 'FragmentSelection') {
+      const element = selection.element;
+      if (element.typeCondition) {
+        return selectionSetAsKeyRenamers(selection.selectionSet, [...relPath, `... on ${element.typeCondition.name}`], alias);
+      }
+    }
+    return undefined;
+  }).filter(isDefined)
+  .reduce((acc, val) => acc.concat(val), []);
 }
 
 function computeAliasesForNonMergingFields(selections: SelectionSetAtPath[], aliasCollector: FieldToAlias[]) {
@@ -4403,8 +4421,10 @@ function computeGroupsForTree(
             newGroup.addParent({ group, path: path.inGroup() });
             for (const [_, { contextId, selectionSet, relativePath, subgraphArgType }] of parameterToContext) {
               newGroup.addInputContext(contextId, subgraphArgType);
-              const keyRenamer = selectionAsKeyRenamer(selectionSet.selections()[0], relativePath, contextId);
-              newGroup.addContextRenamer(keyRenamer);
+              const keyRenamers = selectionSetAsKeyRenamers(selectionSet, relativePath, contextId);
+              for (const keyRenamer of keyRenamers) {
+                newGroup.addContextRenamer(keyRenamer);
+              }
             }
             tree.parameterToContext = null;
             // We also ensure to get the __typename of the current type in the "original" group.
