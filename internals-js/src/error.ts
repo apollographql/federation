@@ -349,6 +349,12 @@ const CONTEXT_NO_RESOLVABLE_KEY = makeCodeDefinition(
   { addedIn: '2.8.0' },
 );
 
+const CONTEXT_NAME_INVALID = makeCodeDefinition(
+  'CONTEXT_NAME_INVALID',
+  'Context name is invalid.',
+  { addedIn: '2.8.0' },
+);
+
 const EXTERNAL_TYPE_MISMATCH = makeCodeDefinition(
   'EXTERNAL_TYPE_MISMATCH',
   'An `@external` field has a type that is incompatible with the declaration(s) of that field in other subgraphs.',
@@ -750,6 +756,7 @@ export const ERRORS = {
   CONTEXT_INVALID_SELECTION,
   NO_CONTEXT_IN_SELECTION,
   CONTEXT_NO_RESOLVABLE_KEY,
+  CONTEXT_NAME_INVALID,
   EXTERNAL_TYPE_MISMATCH,
   EXTERNAL_ARGUMENT_MISSING,
   EXTERNAL_ARGUMENT_TYPE_MISMATCH,

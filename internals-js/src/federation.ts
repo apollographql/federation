@@ -1529,6 +1529,13 @@ export class FederationBlueprint extends SchemaBlueprint {
     for (const application of contextDirective.applications()) {
       const parent = application.parent;
       const name = application.arguments().name as string;
+      
+      if (name.startsWith('_')) {
+        errorCollector.push(ERRORS.CONTEXT_NAME_INVALID.err(
+          `Context name "${name}" cannot start with an underscore.`,
+          { nodes: sourceASTs(application) }
+        ));
+      }
       const types = contextToTypeMap.get(name);
       if (types) {
         types.push(parent);

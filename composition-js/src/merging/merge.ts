@@ -1659,6 +1659,17 @@ class Merger {
     if (mergeContext.some(({ usedOverridden, overrideLabel }) => usedOverridden || !!overrideLabel)) {
       return true;
     }
+    
+    // if there is a @fromContext directive on one of the sources, we need a join__field
+    if (sources.some((s, idx) => {
+      const fromContextDirective = this.subgraphs.values()[idx].metadata().fromContextDirective();
+      if (isFederationDirectiveDefinedInSchema(fromContextDirective)) {
+        return (s?.appliedDirectivesOf(fromContextDirective).length ?? 0) > 0;
+      }
+      return false;
+    })) {
+      return true;
+    }
 
     // We can avoid the join__field if:
     //   1) the field exists in all sources having the field parent type,
@@ -1884,24 +1895,33 @@ class Merger {
       // in those cases.
       const arg = dest.addArgument(argName);
 
+      // helper function to determine if an argument is contextual in a given subgraph
       const isContextualArg = (index: number, arg: ArgumentDefinition<DirectiveDefinition<any>> | ArgumentDefinition<FieldDefinition<any>>) => {
         const fromContextDirective = this.metadata(index).fromContextDirective();
         return fromContextDirective && isFederationDirectiveDefinedInSchema(fromContextDirective) && arg.appliedDirectivesOf(fromContextDirective).length >= 1;
       }
-      const hasContextual = sources.map((s, idx) => {
+      
+      const isContextualArray = sources.map((s, idx) => {
         const arg = s?.argument(argName);
         return arg && isContextualArg(idx, arg);
       });
+      
+      
 
-      if (hasContextual.some((c) => c === true)) {
-        // If any of the sources has a contextual argument, then we need to remove it from the supergraph
-        // and ensure that all the sources have it.
-        if (hasContextual.some((c) => c === false)) {
-          this.errors.push(ERRORS.CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS.err(
-            `Argument "${arg.coordinate}" is contextual in some subgraphs but not in all subgraphs: it is contextual in ${printSubgraphNames(hasContextual.map((c, i) => c ? this.names[i] : undefined).filter(isDefined))} but not in ${printSubgraphNames(hasContextual.map((c, i) => c ? undefined : this.names[i]).filter(isDefined))}`,
-            { nodes: sourceASTs(...sources.map((s) => s?.argument(argName))) },
-          ));
-        }
+      if (isContextualArray.some((c) => c === true)) {
+        // if the argument is contextual in some subgraph, then it should also be contextual in other subgraphs,
+        // unless it is nullable. Also, we need to remove it from the supergraph
+        isContextualArray.forEach((isContextual, idx) => {
+          const argument = sources[idx]?.argument(argName);
+          const argType = argument?.type;
+          if (!isContextual && argument && argType && isNonNullType(argType) && argument.defaultValue === undefined) {
+            this.errors.push(ERRORS.CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS.err(
+              `Argument "${arg.coordinate}" is contextual in at least one subgraph but in "${argument.coordinate}" it does not have @fromContext, is not nullable and has no default value.`,
+              { nodes: sourceASTs(sources[idx]?.argument(argName)) },
+            ));
+            
+          }
+        });
         arg.remove();
         continue;
       }
