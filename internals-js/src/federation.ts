@@ -1548,7 +1548,34 @@ export class FederationBlueprint extends SchemaBlueprint {
     for (const application of fromContextDirective.applications()) {
       const { field } = application.arguments();
       const { context, selection } = parseContext(field);
+      
+      // error if parent's parent is a directive definition
+      if (application.parent.parent.kind === 'DirectiveDefinition') {
+        errorCollector.push(ERRORS.CONTEXT_NOT_SET.err(
+          `@fromContext argument cannot be used on a directive definition "${application.parent.coordinate}".`,
+          { nodes: sourceASTs(application) }
+        ));
+        continue;
+      }
+
       const parent = application.parent as ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>>;
+
+      // error if parent's parent is an interface
+      if (parent?.parent?.parent?.kind === 'InterfaceType') {
+        errorCollector.push(ERRORS.CONTEXT_NOT_SET.err(
+          `@fromContext argument cannot be used on a field that exists on an interface "${application.parent.coordinate}".`,
+          { nodes: sourceASTs(application) }
+        ));
+        continue;
+      }
+      
+      if (parent.defaultValue !== undefined) {
+        errorCollector.push(ERRORS.CONTEXT_NOT_SET.err(
+          `@fromContext arguments may not have a default value: "${parent.coordinate}".`,
+          { nodes: sourceASTs(application) }
+        ));  
+      }
+      
       if (!context || !selection) {
         errorCollector.push(ERRORS.NO_CONTEXT_IN_SELECTION.err(
           `@fromContext argument does not reference a context "${field}".`,

@@ -1225,4 +1225,194 @@ describe('setContext tests', () => {
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     assertCompositionSuccess(result);
   });
+  
+  it('contextual argument on a directive definition argument', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      utl: 'https://Subgraph1',
+      typeDefs: gql`
+        directive @foo(
+          a: String! @fromContext(field: "$context { prop }")
+        ) on FIELD_DEFINITION
+  
+        type Query {
+          t: T!
+        }
+
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+          field: Int!
+        }
+      `
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      utl: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.schema).toBeUndefined();
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0].message).toBe('[Subgraph1] @fromContext argument cannot be used on a directive definition \"@foo(a:)\".');
+  });
+  
+  it('forbid default values on contextual arguments', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      utl: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T!
+        }
+
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+          field(
+            a: String! = "default" @fromContext(field: "$context { prop }") 
+          ): Int!
+        }
+      `
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      utl: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.schema).toBeUndefined();
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0].message).toBe('[Subgraph1] @fromContext arguments may not have a default value: \"U.field(a:)\".');
+  });
+  
+  it('forbid contextual arguments on interfaces', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      utl: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T!
+        }
+        
+        interface I @key(fields: "id") {
+          id: ID!
+          field(
+            a: String! @fromContext(field: "$context { prop }")
+          ): Int!
+        }
+
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+
+        type U implements I @key(fields: "id") {
+          id: ID!
+          field(
+            a: String! @fromContext(field: "$context { prop }") 
+          ): Int!
+        }
+      `
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      utl: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.schema).toBeUndefined();
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0].message).toBe('[Subgraph1] @fromContext argument cannot be used on a field that exists on an interface \"I.field(a:)\".');
+  });
+  
+  it('forbid contextual arguments on interfaces', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      utl: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T!
+        }
+        
+        interface I @key(fields: "id") {
+          id: ID!
+          field: Int!
+        }
+
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+
+        type U implements I @key(fields: "id") {
+          id: ID!
+          field(
+            a: String! @fromContext(field: "$context { prop }") 
+          ): Int!
+        }
+      `
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      utl: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.schema).toBeUndefined();
+    expect(result.errors?.length).toBe(1);
+    expect(result.errors?.[0].message).toBe('[Subgraph1] Field U.field includes required argument a that is missing from the Interface field I.field.');
+  });
 });
