@@ -75,7 +75,6 @@ import {
   sourceIdentity,
   FeatureUrl,
   isFederationDirectiveDefinedInSchema,
-  parseSelectionSet,
   parseContext,
   CoreFeature,
   Subgraph,
@@ -310,7 +309,6 @@ class Merger {
   private latestFedVersionUsed: FeatureVersion;
   private joinDirectiveIdentityURLs = new Set<string>();
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
-  private contextToTypeMap = new Map<string, { types: Set<CompositeType>, usages: { usage: string, argumentDefinition: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>> }[] }>();
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.latestFedVersionUsed = this.getLatestFederationVersionUsed();
@@ -3045,44 +3043,6 @@ class Merger {
         }
       }
     }
-    this.validateContextUsages();
-  }
-
-  // private traverseSelectionSetForType(
-  //   selection: string,
-  //   type: ObjectType,
-  // ) {
-  //   const selectionSet = new SelectionSet(type, )
-  // }
-
-  private validateContextUsages() {
-    // For each usage of a context, we need to validate that all set contexts could fulfill the selection of the context
-    this.contextToTypeMap.forEach(({ usages, types }, context) => {
-      for (const { usage, argumentDefinition } of usages) {
-        if (types.size === 0) {
-          this.errors.push(ERRORS.CONTEXT_NOT_SET.err(
-            `Context "${context}" is used in "${argumentDefinition.coordinate}" but is never set in any subgraph.`,
-            { nodes: sourceASTs(argumentDefinition) }
-          ));
-        }
-        // const resolvedTypes = [];
-        for (const type of types) {
-          // now ensure that for each type, the selection is satisfiable and collect the resolved type
-          try {
-            parseSelectionSet({ parentType: type, source: usage });
-          } catch (error) {
-            if (error instanceof GraphQLError) {
-              this.errors.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
-                `Context "${context}" is used in "${argumentDefinition.coordinate}" but the selection is invalid: ${error.message}`,
-                { nodes: sourceASTs(argumentDefinition) }
-              ));
-            } else {
-              throw error;
-            }
-          }
-        }
-      }
-    });
   }
 
   private updateInaccessibleErrorsWithLinkToSubgraphs(
