@@ -7,14 +7,18 @@ import {
   FeatureVersion,
 } from "./coreSpec";
 import { NonNullType } from "../definitions";
-import { DirectiveSpecification, createDirectiveSpecification } from "../directiveAndTypeSpecification";
+import { DirectiveSpecification, createDirectiveSpecification, createScalarTypeSpecification } from "../directiveAndTypeSpecification";
 import { registerKnownFeature } from "../knownCoreFeatures";
 import { Subgraph } from '../federation';
+import { assert } from '../utils';
 
 export enum ContextDirectiveName {
   CONTEXT = 'context',
   FROM_CONTEXT = 'fromContext',
 }
+
+const fieldValueScalar = 'ContextFieldValue';
+
 export class ContextSpecDefinition extends FeatureDefinition {
   public static readonly directiveName = 'context';
   public static readonly identity =
@@ -31,10 +35,18 @@ export class ContextSpecDefinition extends FeatureDefinition {
       )
     );
 
+    this.registerType(createScalarTypeSpecification({ name: fieldValueScalar }));
+    
     this.contextDirectiveSpec = createDirectiveSpecification({
       name: ContextDirectiveName.CONTEXT,
       locations: [DirectiveLocation.INTERFACE, DirectiveLocation.OBJECT],
-      args: [{ name: 'name', type: (schema) =>new NonNullType(schema.stringType()) }],
+      args: [{ name: 'name', type: (schema, feature) => {
+          assert(feature, "Shouldn't be added without being attached to a @link spec");
+          const fieldValue = feature.typeNameInSchema(fieldValueScalar);
+          const fieldValueType = schema.type(fieldValue);
+          assert(fieldValueType, () => `Expected "${fieldValue}" to be defined`);
+          return new NonNullType(fieldValueType);
+      }}],
       composes: true,
       repeatable: true,
       supergraphSpecification: (fedVersion) => CONTEXT_VERSIONS.getMinimumRequiredVersion(fedVersion),
