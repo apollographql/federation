@@ -8920,7 +8920,13 @@ describe('@fromContext impacts on query planning', () => {
         },
       }
     `);
-    expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([{ kind: 'KeyRenamer', path: ['..', 'prop'], renameKeyTo: 'Subgraph1_U_field_a'}]);
+    expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['..', 'prop'],
+        renameKeyTo: 'Subgraph1_U_field_a',
+      },
+    ]);
   });
 
   it('fromContext variable is from different subgraph', () => {
@@ -9058,7 +9064,13 @@ describe('@fromContext impacts on query planning', () => {
         },
       }
     `);
-    expect((plan as any).node.nodes[3].node.contextRewrites).toEqual([{ kind: 'KeyRenamer', path: ['..', 'prop'], renameKeyTo: 'Subgraph1_U_field_a'}]);
+    expect((plan as any).node.nodes[3].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['..', 'prop'],
+        renameKeyTo: 'Subgraph1_U_field_a',
+      },
+    ]);
   });
 
   it.skip('fromContext variable is a list', () => {
@@ -9233,6 +9245,12 @@ describe('@fromContext impacts on query planning', () => {
         },
       }
     `);
-    expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([{ kind: 'KeyRenamer', path: ['..', 'prop'], renameKeyTo: 'Subgraph1_U_field_a'}]);
+    expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['..', 'prop'],
+        renameKeyTo: 'Subgraph1_U_field_a',
+      },
+    ]);
   });
 });
