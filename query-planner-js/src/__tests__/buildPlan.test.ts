@@ -5215,6 +5215,7 @@ describe('Fragment autogeneration', () => {
       type A {
         x: Int
         y: Int
+        z: Int
         t: T
       }
 
@@ -5420,6 +5421,60 @@ describe('Fragment autogeneration', () => {
           fragment _generated_onA2_0 on A {
             x
             y
+          }
+        },
+      }
+    `);
+  });
+
+  it('fragments that share a hash but are not identical generate their own fragment definitions', () => {
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions([subgraph], {
+      generateQueryFragments: true,
+    });
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          t {
+            ... on A {
+              x
+              y
+            }
+          }
+          t2 {
+            ... on A {
+              y
+              z
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              ..._generated_onA2_0
+            }
+            t2 {
+              __typename
+              ..._generated_onA2_1
+            }
+          }
+          
+          fragment _generated_onA2_0 on A {
+            x
+            y
+          }
+          
+          fragment _generated_onA2_1 on A {
+            y
+            z
           }
         },
       }
@@ -8718,5 +8773,43 @@ describe('handles operations with directives', () => {
         test
       }
     `);
+  });
+
+  test('subgraph query retains the query variables used in the directives applied to the query', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        directive @withArgs(arg1: String) on QUERY
+
+        type Query {
+          test: String!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        directive @withArgs(arg1: String) on QUERY
+      `,
+    };
+
+    const query = gql`
+      query testQuery($some_var: String!) @withArgs(arg1: $some_var) {
+        test
+      }
+    `;
+
+    const [api, qp] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const op = operationFromDocument(api, query);
+    const queryPlan = qp.buildQueryPlan(op);
+    const fetch_nodes = findFetchNodes(subgraph1.name, queryPlan.node);
+    expect(fetch_nodes).toHaveLength(1);
+    // Note: `($some_var: String!)` used to be missing.
+    expect(parse(fetch_nodes[0].operation)).toMatchInlineSnapshot(`
+      query testQuery__Subgraph1__0($some_var: String!) @withArgs(arg1: $some_var) {
+        test
+      }
+    `); // end of test
   });
 }); // end of `describe`

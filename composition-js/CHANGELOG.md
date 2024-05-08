@@ -1,5 +1,31 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.7.6
+
+### Patch Changes
+
+- There is no functionality change between 2.7.5 and 2.7.6. Triggering new release as previous one released partially leading to a broken experience. ([#2997](https://github.com/apollographql/federation/pull/2997))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.7.6
+  - @apollo/query-graphs@2.7.6
+
+## 2.7.5
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.7.5
+  - @apollo/query-graphs@2.7.5
+
+## 2.7.4
+
+### Patch Changes
+
+- Updated dependencies [[`d80b7f0ca1456567a0866a32d2b2abf940598f77`](https://github.com/apollographql/federation/commit/d80b7f0ca1456567a0866a32d2b2abf940598f77)]:
+  - @apollo/federation-internals@2.7.4
+  - @apollo/query-graphs@2.7.4
+
 ## 2.7.3
 
 ### Patch Changes

@@ -25,6 +25,7 @@ import {
   Variable,
   VariableDefinition,
   VariableDefinitions,
+  VariableCollector,
   newDebugLogger,
   selectionOfElement,
   selectionSetOfElement,
@@ -4753,6 +4754,20 @@ function representationsVariableDefinition(schema: Schema): VariableDefinition {
   return new VariableDefinition(schema, representationsVariable, representationsType);
 }
 
+// Collects all variables used in the operation to be created.
+// - It's computed based on its selection set and directives.
+function collectUsedVariables(selectionSet: SelectionSet, operationDirectives?: readonly Directive<any>[]) {
+  const collector = new VariableCollector();
+  selectionSet.collectVariables(collector);
+
+  if (operationDirectives) {
+    for (const applied of operationDirectives) {
+      collector.collectInArguments(applied.arguments());
+    }
+  }
+  return collector.variables();
+}
+
 function operationForEntitiesFetch(
   subgraphSchema: Schema,
   selectionSet: SelectionSet,
@@ -4763,7 +4778,7 @@ function operationForEntitiesFetch(
   const variableDefinitions = new VariableDefinitions();
   variableDefinitions.add(representationsVariableDefinition(subgraphSchema));
   variableDefinitions.addAll(
-    allVariableDefinitions.filter(selectionSet.usedVariables()),
+    allVariableDefinitions.filter(collectUsedVariables(selectionSet, directives)),
   );
 
   const queryType = subgraphSchema.schemaDefinition.rootType('query');
@@ -4799,6 +4814,6 @@ function operationForQueryFetch(
   // Note that this is called _before_ named fragments reuse is attempted, so there is not spread in
   // the selection, hence the `undefined` for fragments.
   return new Operation(subgraphSchema, rootKind, selectionSet,
-                       allVariableDefinitions.filter(selectionSet.usedVariables()),
+                       allVariableDefinitions.filter(collectUsedVariables(selectionSet, directives)),
                        /*fragments*/undefined, operationName, directives);
 }

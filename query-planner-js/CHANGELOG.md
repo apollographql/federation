@@ -1,5 +1,58 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.7.6
+
+### Patch Changes
+
+- There is no functionality change between 2.7.5 and 2.7.6. Triggering new release as previous one released partially leading to a broken experience. ([#2997](https://github.com/apollographql/federation/pull/2997))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.7.6
+  - @apollo/query-graphs@2.7.6
+
+## 2.7.5
+
+### Patch Changes
+
+- Fix issue with missing fragment definitions due to `generateQueryFragments`. ([#2993](https://github.com/apollographql/federation/pull/2993))
+
+  An incorrect implementation detail in `generateQueryFragments` caused certain queries to be missing fragment definitions. Specifically, subsequent fragment "candidates" with the same type condition and the same length of selections as a previous fragment weren't correctly added to the list of fragments. An example of an affected query is:
+
+  ```graphql
+  query {
+    t {
+      ... on A {
+        x
+        y
+      }
+    }
+    t2 {
+      ... on A {
+        y
+        z
+      }
+    }
+  }
+  ```
+
+  In this case, the second selection set would be converted to an inline fragment spread to subgraph fetches, but the fragment definition would be missing.
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.7.5
+  - @apollo/query-graphs@2.7.5
+
+## 2.7.4
+
+### Patch Changes
+
+- Fixed a regression created by PR (#2967), where directives would not be properly attached to their parent. (#2982) ([#2984](https://github.com/apollographql/federation/pull/2984))
+
+- Ensure query variables used in the directives applied at the operation level are retained in subgraph queries (#2986) ([#2986](https://github.com/apollographql/federation/pull/2986))
+
+- Updated dependencies [[`d80b7f0ca1456567a0866a32d2b2abf940598f77`](https://github.com/apollographql/federation/commit/d80b7f0ca1456567a0866a32d2b2abf940598f77)]:
+  - @apollo/federation-internals@2.7.4
+  - @apollo/query-graphs@2.7.4
+
 ## 2.7.3
 
 ### Patch Changes
