@@ -1530,9 +1530,9 @@ export class FederationBlueprint extends SchemaBlueprint {
       const parent = application.parent;
       const name = application.arguments().name as string;
       
-      if (name.startsWith('_')) {
+      if (name.includes('_')) {
         errorCollector.push(ERRORS.CONTEXT_NAME_INVALID.err(
-          `Context name "${name}" cannot start with an underscore.`,
+          `Context name "${name}" may not contain an underscore.`,
           { nodes: sourceASTs(application) }
         ));
       }

@@ -6,7 +6,7 @@ import {
   FeatureUrl,
   FeatureVersion,
 } from "./coreSpec";
-import { NonNullType } from "../definitions";
+import { DirectiveDefinition, NonNullType, Schema } from "../definitions";
 import { DirectiveSpecification, createDirectiveSpecification, createScalarTypeSpecification } from "../directiveAndTypeSpecification";
 import { registerKnownFeature } from "../knownCoreFeatures";
 import { Subgraph } from '../federation';
@@ -71,6 +71,10 @@ export class ContextSpecDefinition extends FeatureDefinition {
 
   get defaultCorePurpose(): CorePurpose {
     return 'SECURITY';
+  }
+  
+  contextDirective(schema: Schema): DirectiveDefinition<{ name: string }> | undefined {
+    return this.directive(schema, ContextSpecDefinition.directiveName);
   }
 }
 

@@ -959,7 +959,7 @@ describe('setContext tests', () => {
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     expect(result.schema).toBeUndefined();
     expect(result.errors?.length).toBe(1);
-    expect(result.errors?.[0].message).toBe('[Subgraph1] Context name \"_context\" cannot start with an underscore.');
+    expect(result.errors?.[0].message).toBe('[Subgraph1] Context name \"_context\" may not contain an underscore.');
   });
   
   it('context selection contains a query directive', () => {

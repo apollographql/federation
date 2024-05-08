@@ -40,8 +40,7 @@ import { parseSelectionSet } from "./operations";
 import fs from 'fs';
 import path from 'path';
 import { validateStringContainsBoolean } from "./utils";
-import { errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
-import { Kind, TypeNode, parseType } from 'graphql';
+import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
 
 function filteredTypes(
   supergraph: Schema,
@@ -317,16 +316,16 @@ function addAllEmptySubgraphTypes({
       // (on top of it making sense code-wise since both type behave exactly the same for most of what we're doing here).
       case 'InterfaceType':
       case 'ObjectType':
-        objOrItfTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph) });
+        objOrItfTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph, supergraph) });
         break;
       case 'InputObjectType':
-        inputObjTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph) });
+        inputObjTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph, supergraph) });
         break;
       case 'EnumType':
-        enumTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph) });
+        enumTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph, supergraph) });
         break;
       case 'UnionType':
-        unionTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph) });
+        unionTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph, supergraph) });
         break;
       case 'ScalarType':
         // Scalar are a bit special in that they don't have any sub-component, so we don't track them beyond adding them to the
@@ -352,6 +351,7 @@ function addEmptyType<T extends NamedType>(
   type: T,
   typeApplications: Directive<T, JoinTypeDirectiveArguments>[],
   getSubgraph: (application: Directive<any, { graph?: string }>) => Subgraph | undefined,
+  supergraph: Schema,
 ): SubgraphTypeInfo<T> {
   // In fed2, we always mark all types with `@join__type` but making sure.
   assert(typeApplications.length > 0, `Missing @join__type on ${type}`)
@@ -384,18 +384,30 @@ function addEmptyType<T extends NamedType>(
     }
   }
   
-  const contextApplications = type.appliedDirectivesOf('context'); // TODO: is there a better way to get this?
-  // for every application, apply the context directive to the correct subgraph
-  for (const application of contextApplications) {
-    const { name } = application.arguments();
-    const match = name.match(/(.*?)__([\s\S]*)/);
-    const graph = match ? match[1] : undefined;
-    const context = match ? match[2] : undefined;
-    
-    const subgraphInfo = subgraphsInfo.get(graph ? graph.toUpperCase() : undefined);
-    const contextDirective = subgraphInfo?.subgraph.metadata().contextDirective();
-    if (subgraphInfo && contextDirective && isFederationDirectiveDefinedInSchema(contextDirective)) {
-      subgraphInfo.type.applyDirective(contextDirective, {name: context});
+  const coreFeatures = supergraph.coreFeatures;
+  assert(coreFeatures, 'Should have core features');
+  const contextFeature = coreFeatures.getByIdentity(ContextSpecDefinition.identity);
+  let supergraphContextDirective: DirectiveDefinition<{ name: string}> | undefined;
+  if (contextFeature) {
+    const contextSpec = CONTEXT_VERSIONS.find(contextFeature.url.version);
+    assert(contextSpec, 'Should have context spec');
+    supergraphContextDirective = contextSpec.contextDirective(supergraph);
+  }
+  
+  if (supergraphContextDirective) {
+    const contextApplications = type.appliedDirectivesOf(supergraphContextDirective);
+    // for every application, apply the context directive to the correct subgraph
+    for (const application of contextApplications) {
+      const { name } = application.arguments();
+      const match = name.match(/^(.*)__([A-Za-z]\w*)$/);
+      const graph = match ? match[1] : undefined;
+      const context = match ? match[2] : undefined;
+      assert(graph, `Invalid context name ${name} found in ${application} on ${application.parent}: does not match the expected pattern`);
+      const subgraphInfo = subgraphsInfo.get(graph.toUpperCase());
+      const contextDirective = subgraphInfo?.subgraph.metadata().contextDirective();
+      if (subgraphInfo && contextDirective && isFederationDirectiveDefinedInSchema(contextDirective)) {
+        subgraphInfo.type.applyDirective(contextDirective, {name: context});
+      }
     }
   }
   return subgraphsInfo;
@@ -599,22 +611,6 @@ function errorToString(e: any,): string {
   return causes ? printErrors(causes) : String(e);
 }
 
-const typeFromTypeNode = (typeNode: TypeNode, schema: Schema): Type => {
-  if (typeNode.kind === Kind.NON_NULL_TYPE) {
-    const type = typeFromTypeNode(typeNode.type, schema);
-    assert(type.kind !== 'NonNullType', 'A non-null type cannot be nested in another non-null type');
-    return new NonNullType(type);
-  } else if (typeNode.kind === Kind.LIST_TYPE) {
-    return new ListType(typeFromTypeNode(typeNode.type, schema));
-  }
-
-  const type = schema.type(typeNode.name.value);
-  if (!type) {
-    throw new Error(`Type ${typeNode.name.value} not found in schema`);
-  }
-  return type;
-};
-
 function addSubgraphField({
   field,
   type,
@@ -645,17 +641,16 @@ function addSubgraphField({
   if (joinFieldArgs?.contextArguments) {
     const fromContextDirective = subgraph.metadata().fromContextDirective();
     if (!isFederationDirectiveDefinedInSchema(fromContextDirective)) {
-      throw new Error(`@context directive is not defined in the subgraph schema: ${subgraph.name}`);
+      throw new Error(`@fromContext directive is not defined in the subgraph schema: ${subgraph.name}`);
     } else {
       for (const arg of joinFieldArgs.contextArguments) {
         // this code will remove the subgraph name from the context
-        const match = arg.context.match(/.*?__([\s\S]*)/);
+        const match = arg.context.match(/^.*__([A-Za-z]\w*)$/);
         if (!match) {
           throw new Error(`Invalid context argument: ${arg.context}`);
         }
         
-        const typeNode = parseType(arg.type);
-        subgraphField.addArgument(arg.name, typeFromTypeNode(typeNode, subgraph.schema));
+        subgraphField.addArgument(arg.name, decodeType(arg.type, subgraph.schema, subgraph.name));
         const argOnField = subgraphField.argument(arg.name);
         argOnField?.applyDirective(fromContextDirective, {
           field: `\$${match[1]} ${arg.selection}`,
