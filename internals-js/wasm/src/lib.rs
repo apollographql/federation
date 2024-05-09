@@ -14,7 +14,7 @@ pub fn validate_connect_directives(schema: String) -> Vec<GraphQLError> {
             e.partial
         }
     };
-    errors.extend(validate(schema).into_iter().map(|e| e.into()));
+    errors.extend(validate(schema).into_iter().map(GraphQLError::from));
     errors
 }
 

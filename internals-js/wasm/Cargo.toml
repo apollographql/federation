@@ -16,3 +16,21 @@ apollo-federation = {git = "https://github.com/apollographql/router", branch = "
 js-sys = "0.3.69"
 line-col = "0.2.1"
 wasm-bindgen = "0.2.92"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "deny", priority = -2 }
+pedantic = { level = "deny", priority = -1 }
+must_use_candidate = "allow" # #[wasm_bindgen] functions are not used in Rust
+
+# Don't panic!
+panic = "deny"
+exit = "deny"
+unimplemented = "deny"
+todo = "deny"
+expect_used = "deny"
+unwrap_used = "deny"
+indexing_slicing = "deny"
+missing_panics_doc = "forbid"

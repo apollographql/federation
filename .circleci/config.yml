@@ -2,6 +2,7 @@ version: 2.1
 
 orbs:
   node: circleci/node@5.1.0
+  rust: circleci/rust@1.6.0
   secops: apollo/circleci-secops-orb@2.0.7
 
 jobs:
@@ -22,6 +23,7 @@ jobs:
       # should be able to remove this step when we drop node v14
       - run: npm install -g npm@9
       - node/install-packages
+      - setup_rust
       - run:
           name: Run tests
           command: npm run test:ci
@@ -30,6 +32,49 @@ jobs:
           command: npm run coverage:upload
       - store_test_results:
           path: junit.xml
+  Check Hints Code Doc:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - node/install:
+          node-version: "20"
+      - setup_rust
+      - run:
+          name: Install deps and build
+          command: npm ci && npm run compile
+      - run:
+          name: Check Hints Code Doc
+          command: npm run hints-doc:check
+  Lint Rust:
+    description: "Lint Rust code"
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup_rust
+      - run:
+          name: Clippy
+          command: |
+            cd internals-js/wasm
+            cargo clippy
+      - save_cache:
+          key: rust-{{ checksum "internals-js/wasm/Cargo.toml" }}-{{ checksum "internals-js/wasm/Cargo.lock" }}
+          paths:
+            - ~/.cargo/
+  Check Rust Format:
+    description: "Check Rust code formatting"
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - rust/install:
+          version: nightly
+      - run:
+          name: Rustfmt
+          command: |
+            cd internals-js/wasm
+            cargo +nightly fmt -- --check
 
 workflows:
   Build:
@@ -49,16 +94,14 @@ workflows:
       - node/run:
           name: Check GraphQL Types
           npm-run: codegen:check
-      - node/run:
-          name: Check Hints Code Doc
-          override-ci-command: npm ci && npm run compile
-          npm-run: hints-doc:check
+      - Check Hints Code Doc
       - node/run:
           name: Check Spelling
           npm-run: spell:check
       - node/run:
           name: Check Prettier (tests)
           npm-run: prettier:check
+      - Lint Rust
   security-scans:
     jobs:
       - secops/gitleaks:
@@ -73,3 +116,13 @@ workflows:
             - secops-oidc
             - github-orb
           git-base-revision: <<#pipeline.git.base_revision>><<pipeline.git.base_revision>><</pipeline.git.base_revision >>
+commands:
+  setup_rust:
+    steps:
+      - rust/install:
+          version: stable
+      - restore_cache:
+          keys:
+            - rust-{{ checksum "internals-js/wasm/Cargo.toml" }}-{{ checksum "internals-js/wasm/Cargo.lock" }}
+            - rust-{{ checksum "internals-js/wasm/Cargo.toml" }}
+            - rust
