@@ -39,7 +39,7 @@ export class ContextSpecDefinition extends FeatureDefinition {
     
     this.contextDirectiveSpec = createDirectiveSpecification({
       name: ContextDirectiveName.CONTEXT,
-      locations: [DirectiveLocation.INTERFACE, DirectiveLocation.OBJECT],
+      locations: [DirectiveLocation.INTERFACE, DirectiveLocation.OBJECT, DirectiveLocation.UNION],
       args: [{ name: 'name', type: (schema, feature) => {
           assert(feature, "Shouldn't be added without being attached to a @link spec");
           const fieldValue = feature.typeNameInSchema(fieldValueScalar);

@@ -600,7 +600,59 @@ describe('setContext tests', () => {
     assertCompositionSuccess(result);
   });
   
-  it("@context invalid on union", () => {
+  it("@context works on union when all types have the designated property", () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      utl: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T!
+        }
+
+        union T @context(name: "context") = T1 | T2
+
+        type T1 @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          prop: String!
+          a: String!
+        }
+
+        type T2 @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          prop: String!
+          b: String!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+          field (
+            a: String! @fromContext(field: "$context { prop }")
+          ): Int!
+        }
+      `
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      utl: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    assertCompositionSuccess(result);
+  });
+  
+  it("@context fails on union when type is missing prop", () => {
     const subgraph1 = {
       name: 'Subgraph1',
       utl: 'https://Subgraph1',
@@ -650,7 +702,7 @@ describe('setContext tests', () => {
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     expect(result.schema).toBeUndefined();
     expect(result.errors?.length).toBe(1);
-    expect(result.errors?.[0].message).toBe('[Subgraph1] Directive "@context" may not be used on UNION.');
+    expect(result.errors?.[0].message).toBe('[Subgraph1] Context "context" is used in "U.field(a:)" but the selection is invalid for type T2. Error: Cannot query field "prop" on type "T2".');
   });
   it.todo('type mismatch in context variable');
   it('nullability mismatch is ok if contextual value is non-nullable', () => {

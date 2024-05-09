@@ -393,7 +393,7 @@ const validateFieldValueType = ({
   selectionSet: SelectionSet,
   errorCollector: GraphQLError[],
   metadata: FederationMetadata,
-  fromContextParent: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>>,
+  fromContextParent: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType | UnionType>>,
 }): { resolvedType: InputType | undefined } => {
   const selections = selectionSet.selections();
   
@@ -445,7 +445,7 @@ const validateSelectionFormat = ({
 } : {
   context: string,
   selection: string,
-  fromContextParent: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>>,
+  fromContextParent: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType | UnionType>>,
   errorCollector: GraphQLError[],
 }): {
   selectionType: 'error' | 'field' | 'inlineFragment',
@@ -562,8 +562,8 @@ function validateFieldValue({
 } : {
   context: string,
   selection: string,
-  fromContextParent: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>>,
-  setContextLocations: (ObjectType | InterfaceType)[],
+  fromContextParent: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType | UnionType>>,
+  setContextLocations: (ObjectType | InterfaceType | UnionType)[],
   errorCollector: GraphQLError[],
   metadata: FederationMetadata,
 }): void {
@@ -578,7 +578,15 @@ function validateFieldValue({
     return;
   }
 
-  for (const location of setContextLocations) {
+  // reduce setContextLocations to an array of ObjectType and InterfaceType. If a UnionType is present, use .types() to expand it
+  const expandedTypes = setContextLocations.reduce((acc, location) => {
+    if (location.kind === 'UnionType') {
+      return acc.concat(location.types());
+    }
+    return acc.concat(location);
+  }, [] as (ObjectType | InterfaceType)[]);
+  
+  for (const location of expandedTypes) {
     // for each location, we need to validate that the selection will result in exactly one field being selected
     // the number of selection sets created will be the same
     let selectionSet: SelectionSet;
@@ -631,11 +639,7 @@ function validateFieldValue({
           } else if (typeCondition.kind === 'InterfaceType') {
             return location.kind === 'InterfaceType' ? location.name === typeCondition.name : typeCondition.isPossibleRuntimeType(location);
           } else if (typeCondition.kind === 'UnionType') {
-            if (location.kind === 'InterfaceType') {
-              return false;
-            } else {
-              return typeCondition.types().includes(location);
-            }
+            return location.name === typeCondition.name;
           } else {
             assertUnreachable(typeCondition);
           }
@@ -1523,7 +1527,7 @@ export class FederationBlueprint extends SchemaBlueprint {
 
     // validate @context and @fromContext
     const contextDirective = metadata.contextDirective();
-    const contextToTypeMap = new Map<string, (ObjectType | InterfaceType)[]>();
+    const contextToTypeMap = new Map<string, (ObjectType | InterfaceType | UnionType)[]>();
     for (const application of contextDirective.applications()) {
       const parent = application.parent;
       const name = application.arguments().name as string;
@@ -1556,7 +1560,7 @@ export class FederationBlueprint extends SchemaBlueprint {
         continue;
       }
 
-      const parent = application.parent as ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType>>;
+      const parent = application.parent as ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType | UnionType>>;
 
       // error if parent's parent is an interface
       if (parent?.parent?.parent?.kind === 'InterfaceType') {
