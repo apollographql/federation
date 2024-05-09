@@ -879,15 +879,16 @@ function computeFragmentsToKeep(
   return toExpand.size === 0 ? fragments : fragments.filter((f) => !toExpand.has(f.name));
 }
 
-export class Operation {
+export class Operation extends DirectiveTargetElement<Operation> {
   constructor(
-    readonly schema: Schema,
+    schema: Schema,
     readonly rootKind: SchemaRootKind,
     readonly selectionSet: SelectionSet,
     readonly variableDefinitions: VariableDefinitions,
     readonly fragments?: NamedFragments,
     readonly name?: string,
-    readonly directives?: readonly Directive<any>[]) {
+    directives: readonly Directive<any>[] = []) {
+      super(schema, directives);
   }
 
   // Returns a copy of this operation with the provided updated selection set.
@@ -898,13 +899,13 @@ export class Operation {
     }
 
     return new Operation(
-      this.schema,
+      this.schema(),
       this.rootKind,
       newSelectionSet,
       this.variableDefinitions,
       this.fragments,
       this.name,
-      this.directives
+      this.appliedDirectives,
     );
   }
 
@@ -915,13 +916,13 @@ export class Operation {
     }
 
     return new Operation(
-      this.schema,
+      this.schema(),
       this.rootKind,
       newSelectionSet,
       this.variableDefinitions,
       newFragments,
       this.name,
-      this.directives
+      this.appliedDirectives,
     );
   }
 
@@ -980,13 +981,13 @@ export class Operation {
   generateQueryFragments(): Operation {
     const [minimizedSelectionSet, fragments] = this.selectionSet.minimizeSelectionSet();
     return new Operation(
-      this.schema,
+      this.schema(),
       this.rootKind,
       minimizedSelectionSet,
       this.variableDefinitions,
       fragments,
       this.name,
-      this.directives
+      this.appliedDirectives,
     );
   }
 
@@ -1058,7 +1059,7 @@ export class Operation {
   }
 
   toString(expandFragments: boolean = false, prettyPrint: boolean = true): string {
-    return this.selectionSet.toOperationString(this.rootKind, this.variableDefinitions, this.fragments, this.name, this.directives, expandFragments, prettyPrint);
+    return this.selectionSet.toOperationString(this.rootKind, this.variableDefinitions, this.fragments, this.name, this.appliedDirectives, expandFragments, prettyPrint);
   }
 }
 
@@ -1553,6 +1554,7 @@ export class SelectionSet {
         // compute and handle collisions as necessary.
         const mockHashCode = `on${selection.element.typeCondition}` + selection.selectionSet.selections().length;
         const equivalentSelectionSetCandidates = seenSelections.get(mockHashCode);
+
         if (equivalentSelectionSetCandidates) {
           // See if any candidates have an equivalent selection set, i.e. {x y} and {y x}.
           const match = equivalentSelectionSetCandidates.find(([candidateSet]) => candidateSet.equals(selection.selectionSet!));
@@ -1571,13 +1573,13 @@ export class SelectionSet {
           `_generated_${mockHashCode}_${equivalentSelectionSetCandidates?.length ?? 0}`,
           selection.element.typeCondition
         ).setSelectionSet(minimizedSelectionSet);
+        namedFragments.add(fragmentDefinition);
 
         // Create a new "hash code" bucket or add to the existing one.
-        if (!equivalentSelectionSetCandidates) {
-          seenSelections.set(mockHashCode, [[selection.selectionSet, fragmentDefinition]]);
-          namedFragments.add(fragmentDefinition);
-        } else {
+        if (equivalentSelectionSetCandidates) {
           equivalentSelectionSetCandidates.push([selection.selectionSet, fragmentDefinition]);
+        } else {
+            seenSelections.set(mockHashCode, [[selection.selectionSet, fragmentDefinition]]);
         }
 
         return new FragmentSpreadSelection(this.parentType, namedFragments, fragmentDefinition, []);
@@ -3968,7 +3970,7 @@ export function operationToDocument(operation: Operation): DocumentNode {
     name: operation.name ? { kind: Kind.NAME, value: operation.name } : undefined,
     selectionSet: operation.selectionSet.toSelectionSetNode(),
     variableDefinitions: operation.variableDefinitions.toVariableDefinitionNodes(),
-    directives: directivesToDirectiveNodes(operation.directives),
+    directives: directivesToDirectiveNodes(operation.appliedDirectives),
   };
   const fragmentASTs: DefinitionNode[] = operation.fragments
     ? operation.fragments?.toFragmentDefinitionNodes()

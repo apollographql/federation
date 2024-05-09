@@ -1,5 +1,41 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.7.6
+
+### Patch Changes
+
+- There is no functionality change between 2.7.5 and 2.7.6. Triggering new release as previous one released partially leading to a broken experience. ([#2997](https://github.com/apollographql/federation/pull/2997))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.7.6
+  - @apollo/query-graphs@2.7.6
+
+## 2.7.5
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.7.5
+  - @apollo/query-graphs@2.7.5
+
+## 2.7.4
+
+### Patch Changes
+
+- Updated dependencies [[`d80b7f0ca1456567a0866a32d2b2abf940598f77`](https://github.com/apollographql/federation/commit/d80b7f0ca1456567a0866a32d2b2abf940598f77)]:
+  - @apollo/federation-internals@2.7.4
+  - @apollo/query-graphs@2.7.4
+
+## 2.7.3
+
+### Patch Changes
+
+- Fix a query planning bug where invalid subgraph queries are generated with `reuseQueryFragments` set true. ([#2952](https://github.com/apollographql/federation/issues/2952)) ([#2963](https://github.com/apollographql/federation/pull/2963))
+
+- Updated dependencies [[`ec04c50b4fb832bfd281ecf9c0c2dd7656431b96`](https://github.com/apollographql/federation/commit/ec04c50b4fb832bfd281ecf9c0c2dd7656431b96), [`a494631918156f0431ceace74281c076cf1d5d51`](https://github.com/apollographql/federation/commit/a494631918156f0431ceace74281c076cf1d5d51)]:
+  - @apollo/federation-internals@2.7.3
+  - @apollo/query-graphs@2.7.3
+
 ## 2.7.2
 
 ### Patch Changes

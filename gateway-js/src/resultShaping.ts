@@ -69,7 +69,7 @@ export function computeResponse({
   }
 
   const parameters = {
-    schema: operation.schema,
+    schema: operation.schema(),
     variables: {
       ...operation.collectDefaultedVariableValues(),
       // overwrite any defaulted variables if they are provided
@@ -87,7 +87,7 @@ export function computeResponse({
     output: data,
     parameters,
     path: [],
-    parentType: operation.schema.schemaDefinition.rootType(operation.rootKind)!,
+    parentType: operation.schema().schemaDefinition.rootType(operation.rootKind)!,
   });
 
   return {
