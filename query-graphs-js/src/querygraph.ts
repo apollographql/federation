@@ -192,8 +192,8 @@ export class Edge {
     public overrideCondition?: OverrideCondition,
     
     /**
-     * Potentially multiple context conditions. When @fromContext is used on a argument definition, the edge connecting the type to the 
-     * argument needs to reflect that the condition must be satisfied in order for the edge to be taken
+     * Potentially multiple context conditions. When @fromContext is used on a argument definition, the edge representing
+     * the argument's field needs to reflect that the condition must be satisfied in order for the edge to be taken
      */
     requiredContexts?: ContextCondition[],
   ) {
@@ -876,8 +876,8 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
   }
  
   /** 
-   * Now we'll handle instances of @fromContext. For each instance where @fromContext exists, I want to add edges back to each place
-   * place where the context is set, along with conditions on the edge that goes to the field
+   * Now we'll handle instances of @fromContext. For each argument with @fromContext, I want to add its corresponding 
+   * context conditions to the edge corresponding to the argument's field
   */
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
@@ -918,14 +918,13 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
       subgraph,
       _v => { return undefined; },
       e => {
-        if (e.head.type.kind === 'ObjectType' && e.tail.type.kind === 'ScalarType') {
-          const coordinate = `${e.head.type.name}.${e.transition.toString()}`;
+        if (e.head.type.kind === 'ObjectType' && e.transition.kind === 'FieldCollection') {
+          const coordinate = `${e.head.type.name}.${e.transition.definition.name}`;
           const requiredContexts = coordinateMap.get(coordinate);
           if (requiredContexts) {
-            const headInSupergraph = builder.vertexForTypeAndSubgraph(e.head.type.name, subgraph.name);
+            const headInSupergraph = copyPointers[i].copiedVertex(e.head);
             assert(headInSupergraph, () => `Vertex for type ${e.head.type.name} not found in supergraph`);
             const edgeInSupergraph = builder.edge(headInSupergraph, e.index);
-            e.addToContextConditions(requiredContexts);
             edgeInSupergraph.addToContextConditions(requiredContexts);
           }
         }
@@ -1111,10 +1110,6 @@ class GraphBuilder {
     return indexes == undefined ? [] : indexes.map(i => this.vertices[i]);
   }
   
-  vertexForTypeAndSubgraph(typeName: string, source: string): Vertex | undefined {
-    return this.verticesForType(typeName).find(v => v.source === source);
-  }
-
   root(kind: SchemaRootKind): Vertex | undefined {
     return this.rootVertices.get(kind);
   }

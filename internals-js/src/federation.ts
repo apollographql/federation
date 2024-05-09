@@ -375,9 +375,7 @@ const wrapResolvedType = ({
   let type: NamedType | WrapperType = resolvedType;
   while(stack.length > 0) {
     const kind = stack.pop();
-    if (kind === 'NonNullType' && type.kind !== 'NonNullType') {
-      type = new NonNullType(type);
-    } else if (kind === 'ListType') {
+    if (kind === 'ListType') {
       type = new ListType(type);
     }
   }
