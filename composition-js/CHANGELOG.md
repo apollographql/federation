@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.8.0-connectors.0
+
+### Minor Changes
+
+- Add validations for the `@source` directive
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.0-connectors.0
+  - @apollo/query-graphs@2.8.0-connectors.0
+
 ## 2.7.7
 
 ### Patch Changes

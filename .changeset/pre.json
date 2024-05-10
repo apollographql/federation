@@ -10,5 +10,7 @@
     "@apollo/query-planner": "2.7.7",
     "@apollo/subgraph": "2.7.7"
   },
-  "changesets": []
+  "changesets": [
+    "strange-ads-bake"
+  ]
 }
