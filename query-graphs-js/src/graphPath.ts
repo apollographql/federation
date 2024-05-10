@@ -585,11 +585,10 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     for (const [_, entry] of conditionsResolution.contextMap) {
       const idx = edgeConditions.length - entry.level -1;
       assert(idx >= 0, 'calculated condition index must be positive');
-      if (edgeConditions[idx] === null) {
-        edgeConditions[idx] = entry.pathTree ?? null;
-      } else if (entry.pathTree !== null) {
-        // here we need to merge the two OpPathTrees. TODO: Do this all at once
-        edgeConditions[idx] = entry.pathTree?.merge(edgeConditions[idx]!) ?? null;
+      
+      
+      if (entry.pathTree) {
+        edgeConditions[idx] = edgeConditions[idx]?.merge(entry.pathTree) ?? entry.pathTree;
       }
       if (contextToSelection[idx] === null) {
         contextToSelection[idx] = new Map<string, SelectionSet>();

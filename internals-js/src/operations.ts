@@ -175,7 +175,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   withUpdatedArguments(newArgs: TArgs): Field<TArgs> {
     const newField = new Field<TArgs>(
       this.definition,
-      this.args ? this.args.merge(newArgs) : newArgs,
+      { ...this.args, ...newArgs },
       this.appliedDirectives,
       this.alias,
     );

@@ -763,7 +763,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
         ...this.parameters,
         root: edge.head,
       },
-      (edge.conditions || extraConditions)!,
+      extraConditions ?? edge.conditions!,
       0,
       false,
       'query',

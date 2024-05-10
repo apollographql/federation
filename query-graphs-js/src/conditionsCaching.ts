@@ -25,7 +25,7 @@ export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionR
     // and we currently don't handle that. But we could cache with an empty context, and then apply the proper transformation on the
     // cached value `pathTree` when the context is not empty. That said, the context is about active @include/@skip and it's not use
     // that commonly, so this is probably not an urgent improvement.
-    if (!context.isEmpty() || excludedConditions.length > 0) {
+    if (!context.isEmpty() || excludedConditions.length > 0 || extraConditions) {
       return resolver(edge, context, excludedDestinations, excludedConditions, extraConditions);
     }
 
