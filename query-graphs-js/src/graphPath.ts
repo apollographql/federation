@@ -596,7 +596,14 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       }
       contextToSelection[idx]?.set(entry.id, entry.selectionSet);
       
-      parameterToContext[parameterToContext.length-1]?.set(entry.paramName, { contextId: entry.id, relativePath: Array(entry.level).fill(".."), selectionSet: entry.selectionSet, subgraphArgType: entry.argType } );
+      // The number of levels up we go has to be in the data tree, not just in the query plan. That means we need to ignore non-fields
+      let dataLevels = 0;
+      for (let i = 0; i < entry.level; i++) {
+        if ((this.props.edgeTriggers[idx-i-1] as any)?.kind === 'Field') { // TODO: A little concerned about this logic
+          dataLevels++;
+        }
+      }
+      parameterToContext[parameterToContext.length-1]?.set(entry.paramName, { contextId: entry.id, relativePath: Array(dataLevels).fill(".."), selectionSet: entry.selectionSet, subgraphArgType: entry.argType } );
     }
     return {
       edgeConditions,

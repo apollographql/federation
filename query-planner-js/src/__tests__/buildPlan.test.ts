@@ -9525,12 +9525,12 @@ describe('@fromContext impacts on query planning', () => {
     expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
       {
         kind: 'KeyRenamer',
-        path: ['..', '..', '... on A', 'prop'],
+        path: ['..', '... on A', 'prop'],
         renameKeyTo: 'Subgraph1_U_field_a',
       },
       {
         kind: 'KeyRenamer',
-        path: ['..', '..', '... on B', 'prop'],
+        path: ['..', '... on B', 'prop'],
         renameKeyTo: 'Subgraph1_U_field_a',
       },
     ]);
