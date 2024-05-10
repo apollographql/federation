@@ -33,6 +33,8 @@ pub struct GraphQLError {
 pub enum ErrorCode {
     InvalidGraphQL = "INVALID_GRAPHQL",
     SourceUrlInvalid = "SOURCE_URL_INVALID",
+    InvalidSourceName = "INVALID_SOURCE_NAME",
+    DuplicateSourceName = "DUPLICATE_SOURCE_NAME",
 }
 
 #[wasm_bindgen]
@@ -64,12 +66,35 @@ impl From<ValidationError> for GraphQLError {
     fn from(error: ValidationError) -> Self {
         let message = error.to_string();
         match error {
-            ValidationError::InvalidSourceUrl { source_name, .. }
-            | ValidationError::InvalidSourceScheme { source_name, .. } => GraphQLError {
+            ValidationError::SourceUrl { source_name, .. }
+            | ValidationError::SourceScheme { source_name, .. } => GraphQLError {
                 code: ErrorCode::SourceUrlInvalid,
                 message,
                 location: Some(ErrorLocation {
-                    source_directive: Some(SourceDirective { name: source_name }),
+                    source_directive: Some(SourceDirective {
+                        name: source_name.into(),
+                    }),
+                }),
+            },
+            ValidationError::MissingSourceName | ValidationError::SourceNameType => GraphQLError {
+                code: ErrorCode::InvalidGraphQL,
+                message,
+                location: None,
+            },
+            ValidationError::InvalidSourceName(source_name) => GraphQLError {
+                code: ErrorCode::InvalidSourceName,
+                message,
+                location: Some(ErrorLocation {
+                    source_directive: Some(SourceDirective {
+                        name: source_name.into(),
+                    }),
+                }),
+            },
+            ValidationError::DuplicateSourceName(name) => GraphQLError {
+                code: ErrorCode::DuplicateSourceName,
+                message,
+                location: Some(ErrorLocation {
+                    source_directive: Some(SourceDirective { name }),
                 }),
             },
         }
