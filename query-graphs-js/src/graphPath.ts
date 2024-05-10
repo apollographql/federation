@@ -595,6 +595,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
         contextToSelection[idx] = new Map<string, SelectionSet>();
       }
       contextToSelection[idx]?.set(entry.id, entry.selectionSet);
+      
       parameterToContext[parameterToContext.length-1]?.set(entry.paramName, { contextId: entry.id, relativePath: Array(entry.level).fill(".."), selectionSet: entry.selectionSet, subgraphArgType: entry.argType } );
     }
     return {
@@ -1899,7 +1900,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
         if (e !== null && !contextMap.has(cxt.context) && !someSelectionUnsatisfied) {
           const parentType = e.head.type;
           if (isCompositeType(parentType) && cxt.typesWithContextSet.has(parentType.name)) {
-            let selectionSet = parseSelectionSet({ parentType, source: cxt.selection });
+            let selectionSet = parseSelectionSet({ parentType: parentType.kind === 'UnionType' ? parentType.types()[0] : parentType, source: cxt.selection });
             
             // If there are multiple FragmentSelections, we want to pick out the one that matches the parentType 
             if (selectionSet.selections().length > 1) {

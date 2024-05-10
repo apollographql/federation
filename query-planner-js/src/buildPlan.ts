@@ -1202,7 +1202,7 @@ class FetchGroup {
           this._contextInputs = [];
         }
         other._contextInputs.forEach((r) => {
-          if (!this._contextInputs!.some((r2) => r2 === r)) {
+          if (!this._contextInputs!.some((r2) => sameKeyRenamer(r, r2))) {
             this._contextInputs!.push(r);
           }
         });
@@ -1624,7 +1624,7 @@ class FetchGroup {
     if (!this._contextInputs) {
       this._contextInputs = [];
     }
-    if (!this._contextInputs.some((c) => c.renameKeyTo === renamer.renameKeyTo)) {
+    if (!this._contextInputs.some((c) => sameKeyRenamer(c, renamer))) {
       this._contextInputs.push(renamer);
     }
   }
@@ -5007,4 +5007,16 @@ function operationForQueryFetch(
   return new Operation(subgraphSchema, rootKind, selectionSet,
                        allVariableDefinitions.filter(collectUsedVariables(selectionSet, directives)),
                        /*fragments*/undefined, operationName, directives);
+}
+
+const sameKeyRenamer = (k1: FetchDataKeyRenamer, k2: FetchDataKeyRenamer): boolean => {
+  if (k1.renameKeyTo !== k2.renameKeyTo || k1.path.length !== k2.path.length) {
+    return false;
+  }
+  for (let i = 0; i < k1.path.length; i++) {
+    if (k1.path[i] !== k2.path[i]) {
+      return false;
+    }  
+  }
+  return true;
 }
