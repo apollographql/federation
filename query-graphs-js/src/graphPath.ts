@@ -1895,11 +1895,13 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     return noConditionsResolution;
   }
   
+  let totalCost = 0;
+  const contextMap = new Map<string, ContextMapEntry>();
+  let contextKeys: OpPathTree | undefined;
+  
   if (requiredContexts.length > 0) {
     // if one of the conditions fails to satisfy, it's ok to bail
     let someSelectionUnsatisfied = false;
-    let totalCost = 0;
-    const contextMap = new Map<string, ContextMapEntry>();
     for (const cxt of requiredContexts) {
       let level = 1;
       for (const [e, trigger] of [...path].reverse()) {
@@ -1969,7 +1971,16 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     
     const r = conditionResolver(keyEdge, context, excludedEdges, excludedConditions, keyEdge.conditions);
 
-    return { contextMap, cost: totalCost, satisfied: true, pathTree: r.pathTree };
+    debug.log('@fromContext conditions are satisfied, but validating post-require key.');
+    const postRequireKeyCondition = getLocallySatisfiableKey(path.graph, edge.head);
+    if (!postRequireKeyCondition) {
+      debug.groupEnd('Post-require conditions cannot be satisfied');
+      return { ...unsatisfiedConditionsResolution, unsatisfiedConditionReason: UnsatisfiedConditionReason.NO_POST_REQUIRE_KEY };
+    }
+    contextKeys = r.pathTree;
+    if (!conditions) {
+      return { contextMap, cost: totalCost, satisfied: true, pathTree: contextKeys };
+    }
   }
   
   debug.group(() => `Checking conditions ${conditions} on edge ${edge}`);
@@ -2004,8 +2015,13 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     // clean that up, but it's unclear to me how at the moment and it may not be a small change so this will
     // have to do for now.
   }
+  if (resolution.pathTree && contextKeys) {
+    contextKeys = contextKeys.merge(resolution.pathTree);
+  } else if (resolution.pathTree) {
+    contextKeys = resolution.pathTree;
+  }
   debug.groupEnd('Conditions satisfied');
-  return resolution;
+  return { ...resolution, contextMap, cost: totalCost + resolution.cost, pathTree: contextKeys };
 }
 
 function isTerminalOperation(operation: OperationElement): boolean {
