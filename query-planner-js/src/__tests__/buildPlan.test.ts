@@ -9253,7 +9253,7 @@ describe('@fromContext impacts on query planning', () => {
       },
     ]);
   });
-  
+
   it('fromContext with type conditions', () => {
     const subgraph1 = {
       name: 'Subgraph1',
@@ -9262,20 +9262,20 @@ describe('@fromContext impacts on query planning', () => {
         type Query {
           t: I!
         }
-        
+
         interface I @context(name: "context") @key(fields: "id") {
           id: ID!
           u: U!
           prop: String!
         }
-        
-        type A implements I @key(fields: "id"){
+
+        type A implements I @key(fields: "id") {
           id: ID!
           u: U!
           prop: String!
         }
 
-        type B implements I @key(fields: "id"){
+        type B implements I @key(fields: "id") {
           id: ID!
           u: U!
           prop: String!
@@ -9284,7 +9284,9 @@ describe('@fromContext impacts on query planning', () => {
         type U @key(fields: "id") {
           id: ID!
           b: String!
-          field(a: String! @fromContext(field: "$context ... on I { prop }")): Int!
+          field(
+            a: String! @fromContext(field: "$context ... on I { prop }")
+          ): Int!
         }
       `,
     };
@@ -9381,7 +9383,7 @@ describe('@fromContext impacts on query planning', () => {
       },
     ]);
   });
-  
+
   it('fromContext with type conditions for union', () => {
     const subgraph1 = {
       name: 'Subgraph1',
@@ -9390,16 +9392,16 @@ describe('@fromContext impacts on query planning', () => {
         type Query {
           t: T!
         }
-        
+
         union T @context(name: "context") = A | B
-        
-        type A @key(fields: "id"){
+
+        type A @key(fields: "id") {
           id: ID!
           u: U!
           prop: String!
         }
 
-        type B @key(fields: "id"){
+        type B @key(fields: "id") {
           id: ID!
           u: U!
           prop: String!
@@ -9408,7 +9410,12 @@ describe('@fromContext impacts on query planning', () => {
         type U @key(fields: "id") {
           id: ID!
           b: String!
-          field(a: String! @fromContext(field: "$context ... on A { prop } ... on B { prop }")): Int!
+          field(
+            a: String!
+              @fromContext(
+                field: "$context ... on A { prop } ... on B { prop }"
+              )
+          ): Int!
         }
       `,
     };
