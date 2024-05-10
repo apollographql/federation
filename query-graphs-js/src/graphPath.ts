@@ -32,11 +32,14 @@ import {
   parseSelectionSet,
   Variable,
   Type,
+  isScalarType,
+  isEnumType,
+  isUnionType,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, FEDERATED_GRAPH_ROOT_SOURCE } from "./querygraph";
 import { DownCast, Transition } from "./transition";
-import { PathContext, emptyContext } from "./pathContext";
+import { PathContext, emptyContext, isPathContext } from "./pathContext";
 import { v4 as uuidv4 } from 'uuid';
 
 const debug = newDebugLogger('path');
@@ -595,14 +598,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       }
       contextToSelection[idx]?.set(entry.id, entry.selectionSet);
       
-      // The number of levels up we go has to be in the data tree, not just in the query plan. That means we need to ignore non-fields
-      let dataLevels = 0;
-      for (let i = 0; i < entry.level; i++) {
-        if ((this.props.edgeTriggers[idx-i-1] as any)?.kind === 'Field') { // TODO: A little concerned about this logic
-          dataLevels++;
-        }
-      }
-      parameterToContext[parameterToContext.length-1]?.set(entry.paramName, { contextId: entry.id, relativePath: Array(dataLevels).fill(".."), selectionSet: entry.selectionSet, subgraphArgType: entry.argType } );
+      parameterToContext[parameterToContext.length-1]?.set(entry.paramName, { contextId: entry.id, relativePath: Array(entry.level).fill(".."), selectionSet: entry.selectionSet, subgraphArgType: entry.argType } );
     }
     return {
       edgeConditions,
@@ -1090,6 +1086,7 @@ export class TransitionPathWithLazyIndirectPaths<V extends Vertex = Vertex> {
       (t) => t,
       pathTransitionToEdge,
       this.overrideConditions,
+      getFieldParentTypeForEdge,
     );
   }
 
@@ -1372,6 +1369,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   convertTransitionWithCondition: (transition: Transition, context: PathContext) => TTrigger,
   triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger, overrideConditions: Map<string, boolean>) => Edge | null | undefined,
   overrideConditions: Map<string, boolean>,
+  getFieldParentType: (trigger: TTrigger) => CompositeType | null,
 ): IndirectPaths<TTrigger, V, TNullEdge, TDeadEnds>  {
   // If we're asked for indirect paths after an "@interfaceObject fake down cast" but that down cast comes just after a non-collecting edges, then
   // we can ignore it (skip indirect paths from there). The reason is that the presence of the non-collecting just before the fake down-cast means
@@ -1498,6 +1496,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         context,
         addDestinationExclusion(excludedDestinations, target.source),
         excludedConditions,
+        getFieldParentType,
       );
       if (conditionResolution.satisfied) {
         debug.groupEnd('Condition satisfied');
@@ -1716,7 +1715,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
     }
 
     // Additionally, we can only take an edge if we can satisfy its conditions.
-    const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, emptyContext, [], []);
+    const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, emptyContext, [], [], getFieldParentTypeForEdge);
     if (conditionResolution.satisfied) {
       options.push(path.add(transition, edge, conditionResolution));
     } else {
@@ -1889,6 +1888,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   context: PathContext,
   excludedEdges: ExcludedDestinations,
   excludedConditions: ExcludedConditions,
+  getFieldParentType: (trigger: TTrigger) => CompositeType | null,
 ): ConditionResolution {
   const { conditions, requiredContexts } = edge;
   if (!conditions && requiredContexts.length === 0) {
@@ -1902,11 +1902,31 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     const contextMap = new Map<string, ContextMapEntry>();
     for (const cxt of requiredContexts) {
       let level = 1;
-      for (const [e] of [...path].reverse()) {
+      for (const [e, trigger] of [...path].reverse()) {
         if (e !== null && !contextMap.has(cxt.context) && !someSelectionUnsatisfied) {
-          const parentType = e.head.type;
-          if (isCompositeType(parentType) && cxt.typesWithContextSet.has(parentType.name)) {
-            let selectionSet = parseSelectionSet({ parentType: parentType.kind === 'UnionType' ? parentType.types()[0] : parentType, source: cxt.selection });
+          // const orig = e.head.type;
+          // const origMatches = cxt.typesWithContextSet.has(orig.name);
+          const parentType = getFieldParentType(trigger);
+          
+          const matches = Array.from(cxt.typesWithContextSet).some(t => {
+            if (parentType) {
+              if (parentType.name === t) {
+                return true;
+              }
+              if (isObjectType(parentType)) {
+                if (parentType.interfaces().some(i => i.name === t)) {
+                  return true;
+                }
+              }
+              const tInSupergraph = parentType.schema().type(t);
+              if (tInSupergraph && isUnionType(tInSupergraph)) {
+                return tInSupergraph.types().some(t => t.name === parentType.name);              
+              }
+            }
+            return false;
+          });
+          if (parentType && matches) {
+            let selectionSet = parseSelectionSet({ parentType, source: cxt.selection });
             
             // If there are multiple FragmentSelections, we want to pick out the one that matches the parentType 
             if (selectionSet.selections().length > 1) {
@@ -2042,6 +2062,7 @@ export class SimultaneousPathsWithLazyIndirectPaths<V extends Vertex = Vertex> {
       (_t, context) => context,
       opPathTriggerToEdge,
       this.overrideConditions,
+      getFieldParentTypeForOpTrigger,
     );
   }
 
@@ -2779,7 +2800,7 @@ function advanceWithOperation<V extends Vertex>(
         if (path.tailIsInterfaceObject()) {
           const fakeDownCastEdge = path.nextEdges().find((e) => e.transition.kind === 'InterfaceObjectFakeDownCast' && e.transition.castedTypeName === typeName);
           if (fakeDownCastEdge) {
-            const conditionResolution = canSatisfyConditions(path, fakeDownCastEdge, conditionResolver, context, [], []);
+            const conditionResolution = canSatisfyConditions(path, fakeDownCastEdge, conditionResolver, context, [], [], getFieldParentTypeForOpTrigger);
             if (!conditionResolution.satisfied) {
               return { options: undefined };
             }
@@ -2807,7 +2828,7 @@ function addFieldEdge<V extends Vertex>(
   conditionResolver: ConditionResolver,
   context: PathContext
 ): OpGraphPath<V> | undefined {
-  const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, context, [], []);
+  const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, context, [], [], getFieldParentTypeForOpTrigger);
   return conditionResolution.satisfied ? path.add(fieldOperation, edge, conditionResolution) : undefined;
 }
 
@@ -2854,4 +2875,26 @@ function edgeForTypeCast(
   const candidates = graph.outEdges(vertex).filter(e => e.transition.kind === 'DownCast' && typeName === e.transition.castedType.name);
   assert(candidates.length <= 1, () => `Vertex ${vertex} has multiple edges matching ${typeName} (${candidates})`);
   return candidates.length === 0 ? undefined : candidates[0];
+}
+
+const getFieldParentTypeForOpTrigger = (trigger: OpTrigger): CompositeType | null => {
+  if (!isPathContext(trigger)) {
+    if (trigger.kind === 'Field') {
+      return trigger.definition.parent;
+    }
+  }
+  return null;
+};
+
+const getFieldParentTypeForEdge = (transition: Transition): CompositeType | null => {
+  if (transition.kind === 'FieldCollection') {
+    const type = transition.definition.parent;
+    if (!type || isScalarType(type) || isEnumType(type)) {
+      return null;
+    }
+    if (isObjectType(type) || isInterfaceType(type) || isUnionType(type)) {
+      return type;
+    }
+  }
+  return null;
 }

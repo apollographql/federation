@@ -9254,7 +9254,7 @@ describe('@fromContext impacts on query planning', () => {
     ]);
   });
 
-  it('fromContext with type conditions', () => {
+  it('fromContext with type conditions interface', () => {
     const subgraph1 = {
       name: 'Subgraph1',
       url: 'https://Subgraph1',
