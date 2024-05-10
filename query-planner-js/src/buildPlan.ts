@@ -1533,7 +1533,7 @@ class FetchGroup {
 
     const { updated: selection, outputRewrites } = addAliasesForNonMergingFields(selectionWithTypenames);
 
-    selection.validate(variableDefinitions);
+    selection.validate(variableDefinitions, true);
     return { selection, outputRewrites };
   }
 
