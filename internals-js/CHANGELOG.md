@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.8.0-connectors.0
+
+### Minor Changes
+
+- Add validations for the `@source` directive
+
 ## 2.7.7
 
 ### Patch Changes
