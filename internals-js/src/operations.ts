@@ -57,6 +57,7 @@ import { isSubtype, sameType, typesCanBeMerged } from "./types";
 import { assert, mapKeys, mapValues, MapWithCachedArrays, MultiMap, SetMultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 import { v1 as uuidv1 } from 'uuid';
+import { CONTEXT_VERSIONS, ContextSpecDefinition } from './specs/contextSpec';
 
 function validate(condition: any, message: () => string, sourceAST?: ASTNode): asserts condition {
   if (!condition) {
@@ -287,13 +288,24 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
 
   validate(variableDefinitions: VariableDefinitions) {
     validate(this.name === this.definition.name, () => `Field name "${this.name}" cannot select field "${this.definition.coordinate}: name mismatch"`);
-
+    
+    
     // We need to make sure the field has valid values for every non-optional argument.
     for (const argDef of this.definition.arguments()) {
       const appliedValue = this.argumentValue(argDef.name);
 
-      // TODO: This is a hack that will not work if directives are renamed. Not sure how to fix as we're missing metadata
-      const isContextualArg = !!argDef.appliedDirectives.find(d => d.name === 'federation__fromContext');
+      let isContextualArg = false;
+      const schema = this.definition.schema();
+      const contextFeature = schema.coreFeatures?.getByIdentity(ContextSpecDefinition.identity);
+      if (contextFeature) {
+        const contextSpec = CONTEXT_VERSIONS.find(contextFeature.url.version);
+        if (contextSpec) {
+          const contextDirective = contextSpec.contextDirective(schema);
+          if (contextDirective) {
+            isContextualArg = argDef.appliedDirectivesOf(contextDirective).length > 0;
+          }
+        }
+      }
 
       if (appliedValue === undefined) {
         validate(
