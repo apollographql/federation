@@ -35,6 +35,7 @@ import {
   isScalarType,
   isEnumType,
   isUnionType,
+  SelectionSetUpdates,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, FEDERATED_GRAPH_ROOT_SOURCE } from "./querygraph";
@@ -1934,7 +1935,9 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
             if (selectionSet.selections().length > 1) {
               const fragmentSelection = selectionSet.selections().find(s => s.kind === 'FragmentSelection' && s.element.typeCondition?.name === parentType.name);
               if (fragmentSelection) {
-                selectionSet = fragmentSelection.selectionSet!;
+                const ss = new SelectionSetUpdates();
+                ss.add(fragmentSelection);
+                selectionSet = ss.toSelectionSet(parentType);
               }
             }
             const resolution = conditionResolver(e, context, excludedEdges, excludedConditions, selectionSet);
