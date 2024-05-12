@@ -829,6 +829,9 @@ class GroupInputs {
     for (const otherSelection of other.perType.values()) {
       this.add(otherSelection.get());
     }
+    for (const [context, type] of other.usedContexts) {
+      this.addContext(context, type);
+    }
   }
 
   selectionSets(): SelectionSet[] {
@@ -4320,12 +4323,10 @@ function computeGroupsForTree(
           });
           assert(updatedOperation, () => `Extracting @defer from ${operation} should not have resulted in no operation`);
 
-          let updated;
-          
           const { parameterToContext } = tree;
           const groupContextSelections = group.contextSelections;
 
-          updated = {
+          const updated = {
             tree: child,
             group,
             path,

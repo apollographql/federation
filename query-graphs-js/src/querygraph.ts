@@ -131,6 +131,7 @@ export type ContextCondition = {
   selection: string;
   typesWithContextSet: Set<string>;
   argType: Type,
+  coordinate: string;
 }
 
 /**
@@ -357,7 +358,11 @@ export class QueryGraph {
      * the name identifying them. Note that the `source` string in the `Vertex` of a query graph is guaranteed to be
      * valid key in this map.
      */
-    readonly sources: ReadonlyMap<string, Schema>
+    readonly sources: ReadonlyMap<string, Schema>,
+    
+    readonly subgraphToArgs: Map<string, string[]>,
+    
+    readonly subgraphToArgIndices: Map<string, Map<string, string>>,
   ) {
     this.nonTrivialFollowupEdges = preComputeNonTrivialFollowupEdges(this);
   }
@@ -879,6 +884,9 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
    * Now we'll handle instances of @fromContext. For each argument with @fromContext, I want to add its corresponding 
    * context conditions to the edge corresponding to the argument's field
   */
+  const subgraphToArgs: Map<string, string[]> = new Map();
+  const subgraphToArgIndicies: Map<string, Map<string, string>> = new Map();
+  
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
     const subgraphMetadata = federationMetadata(subgraphSchema);
@@ -903,17 +911,33 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
       assert(context, () => `FieldValue has invalid format. Context not found ${field}`);
       assert(selection, () => `FieldValue has invalid format. Selection not found ${field}`);
       const namedParameter = application.parent.name;
+      const argCoordinate = application.parent.coordinate;
+      const args = subgraphToArgs.get(subgraph.name) ?? [];
+      args.push(argCoordinate);
+      subgraphToArgs.set(subgraph.name, args);
+      
       const fieldCoordinate = application.parent.parent.coordinate;
       const typesWithContextSet = contextNameToTypes.get(context);
       assert(typesWithContextSet, () => `Context ${context} is never set in subgraph`);
       const z = coordinateMap.get(fieldCoordinate);
       if (z) {
-        z.push({ namedParameter, context, selection, typesWithContextSet, subgraphName: subgraph.name, argType: application.parent.type });
+        z.push({ namedParameter, coordinate: argCoordinate, context, selection, typesWithContextSet, subgraphName: subgraph.name, argType: application.parent.type });
       } else {
-        coordinateMap.set(fieldCoordinate, [{ namedParameter, context, selection, typesWithContextSet, subgraphName: subgraph.name, argType: application.parent.type }]);
+        coordinateMap.set(fieldCoordinate, [{ namedParameter, coordinate: argCoordinate, context, selection, typesWithContextSet, subgraphName: subgraph.name, argType: application.parent.type }]);
       }
     }
-
+    
+    for (const [subgraphName, args] of subgraphToArgs) {
+      args.sort();
+      const argToIndex = new Map();
+      for (let idx=0; idx < args.length; idx++) {
+        argToIndex.set(args[idx], `contextualArgument_${i}_${idx}`);
+      }
+      subgraphToArgIndicies.set(subgraphName, argToIndex);
+    }
+    
+    builder.setContextMaps(subgraphToArgs, subgraphToArgIndicies);
+    
     simpleTraversal(
       subgraph,
       _v => { return undefined; },
@@ -1098,6 +1122,8 @@ class GraphBuilder {
   private readonly typesToVertices: MultiMap<string, number> = new MultiMap();
   private readonly rootVertices: MapWithCachedArrays<SchemaRootKind, RootVertex> = new MapWithCachedArrays();
   private readonly sources: Map<string, Schema> = new Map();
+  private subgraphToArgs: Map<string, string[]> = new Map();
+  private subgraphToArgIndicies: Map<string, Map<string, string>> = new Map();
 
   constructor(verticesCount?: number) {
     this.vertices = verticesCount ? new Array(verticesCount) : [];
@@ -1273,7 +1299,14 @@ class GraphBuilder {
       this.outEdges,
       this.typesToVertices,
       this.rootVertices,
-      this.sources);
+      this.sources,
+      this.subgraphToArgs,
+      this.subgraphToArgIndicies);
+  }
+  
+  setContextMaps(subgraphToArgs: Map<string, string[]>, subgraphToArgIndicies: Map<string, Map<string, string>>) {
+    this.subgraphToArgs = subgraphToArgs;
+    this.subgraphToArgIndicies = subgraphToArgIndicies;
   }
 }
 

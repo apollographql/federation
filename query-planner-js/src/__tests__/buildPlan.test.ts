@@ -8912,7 +8912,7 @@ describe('@fromContext impacts on query planning', () => {
                 ... on U {
                   id
                   b
-                  field(a: $Subgraph1_U_field_a)
+                  field(a: $contextualArgument_1_0)
                 }
               }
             },
@@ -8924,7 +8924,7 @@ describe('@fromContext impacts on query planning', () => {
       {
         kind: 'KeyRenamer',
         path: ['..', 'prop'],
-        renameKeyTo: 'Subgraph1_U_field_a',
+        renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
   });
@@ -9056,7 +9056,7 @@ describe('@fromContext impacts on query planning', () => {
               {
                 ... on U {
                   id
-                  field(a: $Subgraph1_U_field_a)
+                  field(a: $contextualArgument_1_0)
                 }
               }
             },
@@ -9068,7 +9068,7 @@ describe('@fromContext impacts on query planning', () => {
       {
         kind: 'KeyRenamer',
         path: ['..', 'prop'],
-        renameKeyTo: 'Subgraph1_U_field_a',
+        renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
   });
@@ -9237,7 +9237,7 @@ describe('@fromContext impacts on query planning', () => {
                 ... on U {
                   id
                   b
-                  field(a: $Subgraph1_U_field_a)
+                  field(a: $contextualArgument_1_0)
                 }
               }
             },
@@ -9249,7 +9249,7 @@ describe('@fromContext impacts on query planning', () => {
       {
         kind: 'KeyRenamer',
         path: ['..', 'prop'],
-        renameKeyTo: 'Subgraph1_U_field_a',
+        renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
   });
@@ -9367,7 +9367,7 @@ describe('@fromContext impacts on query planning', () => {
                 ... on U {
                   id
                   b
-                  field(a: $Subgraph1_U_field_a)
+                  field(a: $contextualArgument_1_0)
                 }
               }
             },
@@ -9379,7 +9379,7 @@ describe('@fromContext impacts on query planning', () => {
       {
         kind: 'KeyRenamer',
         path: ['..', '... on I', 'prop'],
-        renameKeyTo: 'Subgraph1_U_field_a',
+        renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
   });
@@ -9514,7 +9514,7 @@ describe('@fromContext impacts on query planning', () => {
                 ... on U {
                   id
                   b
-                  field(a: $Subgraph1_U_field_a)
+                  field(a: $contextualArgument_1_0)
                 }
               }
             },
@@ -9526,12 +9526,12 @@ describe('@fromContext impacts on query planning', () => {
       {
         kind: 'KeyRenamer',
         path: ['..', '... on A', 'prop'],
-        renameKeyTo: 'Subgraph1_U_field_a',
+        renameKeyTo: 'contextualArgument_1_0',
       },
       {
         kind: 'KeyRenamer',
         path: ['..', '... on B', 'prop'],
-        renameKeyTo: 'Subgraph1_U_field_a',
+        renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
   });

@@ -1942,7 +1942,12 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
             }
             const resolution = conditionResolver(e, context, excludedEdges, excludedConditions, selectionSet);
             assert(edge.transition.kind === 'FieldCollection', () => `Expected edge to be a FieldCollection edge, got ${edge.transition.kind}`);
-            const id = `${cxt.subgraphName}_${edge.head.type.name}_${edge.transition.definition.name}_${cxt.namedParameter}`;
+            
+            const argIndices = path.graph.subgraphToArgIndices.get(cxt.subgraphName);
+            assert(argIndices, () => `Expected to find arg indices for subgraph ${cxt.subgraphName}`);
+            
+            const id = argIndices.get(cxt.coordinate);
+            assert(id !== undefined, () => `Expected to find arg index for ${cxt.coordinate}`);
             contextMap.set(cxt.context, { selectionSet, level, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, id, argType: cxt.argType });
             someSelectionUnsatisfied = someSelectionUnsatisfied || !resolution.satisfied;
             if (resolution.cost === -1 || totalCost === -1) {
