@@ -1567,7 +1567,7 @@ class FetchGroup {
     // Note that it won't match the actual type, so we just use String! here as a placeholder
     for (const [context, type] of this.inputs?.usedContexts ?? []) {
       assert(isInputType(type), () => `Expected ${type} to be a input type`);
-      variableDefinitions.add(new VariableDefinition(this.dependencyGraph.supergraphSchema, new Variable(context), type));
+      variableDefinitions.add(new VariableDefinition(type.schema(), new Variable(context), type));
     }
 
     const { selection, outputRewrites } = this.finalizeSelection(variableDefinitions, handledConditions);
@@ -4405,9 +4405,7 @@ function computeGroupsForTree(
           // fetch group or else we need to create a new one
           if (parameterToContext && groupContextSelections && Array.from(parameterToContext.values()).some(({ contextId }) => groupContextSelections.has(contextId))) { 
             // let's find the edge that will be used as an entry to the new type in the subgraph
-            const entityVertex = dependencyGraph.federatedQueryGraph.verticesForType(edge.head.type.name).find(v => v.source === edge.tail.source);
-            assert(entityVertex, () => `Could not find entity entry edge for ${edge.head.source}`);
-            const keyResolutionEdge = dependencyGraph.federatedQueryGraph.outEdges(entityVertex).find(e => e.transition.kind === 'KeyResolution');
+            const keyResolutionEdge = dependencyGraph.federatedQueryGraph.outEdges(edge.head).find(e => e.transition.kind === 'KeyResolution');
             assert(keyResolutionEdge, () => `Could not find key resolution edge for ${edge.head.source}`);
             
             const type = edge.head.type as CompositeType;
