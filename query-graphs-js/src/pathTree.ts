@@ -270,8 +270,54 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       return c1.index === c2.index
         && c1.trigger === c2.trigger
         && (c1.conditions ? (c2.conditions ? c1.conditions.equalsSameRoot(c2.conditions) : false) : !c2.conditions)
-        && c1.tree.equalsSameRoot(c2.tree);
-    });
+        && c1.tree.equalsSameRoot(c2.tree)
+        && this.contextToSelectionEquals(that)
+        && this.parameterToContextEquals(that);
+    });    
+  }
+
+  private contextToSelectionEquals(that: PathTree<TTrigger, RV, TNullEdge>): boolean {
+    const thisKeys = Array.from(this.contextToSelection?.keys() ?? []);
+    const thatKeys = Array.from(that.contextToSelection?.keys() ?? []);
+    
+    if (thisKeys.length !== thatKeys.length) {
+      return false; 
+    }
+    
+    for (const key of thisKeys) {
+      const thisSelection = this.contextToSelection!.get(key);
+      const thatSelection = that.contextToSelection!.get(key);
+      assert(thisSelection, () => `Expected to have a selection for key ${key}`);
+      
+      if (!thatSelection || !thisSelection.equals(thatSelection)) {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  private parameterToContextEquals(that: PathTree<TTrigger, RV, TNullEdge>): boolean {
+    const thisKeys = Array.from(this.parameterToContext?.keys() ?? []);
+    const thatKeys = Array.from(that.parameterToContext?.keys() ?? []);
+    
+    if (thisKeys.length !== thatKeys.length) {
+      return false; 
+    }
+    
+    for (const key of thisKeys) {
+      const thisSelection = this.parameterToContext!.get(key);
+      const thatSelection = that.parameterToContext!.get(key);
+      assert(thisSelection, () => `Expected to have a selection for key ${key}`);
+      
+      if (!thatSelection 
+        || (thisSelection.contextId !== thatSelection.contextId) 
+        || !arrayEquals(thisSelection.relativePath, thatSelection.relativePath) 
+        || !thisSelection.selectionSet.equals(thatSelection.selectionSet) 
+        || (thisSelection.subgraphArgType !== thatSelection.subgraphArgType)) {
+        return false;
+      }
+    }
+    return false;
   }
 
   // Like merge(), this create a new tree that contains the content of both `this` and `other` to this pathTree, but contrarily
@@ -288,8 +334,8 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
 
     const localSelections = this.mergeLocalSelectionsWith(other);
     const newChilds = this.childs.concat(other.childs);
-    const contextToSelection = (this.contextToSelection || other.contextToSelection) ? new Map([...(this.contextToSelection || []), ...(other.contextToSelection || [])]) : null;
-    const parameterToContext = (this.parameterToContext || other.parameterToContext) ? new Map([...(this.parameterToContext || []), ...(other.parameterToContext || [])]) : null;
+    const contextToSelection = mergeMapOrNull(this.contextToSelection, other.contextToSelection);
+    const parameterToContext = mergeMapOrNull(this.parameterToContext, other.parameterToContext);
     return new PathTree(this.graph, this.vertex, localSelections, this.triggerEquality, newChilds, contextToSelection, parameterToContext);
   }
 
