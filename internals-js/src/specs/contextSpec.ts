@@ -6,7 +6,7 @@ import {
   FeatureUrl,
   FeatureVersion,
 } from "./coreSpec";
-import { DirectiveDefinition, NonNullType, Schema } from "../definitions";
+import { DirectiveDefinition, NonNullType, Schema, isInputType } from "../definitions";
 import { DirectiveSpecification, createDirectiveSpecification, createScalarTypeSpecification } from "../directiveAndTypeSpecification";
 import { registerKnownFeature } from "../knownCoreFeatures";
 import { Subgraph } from '../federation';
@@ -40,16 +40,9 @@ export class ContextSpecDefinition extends FeatureDefinition {
     this.contextDirectiveSpec = createDirectiveSpecification({
       name: ContextDirectiveName.CONTEXT,
       locations: [DirectiveLocation.INTERFACE, DirectiveLocation.OBJECT, DirectiveLocation.UNION],
-      args: [{ name: 'name', type: (schema, feature) => {
-          assert(feature, "Shouldn't be added without being attached to a @link spec");
-          const fieldValue = feature.typeNameInSchema(fieldValueScalar);
-          const fieldValueType = schema.type(fieldValue);
-          assert(fieldValueType, () => `Expected "${fieldValue}" to be defined`);
-          return new NonNullType(fieldValueType);
-      }}],
+      args: [{ name: 'name', type: (schema) => new NonNullType(schema.stringType())}],
       composes: true,
       repeatable: true,
-      supergraphSpecification: (fedVersion) => CONTEXT_VERSIONS.getMinimumRequiredVersion(fedVersion),
       staticArgumentTransform: (subgraph: Subgraph, args: {[key: string]: any}) => {
         const subgraphName = subgraph.name;
         return {
@@ -61,7 +54,14 @@ export class ContextSpecDefinition extends FeatureDefinition {
     this.fromContextDirectiveSpec = createDirectiveSpecification({
       name: ContextDirectiveName.FROM_CONTEXT,
       locations: [DirectiveLocation.ARGUMENT_DEFINITION],
-      args: [{ name: 'field', type: (schema) => schema.stringType() }],
+      args: [{ name: 'field', type: (schema, feature) => {
+        assert(feature, "Shouldn't be added without being attached to a @link spec");
+        const fieldValue = feature.typeNameInSchema(fieldValueScalar);
+        const fieldValueType = schema.type(fieldValue);
+        assert(fieldValueType, () => `Expected "${fieldValue}" to be defined`);
+        assert(isInputType(fieldValueType), `Expected "${fieldValue}" to be an input type`);
+        return fieldValueType;
+      }}],
       composes: false,
     });
     
