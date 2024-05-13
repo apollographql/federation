@@ -368,17 +368,17 @@ export class ValidationContext {
       );
       const type = supergraphSchema.type(application.parent.name);
       assert(type, `Type ${application.parent.name} unexpectedly doesn't exist`);
-      const type_names = [type.name];
+      const typeNames = [type.name];
       if (isInterfaceType(type)) {
-        type_names.push(...type.allImplementations().map((t) => t.name));
+        typeNames.push(...type.allImplementations().map((t) => t.name));
       } else if (isUnionType(type)) {
-        type_names.push(...type.types().map((t) => t.name));
+        typeNames.push(...type.types().map((t) => t.name));
       }
-      for (const type_name of type_names) {
-        if (this.typesToContexts.has(type_name)) {
-          this.typesToContexts.get(type_name)!.add(context);
+      for (const typeName of typeNames) {
+        if (this.typesToContexts.has(typeName)) {
+          this.typesToContexts.get(typeName)!.add(context);
         } else {
-          this.typesToContexts.set(type_name, new Set([context]));
+          this.typesToContexts.set(typeName, new Set([context]));
         }
       }
     }
@@ -405,15 +405,15 @@ export class ValidationContext {
       }).length > 1);
   }
 
-  matchingContexts(type_name: string): string[] {
-    return [...(this.typesToContexts.get(type_name) ?? [])];
+  matchingContexts(typeName: string): string[] {
+    return [...(this.typesToContexts.get(typeName) ?? [])];
   }
 }
 
 type SubgraphPathInfo = {
   path: TransitionPathWithLazyIndirectPaths<RootVertex>,
   // The key for this map is the context name in the supergraph schema.
-  contexts: Map<string, { subgraph_name: string, type_name: string }>,
+  contexts: Map<string, { subgraphName: string, typeName: string }>,
 }
 
 export class ValidationState {
@@ -508,15 +508,15 @@ export class ValidationState {
       }
       let newContexts = contexts;
       if (matchingContexts.length) {
-        const subgraph_name = path.path.tail.source;
-        const type_name = path.path.tail.type.name;
+        const subgraphName = path.path.tail.source;
+        const typeName = path.path.tail.type.name;
         newContexts = new Map([...contexts]);
         for (const matchingContext in matchingContexts) {
           newContexts.set(
             matchingContext,
             {
-              subgraph_name,
-              type_name,
+              subgraphName,
+              typeName,
             }
           )
         }
@@ -624,8 +624,8 @@ export class ValidationState {
       const entryKeys = [];
       const contexts = Array.from(pathInfo.contexts.entries());
       contexts.sort((a, b) => a[0].localeCompare(b[0]));
-      for (const [context, { subgraph_name, type_name }] of contexts) {
-        entryKeys.push(`${context}=${subgraph_name}.${type_name}`);
+      for (const [context, { subgraphName, typeName }] of contexts) {
+        entryKeys.push(`${context}=${subgraphName}.${typeName}`);
       }
       subgraphContextKeys.add(
         `${subgraphName}[${entryKeys.join(',')}]`
