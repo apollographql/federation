@@ -49,13 +49,12 @@ import {
   directivesToString,
   directivesToDirectiveNodes,
 } from "./definitions";
-import { isInterfaceObjectType } from "./federation";
+import { federationMetadata, isFederationDirectiveDefinedInSchema, isInterfaceObjectType } from "./federation";
 import { ERRORS } from "./error";
 import { isSubtype, sameType, typesCanBeMerged } from "./types";
 import { assert, mapKeys, mapValues, MapWithCachedArrays, MultiMap, SetMultiMap } from "./utils";
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 import { v1 as uuidv1 } from 'uuid';
-import { CONTEXT_VERSIONS, ContextSpecDefinition } from './specs/contextSpec';
 
 function validate(condition: any, message: () => string, sourceAST?: ASTNode): asserts condition {
   if (!condition) {
@@ -288,24 +287,18 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
 
       let isContextualArg = false;
       const schema = this.definition.schema();
-      const contextFeature = schema.coreFeatures?.getByIdentity(ContextSpecDefinition.identity);
-      if (contextFeature) {
-        const contextSpec = CONTEXT_VERSIONS.find(contextFeature.url.version);
-        if (contextSpec) {
-          const contextDirective = contextSpec.contextDirective(schema);
-          if (contextDirective) {
-            isContextualArg = argDef.appliedDirectivesOf(contextDirective).length > 0;
-          }
-        }
+      const fromContextDirective = federationMetadata(schema)?.fromContextDirective();
+      if (fromContextDirective && isFederationDirectiveDefinedInSchema(fromContextDirective)) {
+        isContextualArg = argDef.appliedDirectivesOf(fromContextDirective).length > 0;
       }
 
       if (appliedValue === undefined) {
         validate(
-          argDef.defaultValue !== undefined || isNullableType(argDef.type!) || (isContextualArg && !validateContextualArgs),
+          (isContextualArg && !validateContextualArgs) || argDef.defaultValue !== undefined || isNullableType(argDef.type!),
           () => `Missing mandatory value for argument "${argDef.name}" of field "${this.definition.coordinate}" in selection "${this}"`);
       } else {
         validate(
-          isValidValue(appliedValue, argDef, variableDefinitions) || (isContextualArg && !validateContextualArgs),
+          (isContextualArg && !validateContextualArgs) || isValidValue(appliedValue, argDef, variableDefinitions),
           () => `Invalid value ${valueToString(appliedValue)} for argument "${argDef.coordinate}" of type ${argDef.type}`)
       }
     }
