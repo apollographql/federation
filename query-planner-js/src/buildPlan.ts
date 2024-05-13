@@ -926,9 +926,6 @@ class FetchGroup {
   // Set in some code-path to indicate that the selection of the group not be optimized away even if it "looks" useless.
   mustPreserveSelection: boolean = false;
 
-  // context may not be get and set within the same fetch group, so we need to track which contexts are set
-  contextSelections?: Map<string, SelectionSet>;
-
   private constructor(
     readonly dependencyGraph: FetchDependencyGraph,
     public index: number,
@@ -4029,7 +4026,13 @@ function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree:
     // If a type is in a subgraph, it has to be in the supergraph.
     // A root type has to be a Composite type.
     const rootTypeInSupergraph = dependencyGraph.supergraphSchemaType(rootType.name) as CompositeType;
-    computeGroupsForTree(dependencyGraph, child, group, GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph), emptyDeferContext);
+    computeGroupsForTree({ 
+      dependencyGraph,
+      pathTree: child,
+      startGroup: group,
+      initialGroupPath: GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph),
+      initialDeferContext: emptyDeferContext,
+    });
   }
   return dependencyGraph;
 }
@@ -4043,7 +4046,13 @@ function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTr
   // If a type is in a subgraph, it has to be in the supergraph.
   // A root type has to be a Composite type.
   const rootTypeInSupergraph = dependencyGraph.supergraphSchemaType(rootType.name) as CompositeType;
-  computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph), emptyDeferContext);
+  computeGroupsForTree({
+    dependencyGraph, 
+    pathTree, 
+    startGroup: group, 
+    initialGroupPath: GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph), 
+    initialDeferContext: emptyDeferContext,
+  });
   return dependencyGraph;
 }
 
@@ -4126,29 +4135,41 @@ function updateCreatedGroups(createdGroups: FetchGroup[], ...newCreatedGroups: F
 }
 
 function computeGroupsForTree(
-  dependencyGraph: FetchDependencyGraph,
-  pathTree: OpPathTree<any>,
-  startGroup: FetchGroup,
-  initialGroupPath: GroupPath,
-  initialDeferContext: DeferContext,
-  initialContext: PathContext = emptyContext,
-): FetchGroup[] {
+  {
+    dependencyGraph,
+    pathTree,
+    startGroup,
+    initialGroupPath,
+    initialDeferContext,
+    initialContext = emptyContext,
+    initialContextsToConditionsGroups = new Map(),
+  }: {
+    dependencyGraph: FetchDependencyGraph,
+    pathTree: OpPathTree<any>,
+    startGroup: FetchGroup,
+    initialGroupPath: GroupPath,
+    initialDeferContext: DeferContext,
+    initialContext?: PathContext,
+    initialContextsToConditionsGroups?: Map<string, FetchGroup[]>,
+}): FetchGroup[] {
   const stack: {
     tree: OpPathTree,
     group: FetchGroup,
     path: GroupPath,
     context: PathContext,
     deferContext: DeferContext,
+    contextToConditionsGroups: Map<string, FetchGroup[]>,
   }[] = [{
     tree: pathTree,
     group: startGroup,
     path: initialGroupPath,
     context: initialContext,
     deferContext: initialDeferContext,
+    contextToConditionsGroups: initialContextsToConditionsGroups,
   }];
   const createdGroups: FetchGroup[] = [ ];
   while (stack.length > 0) {
-    const { tree, group, path, context, deferContext } = stack.pop()!;
+    const { tree, group, path, context, deferContext, contextToConditionsGroups } = stack.pop()!;
     if (tree.localSelections) {
       for (const selection of tree.localSelections) {
         group.addAtPath(path.inGroup(), selection);
@@ -4171,7 +4192,14 @@ function computeGroupsForTree(
           if (edge.transition.kind === 'KeyResolution') {
             assert(conditions, () => `Key edge ${edge} should have some conditions paths`);
             // First, we need to ensure we fetch the conditions from the current group.
-            const conditionsGroups = computeGroupsForTree(dependencyGraph, conditions, group, path, deferContextForConditions(deferContext));
+            const conditionsGroups = computeGroupsForTree({
+              dependencyGraph, 
+              pathTree: conditions, 
+              startGroup: group, 
+              initialGroupPath: path, 
+              initialDeferContext: deferContextForConditions(deferContext),
+              initialContextsToConditionsGroups: contextToConditionsGroups,
+            });
             updateCreatedGroups(createdGroups, ...conditionsGroups);
             // Then we can "take the edge", creating a new group. That group depends
             // on the condition ones.
@@ -4229,6 +4257,7 @@ function computeGroupsForTree(
               path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, edge.tail.type as CompositeType, newContext)),
               context: newContext,
               deferContext: updatedDeferContext,
+              contextToConditionsGroups,
             });
           } else {
             assert(edge.transition.kind === 'RootTypeResolution', () => `Unexpected non-collecting edge ${edge}`);
@@ -4269,6 +4298,7 @@ function computeGroupsForTree(
               path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, type, newContext)),
               context: newContext,
               deferContext: updatedDeferContext,
+              contextToConditionsGroups,
             });
           }
         } else if (edge === null) {
@@ -4296,6 +4326,7 @@ function computeGroupsForTree(
             path: newPath,
             context,
             deferContext: updatedDeferContext,
+            contextToConditionsGroups,
           });
         } else {
           assert(edge.head.source === edge.tail.source, () => `Collecting edge ${edge} for ${operation} should not change the underlying subgraph`)
@@ -4324,7 +4355,6 @@ function computeGroupsForTree(
           assert(updatedOperation, () => `Extracting @defer from ${operation} should not have resulted in no operation`);
 
           const { parameterToContext } = tree;
-          const groupContextSelections = group.contextSelections;
 
           const updated = {
             tree: child,
@@ -4332,9 +4362,10 @@ function computeGroupsForTree(
             path,
             context,
             deferContext: updatedDeferContext,
+            contextToConditionsGroups,
           };
 
-          if (conditions) {
+          if (conditions && edge.conditions) {
             // We have @requires or some other dependency to create groups for.
             const requireResult = handleRequires(
               dependencyGraph,
@@ -4349,16 +4380,31 @@ function computeGroupsForTree(
             updated.path = requireResult.path;
             
             if (tree.contextToSelection) {
-              // each of the selections that could be used in a @fromContext parameter should be saved to the fetch group.
-              // This will also be important in determining when it is necessary to draw a new fetch group boundary
-              if (updated.group.contextSelections === undefined) {
-                updated.group.contextSelections = new Map();
+              const newContextToConditionsGroups = new Map<string, FetchGroup[]>();
+              for (const [context] of tree.contextToSelection) {
+                newContextToConditionsGroups.set(context, [group]);
               }
-              for (const [key, value] of tree.contextToSelection) {
-                updated.group.contextSelections.set(key, value);
-              }
+              updated.contextToConditionsGroups = newContextToConditionsGroups;
             }
             updateCreatedGroups(createdGroups, ...requireResult.createdGroups);
+          } else if (conditions) {
+            const conditionsGroups = computeGroupsForTree({
+              dependencyGraph, 
+              pathTree: conditions, 
+              startGroup: group, 
+              initialGroupPath: path, 
+              initialDeferContext: deferContextForConditions(deferContext),
+              initialContextsToConditionsGroups: contextToConditionsGroups,
+            });
+
+            if (tree.contextToSelection) {
+              const newContextToConditionsGroups = new Map<string, FetchGroup[]>();
+              for (const [context] of tree.contextToSelection) {
+                newContextToConditionsGroups.set(context, [group, ...conditionsGroups]);
+              }
+              updated.contextToConditionsGroups = newContextToConditionsGroups;
+            }
+            updateCreatedGroups(createdGroups, ...conditionsGroups);
           }
 
           if (updatedOperation.kind === 'Field' && updatedOperation.name === typenameFieldName) {
@@ -4403,21 +4449,43 @@ function computeGroupsForTree(
 
           // if we're going to start using context variables, every variable used must be set in a different parent
           // fetch group or else we need to create a new one
-          if (parameterToContext && groupContextSelections && Array.from(parameterToContext.values()).some(({ contextId }) => groupContextSelections.has(contextId))) { 
+          if (parameterToContext && Array.from(parameterToContext.values()).some(({ contextId }) => updated.contextToConditionsGroups.get(contextId)?.[0] === group)) { 
             // let's find the edge that will be used as an entry to the new type in the subgraph
-            const keyResolutionEdge = dependencyGraph.federatedQueryGraph.outEdges(edge.head).find(e => e.transition.kind === 'KeyResolution');
-            assert(keyResolutionEdge, () => `Could not find key resolution edge for ${edge.head.source}`);
-            
-            const type = edge.head.type as CompositeType;
+            // const keyResolutionEdge = dependencyGraph.federatedQueryGraph.outEdges(edge.head).find(e => e.transition.kind === 'KeyResolution');
+            // assert(keyResolutionEdge, () => `Could not find key resolution edge for ${edge.head.source}`);
+
+            assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
             const newGroup = dependencyGraph.getOrCreateKeyFetchGroup({
               subgraphName: edge.tail.source,
               mergeAt: path.inResponse(),
-              type,
+              type: edge.head.type,
               parent: { group, path: path.inGroup() },
               conditionsGroups: [],
             });
 
+            const keyCondition = getLocallySatisfiableKey(dependencyGraph.federatedQueryGraph, edge.head);
+            assert(keyCondition, () => `canSatisfyConditions() validation should have required a key to be present for ${edge}`);
+            const keyInputs = newCompositeTypeSelectionSet(edge.head.type).updates().add(keyCondition).toSelectionSet(edge.head.type);
+            group.addAtPath(path.inGroup(), keyInputs.selections());
+            
+            const inputType = dependencyGraph.typeForFetchInputs(edge.head.type.name);
+            const inputSelectionSet = newCompositeTypeSelectionSet(inputType).updates().add(keyCondition).toSelectionSet(inputType);
+            const inputs = wrapInputsSelections(inputType, inputSelectionSet, context);
+            newGroup.addInputs(
+              inputs,
+              computeInputRewritesOnKeyFetch(edge.head.type.name, edge.head.type),
+            );
+                        
             newGroup.addParent({ group, path: path.inGroup() });
+            
+            // all groups that get the contextual variable should be parents of this group
+            for (const { contextId } of parameterToContext.values()) {
+              const groups = updated.contextToConditionsGroups.get(contextId);
+              assert(groups, () => `Could not find groups for context ${contextId}`);
+              for (const parentGroup of groups) {
+                newGroup.addParent({ group: parentGroup, path: path.inGroup() });
+              }
+            }
             for (const [_, { contextId, selectionSet, relativePath, subgraphArgType }] of parameterToContext) {
               newGroup.addInputContext(contextId, subgraphArgType);
               const keyRenamers = selectionSetAsKeyRenamers(selectionSet, relativePath, contextId);
@@ -4425,32 +4493,19 @@ function computeGroupsForTree(
                 newGroup.addContextRenamer(keyRenamer);
               }
             }
-            tree.parameterToContext = null;
+
             // We also ensure to get the __typename of the current type in the "original" group.
-            group.addAtPath(path.inGroup().concat(new Field(type.typenameField()!)));
-
-            const inputType = dependencyGraph.typeForFetchInputs(type.name);
-            const inputSelections = newCompositeTypeSelectionSet(inputType);
-            inputSelections.updates().add(keyResolutionEdge.conditions!);
-            newGroup.addInputs(
-              wrapInputsSelections(inputType, inputSelections.get(), context), // TODO: is the context right
-              computeInputRewritesOnKeyFetch(inputType.name, type),
-            );
-
+            // TODO: It may be safe to remove this, but I'm not 100% convinced. Come back and take a look at some point
+            group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
             updateCreatedGroups(createdGroups, newGroup);
             
-            // TODO: 
-            // partition the tree into children with and without triggers. The children with triggers should be processed in the 
-            // child FetchGroup, and those without in the parent.
-            // if (conditions) {
-            //   stack.push(updated);
-            // }
             stack.push({
               tree, 
               group: newGroup,
-              path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, type, context)),
+              path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, edge.head.type, context)),
               context,
               deferContext: updatedDeferContext,
+              contextToConditionsGroups,
             });
             
           } else {
@@ -4649,7 +4704,13 @@ function handleRequires(
     });
     newGroup.addParent(parent);
     newGroup.copyInputsOf(group);
-    const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, path, deferContextForConditions(deferContext));
+    const createdGroups = computeGroupsForTree({
+      dependencyGraph, 
+      pathTree: requiresConditions, 
+      startGroup: newGroup, 
+      initialGroupPath: path, 
+      initialDeferContext: deferContextForConditions(deferContext)
+    });
     if (createdGroups.length === 0) {
       // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
       // and continue.
@@ -4801,7 +4862,13 @@ function handleRequires(
     // just after having jumped to that subgraph). In that case, there isn't tons of optimisation we can do: we have to
     // see what satisfying the @require necessitate, and if it needs anything from another subgraph, we have to stop the
     // current subgraph fetch there, get the requirements from other subgraphs, and then resume the query of that particular subgraph.
-    const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, group, path, deferContextForConditions(deferContext));
+    const createdGroups = computeGroupsForTree({
+      dependencyGraph, 
+      pathTree: requiresConditions, 
+      startGroup: group, 
+      initialGroupPath: path, 
+      initialDeferContext: deferContextForConditions(deferContext)
+    });
     // If we didn't created any group, that means the whole condition was fetched from the current group
     // and we're good.
     if (createdGroups.length == 0) {

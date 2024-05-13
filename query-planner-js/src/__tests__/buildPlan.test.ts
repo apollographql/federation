@@ -8895,7 +8895,6 @@ describe('@fromContext impacts on query planning', () => {
                 u {
                   __typename
                   id
-                  b
                 }
               }
             }
@@ -8910,7 +8909,6 @@ describe('@fromContext impacts on query planning', () => {
               } =>
               {
                 ... on U {
-                  id
                   b
                   field(a: $contextualArgument_1_0)
                 }
@@ -9009,6 +9007,10 @@ describe('@fromContext impacts on query planning', () => {
               t {
                 __typename
                 id
+                u {
+                  __typename
+                  id
+                }
               }
             }
           },
@@ -9023,24 +9025,6 @@ describe('@fromContext impacts on query planning', () => {
               {
                 ... on T {
                   prop
-                }
-              }
-            },
-          },
-          Flatten(path: "t") {
-            Fetch(service: "Subgraph1") {
-              {
-                ... on T {
-                  __typename
-                  id
-                }
-              } =>
-              {
-                ... on T {
-                  u {
-                    __typename
-                    id
-                  }
                 }
               }
             },
@@ -9064,7 +9048,7 @@ describe('@fromContext impacts on query planning', () => {
         },
       }
     `);
-    expect((plan as any).node.nodes[3].node.contextRewrites).toEqual([
+    expect((plan as any).node.nodes[2].node.contextRewrites).toEqual([
       {
         kind: 'KeyRenamer',
         path: ['..', 'prop'],
@@ -9220,7 +9204,6 @@ describe('@fromContext impacts on query planning', () => {
                 u {
                   __typename
                   id
-                  b
                 }
               }
             }
@@ -9235,7 +9218,6 @@ describe('@fromContext impacts on query planning', () => {
               } =>
               {
                 ... on U {
-                  id
                   b
                   field(a: $contextualArgument_1_0)
                 }
@@ -9350,7 +9332,6 @@ describe('@fromContext impacts on query planning', () => {
                 u {
                   __typename
                   id
-                  b
                 }
               }
             }
@@ -9365,7 +9346,6 @@ describe('@fromContext impacts on query planning', () => {
               } =>
               {
                 ... on U {
-                  id
                   b
                   field(a: $contextualArgument_1_0)
                 }
@@ -9488,7 +9468,6 @@ describe('@fromContext impacts on query planning', () => {
                   u {
                     __typename
                     id
-                    b
                   }
                 }
                 ... on B {
@@ -9496,7 +9475,6 @@ describe('@fromContext impacts on query planning', () => {
                   u {
                     __typename
                     id
-                    b
                   }
                 }
               }
@@ -9512,7 +9490,6 @@ describe('@fromContext impacts on query planning', () => {
               } =>
               {
                 ... on U {
-                  id
                   b
                   field(a: $contextualArgument_1_0)
                 }

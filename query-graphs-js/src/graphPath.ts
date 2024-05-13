@@ -1898,7 +1898,6 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   
   let totalCost = 0;
   const contextMap = new Map<string, ContextMapEntry>();
-  let contextKeys: OpPathTree | undefined;
   
   if (requiredContexts.length > 0) {
     // if one of the conditions fails to satisfy, it's ok to bail
@@ -1977,17 +1976,15 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     const keyEdge = path.graph.outEdges(edge.head).find(e => e.transition.kind === 'KeyResolution');
     assert(keyEdge, () => `Expected to find a key edge from ${edge.head}`);
     
-    const r = conditionResolver(keyEdge, context, excludedEdges, excludedConditions, keyEdge.conditions);
-
     debug.log('@fromContext conditions are satisfied, but validating post-require key.');
     const postRequireKeyCondition = getLocallySatisfiableKey(path.graph, edge.head);
     if (!postRequireKeyCondition) {
       debug.groupEnd('Post-require conditions cannot be satisfied');
       return { ...unsatisfiedConditionsResolution, unsatisfiedConditionReason: UnsatisfiedConditionReason.NO_POST_REQUIRE_KEY };
     }
-    contextKeys = r.pathTree;
+
     if (!conditions) {
-      return { contextMap, cost: totalCost, satisfied: true, pathTree: contextKeys };
+      return { contextMap, cost: totalCost, satisfied: true };
     }
   }
   
@@ -2023,13 +2020,9 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     // clean that up, but it's unclear to me how at the moment and it may not be a small change so this will
     // have to do for now.
   }
-  if (resolution.pathTree && contextKeys) {
-    contextKeys = contextKeys.merge(resolution.pathTree);
-  } else if (resolution.pathTree) {
-    contextKeys = resolution.pathTree;
-  }
+
   debug.groupEnd('Conditions satisfied');
-  return { ...resolution, contextMap, cost: totalCost + resolution.cost, pathTree: contextKeys };
+  return { ...resolution, contextMap, cost: totalCost + resolution.cost, pathTree: resolution.pathTree };
 }
 
 function isTerminalOperation(operation: OperationElement): boolean {
