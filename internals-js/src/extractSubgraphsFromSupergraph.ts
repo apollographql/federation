@@ -212,6 +212,17 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtra
       return subgraph;
     };
 
+    const subgraphNameToGraphEnumValue = new Map<string, string>();
+    for (const [k, v] of graphEnumNameToSubgraphName.entries()) {
+      subgraphNameToGraphEnumValue.set(v, k);
+    }
+
+    const getSubgraphEnumValue = (subgraphName: string): string => {
+      const enumValue = subgraphNameToGraphEnumValue.get(subgraphName);
+      assert(enumValue, () => `Invalid subgraph name ${subgraphName} found: does not match a subgraph defined in the @join__Graph enum`);
+      return enumValue;
+    }
+
     const types = filteredTypes(supergraph, joinSpec, coreFeatures.coreDefinition);
     const args: ExtractArguments = {
        supergraph,
@@ -219,6 +230,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtra
        joinSpec,
        filteredTypes: types,
        getSubgraph,
+       getSubgraphEnumValue,
     };
     if (isFed1) {
       extractSubgraphsFromFed1Supergraph(args);
@@ -281,6 +293,7 @@ type ExtractArguments = {
   joinSpec: JoinSpecDefinition,
   filteredTypes: NamedType[],
   getSubgraph: (application: Directive<any, { graph?: string }>) => Subgraph | undefined,
+  getSubgraphEnumValue: (subgraphName: string) => string
 }
 
 type SubgraphTypeInfo<T extends NamedType> = Map<string, { type: T, subgraph: Subgraph }>;
@@ -297,12 +310,13 @@ type TypesInfo = {
   unionTypes:    TypeInfo<UnionType>[],
 };
 
-function addAllEmptySubgraphTypes({
-  supergraph,
-  joinSpec,
-  filteredTypes,
-  getSubgraph,
-}: ExtractArguments): TypesInfo {
+function addAllEmptySubgraphTypes(args: ExtractArguments): TypesInfo {
+  const {
+    supergraph,
+    joinSpec,
+    filteredTypes,
+    getSubgraph,
+  } = args;
   const typeDirective = joinSpec.typeDirective(supergraph);
 
   const objOrItfTypes: TypeInfo<ObjectType | InterfaceType>[] = [];
@@ -316,16 +330,16 @@ function addAllEmptySubgraphTypes({
       // (on top of it making sense code-wise since both type behave exactly the same for most of what we're doing here).
       case 'InterfaceType':
       case 'ObjectType':
-        objOrItfTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph, supergraph) });
+        objOrItfTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), args) });
         break;
       case 'InputObjectType':
-        inputObjTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph, supergraph) });
+        inputObjTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), args) });
         break;
       case 'EnumType':
-        enumTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph, supergraph) });
+        enumTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), args) });
         break;
       case 'UnionType':
-        unionTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph, supergraph) });
+        unionTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), args) });
         break;
       case 'ScalarType':
         // Scalar are a bit special in that they don't have any sub-component, so we don't track them beyond adding them to the
@@ -350,9 +364,9 @@ function addAllEmptySubgraphTypes({
 function addEmptyType<T extends NamedType>(
   type: T,
   typeApplications: Directive<T, JoinTypeDirectiveArguments>[],
-  getSubgraph: (application: Directive<any, { graph?: string }>) => Subgraph | undefined,
-  supergraph: Schema,
+  args: ExtractArguments,
 ): SubgraphTypeInfo<T> {
+  const { supergraph, getSubgraph, getSubgraphEnumValue } = args;
   // In fed2, we always mark all types with `@join__type` but making sure.
   assert(typeApplications.length > 0, `Missing @join__type on ${type}`)
   const subgraphsInfo: SubgraphTypeInfo<T> = new Map<string, { type: T, subgraph: Subgraph }>();
@@ -403,7 +417,7 @@ function addEmptyType<T extends NamedType>(
       const graph = match ? match[1] : undefined;
       const context = match ? match[2] : undefined;
       assert(graph, `Invalid context name ${name} found in ${application} on ${application.parent}: does not match the expected pattern`);
-      const subgraphInfo = subgraphsInfo.get(graph.toUpperCase());
+      const subgraphInfo = subgraphsInfo.get(getSubgraphEnumValue(graph));
       const contextDirective = subgraphInfo?.subgraph.metadata().contextDirective();
       if (subgraphInfo && contextDirective && isFederationDirectiveDefinedInSchema(contextDirective)) {
         subgraphInfo.type.applyDirective(contextDirective, {name: context});
