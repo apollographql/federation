@@ -98,15 +98,6 @@ For more information on `@link`, see the [official spec](https://specs.apollo.de
 
 </MinVersion>
 
-<Tip>
-
-To learn best practices and advanced use cases for `@key`, refer to the following guides:
-
-- [Introduction to entities](../entities#1-define-a-key)
-- [Advanced entities](../entities-advanced)
-
-</Tip>
-
 ```graphql
 directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 ```
@@ -120,6 +111,15 @@ type Product @key(fields: "id") {
   price: Int
 }
 ```
+
+<Tip>
+
+To learn best practices and advanced use cases for `@key`, refer to the following guides:
+
+- [Introduction to entities](../entities#1-define-a-key)
+- [Advanced entities](../entities-advanced)
+
+</Tip>
 
 You can apply multiple `@key` directives to a single entity to specify multiple valid sets of key fields, if your subgraph library supports repeatable directives:
 
