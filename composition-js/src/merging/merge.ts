@@ -79,6 +79,7 @@ import {
   CoreFeature,
   Subgraph,
   StaticArgumentsTransform,
+  isNullableType,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -1919,9 +1920,18 @@ class Merger {
               `Argument "${arg.coordinate}" is contextual in at least one subgraph but in "${argument.coordinate}" it does not have @fromContext, is not nullable and has no default value.`,
               { nodes: sourceASTs(sources[idx]?.argument(argName)) },
             ));
-            
+          }
+          
+          if (!isContextual && argument && argType && (isNullableType(argType) || argument.defaultValue !== undefined)) {
+            // in this case, we want to issue a hint that the argument will not be present in the supergraph schema
+            this.mismatchReporter.pushHint(new CompositionHint(
+              HINTS.CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS,
+              `Contextual argument "${argument.coordinate}" will not be included in the supergraph since it is contextual in at least one subgraph`,
+              undefined,
+            ));              
           }
         });
+        
         arg.remove();
         continue;
       }
