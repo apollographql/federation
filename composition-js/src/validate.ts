@@ -12,9 +12,11 @@ import {
   isAbstractType,
   isCompositeType,
   isDefined,
+  isInterfaceType,
   isLeafType,
   isNullableType,
   isObjectType,
+  isUnionType,
   joinStrings,
   MultiMap,
   newDebugLogger,
@@ -34,6 +36,9 @@ import {
   VariableDefinitions,
   isOutputType,
   JoinFieldDirectiveArguments,
+  ContextSpecDefinition,
+  CONTEXT_VERSIONS,
+  NamedSchemaElement,
 } from "@apollo/federation-internals";
 import {
   Edge,
@@ -106,7 +111,7 @@ function shareableFieldNonIntersectingRuntimeTypesError(
     + `\nShared field "${field.coordinate}" return type "${field.type}" has a non-intersecting set of possible runtime types across subgraphs. Runtime types in subgraphs are:`
     + `\n${typeStrings.join(';\n')}.`
     + `\nThis is not allowed as shared fields must resolve the same way in all subgraphs, and that imply at least some common runtime types between the subgraphs.`;
-  const error = new ValidationError(message, invalidState.supergraphPath, invalidState.subgraphPaths.map((p) => p.path), witness);
+  const error = new ValidationError(message, invalidState.supergraphPath, invalidState.subgraphPathInfos.map((p) => p.path.path), witness);
   return ERRORS.SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES.err(error.message, {
     nodes: subgraphNodes(invalidState, (s) => (s.type(field.parent.name) as CompositeType | undefined)?.field(field.name)?.sourceAST),
   });
@@ -311,44 +316,6 @@ export function validateGraphComposition(
   return errors.length > 0 ? { errors, hints } : { hints };
 }
 
-// TODO: we don't use this anywhere, can we just remove it?
-export function computeSubgraphPaths(
-  supergraphSchema: Schema,
-  supergraphPath: RootPath<Transition>,
-  federatedQueryGraph: QueryGraph,
-  overrideConditions: Map<string, boolean>,
-): {
-  traversal?: ValidationState,
-  isComplete?: boolean,
-  error?: GraphQLError
-} {
-  try {
-    assert(!supergraphPath.hasAnyEdgeConditions(), () => `A supergraph path should not have edge condition paths (as supergraph edges should not have conditions): ${supergraphPath}`);
-    const conditionResolver = simpleValidationConditionResolver({ supergraph: supergraphSchema, queryGraph: federatedQueryGraph, withCaching: true });
-    const initialState = ValidationState.initial({ supergraphAPI: supergraphPath.graph, kind: supergraphPath.root.rootKind, federatedQueryGraph, conditionResolver, overrideConditions });
-    const context = new ValidationContext(supergraphSchema);
-    let state = initialState;
-    let isIncomplete = false;
-    for (const [edge] of supergraphPath) {
-      const { state: updated, error } = state.validateTransition(context, edge);
-      if (error) {
-        throw error;
-      }
-      if (!updated) {
-        isIncomplete = true;
-        break;
-      }
-      state = updated;
-    }
-    return {traversal: state, isComplete: !isIncomplete};
-  } catch (error) {
-    if (error instanceof GraphQLError) {
-      return {error};
-    }
-    throw error;
-  }
-}
-
 function initialSubgraphPaths(kind: SchemaRootKind, subgraphs: QueryGraph): RootPath<Transition>[] {
   const root = subgraphs.root(kind);
   assert(root, () => `The supergraph shouldn't have a ${kind} root if no subgraphs have one`);
@@ -375,6 +342,7 @@ export function extractValidationError(error: any): ValidationError | undefined 
 export class ValidationContext {
   private readonly joinTypeDirective: DirectiveDefinition;
   private readonly joinFieldDirective: DirectiveDefinition<JoinFieldDirectiveArguments>;
+  private readonly typesToContexts: Map<string, Set<string>>
 
   constructor(
     readonly supergraphSchema: Schema,
@@ -382,6 +350,38 @@ export class ValidationContext {
     const [_, joinSpec] = validateSupergraph(supergraphSchema);
     this.joinTypeDirective = joinSpec.typeDirective(supergraphSchema);
     this.joinFieldDirective = joinSpec.fieldDirective(supergraphSchema);
+
+    this.typesToContexts = new Map();
+    let contextDirective: DirectiveDefinition<{ name: string }> | undefined;
+    const contextFeature = supergraphSchema.coreFeatures?.getByIdentity(ContextSpecDefinition.identity);
+    if (contextFeature) {
+      const contextSpec = CONTEXT_VERSIONS.find(contextFeature.url.version);
+      assert(contextSpec, `Unexpected context spec version ${contextFeature.url.version}`);
+      contextDirective = contextSpec.contextDirective(supergraphSchema);
+    }
+
+    for (const application of contextDirective?.applications() ?? []) {
+      const { name: context } = application.arguments();
+      assert(
+        application.parent instanceof NamedSchemaElement,
+        "Unexpectedly found unnamed element with @context"
+      );
+      const type = supergraphSchema.type(application.parent.name);
+      assert(type, `Type ${application.parent.name} unexpectedly doesn't exist`);
+      const type_names = [type.name];
+      if (isInterfaceType(type)) {
+        type_names.push(...type.allImplementations().map((t) => t.name));
+      } else if (isUnionType(type)) {
+        type_names.push(...type.types().map((t) => t.name));
+      }
+      for (const type_name of type_names) {
+        if (this.typesToContexts.has(type_name)) {
+          this.typesToContexts.get(type_name)!.add(context);
+        } else {
+          this.typesToContexts.set(type_name, new Set([context]));
+        }
+      }
+    }
   }
 
   isShareable(field: FieldDefinition<CompositeType>): boolean {
@@ -404,6 +404,16 @@ export class ValidationContext {
         return !args.external && !args.usedOverridden;
       }).length > 1);
   }
+
+  matchingContexts(type_name: string): string[] {
+    return [...(this.typesToContexts.get(type_name) ?? [])];
+  }
+}
+
+type SubgraphPathInfo = {
+  path: TransitionPathWithLazyIndirectPaths<RootVertex>,
+  // The key for this map is the context name in the supergraph schema.
+  contexts: Map<string, { subgraph_name: string, type_name: string }>,
 }
 
 export class ValidationState {
@@ -411,7 +421,7 @@ export class ValidationState {
     // Path in the supergraph corresponding to the current state.
     public readonly supergraphPath: RootPath<Transition>,
     // All the possible paths we could be in the subgraph.
-    public readonly subgraphPaths: TransitionPathWithLazyIndirectPaths<RootVertex>[],
+    public readonly subgraphPathInfos: SubgraphPathInfo[],
     // When we encounter an `@override`n field with a label condition, we record
     // its value (T/F) as we traverse the graph. This allows us to ignore paths
     // that can never be taken by the query planner (i.e. a path where the
@@ -441,7 +451,10 @@ export class ValidationState {
           conditionResolver,
           overrideConditions,
         ),
-      ),
+      ).map((p) => ({
+        path: p,
+        contexts: new Map(),
+      })),
     );
   }
 
@@ -456,7 +469,7 @@ export class ValidationState {
    *  to a type condition for which there cannot be any runtime types), in which case not further validation is necessary "from that branch".
    *  Additionally, when the state can be successfully advanced, an `hint` can be optionally returned.
    */
-  validateTransition(context: ValidationContext, supergraphEdge: Edge): {
+  validateTransition(context: ValidationContext, supergraphEdge: Edge, matchingContexts: string[]): {
     state?: ValidationState,
     error?: GraphQLError,
     hint?: CompositionHint,
@@ -465,7 +478,7 @@ export class ValidationState {
 
     const transition = supergraphEdge.transition;
     const targetType = supergraphEdge.tail.type;
-    const newSubgraphPaths: TransitionPathWithLazyIndirectPaths<RootVertex>[] = [];
+    const newSubgraphPathInfos: SubgraphPathInfo[] = [];
     const deadEnds: Unadvanceables[] = [];
     // If the edge has an override condition, we should capture it in the state so
     // that we can ignore later edges that don't satisfy the condition.
@@ -477,7 +490,7 @@ export class ValidationState {
       );
     }
 
-    for (const path of this.subgraphPaths) {
+    for (const { path, contexts } of this.subgraphPathInfos) {
       const options = advancePathWithTransition(
         path,
         transition,
@@ -493,16 +506,32 @@ export class ValidationState {
         // type condition give us no matching results, and so we can handle whatever comes next really.
         return { state: undefined };
       }
-      newSubgraphPaths.push(...options);
+      let newContexts = contexts;
+      if (matchingContexts.length) {
+        const subgraph_name = path.path.tail.source;
+        const type_name = path.path.tail.type.name;
+        newContexts = new Map([...contexts]);
+        for (const matchingContext in matchingContexts) {
+          newContexts.set(
+            matchingContext,
+            {
+              subgraph_name,
+              type_name,
+            }
+          )
+        }
+      }
+
+      newSubgraphPathInfos.push(...options.map((p) => ({ path: p, contexts: newContexts })));
     }
     const newPath = this.supergraphPath.add(transition, supergraphEdge, noConditionsResolution);
-    if (newSubgraphPaths.length === 0) {
-      return { error: satisfiabilityError(newPath, this.subgraphPaths.map((p) => p.path), deadEnds) };
+    if (newSubgraphPathInfos.length === 0) {
+      return { error: satisfiabilityError(newPath, this.subgraphPathInfos.map((p) => p.path.path), deadEnds) };
     }
 
     const updatedState = new ValidationState(
       newPath,
-      newSubgraphPaths,
+      newSubgraphPathInfos,
       newOverrideConditions,
     );
 
@@ -524,12 +553,12 @@ export class ValidationState {
     // implementations so they never are a problem for this check and can be ignored.
     let hint: CompositionHint | undefined = undefined;
     if (
-      newSubgraphPaths.length > 1
+      newSubgraphPathInfos.length > 1
       && transition.kind === 'FieldCollection'
       && isAbstractType(newPath.tail.type)
       && context.isShareable(transition.definition)
     ) {
-      const filteredPaths = newSubgraphPaths.map((p) => p.path).filter((p) => isAbstractType(p.tail.type));
+      const filteredPaths = newSubgraphPathInfos.map((p) => p.path.path).filter((p) => isAbstractType(p.tail.type));
       if (filteredPaths.length > 1) {
         // We start our intersection by using all the supergraph types, both because it's a convenient "max" set to start our intersection,
         // but also because that means we will ignore @inaccessible types in our checks (which is probably not very important because
@@ -540,7 +569,7 @@ export class ValidationState {
         const runtimeTypesToSubgraphs = new MultiMap<string, string>();
         const runtimeTypesPerSubgraphs = new MultiMap<string, string>();
         let hasAllEmpty = true;
-        for (const path of newSubgraphPaths) {
+        for (const { path } of newSubgraphPathInfos) {
           const subgraph = path.path.tail.source;
           const typeNames = possibleRuntimeTypeNamesSorted(path.path);
           runtimeTypesPerSubgraphs.set(subgraph, typeNames);
@@ -579,8 +608,8 @@ export class ValidationState {
 
   currentSubgraphNames(): string[] {
     const subgraphs: string[] = [];
-    for (const path of this.subgraphPaths) {
-      const source = path.path.tail.source;
+    for (const pathInfo of this.subgraphPathInfos) {
+      const source = pathInfo.path.path.tail.source;
       if (!subgraphs.includes(source)) {
         subgraphs.push(source);
       }
@@ -588,23 +617,41 @@ export class ValidationState {
     return subgraphs;
   }
 
+  currentSubgraphContextKeys(): Set<string> {
+    const subgraphContextKeys: Set<string> = new Set();
+    for (const pathInfo of this.subgraphPathInfos) {
+      const subgraphName = pathInfo.path.path.tail.source;
+      const entryKeys = [];
+      const contexts = Array.from(pathInfo.contexts.entries());
+      contexts.sort((a, b) => a[0].localeCompare(b[0]));
+      for (const [context, { subgraph_name, type_name }] of contexts) {
+        entryKeys.push(`${context}=${subgraph_name}.${type_name}`);
+      }
+      subgraphContextKeys.add(
+        `${subgraphName}[${entryKeys.join(',')}]`
+      );
+    }
+    return subgraphContextKeys;
+  }
+
   currentSubgraphs(): { name: string, schema: Schema }[] {
-    if (this.subgraphPaths.length === 0) {
+    if (this.subgraphPathInfos.length === 0) {
       return [];
     }
-    const sources = this.subgraphPaths[0].path.graph.sources;
+    const sources = this.subgraphPathInfos[0].path.path.graph.sources;
     return this.currentSubgraphNames().map((name) => ({ name, schema: sources.get(name)!}));
   }
 
   toString(): string {
-    return `${this.supergraphPath} <=> [${this.subgraphPaths.map(s => s.toString()).join(', ')}]`;
+    return `${this.supergraphPath} <=> [${this.subgraphPathInfos.map(s => s.path.toString()).join(', ')}]`;
   }
 }
 
 // `maybeSuperset` is a superset (or equal) if it contains all of `other`'s
 // subgraphs and all of `other`'s labels (with matching conditions).
 function isSupersetOrEqual(maybeSuperset: VertexVisit, other: VertexVisit): boolean {
-  const includesAllSubgraphs = other.subgraphs.every((s) => maybeSuperset.subgraphs.includes(s));
+  const includesAllSubgraphs = [...other.subgraphContextKeys]
+    .every((s) => maybeSuperset.subgraphContextKeys.has(s));
   const includesAllOverrideConditions = [...other.overrideConditions.entries()].every(([label, value]) =>
     maybeSuperset.overrideConditions.get(label) === value
   );
@@ -613,7 +660,7 @@ function isSupersetOrEqual(maybeSuperset: VertexVisit, other: VertexVisit): bool
 }
 
 interface VertexVisit {
-  subgraphs: string[];
+  subgraphContextKeys: Set<string>;
   overrideConditions: Map<string, boolean>;
 }
 
@@ -667,7 +714,7 @@ class ValidationTraversal {
     const vertex = state.supergraphPath.tail;
 
     const currentVertexVisit: VertexVisit = {
-      subgraphs: state.currentSubgraphNames(),
+      subgraphContextKeys: state.currentSubgraphContextKeys(),
       overrideConditions: state.selectedOverrideConditions
     };
     const previousVisitsForVertex = this.previousVisits.getVertexState(vertex);
@@ -711,9 +758,12 @@ class ValidationTraversal {
         continue;
       }
 
+      const matchingContexts = edge.transition.kind === 'FieldCollection'
+        ? this.context.matchingContexts(edge.head.type.name)
+        : [];
 
       debug.group(() => `Validating supergraph edge ${edge}`);
-      const { state: newState, error, hint } = state.validateTransition(this.context, edge);
+      const { state: newState, error, hint } = state.validateTransition(this.context, edge, matchingContexts);
       if (error) {
         debug.groupEnd(`Validation error!`);
         this.validationErrors.push(error);
