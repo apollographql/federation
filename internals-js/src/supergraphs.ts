@@ -135,6 +135,9 @@ export class Supergraph {
     return new Supergraph(schema, options?.supportedFeatures, options?.validateSupergraph);
   }
 
+  static buildForTests(supergraphSdl: string | DocumentNode, validateSupergraph?: boolean) {
+    return Supergraph.build(supergraphSdl, { supportedFeatures: ROUTER_SUPPORTED_SUPERGRAPH_FEATURES, validateSupergraph });
+  }
   /**
    * The list of names/urls of the subgraphs contained in this subgraph.
    *

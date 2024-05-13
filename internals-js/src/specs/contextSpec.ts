@@ -43,6 +43,7 @@ export class ContextSpecDefinition extends FeatureDefinition {
       args: [{ name: 'name', type: (schema) => new NonNullType(schema.stringType())}],
       composes: true,
       repeatable: true,
+      supergraphSpecification: (fedVersion) => CONTEXT_VERSIONS.getMinimumRequiredVersion(fedVersion),
       staticArgumentTransform: (subgraph: Subgraph, args: {[key: string]: any}) => {
         const subgraphName = subgraph.name;
         return {

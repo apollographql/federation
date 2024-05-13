@@ -8875,7 +8875,7 @@ describe('@fromContext impacts on query planning', () => {
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     const [api, queryPlanner] = [
       result.schema!.toAPISchema(),
-      new QueryPlanner(Supergraph.build(result.supergraphSdl!)),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
     ];
     // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
     const operation = operationFromDocument(
@@ -8990,7 +8990,7 @@ describe('@fromContext impacts on query planning', () => {
     expect(result.errors).toBeUndefined();
     const [api, queryPlanner] = [
       result.schema!.toAPISchema(),
-      new QueryPlanner(Supergraph.build(result.supergraphSdl!)),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
     ];
     // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
     const operation = operationFromDocument(
@@ -9122,7 +9122,7 @@ describe('@fromContext impacts on query planning', () => {
     expect(result.errors).toBeUndefined();
     const [api, queryPlanner] = [
       result.schema!.toAPISchema(),
-      new QueryPlanner(Supergraph.build(result.supergraphSdl!)),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
     ];
     // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
     const operation = operationFromDocument(
@@ -9230,7 +9230,7 @@ describe('@fromContext impacts on query planning', () => {
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     const [api, queryPlanner] = [
       result.schema!.toAPISchema(),
-      new QueryPlanner(Supergraph.build(result.supergraphSdl!)),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
     ];
     // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
     const operation = operationFromDocument(
@@ -9300,7 +9300,7 @@ describe('@fromContext impacts on query planning', () => {
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     const [api, queryPlanner] = [
       result.schema!.toAPISchema(),
-      new QueryPlanner(Supergraph.build(result.supergraphSdl!)),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
     ];
     // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
     const operation = operationFromDocument(
@@ -9428,7 +9428,7 @@ describe('@fromContext impacts on query planning', () => {
     expect(result.errors).toBeUndefined();
     const [api, queryPlanner] = [
       result.schema!.toAPISchema(),
-      new QueryPlanner(Supergraph.build(result.supergraphSdl!)),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
     ];
     // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
     const operation = operationFromDocument(
@@ -9556,7 +9556,7 @@ describe('@fromContext impacts on query planning', () => {
     expect(result.errors).toBeUndefined();
     const [api, queryPlanner] = [
       result.schema!.toAPISchema(),
-      new QueryPlanner(Supergraph.build(result.supergraphSdl!)),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
     ];
     // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
     const operation = operationFromDocument(
