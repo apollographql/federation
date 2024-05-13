@@ -1,5 +1,12 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.8.0-connectors.1
+
+### Patch Changes
+
+- Updated dependencies [[`9ffa43237e7dc8dc932edfa93dc86dfd4f75f92e`](https://github.com/apollographql/federation/commit/9ffa43237e7dc8dc932edfa93dc86dfd4f75f92e)]:
+  - @apollo/federation-internals@2.8.0-connectors.1
+
 ## 2.8.0-connectors.0
 
 ### Patch Changes

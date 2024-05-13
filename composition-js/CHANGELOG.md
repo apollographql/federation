@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.8.0-connectors.1
+
+### Minor Changes
+
+- Add validations for the `@source` directive ([`9ffa43237e7dc8dc932edfa93dc86dfd4f75f92e`](https://github.com/apollographql/federation/commit/9ffa43237e7dc8dc932edfa93dc86dfd4f75f92e))
+
+### Patch Changes
+
+- Updated dependencies [[`9ffa43237e7dc8dc932edfa93dc86dfd4f75f92e`](https://github.com/apollographql/federation/commit/9ffa43237e7dc8dc932edfa93dc86dfd4f75f92e)]:
+  - @apollo/federation-internals@2.8.0-connectors.1
+  - @apollo/query-graphs@2.8.0-connectors.1
+
 ## 2.8.0-connectors.0
 
 ### Minor Changes
