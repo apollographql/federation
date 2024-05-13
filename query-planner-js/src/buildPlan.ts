@@ -4182,7 +4182,7 @@ function computeGroupsForTree(
     } else {
       // We want to preserve the order of the elements in the child, but the stack will reverse everything, so we iterate
       // in reverse order to counter-balance it.
-      for (const [edge, operation, conditions, child, contextToSelection] of tree.childElements(true)) {
+      for (const [edge, operation, conditions, child, contextToSelection, parameterToContext] of tree.childElements(true)) {
         if (isPathContext(operation)) {
           const newContext = operation;
           // The only 3 cases where we can take edge not "driven" by an operation is either when we resolve a key, resolve
@@ -4354,8 +4354,6 @@ function computeGroupsForTree(
           });
           assert(updatedOperation, () => `Extracting @defer from ${operation} should not have resulted in no operation`);
 
-          const { parameterToContext } = tree;
-
           const updated = {
             tree: child,
             group,
@@ -4450,10 +4448,6 @@ function computeGroupsForTree(
           // if we're going to start using context variables, every variable used must be set in a different parent
           // fetch group or else we need to create a new one
           if (parameterToContext && Array.from(parameterToContext.values()).some(({ contextId }) => updated.contextToConditionsGroups.get(contextId)?.[0] === group)) { 
-            // let's find the edge that will be used as an entry to the new type in the subgraph
-            // const keyResolutionEdge = dependencyGraph.federatedQueryGraph.outEdges(edge.head).find(e => e.transition.kind === 'KeyResolution');
-            // assert(keyResolutionEdge, () => `Could not find key resolution edge for ${edge.head.source}`);
-
             assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
             const newGroup = dependencyGraph.getOrCreateKeyFetchGroup({
               subgraphName: edge.tail.source,
