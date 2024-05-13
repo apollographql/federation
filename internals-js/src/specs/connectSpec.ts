@@ -176,6 +176,6 @@ export type ConnectDirectiveHTTP = {
 };
 
 export const CONNECT_VERSIONS = new FeatureDefinitions<ConnectSpecDefinition>(connectIdentity)
-  .add(new ConnectSpecDefinition(new FeatureVersion(0, 1), new FeatureVersion(2, 8)));
+  .add(new ConnectSpecDefinition(new FeatureVersion(0, 1), new FeatureVersion(2, 7)));
 
 registerKnownFeature(CONNECT_VERSIONS);

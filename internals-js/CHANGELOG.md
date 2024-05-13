@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.8.0-connectors.2
+
+### Minor Changes
+
+- Revert references to 2.8
+
 ## 2.8.0-connectors.1
 
 ### Minor Changes

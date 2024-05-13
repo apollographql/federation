@@ -1,5 +1,12 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.8.0-connectors.2
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.0-connectors.2
+
 ## 2.8.0-connectors.1
 
 ### Patch Changes

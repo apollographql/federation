@@ -1,5 +1,13 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.8.0-connectors.2
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.0-connectors.2
+  - @apollo/query-graphs@2.8.0-connectors.2
+
 ## 2.8.0-connectors.1
 
 ### Minor Changes
