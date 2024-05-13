@@ -131,10 +131,12 @@ Each node defined inside the `QueryPlan` node is one of the following:
 
 | Node | Description |
 |------|-------------|
-| [`Fetch`](#fetch-node) | Tells the gateway to execute a particular operation on a particular subgraph. |
-| [`Parallel`](#parallel-node) | Tells the gateway that the node's immediate children can be executed in parallel. |
-| [`Sequence`](#sequence-node) | Tells the gateway that the node's immediate children must be executed serially in the order listed. |
-| [`Flatten`](#flatten-node) | Tells the gateway to merge the data returned by this node's child `Fetch` node with data previously returned in the current `Sequence`. |
+| [`Fetch`](#fetch-node) | Tells the router to execute a particular operation on a particular subgraph. |
+| [`Parallel`](#parallel-node) | Tells the router that the node's immediate children can be executed in parallel. |
+| [`Sequence`](#sequence-node) | Tells the router that the node's immediate children must be executed serially in the order listed. |
+| [`Flatten`](#flatten-node) | Tells the router to merge the data returned by this node's child `Fetch` node with data previously returned in the current `Sequence`. |
+| [`Defer`](#defer-node) | Tells the router about one or more `@defer` blocks at the same nested level. It contains a primary block and an array of deffered blocks. |
+| [`Condition`](#condition-node) |  |
 
 Each of these is described in further detail below.
 
@@ -443,6 +445,16 @@ You can view the query plan for a particular operation in any of the following w
 - [In the GraphOS Studio Explorer](/graphos/explorer/additional-features#query-plans-for-supergraphs)
     - Note that you must [register your federated graph](./managed-federation/setup/) with GraphOS to view query plans in the Explorer.
 - As direct output from the `@apollo/gateway` library (see below)
+
+### Defer node
+A `Defer` node corresponds to one or more `@defer` at the same level of "nestedness" in the planned query.
+
+It contains a "primary block" and an array of "deferred blocks". The "primary block represents the part of the query that is not deferred (so the part of the query up until we reach the @defer(s) this handle), while each "deferred block" correspond to the deferred part of one of the `@defer` handle by the node.
+
+Read more about how `@defer` operatates at [Apollo Router support for @defer](/router/executing-operations/defer-support/).
+
+### Condition node
+A `Condition` node is used to split a plan into an if-else branch. This is commonly used for `@skip` and `@include` to have a query plan that can select different nodes based on the provided runtime variables.
 
 ### Outputting query plans with headers
 
