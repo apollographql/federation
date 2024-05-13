@@ -587,7 +587,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     parameterToContext[parameterToContext.length-1] = new Map();
     
     for (const [_, entry] of conditionsResolution.contextMap) {
-      const idx = edgeConditions.length - entry.level -1;
+      const idx = edgeConditions.length - entry.levelsInQueryPath -1;
       assert(idx >= 0, 'calculated condition index must be positive');
       
       
@@ -599,7 +599,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       }
       contextToSelection[idx]?.set(entry.id, entry.selectionSet);
       
-      parameterToContext[parameterToContext.length-1]?.set(entry.paramName, { contextId: entry.id, relativePath: Array(entry.level).fill(".."), selectionSet: entry.selectionSet, subgraphArgType: entry.argType } );
+      parameterToContext[parameterToContext.length-1]?.set(entry.paramName, { contextId: entry.id, relativePath: Array(entry.levelsInDataPath).fill(".."), selectionSet: entry.selectionSet, subgraphArgType: entry.argType } );
     }
     return {
       edgeConditions,
@@ -970,7 +970,8 @@ export type ConditionResolver =
 
 
 type ContextMapEntry = {
-  level: number, // level 0 is on the current edge, each incremented number refers to an additional edge on the OpPathTree
+  levelsInDataPath: number,
+  levelsInQueryPath: number,
   pathTree?: OpPathTree,
   selectionSet: SelectionSet,
   inboundEdge: Edge,
@@ -1903,12 +1904,11 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     // if one of the conditions fails to satisfy, it's ok to bail
     let someSelectionUnsatisfied = false;
     for (const cxt of requiredContexts) {
-      let level = 1;
+      let levelsInQueryPath = 1;
+      let levelsInDataPath = 1;
       for (const [e, trigger] of [...path].reverse()) {
+        const parentType = getFieldParentType(trigger);
         if (e !== null && !contextMap.has(cxt.context) && !someSelectionUnsatisfied) {
-          // const orig = e.head.type;
-          // const origMatches = cxt.typesWithContextSet.has(orig.name);
-          const parentType = getFieldParentType(trigger);
           
           const matches = Array.from(cxt.typesWithContextSet).some(t => {
             if (parentType) {
@@ -1947,7 +1947,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
             
             const id = argIndices.get(cxt.coordinate);
             assert(id !== undefined, () => `Expected to find arg index for ${cxt.coordinate}`);
-            contextMap.set(cxt.context, { selectionSet, level, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, id, argType: cxt.argType });
+            contextMap.set(cxt.context, { selectionSet, levelsInDataPath, levelsInQueryPath, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, id, argType: cxt.argType });
             someSelectionUnsatisfied = someSelectionUnsatisfied || !resolution.satisfied;
             if (resolution.cost === -1 || totalCost === -1) {
               totalCost = -1;
@@ -1956,7 +1956,10 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
             }
           }
         }
-        level += 1;
+        levelsInQueryPath += 1;
+        if (parentType) {
+          levelsInDataPath += 1;
+        }
       }
     }
     

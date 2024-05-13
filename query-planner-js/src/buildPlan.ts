@@ -4507,8 +4507,17 @@ function computeGroupsForTree(
               deferContext: updatedDeferContext,
               contextToConditionsGroups,
             });
-            
           } else {
+            // in this case we can just continue with the current group, but we need to add the context rewrites
+            if (parameterToContext) {
+              for (const [_, { selectionSet, relativePath, contextId, subgraphArgType }] of parameterToContext) {
+                updated.group.addInputContext(contextId, subgraphArgType);
+                const keyRenamers = selectionSetAsKeyRenamers(selectionSet, relativePath, contextId);
+                for (const keyRenamer of keyRenamers) {
+                  group.addContextRenamer(keyRenamer);
+                }
+              }
+            }
             stack.push(updated);
           }
         }
