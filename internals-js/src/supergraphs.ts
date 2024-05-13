@@ -20,6 +20,25 @@ export const DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
   'https://specs.apollo.dev/tag/v0.3',
   'https://specs.apollo.dev/inaccessible/v0.1',
   'https://specs.apollo.dev/inaccessible/v0.2',
+]);
+
+export const ROUTER_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
+  'https://specs.apollo.dev/core/v0.1',
+  'https://specs.apollo.dev/core/v0.2',
+  'https://specs.apollo.dev/join/v0.1',
+  'https://specs.apollo.dev/join/v0.2',
+  'https://specs.apollo.dev/join/v0.3',
+  'https://specs.apollo.dev/join/v0.4',
+  'https://specs.apollo.dev/join/v0.5',
+  'https://specs.apollo.dev/tag/v0.1',
+  'https://specs.apollo.dev/tag/v0.2',
+  'https://specs.apollo.dev/tag/v0.3',
+  'https://specs.apollo.dev/inaccessible/v0.1',
+  'https://specs.apollo.dev/inaccessible/v0.2',
+  'https://specs.apollo.dev/authenticated/v0.1',
+  'https://specs.apollo.dev/requiresScopes/v0.1',
+  'https://specs.apollo.dev/policy/v0.1',
+  'https://specs.apollo.dev/source/v0.1',
   'https://specs.apollo.dev/context/v0.1',
 ]);
 
