@@ -885,7 +885,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
    * context conditions to the edge corresponding to the argument's field
   */
   const subgraphToArgs: Map<string, string[]> = new Map();
-  const subgraphToArgIndicies: Map<string, Map<string, string>> = new Map();
+  const subgraphToArgIndices: Map<string, Map<string, string>> = new Map();
   
   for (const [i, subgraph] of subgraphs.entries()) {
     const subgraphSchema = schemas[i];
@@ -933,10 +933,10 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
       for (let idx=0; idx < args.length; idx++) {
         argToIndex.set(args[idx], `contextualArgument_${i}_${idx}`);
       }
-      subgraphToArgIndicies.set(subgraphName, argToIndex);
+      subgraphToArgIndices.set(subgraphName, argToIndex);
     }
     
-    builder.setContextMaps(subgraphToArgs, subgraphToArgIndicies);
+    builder.setContextMaps(subgraphToArgs, subgraphToArgIndices);
     
     simpleTraversal(
       subgraph,
@@ -1123,7 +1123,7 @@ class GraphBuilder {
   private readonly rootVertices: MapWithCachedArrays<SchemaRootKind, RootVertex> = new MapWithCachedArrays();
   private readonly sources: Map<string, Schema> = new Map();
   private subgraphToArgs: Map<string, string[]> = new Map();
-  private subgraphToArgIndicies: Map<string, Map<string, string>> = new Map();
+  private subgraphToArgIndices: Map<string, Map<string, string>> = new Map();
 
   constructor(verticesCount?: number) {
     this.vertices = verticesCount ? new Array(verticesCount) : [];
@@ -1301,12 +1301,12 @@ class GraphBuilder {
       this.rootVertices,
       this.sources,
       this.subgraphToArgs,
-      this.subgraphToArgIndicies);
+      this.subgraphToArgIndices);
   }
   
-  setContextMaps(subgraphToArgs: Map<string, string[]>, subgraphToArgIndicies: Map<string, Map<string, string>>) {
+  setContextMaps(subgraphToArgs: Map<string, string[]>, subgraphToArgIndices: Map<string, Map<string, string>>) {
     this.subgraphToArgs = subgraphToArgs;
-    this.subgraphToArgIndicies = subgraphToArgIndicies;
+    this.subgraphToArgIndices = subgraphToArgIndices;
   }
 }
 
