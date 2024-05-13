@@ -1729,6 +1729,11 @@ function advancePathWithDirectTransition<V extends Vertex>(
             const parentTypeInSubgraph = path.graph.sources.get(edge.head.source)!.type(field.parent.name)! as CompositeType;
             const details = conditionResolution.unsatisfiedConditionReason === UnsatisfiedConditionReason.NO_POST_REQUIRE_KEY
               ? `@require condition on field "${field.coordinate}" can be satisfied but missing usable key on "${parentTypeInSubgraph}" in subgraph "${edge.head.source}" to resume query`
+              : conditionResolution.unsatisfiedConditionReason === UnsatisfiedConditionReason.NO_CONTEXT_SET
+              ? `could not find a match for required context for field "${field.coordinate}"`
+              // TODO: This isn't necessarily just because an @requires
+              // condition was unsatisified, but could also be because a
+              // @fromContext condition was unsatisified.
               : `cannot satisfy @require conditions on field "${field.coordinate}"${warnOnKeyFieldsMarkedExternal(parentTypeInSubgraph)}`;
             deadEnds.push({
               sourceSubgraph: edge.head.source,
