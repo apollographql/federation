@@ -8903,6 +8903,7 @@ describe('@fromContext impacts on query planning', () => {
                 u {
                   __typename
                   id
+                  b
                 }
               }
             }
@@ -9327,6 +9328,7 @@ describe('@fromContext impacts on query planning', () => {
                 u {
                   __typename
                   id
+                  b
                 }
               }
             }
@@ -9455,6 +9457,7 @@ describe('@fromContext impacts on query planning', () => {
                 u {
                   __typename
                   id
+                  b
                 }
               }
             }
@@ -9591,6 +9594,7 @@ describe('@fromContext impacts on query planning', () => {
                   u {
                     __typename
                     id
+                    b
                   }
                 }
                 ... on B {
@@ -9598,6 +9602,7 @@ describe('@fromContext impacts on query planning', () => {
                   u {
                     __typename
                     id
+                    b
                   }
                 }
               }
