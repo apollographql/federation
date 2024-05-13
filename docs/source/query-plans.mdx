@@ -136,7 +136,7 @@ Each node defined inside the `QueryPlan` node is one of the following:
 | [`Sequence`](#sequence-node) | Tells the router that the node's immediate children must be executed serially in the order listed. |
 | [`Flatten`](#flatten-node) | Tells the router to merge the data returned by this node's child `Fetch` node with data previously returned in the current `Sequence`. |
 | [`Defer`](#defer-node) | Tells the router about one or more `@defer` blocks at the same nested level. It contains a primary block and an array of deffered blocks. |
-| [`Condition`](#condition-node) |  |
+| [`Condition`](#condition-node) | Tells the router to split a query plan into two possible paths that can change at runtime. |
 
 Each of these is described in further detail below.
 
