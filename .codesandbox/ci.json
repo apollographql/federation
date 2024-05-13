@@ -1,5 +1,5 @@
 {
-  "buildCommand": "compile",
+  "buildCommand": "compile:codesandbox",
   "packages": [
     "composition-js",
     "gateway-js",
