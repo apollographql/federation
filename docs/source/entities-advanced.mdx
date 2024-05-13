@@ -39,19 +39,7 @@ type Organization {
 
 <Note>
 
-Although nested fields are most commonly used in compound keys, you can also use a nested field as a single `@key` field.
-For example, the previous `User` entity `@key` doesn't make much sense without including the user `id`:
-
-```graphql {1} title="Users subgraph"
-type User @key(fields: "organization { id }") {
-  id: ID!
-  organization: Organization!
-}
-
-type Organization {
-  id: ID!
-}
-```
+Though nested fields are most commonly used in compound keys, you can also use a nested field as a single `@key` field.
 
 </Note>
 
