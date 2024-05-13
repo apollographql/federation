@@ -21,11 +21,9 @@ import {
   Directive,
   DirectiveTargetElement,
   FieldDefinition,
-  InterfaceType,
   isCompositeType,
   isInterfaceType,
   isNullableType,
-  ObjectType,
   runtimeTypesIntersects,
   Schema,
   SchemaRootKind,
@@ -234,13 +232,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       };
     });
   }
-
-
-  appliesTo(type: ObjectType | InterfaceType): boolean {
-    const definition = type.field(this.name);
-    return !!definition && this.selects(definition);
-  }
-
+  
   selects(
     definition: FieldDefinition<any>,
     assumeValid: boolean = false,
