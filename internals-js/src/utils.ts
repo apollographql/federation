@@ -451,3 +451,28 @@ export function mergeMapOrNull<K,V>(m1: Map<K, V> | null, m2: Map<K, V> | null):
   }
   return new Map<K, V>([...m1, ...m2]);
 }
+
+export function composeSets<T>(s1: Set<T> | null, s2: Set<T> | null): Set<T> | null {
+  if (!s1 && !s2) {
+    return null;
+  }
+  const result = new Set<T>();
+  s1?.forEach(v => result.add(v));
+  s2?.forEach(v => result.add(v));
+  return result;
+}
+
+export function setsEqual<T>(s1: Set<T> | null, s2: Set<T> | null): boolean {
+  if (!s1 && !s2) {
+    return true;
+  }
+  if (!s1 || !s2 || s1.size !== s2.size) {
+    return false;
+  }
+  for (const key of s1) {
+    if (!s2.has(key)) {
+      return false;
+    }
+  }
+  return true;
+}

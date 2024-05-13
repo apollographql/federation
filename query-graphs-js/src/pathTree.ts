@@ -1,4 +1,4 @@
-import { arrayEquals, assert, copyWitNewLength, mergeMapOrNull, SelectionSet } from "@apollo/federation-internals";
+import { arrayEquals, assert, composeSets, copyWitNewLength, mergeMapOrNull, SelectionSet, setsEqual } from "@apollo/federation-internals";
 import { OpGraphPath, OpTrigger, PathIterator, ContextAtUsageEntry } from "./graphPath";
 import { Edge, QueryGraph, RootVertex, isRootVertex, Vertex } from "./querygraph";
 import { isPathContext } from "./pathContext";
@@ -20,12 +20,13 @@ type Child<TTrigger, RV extends Vertex, TNullEdge extends null | never> = {
   index: number | TNullEdge,
   trigger: TTrigger,
   conditions: OpPathTree | null,
-  tree: PathTree<TTrigger, RV, TNullEdge>
+  tree: PathTree<TTrigger, RV, TNullEdge>,
+  contextToSelection: Set<string> | null,
 }
 
 function findTriggerIdx<TTrigger, TElements>(
   triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
-  forIndex: [TTrigger, OpPathTree | null, TElements, Map<string, SelectionSet> | null, Map<string, ContextAtUsageEntry> | null][] | [TTrigger, OpPathTree | null, TElements][],
+  forIndex: [TTrigger, OpPathTree | null, TElements, Set<string> | null, Map<string, ContextAtUsageEntry> | null][] | [TTrigger, OpPathTree | null, TElements][],
   trigger: TTrigger
 ): number {
   for (let i = 0; i < forIndex.length; i++) {
@@ -48,7 +49,6 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     readonly localSelections: readonly SelectionSet[] | undefined,
     private readonly triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
     private readonly childs: Child<TTrigger, Vertex, TNullEdge>[],
-    readonly contextToSelection: Map<string, SelectionSet> | null,
     public parameterToContext: Map<string, ContextAtUsageEntry> | null,
   ) {
   }
@@ -58,7 +58,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     root: RV,
     triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean
   ): PathTree<TTrigger, RV, TNullEdge> {
-    return new PathTree(graph, root, undefined, triggerEquality, [], null, null);
+    return new PathTree(graph, root, undefined, triggerEquality, [], null);
   }
 
   static createOp<RV extends Vertex = Vertex>(graph: QueryGraph, root: RV): OpPathTree<RV> {
@@ -88,7 +88,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
   ): PathTree<TTrigger, RV, TNullEdge> {
     const maxEdges = graph.outEdgesCount(currentVertex);
     // We store 'null' edges at `maxEdges` index
-    const forEdgeIndex: [TTrigger, OpPathTree | null, IterAndSelection<TTrigger, TNullEdge>[], Map<string, SelectionSet> | null, Map<string, ContextAtUsageEntry> | null][][] = new Array(maxEdges + 1);
+    const forEdgeIndex: [TTrigger, OpPathTree | null, IterAndSelection<TTrigger, TNullEdge>[], Set<string> | null, Map<string, ContextAtUsageEntry> | null][][] = new Array(maxEdges + 1);
     const newVertices: Vertex[] = new Array(maxEdges);
     const order: number[] = new Array(maxEdges + 1);
     let currentOrder = 0;
@@ -118,7 +118,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
           const existingCond = existing[1];
           const mergedConditions = existingCond ? (conditions ? existingCond.mergeIfNotEqual(conditions) : existingCond) : conditions;
           const newPaths = existing[2];
-          const mergedContextToSelection = mergeMapOrNull(existing[3], contextToSelection);
+          const mergedContextToSelection = composeSets(existing[3], contextToSelection);
           const mergedParameterToContext = mergeMapOrNull(existing[4], parameterToContext);
           newPaths.push(ps);
           forIndex[triggerIdx] = [trigger, mergedConditions, newPaths, mergedContextToSelection, mergedParameterToContext];
@@ -132,7 +132,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       }
     }
 
-    let mergedContextToSelection: Map<string, SelectionSet> | null = null;
+    let mergedContextToSelection: Set<string> | null = null;
     let mergedParameterToContext: Map<string, ContextAtUsageEntry> | null = null;
     
     const childs: Child<TTrigger, Vertex, TNullEdge>[] = new Array(totalChilds);
@@ -143,18 +143,19 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       const newVertex = index === null ? currentVertex : newVertices[edgeIndex];
       const values = forEdgeIndex[edgeIndex];
       for (const [trigger, conditions, subPathAndSelections, contextToSelection, parameterToSelection] of values) {
-        mergedContextToSelection = mergeMapOrNull(mergedContextToSelection, contextToSelection);
+        mergedContextToSelection = composeSets(mergedContextToSelection, contextToSelection);
         mergedParameterToContext = mergeMapOrNull(mergedParameterToContext, parameterToSelection);
         childs[idx++] = {
           index,
           trigger,
           conditions,
           tree: this.createFromPaths(graph, triggerEquality, newVertex, subPathAndSelections),
+          contextToSelection: mergedContextToSelection,
         };
       }
     }
     assert(idx === totalChilds, () => `Expected to have ${totalChilds} childs but only ${idx} added`);
-    return new PathTree<TTrigger, RV, TNullEdge>(graph, currentVertex, localSelections, triggerEquality, childs, mergedContextToSelection, mergedParameterToContext); // TODO: I think this is right?
+    return new PathTree<TTrigger, RV, TNullEdge>(graph, currentVertex, localSelections, triggerEquality, childs, mergedParameterToContext); // TODO: I think this is right?
   }
 
   childCount(): number {
@@ -165,7 +166,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     return this.childCount() === 0;
   }
 
-  *childElements(reverseOrder: boolean = false): Generator<[Edge | TNullEdge, TTrigger, OpPathTree | null, PathTree<TTrigger, Vertex, TNullEdge>], void, undefined> {
+  *childElements(reverseOrder: boolean = false): Generator<[Edge | TNullEdge, TTrigger, OpPathTree | null, PathTree<TTrigger, Vertex, TNullEdge>, Set<string> | null], void, undefined> {
     if (reverseOrder) {
       for (let i = this.childs.length - 1; i >= 0; i--) {
         yield this.element(i);
@@ -177,13 +178,14 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     }
   }
 
-  private element(i: number): [Edge | TNullEdge, TTrigger, OpPathTree | null, PathTree<TTrigger, Vertex, TNullEdge>] {
+  private element(i: number): [Edge | TNullEdge, TTrigger, OpPathTree | null, PathTree<TTrigger, Vertex, TNullEdge>, Set<string> | null] {
     const child = this.childs[i];
     return [
       (child.index === null ? null : this.graph.outEdge(this.vertex, child.index)) as Edge | TNullEdge,
       child.trigger,
       child.conditions,
-      child.tree
+      child.tree,
+      child.contextToSelection,
     ];
   }
 
@@ -194,7 +196,8 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       index: c1.index,
       trigger: c1.trigger,
       conditions: cond1 ? (cond2 ? cond1.mergeIfNotEqual(cond2) : cond1) : cond2,
-      tree: c1.tree.merge(c2.tree)
+      tree: c1.tree.merge(c2.tree),
+      contextToSelection: composeSets(c1.contextToSelection, c2.contextToSelection),
     };
   }
 
@@ -243,7 +246,6 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     const newSize = thisSize + countToAdd;
     const newChilds = copyWitNewLength(this.childs, newSize);
     let addIdx = thisSize;
-    const mergedContextToSelection = mergeMapOrNull(this.contextToSelection, other.contextToSelection);
     const mergedParameterToContext = mergeMapOrNull(this.parameterToContext, other.parameterToContext);
 
     for (let i = 0; i < other.childs.length; i++) {
@@ -256,7 +258,7 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
     }
     assert(addIdx === newSize, () => `Expected ${newSize} childs but only got ${addIdx}`);
 
-    return new PathTree(this.graph, this.vertex, localSelections, this.triggerEquality, newChilds, mergedContextToSelection, mergedParameterToContext);
+    return new PathTree(this.graph, this.vertex, localSelections, this.triggerEquality, newChilds, mergedParameterToContext);
   }
 
   private equalsSameRoot(that: PathTree<TTrigger, RV, TNullEdge>): boolean {
@@ -271,29 +273,9 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
         && c1.trigger === c2.trigger
         && (c1.conditions ? (c2.conditions ? c1.conditions.equalsSameRoot(c2.conditions) : false) : !c2.conditions)
         && c1.tree.equalsSameRoot(c2.tree)
-        && this.contextToSelectionEquals(that)
+        && setsEqual(c1.contextToSelection, c2.contextToSelection)
         && this.parameterToContextEquals(that);
     });    
-  }
-
-  private contextToSelectionEquals(that: PathTree<TTrigger, RV, TNullEdge>): boolean {
-    const thisKeys = Array.from(this.contextToSelection?.keys() ?? []);
-    const thatKeys = Array.from(that.contextToSelection?.keys() ?? []);
-    
-    if (thisKeys.length !== thatKeys.length) {
-      return false; 
-    }
-    
-    for (const key of thisKeys) {
-      const thisSelection = this.contextToSelection!.get(key);
-      const thatSelection = that.contextToSelection!.get(key);
-      assert(thisSelection, () => `Expected to have a selection for key ${key}`);
-      
-      if (!thatSelection || !thisSelection.equals(thatSelection)) {
-        return false;
-      }
-    }
-    return false;
   }
 
   private parameterToContextEquals(that: PathTree<TTrigger, RV, TNullEdge>): boolean {
@@ -334,9 +316,8 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
 
     const localSelections = this.mergeLocalSelectionsWith(other);
     const newChilds = this.childs.concat(other.childs);
-    const contextToSelection = mergeMapOrNull(this.contextToSelection, other.contextToSelection);
     const parameterToContext = mergeMapOrNull(this.parameterToContext, other.parameterToContext);
-    return new PathTree(this.graph, this.vertex, localSelections, this.triggerEquality, newChilds, contextToSelection, parameterToContext);
+    return new PathTree(this.graph, this.vertex, localSelections, this.triggerEquality, newChilds, parameterToContext);
   }
 
   private findIndex(trigger: TTrigger, edgeIndex: number | TNullEdge): number {

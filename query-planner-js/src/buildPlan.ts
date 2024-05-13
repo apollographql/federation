@@ -4182,7 +4182,7 @@ function computeGroupsForTree(
     } else {
       // We want to preserve the order of the elements in the child, but the stack will reverse everything, so we iterate
       // in reverse order to counter-balance it.
-      for (const [edge, operation, conditions, child] of tree.childElements(true)) {
+      for (const [edge, operation, conditions, child, contextToSelection] of tree.childElements(true)) {
         if (isPathContext(operation)) {
           const newContext = operation;
           // The only 3 cases where we can take edge not "driven" by an operation is either when we resolve a key, resolve
@@ -4379,9 +4379,9 @@ function computeGroupsForTree(
             updated.group = requireResult.group;
             updated.path = requireResult.path;
             
-            if (tree.contextToSelection) {
+            if (contextToSelection) {
               const newContextToConditionsGroups = new Map<string, FetchGroup[]>();
-              for (const [context] of tree.contextToSelection) {
+              for (const context of contextToSelection) {
                 newContextToConditionsGroups.set(context, [group]);
               }
               updated.contextToConditionsGroups = newContextToConditionsGroups;
@@ -4397,9 +4397,9 @@ function computeGroupsForTree(
               initialContextsToConditionsGroups: contextToConditionsGroups,
             });
 
-            if (tree.contextToSelection) {
+            if (contextToSelection) {
               const newContextToConditionsGroups = new Map<string, FetchGroup[]>();
-              for (const [context] of tree.contextToSelection) {
+              for (const context of contextToSelection) {
                 newContextToConditionsGroups.set(context, [group, ...conditionsGroups]);
               }
               updated.contextToConditionsGroups = newContextToConditionsGroups;

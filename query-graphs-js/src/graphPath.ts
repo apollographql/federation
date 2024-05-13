@@ -176,13 +176,13 @@ type PathProps<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | ne
   readonly deferOnTail?: DeferDirectiveArgs,
   
   /** We may have a map of selections that get mapped to a context */
-  readonly contextToSelection: readonly (Map<string, SelectionSet> | null)[],
+  readonly contextToSelection: readonly (Set<string> | null)[],
   
   /** This parameter is for mapping contexts back to the parameter used to collect the field */
   readonly parameterToContext: readonly (Map<string, ContextAtUsageEntry> | null)[],
 }
 
-export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> implements Iterable<[Edge | TNullEdge, TTrigger, OpPathTree | null, Map<string, SelectionSet> | null, Map<string, ContextAtUsageEntry> | null]> {
+export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> implements Iterable<[Edge | TNullEdge, TTrigger, OpPathTree | null, Set<string> | null, Map<string, ContextAtUsageEntry> | null]> {
   private constructor(
     private readonly props: PathProps<TTrigger, RV, TNullEdge>,
   ) {
@@ -384,7 +384,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     return {
       currentIndex: 0,
       currentVertex: this.root,
-      next(): IteratorResult<[Edge | TNullEdge, TTrigger, OpPathTree | null, Map<string, SelectionSet> | null, Map<string, ContextAtUsageEntry> | null]> {
+      next(): IteratorResult<[Edge | TNullEdge, TTrigger, OpPathTree | null, Set<string> | null, Map<string, ContextAtUsageEntry> | null]> {
         if (this.currentIndex >= path.size) {
           return { done: true, value: undefined };
         }
@@ -569,7 +569,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
    */
   private mergeEdgeConditionsWithResolution(conditionsResolution: ConditionResolution): {
     edgeConditions: (OpPathTree | null)[],
-    contextToSelection: (Map<string, SelectionSet> | null)[],
+    contextToSelection: (Set<string> | null)[],
     parameterToContext: (Map<string, ContextAtUsageEntry> | null)[],
   }{
     const edgeConditions = this.props.edgeConditions.concat(conditionsResolution.pathTree ?? null);
@@ -595,9 +595,9 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
         edgeConditions[idx] = edgeConditions[idx]?.merge(entry.pathTree) ?? entry.pathTree;
       }
       if (contextToSelection[idx] === null) {
-        contextToSelection[idx] = new Map<string, SelectionSet>();
+        contextToSelection[idx] = new Set();
       }
-      contextToSelection[idx]?.set(entry.id, entry.selectionSet);
+      contextToSelection[idx]?.add(entry.id);
       
       parameterToContext[parameterToContext.length-1]?.set(entry.paramName, { contextId: entry.id, relativePath: Array(entry.levelsInDataPath).fill(".."), selectionSet: entry.selectionSet, subgraphArgType: entry.argType } );
     }
@@ -895,7 +895,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
   }
 }
 
-export interface PathIterator<TTrigger, TNullEdge extends null | never = never> extends Iterator<[Edge | TNullEdge, TTrigger, OpPathTree | null, Map<string, SelectionSet> | null, Map<string, ContextAtUsageEntry> | null]> {
+export interface PathIterator<TTrigger, TNullEdge extends null | never = never> extends Iterator<[Edge | TNullEdge, TTrigger, OpPathTree | null, Set<string> | null, Map<string, ContextAtUsageEntry> | null]> {
   currentIndex: number,
   currentVertex: Vertex
 }
