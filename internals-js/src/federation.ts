@@ -1309,10 +1309,6 @@ export class FederationMetadata {
     return this.schema.type(this.federationTypeNameInSchema(FederationTypeName.FIELD_SET)) as ScalarType;
   }
 
-  singleFieldSelectionType(): ScalarType {
-    return this.schema.type(this.federationTypeNameInSchema(FederationTypeName.FIELD_VALUE)) as ScalarType;
-  }
-
   allFederationTypes(): NamedType[] {
     // We manually include the `_Any`, `_Service` and `Entity` types because there are not strictly
     // speaking part of the federation @link spec.

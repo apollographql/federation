@@ -168,13 +168,13 @@ export class JoinSpecDefinition extends FeatureDefinition {
       // set context
       // there are no renames that happen within the join spec, so this is fine
       // note that join spec will only used in supergraph schema
-      const requireType = schema.addType(new InputObjectType('join__ContextArgument'));
-      requireType.addField('name', new NonNullType(schema.stringType()));
-      requireType.addField('type', new NonNullType(schema.stringType()));
-      requireType.addField('context', new NonNullType(schema.stringType()));
-      requireType.addField('selection', new NonNullType(fieldValue));
+      const contextArgumentsType = schema.addType(new InputObjectType('join__ContextArgument'));
+      contextArgumentsType.addField('name', new NonNullType(schema.stringType()));
+      contextArgumentsType.addField('type', new NonNullType(schema.stringType()));
+      contextArgumentsType.addField('context', new NonNullType(schema.stringType()));
+      contextArgumentsType.addField('selection', new NonNullType(fieldValue));
 
-      joinField.addArgument('contextArguments', new ListType(new NonNullType(requireType)));
+      joinField.addArgument('contextArguments', new ListType(new NonNullType(contextArgumentsType)));
     }
 
     if (this.isV01()) {

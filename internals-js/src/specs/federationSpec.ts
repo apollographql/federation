@@ -25,7 +25,7 @@ export const federationIdentity = 'https://specs.apollo.dev/federation';
 
 export enum FederationTypeName {
   FIELD_SET = 'FieldSet',
-  FIELD_VALUE = 'FieldValue',
+  CONTEXT_FIELD_VALUE = 'ContextFieldValue',
 }
 
 export enum FederationDirectiveName {
