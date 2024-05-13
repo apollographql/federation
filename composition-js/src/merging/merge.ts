@@ -2654,16 +2654,15 @@ class Merger {
     // TODO: we currently "only" merge together applications that have the exact same arguments (with defaults expanded however),
     // but when an argument is an input object type, we should (?) ignore those fields that will not be included in the supergraph
     // due the intersection merging of input types, otherwise the merged value may be invalid for the supergraph.
-    let perSource: Directive[][] = [];
-    for (const source of sources) {
-      if (!source) {
-        continue;
+    let perSource: { directives: Directive[], subgraphIndex: number}[] = [];
+    sources.forEach((source, index) => {
+      if (source) {
+        const directives: Directive[] = source.appliedDirectivesOf(name);
+        if (directives.length > 0) {
+          perSource.push({ directives, subgraphIndex: index });
+        }
       }
-      const directives: Directive[] = source.appliedDirectivesOf(name);
-      if (directives.length > 0) {
-        perSource.push(directives);
-      }
-    }
+    });
 
     if (perSource.length === 0) {
       return;
@@ -2674,16 +2673,17 @@ class Merger {
     if (dest.schema().directive(name)?.repeatable) {
       // For repeatable directives, we simply include each application found but with exact duplicates removed
       while (perSource.length > 0) {
-        const directive = this.pickNextDirective(perSource);
+        const directive = perSource[0].directives[0];
+        const subgraphIndex = perSource[0].subgraphIndex;
         
-        const transformedArgs = directiveInSupergraph && directiveInSupergraph.staticArgumentTransform && directiveInSupergraph.staticArgumentTransform(this.subgraphs.values()[0], directive.arguments(false));
+        const transformedArgs = directiveInSupergraph && directiveInSupergraph.staticArgumentTransform && directiveInSupergraph.staticArgumentTransform(this.subgraphs.values()[subgraphIndex], directive.arguments(false));
         dest.applyDirective(directive.name, transformedArgs ?? directive.arguments(false));
         // We remove every instances of this particular application. That is we remove any other applicaiton with
         // the same arguments. Note that when doing so, we include default values. This allows "merging" 2 applications
         // when one rely on the default value while another don't but explicitely uses that exact default value.
         perSource = perSource
-          .map(ds => ds.filter(d => !this.sameDirectiveApplication(directive, d)))
-          .filter(ds => ds.length);
+          .map(ds => ({ directives: ds.directives.filter(d => !this.sameDirectiveApplication(directive, d)), subgraphIndex: ds.subgraphIndex }))
+          .filter(ds => ds.directives.length);
       }
     } else {
       // When non-repeatable, we use a similar strategy than for descriptions: we count the occurence of each _different_ application (different arguments)
@@ -2692,7 +2692,7 @@ class Merger {
       // we'll never warn, but this is handled by the general code below.
       const differentApplications: Directive[] = [];
       const counts: number[] = [];
-      for (const source of perSource) {
+      for (const { directives: source } of perSource) {
         assert(source.length === 1, () => `Non-repeatable directive shouldn't have multiple application ${source} in a subgraph`)
         const application = source[0];
         const idx = differentApplications.findIndex((existing) => this.sameDirectiveApplication(existing, application));
@@ -2744,10 +2744,6 @@ class Merger {
         }
       }
     }
-  }
-
-  private pickNextDirective(directives: Directive[][]): Directive {
-    return directives[0][0];
   }
 
   private sameDirectiveApplication(application1: Directive, application2: Directive): boolean {
