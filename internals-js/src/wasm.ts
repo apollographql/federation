@@ -17,9 +17,6 @@ import {aggregateError} from "./error";
 import {ErrorLocation, SourceDirective} from "../wasm/node";
 import {ASTNode, ConstValueNode, SchemaExtensionNode, StringValueNode} from "graphql";
 
-const {validate_connect_directives} =
-    require('../wasm/node') as typeof import('../wasm/node');
-
 /**
  * @throws AggregateGraphQLError
  */
@@ -49,6 +46,8 @@ function hasConnectDirectives(schema: Schema): boolean {
 function validateConnectDirectives(ast: DocumentNode): GraphQLError[] {
     // TODO: pass the _original_ source, not the one with added federation stuff (otherwise positions will be wrong)
     // TODO: unless, of course, there's already infrastructure up above which does translation somehow
+    const {validate_connect_directives} =
+        require('../wasm/node') as typeof import('../wasm/node');
     const source = print(ast)
     return validate_connect_directives(source).map(
         raw => new GraphQLError(raw.message, {
