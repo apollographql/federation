@@ -193,7 +193,7 @@ function typesUsedInFederationDirective(fieldSet: string | undefined, parentType
   return usedTypes;
 }
 
-export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtractedSubgraphs: boolean = true): Subgraphs {
+export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtractedSubgraphs: boolean = true): [Subgraphs, Map<string, string>] {
   const [coreFeatures, joinSpec] = validateSupergraph(supergraph);
   const isFed1 = joinSpec.version.equals(new FeatureVersion(0, 1));
   try {
@@ -253,7 +253,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtra
       }
     }
 
-    return subgraphs;
+    return [subgraphs, subgraphNameToGraphEnumValue];
   } catch (e) {
     let error = e;
     let subgraph: Subgraph | undefined = undefined;

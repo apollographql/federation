@@ -306,13 +306,19 @@ function generateWitnessValue(type: InputType): any {
  */
 export function validateGraphComposition(
   supergraphSchema: Schema,
+  subgraphNameToGraphEnumValue: Map<string, string>,
   supergraphAPI: QueryGraph,
   federatedQueryGraph: QueryGraph,
 ): {
   errors? : GraphQLError[],
   hints? : CompositionHint[],
 } {
-  const { errors, hints } = new ValidationTraversal(supergraphSchema, supergraphAPI, federatedQueryGraph).validate();
+  const { errors, hints } = new ValidationTraversal(
+    supergraphSchema,
+    subgraphNameToGraphEnumValue,
+    supergraphAPI,
+    federatedQueryGraph,
+  ).validate();
   return errors.length > 0 ? { errors, hints } : { hints };
 }
 
@@ -346,6 +352,7 @@ export class ValidationContext {
 
   constructor(
     readonly supergraphSchema: Schema,
+    readonly subgraphNameToGraphEnumValue: Map<string, string>,
   ) {
     const [_, joinSpec] = validateSupergraph(supergraphSchema);
     this.joinTypeDirective = joinSpec.typeDirective(supergraphSchema);
@@ -617,18 +624,20 @@ export class ValidationState {
     return subgraphs;
   }
 
-  currentSubgraphContextKeys(): Set<string> {
+  currentSubgraphContextKeys(subgraphNameToGraphEnumValue: Map<string, string>): Set<string> {
     const subgraphContextKeys: Set<string> = new Set();
     for (const pathInfo of this.subgraphPathInfos) {
-      const subgraphName = pathInfo.path.path.tail.source;
+      const tailSubgraphName = pathInfo.path.path.tail.source;
+      const tailSubgraphEnumValue = subgraphNameToGraphEnumValue.get(tailSubgraphName);
       const entryKeys = [];
       const contexts = Array.from(pathInfo.contexts.entries());
       contexts.sort((a, b) => a[0].localeCompare(b[0]));
       for (const [context, { subgraphName, typeName }] of contexts) {
-        entryKeys.push(`${context}=${subgraphName}.${typeName}`);
+        const subgraphEnumValue = subgraphNameToGraphEnumValue.get(subgraphName);
+        entryKeys.push(`${context}=${subgraphEnumValue}.${typeName}`);
       }
       subgraphContextKeys.add(
-        `${subgraphName}[${entryKeys.join(',')}]`
+        `${tailSubgraphEnumValue}[${entryKeys.join(',')}]`
       );
     }
     return subgraphContextKeys;
@@ -680,6 +689,7 @@ class ValidationTraversal {
 
   constructor(
     supergraphSchema: Schema,
+    subgraphNameToGraphEnumValue: Map<string, string>,
     supergraphAPI: QueryGraph,
     federatedQueryGraph: QueryGraph,
   ) {
@@ -696,7 +706,10 @@ class ValidationTraversal {
       overrideConditions: new Map(),
     })));
     this.previousVisits = new QueryGraphState(supergraphAPI);
-    this.context = new ValidationContext(supergraphSchema);
+    this.context = new ValidationContext(
+      supergraphSchema,
+      subgraphNameToGraphEnumValue,
+    );
   }
 
   validate(): {
@@ -714,7 +727,7 @@ class ValidationTraversal {
     const vertex = state.supergraphPath.tail;
 
     const currentVertexVisit: VertexVisit = {
-      subgraphContextKeys: state.currentSubgraphContextKeys(),
+      subgraphContextKeys: state.currentSubgraphContextKeys(this.context.subgraphNameToGraphEnumValue),
       overrideConditions: state.selectedOverrideConditions
     };
     const previousVisitsForVertex = this.previousVisits.getVertexState(vertex);

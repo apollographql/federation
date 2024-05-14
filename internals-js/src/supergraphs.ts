@@ -105,6 +105,7 @@ export class Supergraph {
   private readonly containedSubgraphs: readonly {name: string, url: string}[];
   // Lazily computed as that requires a bit of work.
   private _subgraphs?: Subgraphs;
+  private _subgraphNameToGraphEnumValue?: Map<string, string>;
 
   constructor(
     readonly schema: Schema,
@@ -153,9 +154,20 @@ export class Supergraph {
       // Note that `extractSubgraphsFromSupergraph` redo a little bit of work we're already one, like validating
       // the supergraph. We could refactor things to avoid it, but it's completely negligible in practice so we
       // can leave that to "some day, maybe".
-      this._subgraphs = extractSubgraphsFromSupergraph(this.schema, this.shouldValidate);
+      const extractionResults = extractSubgraphsFromSupergraph(this.schema, this.shouldValidate);
+      this._subgraphs = extractionResults[0];
+      this._subgraphNameToGraphEnumValue = extractionResults[1];
     }
     return this._subgraphs;
+  }
+
+  subgraphNameToGraphEnumValue(): Map<string, string> {
+    if (!this._subgraphNameToGraphEnumValue) {
+      const extractionResults = extractSubgraphsFromSupergraph(this.schema, this.shouldValidate);
+      this._subgraphs = extractionResults[0];
+      this._subgraphNameToGraphEnumValue = extractionResults[1];
+    }
+    return new Map([...this._subgraphNameToGraphEnumValue]);
   }
 
   apiSchema(): Schema {
