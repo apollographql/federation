@@ -8918,7 +8918,6 @@ describe('@fromContext impacts on query planning', () => {
               } =>
               {
                 ... on U {
-                  b
                   field(a: $contextualArgument_1_0)
                 }
               }
@@ -8930,7 +8929,7 @@ describe('@fromContext impacts on query planning', () => {
     expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
       {
         kind: 'KeyRenamer',
-        path: ['..', 'prop'],
+        path: ['..', '... on T', 'prop'],
         renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
@@ -9048,7 +9047,6 @@ describe('@fromContext impacts on query planning', () => {
               } =>
               {
                 ... on U {
-                  id
                   field(a: $contextualArgument_1_0)
                 }
               }
@@ -9060,7 +9058,7 @@ describe('@fromContext impacts on query planning', () => {
     expect((plan as any).node.nodes[2].node.contextRewrites).toEqual([
       {
         kind: 'KeyRenamer',
-        path: ['..', 'prop'],
+        path: ['..', '... on T', 'prop'],
         renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
@@ -9175,7 +9173,7 @@ describe('@fromContext impacts on query planning', () => {
     expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
       {
         kind: 'KeyRenamer',
-        path: ['..', 'prop'],
+        path: ['..', '... on T', 'prop'],
         renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
@@ -9343,7 +9341,6 @@ describe('@fromContext impacts on query planning', () => {
               } =>
               {
                 ... on U {
-                  b
                   field(a: $contextualArgument_1_0)
                 }
               }
@@ -9355,7 +9352,7 @@ describe('@fromContext impacts on query planning', () => {
     expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
       {
         kind: 'KeyRenamer',
-        path: ['..', 'prop'],
+        path: ['..', '... on T', 'prop'],
         renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
@@ -9392,7 +9389,7 @@ describe('@fromContext impacts on query planning', () => {
           id: ID!
           b: String!
           field(
-            a: String @fromContext(field: "$context ... on I { prop }")
+            a: String @fromContext(field: "$context { prop }")
           ): Int!
         }
       `,
@@ -9472,7 +9469,6 @@ describe('@fromContext impacts on query planning', () => {
               } =>
               {
                 ... on U {
-                  b
                   field(a: $contextualArgument_1_0)
                 }
               }
@@ -9484,7 +9480,7 @@ describe('@fromContext impacts on query planning', () => {
     expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
       {
         kind: 'KeyRenamer',
-        path: ['..', '... on I', 'prop'],
+        path: ['..', '... on A,B', 'prop'],
         renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
@@ -9618,7 +9614,6 @@ describe('@fromContext impacts on query planning', () => {
               } =>
               {
                 ... on U {
-                  b
                   field(a: $contextualArgument_1_0)
                 }
               }

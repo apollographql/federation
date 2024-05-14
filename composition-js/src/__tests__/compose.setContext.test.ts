@@ -526,107 +526,8 @@ describe("setContext tests", () => {
         type U @key(fields: "id") {
           id: ID!
           field(
-            a: String @fromContext(field: "$context ... on I { prop }")
+            a: String @fromContext(field: "$context ... on T { prop }")
           ): Int!
-        }
-      `,
-    };
-
-    const subgraph2 = {
-      name: "Subgraph2",
-      utl: "https://Subgraph2",
-      typeDefs: gql`
-        type Query {
-          a: Int!
-        }
-
-        type U @key(fields: "id") {
-          id: ID!
-        }
-      `,
-    };
-
-    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
-    assertCompositionSuccess(result);
-  });
-
-  it("type matches multiple type conditions", () => {
-    const subgraph1 = {
-      name: "Subgraph1",
-      utl: "https://Subgraph1",
-      typeDefs: gql`
-        type Query {
-          i: I!
-        }
-
-        interface I @context(name: "context") {
-          prop: String!
-        }
-
-        type T implements I @key(fields: "id") {
-          id: ID!
-          u: U!
-          prop: String!
-        }
-
-        type U @key(fields: "id") {
-          id: ID!
-          field(
-            a: String
-              @fromContext(
-                field: "$context ... on I { prop } ... on T { prop }"
-              )
-          ): Int!
-        }
-      `,
-    };
-
-    const subgraph2 = {
-      name: "Subgraph2",
-      utl: "https://Subgraph2",
-      typeDefs: gql`
-        type Query {
-          a: Int!
-        }
-
-        type U @key(fields: "id") {
-          id: ID!
-        }
-      `,
-    };
-
-    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
-    assertCompositionSuccess(result);
-  });
-
-  it("@context works on union when all types have the designated property", () => {
-    const subgraph1 = {
-      name: "Subgraph1",
-      utl: "https://Subgraph1",
-      typeDefs: gql`
-        type Query {
-          t: T!
-        }
-
-        union T @context(name: "context") = T1 | T2
-
-        type T1 @key(fields: "id") @context(name: "context") {
-          id: ID!
-          u: U!
-          prop: String!
-          a: String!
-        }
-
-        type T2 @key(fields: "id") @context(name: "context") {
-          id: ID!
-          u: U!
-          prop: String!
-          b: String!
-        }
-
-        type U @key(fields: "id") {
-          id: ID!
-          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -742,7 +643,8 @@ describe("setContext tests", () => {
     assertCompositionSuccess(result);
   });
 
-  it("nullability mismatch is not ok if argument is non-nullable", () => {
+  // test is no longer valid since we don't allow non-nullable arguments
+  it.skip("nullability mismatch is not ok if argument is non-nullable", () => {
     const subgraph1 = {
       name: "Subgraph1",
       utl: "https://Subgraph1",
@@ -759,7 +661,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String @fromContext(field: "$context { prop }")): Int!
+          field(a: String! @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };

@@ -651,7 +651,7 @@ function validateFieldValue({
         const { typeCondition } = selection.element;
         if (!typeCondition) {
           errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
-            `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: inline fragments must have type conditions}"`,
+            `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: inline fragments must have type conditions"`,
             { nodes: sourceASTs(fromContextParent) }
           ));
           continue;
@@ -664,7 +664,7 @@ function validateFieldValue({
           }
         } else {
           errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
-            `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: type conditions must be an object type}"`,
+            `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: type conditions must be an object type"`,
             { nodes: sourceASTs(fromContextParent) }
           ));
         }

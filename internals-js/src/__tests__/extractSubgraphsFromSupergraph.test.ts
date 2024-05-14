@@ -902,7 +902,7 @@ type U
   @join__type(graph: SUBGRAPH2, key: "id")
 {
   id: ID!
-  field: Int! @join__field(graph: SUBGRAPH1, contextArguments: [{context: "Subgraph1__context", name: "a", type: "String!", selection: "{ prop }"}])
+  field: Int! @join__field(graph: SUBGRAPH1, contextArguments: [{context: "Subgraph1__context", name: "a", type: "String", selection: "{ prop }"}])
 }
   `;
 
@@ -924,6 +924,6 @@ type U
   @key(fields: "id")
 {
   id: ID! @shareable
-  field(a: String! @federation__fromContext(field: "$context { prop }")): Int!
+  field(a: String @federation__fromContext(field: "$context { prop }")): Int!
 }`);
 });
