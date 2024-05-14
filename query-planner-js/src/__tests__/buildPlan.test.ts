@@ -9388,9 +9388,7 @@ describe('@fromContext impacts on query planning', () => {
         type U @key(fields: "id") {
           id: ID!
           b: String!
-          field(
-            a: String @fromContext(field: "$context { prop }")
-          ): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
