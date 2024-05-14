@@ -1,5 +1,25 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.7.7
+
+### Patch Changes
+
+- No logical changes since 2.7.5 or 2.7.6, but we fixed a bug in the release process, so we need to publish a new patch version (2.7.7). ([#2999](https://github.com/apollographql/federation/pull/2999))
+
+- Updated dependencies [[`bee0b0828b4fb6a1d3172ac330560e2ab6c046bb`](https://github.com/apollographql/federation/commit/bee0b0828b4fb6a1d3172ac330560e2ab6c046bb)]:
+  - @apollo/federation-internals@2.7.7
+  - @apollo/query-graphs@2.7.7
+
+## 2.7.6
+
+### Patch Changes
+
+- There is no functionality change between 2.7.5 and 2.7.6. Triggering new release as previous one released partially leading to a broken experience. ([#2997](https://github.com/apollographql/federation/pull/2997))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.7.6
+  - @apollo/query-graphs@2.7.6
+
 ## 2.7.5
 
 ### Patch Changes
