@@ -1673,43 +1673,25 @@ type FieldToAlias = {
   alias: string,
 }
 
-// function createPathFromSelection(selection: Selection): string[] {
-//   const path: string[] = [];
-  
-//   const helper = (sel: Selection) => {
-//     if (sel.kind === 'FieldSelection') {
-//       path.push(sel.element.name);
-//     } else if (sel.kind === 'FragmentSelection') {
-//       path.push(`... ${sel.element.typeCondition ? sel.element.typeCondition.name : ''}`);
-//     } else {
-//       assertUnreachable(sel);
-//     }
-//     const ss = sel.selectionSet;
-//     if (ss && ss.selections().length > 0) {
-//       helper(ss.selections()[0]);
-//     }
-//   };
-  
-//   helper(selection);
-//   return path;
-// }
-
-// function selectionAsKeyRenamer(selection: Selection, relPath: string[], alias: string): FetchDataKeyRenamer {
-//   return {
-//     kind: 'KeyRenamer',
-//     path: relPath.concat(createPathFromSelection(selection)),
-//     renameKeyTo: alias,
-//   }  
-// }
-
 function selectionSetAsKeyRenamers(selectionSet: SelectionSet, relPath: string[], alias: string): FetchDataKeyRenamer[] {
   return selectionSet.selections().map((selection: Selection): FetchDataKeyRenamer[] | undefined => {
     if (selection.kind === 'FieldSelection') {
-      return [{
-        kind: 'KeyRenamer',
-        path: [...relPath, selection.element.name],
-        renameKeyTo: alias,
-      }];
+      // We always have at least one '..' in the relative path.
+      if (relPath[relPath.length - 1] === '..') {
+        const runtimeTypes = 
+          possibleRuntimeTypes(selectionSet.parentType).map((t) => t.name).join(",");
+        return [{
+          kind: 'KeyRenamer',
+          path: [...relPath, `... on ${runtimeTypes}`, selection.element.name],
+          renameKeyTo: alias,
+        }];
+      } else {
+        return [{
+          kind: 'KeyRenamer',
+          path: [...relPath, selection.element.name],
+          renameKeyTo: alias,
+        }];
+      }
     } else if (selection.kind === 'FragmentSelection') {
       const element = selection.element;
       if (element.typeCondition) {
@@ -4198,7 +4180,6 @@ function computeGroupsForTree(
               startGroup: group, 
               initialGroupPath: path, 
               initialDeferContext: deferContextForConditions(deferContext),
-              initialContextsToConditionsGroups: contextToConditionsGroups,
             });
             updateCreatedGroups(createdGroups, ...conditionsGroups);
             // Then we can "take the edge", creating a new group. That group depends
@@ -4378,7 +4359,7 @@ function computeGroupsForTree(
             updated.path = requireResult.path;
             
             if (contextToSelection) {
-              const newContextToConditionsGroups = new Map<string, FetchGroup[]>();
+              const newContextToConditionsGroups = new Map<string, FetchGroup[]>([...contextToConditionsGroups]);
               for (const context of contextToSelection) {
                 newContextToConditionsGroups.set(context, [group]);
               }
@@ -4392,11 +4373,10 @@ function computeGroupsForTree(
               startGroup: group, 
               initialGroupPath: path, 
               initialDeferContext: deferContextForConditions(deferContext),
-              initialContextsToConditionsGroups: contextToConditionsGroups,
             });
 
             if (contextToSelection) {
-              const newContextToConditionsGroups = new Map<string, FetchGroup[]>();
+              const newContextToConditionsGroups = new Map<string, FetchGroup[]>([...contextToConditionsGroups]);
               for (const context of contextToSelection) {
                 newContextToConditionsGroups.set(context, [group, ...conditionsGroups]);
               }
@@ -4447,60 +4427,62 @@ function computeGroupsForTree(
 
           // if we're going to start using context variables, every variable used must be set in a different parent
           // fetch group or else we need to create a new one
-          if (parameterToContext && Array.from(parameterToContext.values()).some(({ contextId }) => updated.contextToConditionsGroups.get(contextId)?.[0] === group)) { 
-            assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
-            const newGroup = dependencyGraph.getOrCreateKeyFetchGroup({
-              subgraphName: edge.tail.source,
-              mergeAt: path.inResponse(),
-              type: edge.head.type,
-              parent: { group, path: path.inGroup() },
-              conditionsGroups: [],
-            });
-
-            const keyCondition = getLocallySatisfiableKey(dependencyGraph.federatedQueryGraph, edge.head);
-            assert(keyCondition, () => `canSatisfyConditions() validation should have required a key to be present for ${edge}`);
-            const keyInputs = newCompositeTypeSelectionSet(edge.head.type).updates().add(keyCondition).toSelectionSet(edge.head.type);
-            group.addAtPath(path.inGroup(), keyInputs.selections());
-            
-            const inputType = dependencyGraph.typeForFetchInputs(edge.head.type.name);
-            const inputSelectionSet = newCompositeTypeSelectionSet(inputType).updates().add(keyCondition).toSelectionSet(inputType);
-            const inputs = wrapInputsSelections(inputType, inputSelectionSet, context);
-            newGroup.addInputs(
-              inputs,
-              computeInputRewritesOnKeyFetch(edge.head.type.name, edge.head.type),
-            );
-                        
-            newGroup.addParent({ group, path: path.inGroup() });
-            
-            // all groups that get the contextual variable should be parents of this group
+          if (parameterToContext && Array.from(parameterToContext.values()).some(({ contextId }) => updated.contextToConditionsGroups.get(contextId)?.[0] === updated.group)) { 
+            assert(group === updated.group, "Group created by @requires handling shouldn't have set context already");
+            // All groups that get the contextual variable should be parents of this group
+            const conditionGroups: Set<FetchGroup> = new Set();
             for (const { contextId } of parameterToContext.values()) {
               const groups = updated.contextToConditionsGroups.get(contextId);
               assert(groups, () => `Could not find groups for context ${contextId}`);
-              for (const parentGroup of groups) {
-                newGroup.addParent({ group: parentGroup, path: path.inGroup() });
-              }
-            }
-            for (const [_, { contextId, selectionSet, relativePath, subgraphArgType }] of parameterToContext) {
-              newGroup.addInputContext(contextId, subgraphArgType);
-              const keyRenamers = selectionSetAsKeyRenamers(selectionSet, relativePath, contextId);
-              for (const keyRenamer of keyRenamers) {
-                newGroup.addContextRenamer(keyRenamer);
+              for (const conditionGroup of groups) {
+                conditionGroups.add(conditionGroup);
               }
             }
 
+            assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
+            updated.group = dependencyGraph.getOrCreateKeyFetchGroup({
+              subgraphName: edge.tail.source,
+              mergeAt: updated.path.inResponse(),
+              type: edge.head.type,
+              parent: { group: group, path: path.inGroup() },
+              conditionsGroups: [...conditionGroups],
+            });
+            updateCreatedGroups(createdGroups, updated.group);
+            updated.path = path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, edge.head.type, context));
+
+            const keyCondition = getLocallySatisfiableKey(dependencyGraph.federatedQueryGraph, edge.head);
+            assert(keyCondition, () => `canSatisfyConditions() validation should have required a key to be present for ${edge}`);
+            const keyInputs = newCompositeTypeSelectionSet(edge.head.type);
+            keyInputs.updates().add(keyCondition);
+            group.addAtPath(path.inGroup(), keyInputs.get());
+            
             // We also ensure to get the __typename of the current type in the "original" group.
             // TODO: It may be safe to remove this, but I'm not 100% convinced. Come back and take a look at some point
             group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
-            updateCreatedGroups(createdGroups, newGroup);
+
+            const inputType = dependencyGraph.typeForFetchInputs(edge.head.type.name);
+            const inputSelectionSet = newCompositeTypeSelectionSet(inputType);
+            inputSelectionSet.updates().add(keyCondition);
+            const inputs = wrapInputsSelections(inputType, inputSelectionSet.get(), context);
+            updated.group.addInputs(
+              inputs,
+              computeInputRewritesOnKeyFetch(edge.head.type.name, edge.head.type),
+            );
             
-            stack.push({
-              tree, 
-              group: newGroup,
-              path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, edge.head.type, context)),
-              context,
-              deferContext: updatedDeferContext,
-              contextToConditionsGroups,
-            });
+            // Add the condition groups as parent groups.
+            for (const parentGroup of conditionGroups) {
+              updated.group.addParent({ group: parentGroup });
+            }
+
+            // Add context renamers.
+            for (const [_, { contextId, selectionSet, relativePath, subgraphArgType }] of parameterToContext) {
+              updated.group.addInputContext(contextId, subgraphArgType);
+              const keyRenamers = selectionSetAsKeyRenamers(selectionSet, relativePath, contextId);
+              for (const keyRenamer of keyRenamers) {
+                updated.group.addContextRenamer(keyRenamer);
+              }
+            }
+            stack.push(updated);
           } else {
             // in this case we can just continue with the current group, but we need to add the context rewrites
             if (parameterToContext) {
@@ -4508,7 +4490,7 @@ function computeGroupsForTree(
                 updated.group.addInputContext(contextId, subgraphArgType);
                 const keyRenamers = selectionSetAsKeyRenamers(selectionSet, relativePath, contextId);
                 for (const keyRenamer of keyRenamers) {
-                  group.addContextRenamer(keyRenamer);
+                  updated.group.addContextRenamer(keyRenamer);
                 }
               }
             }
