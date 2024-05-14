@@ -1732,8 +1732,8 @@ function advancePathWithDirectTransition<V extends Vertex>(
               : conditionResolution.unsatisfiedConditionReason === UnsatisfiedConditionReason.NO_CONTEXT_SET
               ? `could not find a match for required context for field "${field.coordinate}"`
               // TODO: This isn't necessarily just because an @requires
-              // condition was unsatisified, but could also be because a
-              // @fromContext condition was unsatisified.
+              // condition was unsatisfied, but could also be because a
+              // @fromContext condition was unsatisfied.
               : `cannot satisfy @require conditions on field "${field.coordinate}"${warnOnKeyFieldsMarkedExternal(parentTypeInSubgraph)}`;
             deadEnds.push({
               sourceSubgraph: edge.head.source,
