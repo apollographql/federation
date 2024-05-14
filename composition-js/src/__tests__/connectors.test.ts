@@ -323,7 +323,7 @@ describe("connect spec and join__directive", () => {
         expect(result.errors?.length).toBe(1);
         const error = result.errors![0];
         expect(error.message).toEqual('[with-connectors] baseURL argument for @source \"v1\" was not a valid URL: relative URL without a base');
-        expect(error.extensions.code).toEqual("INVALID_GRAPHQL");
+        expect(error.extensions.code).toEqual("SOURCE_URL_INVALID");
         expect(error.locations).toBeDefined()
     })
 });

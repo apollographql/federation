@@ -1,5 +1,7 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.8.0-connectors.3
+
 ## 2.8.0-connectors.2
 
 ## 2.8.0-connectors.1

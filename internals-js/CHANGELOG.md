@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.8.0-connectors.3
+
+### Patch Changes
+
+- Improve locations on source directive errors
+
 ## 2.8.0-connectors.2
 
 ### Minor Changes

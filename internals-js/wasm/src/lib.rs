@@ -73,10 +73,11 @@ impl From<ValidationError> for GraphQLError {
                 location: Some(ErrorLocation {
                     source_directive: Some(SourceDirective {
                         name: source_name.into(),
+                        arg: SourceArgument::Url,
                     }),
                 }),
             },
-            ValidationError::MissingSourceName | ValidationError::SourceNameType => GraphQLError {
+            ValidationError::GraphQLError(_) | ValidationError::SourceNameType => GraphQLError {
                 code: ErrorCode::InvalidGraphQL,
                 message,
                 location: None,
@@ -87,6 +88,7 @@ impl From<ValidationError> for GraphQLError {
                 location: Some(ErrorLocation {
                     source_directive: Some(SourceDirective {
                         name: source_name.into(),
+                        arg: SourceArgument::Name,
                     }),
                 }),
             },
@@ -94,9 +96,16 @@ impl From<ValidationError> for GraphQLError {
                 code: ErrorCode::DuplicateSourceName,
                 message,
                 location: Some(ErrorLocation {
-                    source_directive: Some(SourceDirective { name }),
+                    source_directive: Some(SourceDirective { name, arg: SourceArgument::Name}),
                 }),
             },
+            ValidationError::EmptySourceName => {
+                GraphQLError {
+                    code: ErrorCode::InvalidSourceName,
+                    message,
+                    location: None,
+                }
+            }
         }
     }
 }
@@ -120,6 +129,7 @@ impl ErrorLocation {
 #[derive(Clone, Debug)]
 pub struct SourceDirective {
     name: String,
+    pub arg: SourceArgument,
 }
 
 #[wasm_bindgen]
@@ -129,3 +139,13 @@ impl SourceDirective {
         self.name.clone()
     }
 }
+
+#[wasm_bindgen]
+#[derive(Clone, Copy, Debug)]
+pub enum SourceArgument {
+    Name,
+    Url,
+}
+
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;

@@ -1347,7 +1347,7 @@ export function buildSubgraph(
     subgraph = new Subgraph(name, url, schema);
   } catch (e) {
     if (e instanceof GraphQLError && name !== FEDERATION_UNNAMED_SUBGRAPH_NAME) {
-      throw addSubgraphToError(e, name, ERRORS.INVALID_GRAPHQL);
+      throw addSubgraphToError(e, name);
     } else {
       throw e;
     }

@@ -5,7 +5,7 @@
 
 import {Schema} from "./definitions";
 import {
-    ConstDirectiveNode,
+    ConstObjectValueNode,
     DefinitionNode,
     DocumentNode,
     GraphQLError,
@@ -14,7 +14,7 @@ import {
 import {FeatureUrl, LinkDirectiveArgs} from "./specs/coreSpec";
 import {connectIdentity} from "./specs/connectSpec";
 import {aggregateError} from "./error";
-import {ErrorLocation, SourceDirective} from "../wasm/node";
+import {ErrorLocation, SourceArgument, SourceDirective} from "../wasm/node";
 import {ASTNode, ConstValueNode, SchemaExtensionNode, StringValueNode} from "graphql";
 
 /**
@@ -69,14 +69,30 @@ function findNode(ast: DocumentNode, location: ErrorLocation): ASTNode | undefin
     return undefined;
 }
 
-function findSourceDirective(ast: DocumentNode, sourceDirective: SourceDirective): ConstDirectiveNode | undefined {
+function findSourceDirective(ast: DocumentNode, sourceDirective: SourceDirective): ASTNode | undefined {
     const schema = ast.definitions.find(isSchemaExtension);
     const sourceDirectives = schema?.directives?.
         filter(directive => directive.name.value === "source");
-    return sourceDirectives?.find(directive => {
+    const matchingSource = sourceDirectives?.find(directive => {
         const nameArg = directive.arguments?.find(arg => arg.name.value === "name");
         return nameArg && isStringValue(nameArg.value) && nameArg.value.value === sourceDirective.name;
     });
+    if (sourceDirective.arg === SourceArgument.Url) {
+        const arg = matchingSource?.arguments?.find(arg => arg.name.value === "http");
+        const value = arg?.value;
+        if (value && isObjectValue(value)) {
+            const field = value.fields.find(field => field.name.value === "baseURL");
+            if (field) {
+                return field;
+            }
+        }
+    } else if (sourceDirective.arg === SourceArgument.Name) {
+        const arg = matchingSource?.arguments?.find(arg => arg.name.value === "name");
+        if (arg) {
+            return arg;
+        }
+    }
+    return matchingSource;
 }
 
 function isSchemaExtension(node: DefinitionNode): node is SchemaExtensionNode {
@@ -85,4 +101,8 @@ function isSchemaExtension(node: DefinitionNode): node is SchemaExtensionNode {
 
 function isStringValue(node: ConstValueNode): node is StringValueNode {
     return node.kind === "StringValue";
+}
+
+function isObjectValue(node: ConstValueNode): node is ConstObjectValueNode {
+    return node.kind === "ObjectValue";
 }
