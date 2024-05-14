@@ -4385,46 +4385,6 @@ function computeGroupsForTree(
             updateCreatedGroups(createdGroups, ...conditionsGroups);
           }
 
-          if (updatedOperation.kind === 'Field' && updatedOperation.name === typenameFieldName) {
-            // Because of the optimization done in `QueryPlanner.optimizeSiblingTypenames`, we will rarely get an explicit `__typename`
-            // edge here. But one case where it can happen is where an @interfaceObject was involved, and we had to force jumping to
-            // another subgraph for getting the "true" `__typename`. However, this case can sometimes lead to fetch group that only
-            // exists for that `__typename` resolution and that "look" useless. That, we could have a fetch group that looks like:
-            //   Fetch(service: "Subgraph2") {
-            //     {
-            //       ... on I {
-            //         __typename
-            //         id
-            //       }
-            //     } =>
-            //     {
-            //       ... on I {
-            //         __typename
-            //       }
-            //     }
-            //   }
-            // but the trick is that the `__typename` in the input will be the name of the interface itself (`I` in this case)
-            // but the one return after the fetch will the name of the actual implementation (some implementation of `I`).
-            // *But* we later have optimizations that would remove such a group, on the group that the output is included
-            // in the input, which is in general the right thing to do (and genuinely ensure that some useless groups created when
-            // handling complex @require gets eliminated). So we "protect" the group in this case to ensure that later
-            // optimization doesn't kick in in this case.
-            updated.group.mustPreserveSelection = true
-          }
-
-          if (edge.transition.kind === 'InterfaceObjectFakeDownCast') {
-            // We shouldn't add the operation "as is" as it's a down-cast but we're "faking it". However,
-            // if the operation has directives, we should preserve that.
-            assert(updatedOperation.kind === 'FragmentElement', () => `Unexpected operation ${updatedOperation} for edge ${edge}`);
-            if (updatedOperation.appliedDirectives.length > 0) {
-              // We want to keep the directives, but we clear the condition since it's to a type that doesn't exists in the
-              // subgraph we're currently in.
-              updated.path = updated.path.add(updatedOperation.withUpdatedCondition(undefined));
-            }
-          } else {
-            updated.path = updated.path.add(updatedOperation);
-          }
-
           // if we're going to start using context variables, every variable used must be set in a different parent
           // fetch group or else we need to create a new one
           if (parameterToContext && Array.from(parameterToContext.values()).some(({ contextId }) => updated.contextToConditionsGroups.get(contextId)?.[0] === updated.group)) { 
@@ -4482,7 +4442,6 @@ function computeGroupsForTree(
                 updated.group.addContextRenamer(keyRenamer);
               }
             }
-            stack.push(updated);
           } else {
             // in this case we can just continue with the current group, but we need to add the context rewrites
             if (parameterToContext) {
@@ -4494,8 +4453,49 @@ function computeGroupsForTree(
                 }
               }
             }
-            stack.push(updated);
           }
+
+          if (updatedOperation.kind === 'Field' && updatedOperation.name === typenameFieldName) {
+            // Because of the optimization done in `QueryPlanner.optimizeSiblingTypenames`, we will rarely get an explicit `__typename`
+            // edge here. But one case where it can happen is where an @interfaceObject was involved, and we had to force jumping to
+            // another subgraph for getting the "true" `__typename`. However, this case can sometimes lead to fetch group that only
+            // exists for that `__typename` resolution and that "look" useless. That, we could have a fetch group that looks like:
+            //   Fetch(service: "Subgraph2") {
+            //     {
+            //       ... on I {
+            //         __typename
+            //         id
+            //       }
+            //     } =>
+            //     {
+            //       ... on I {
+            //         __typename
+            //       }
+            //     }
+            //   }
+            // but the trick is that the `__typename` in the input will be the name of the interface itself (`I` in this case)
+            // but the one return after the fetch will the name of the actual implementation (some implementation of `I`).
+            // *But* we later have optimizations that would remove such a group, on the group that the output is included
+            // in the input, which is in general the right thing to do (and genuinely ensure that some useless groups created when
+            // handling complex @require gets eliminated). So we "protect" the group in this case to ensure that later
+            // optimization doesn't kick in in this case.
+            updated.group.mustPreserveSelection = true
+          }
+
+          if (edge.transition.kind === 'InterfaceObjectFakeDownCast') {
+            // We shouldn't add the operation "as is" as it's a down-cast but we're "faking it". However,
+            // if the operation has directives, we should preserve that.
+            assert(updatedOperation.kind === 'FragmentElement', () => `Unexpected operation ${updatedOperation} for edge ${edge}`);
+            if (updatedOperation.appliedDirectives.length > 0) {
+              // We want to keep the directives, but we clear the condition since it's to a type that doesn't exists in the
+              // subgraph we're currently in.
+              updated.path = updated.path.add(updatedOperation.withUpdatedCondition(undefined));
+            }
+          } else {
+            updated.path = updated.path.add(updatedOperation);
+          }
+
+          stack.push(updated);
         }
       }
     }
