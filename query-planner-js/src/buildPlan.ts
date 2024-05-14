@@ -1678,13 +1678,11 @@ function selectionSetAsKeyRenamers(selectionSet: SelectionSet, relPath: string[]
     if (selection.kind === 'FieldSelection') {
       // We always have at least one '..' in the relative path.
       if (relPath[relPath.length - 1] === '..') {
-        const runtimeTypes = 
-          possibleRuntimeTypes(selectionSet.parentType).map((t) => t.name).join(",");
-        return [{
+        return possibleRuntimeTypes(selectionSet.parentType).map((t) => ({
           kind: 'KeyRenamer',
-          path: [...relPath, `... on ${runtimeTypes}`, selection.element.name],
+          path: [...relPath, `... on ${t.name}`, selection.element.name],
           renameKeyTo: alias,
-        }];
+        }));
       } else {
         return [{
           kind: 'KeyRenamer',
@@ -4445,9 +4443,11 @@ function computeGroupsForTree(
           } else {
             // in this case we can just continue with the current group, but we need to add the context rewrites
             if (parameterToContext) {
+              const numFields = updated.path.inGroup().filter((e) => e.kind === 'Field').length;
               for (const [_, { selectionSet, relativePath, contextId, subgraphArgType }] of parameterToContext) {
+                const newRelativePath = relativePath.slice(0, relativePath.length - numFields);
                 updated.group.addInputContext(contextId, subgraphArgType);
-                const keyRenamers = selectionSetAsKeyRenamers(selectionSet, relativePath, contextId);
+                const keyRenamers = selectionSetAsKeyRenamers(selectionSet, newRelativePath, contextId);
                 for (const keyRenamer of keyRenamers) {
                   updated.group.addContextRenamer(keyRenamer);
                 }
