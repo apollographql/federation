@@ -40,7 +40,6 @@ export interface FetchNode {
   // If QP defer support is enabled _and_ the `serviceName` subgraph support defer, then whether `operation` contains some @defer. Unset otherwise.
   hasDefers?: boolean,
   variableUsages?: string[];
-  contextVariableUsages?: Map<string, string>;
   requires?: QueryPlanSelectionNode[];
   operation: string;
   operationName: string | undefined;
