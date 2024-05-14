@@ -5,7 +5,9 @@ description: Create a federated GraphQL API with Apollo Federation
 ---
 
 This tutorial gets you up and running with a cloud-hosted Apollo Federation 2 supergraph.
-To learn more about the federation concepts and the benefits of using it, see the [Introduction to Apollo Federation](./).
+The supergraph you set up is managed by GraphOS so that [to-do].
+
+To learn more about federation concepts and the benefits of using it, see the [Introduction to Apollo Federation](./).
 
 ## Prerequisites
 
@@ -16,148 +18,18 @@ This tutorial assumes you have the following:
 
 If you haven't already, set them up and then return to this tutorial.
 
-## Example subgraphs
 
-This tutorial uses two Apollo-hosted subgraphs (named Locations and Reviews) from an imaginary space tourism application called FlyBy. Here are their URLs and schemas for reference:
+## Overview
 
-<ExpansionPanel title="Locations">
+Setting up a federated graph takes a few steps:
 
-URL: `https://flyby-locations-sub.herokuapp.com/`
+1. Creating a graph in GraphOS Studio
+2. Registering your subgraphs
+3. Inspecting and configuring your router
+4. Testing your graph
+5. Updating clients to query your new graph endpoint
 
-```graphql title="Locations"
-extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
-        import: ["@key"])
-
-type Query {
-  "The full list of locations presented by the Interplanetary Space Tourism department"
-  locations: [Location!]!
-  "The details of a specific location"
-  location(id: ID!): Location
-}
-
-type Location @key(fields: "id"){
-  id: ID!
-  "The name of the location"
-  name: String!
-  "A short description about the location"
-  description: String!
-  "The location's main photo as a URL"
-  photo: String!
-}
-```
-
-</ExpansionPanel>
-
-<ExpansionPanel title="Reviews">
-
-URL: `https://flyby-reviews-sub.herokuapp.com/`
-
-```graphql title="Reviews"
-extend schema
-  @link(url: "https://specs.apollo.dev/federation/v2.0",
-        import: ["@key"])
-
-type Query {
-  "The three latest reviews submitted for FlyBy's locations"
-  latestReviews: [Review!]!
-}
-
-type Mutation {
-  submitReview(locationReview: LocationReviewInput): SubmitReviewResponse
-}
-
-type Location @key(fields: "id") {
-  id: ID!
-  "The calculated overall rating based on all reviews"
-  overallRating: Float
-  "All submitted reviews about this location"
-  reviewsForLocation: [Review]!
-}
-
-type Review {
-  id: ID!
-  "Written text"
-  comment: String
-  "A number from 1 - 5 with 1 being lowest and 5 being highest"
-  rating: Int
-  "The location the review is about"
-  location: Location
-}
-
-input LocationReviewInput {
-  "Written text"
-  comment: String!
-  "A number from 1 - 5 with 1 being lowest and 5 being highest"
-  rating: Int!
-  "Location Id"
-  locationId: String!
-}
-
-type SubmitReviewResponse {
-  "Similar to HTTP status code, represents the status of the mutation"
-  code: Int!
-  "Indicates whether the mutation was successful"
-  success: Boolean!
-  "Human-readable message for the UI"
-  message: String!
-  "Newly created review"
-  locationReview: Review
-}
-```
-
-</ExpansionPanel>
-
-## 1. Set up Apollo tools
-
-This quickstart uses a couple of Apollo tools to get the most out of federation:
-
-- **GraphOS Studio**, a cloud platform for monitoring, managing, and collaborating on your supergraph
-    - You don't need a paid Studio plan to complete this quickstart or use managed federation features.
-- **The Rover CLI**, a command-line interface for interacting with graphs and their schemas
-
-Let's set these up first!
-
-### Sign up for GraphOS Studio
-
-Before we can use managed federation with GraphOS Studio, we need a Studio account. Let's create one if you don't have one yet.
-
-Complete the first two steps of [Get started with GraphOS Studio](/graphos/quickstart/cloud) (**Create your account** and **Create your first graph**), then return here.
-
-<Note>
-
-- Make sure the Studio graph you create is a supergraph that uses Federation 2!
-- For future steps, you'll need the ID of the supergraph you create. Make sure to have it available.
-
-</Note>
-
-### Install the Rover CLI
-
-_Rover_ is Apollo's CLI for managing all kinds of graphs, including subgraphs and supergraphs. We'll use it throughout this quickstart.
-
-<Note>
-
-Even if you already have Rover installed, you should update your version now by completing this step.
-
-</Note>
-
-Install the latest Rover release with the appropriate command for your system:
-
-```bash title="MacOS / Unix-like"
-curl -sSL https://rover.apollo.dev/nix/latest | sh
-```
-
-```bash title="Windows"
-iwr 'https://rover.apollo.dev/win/latest' | iex
-```
-
-After installing, run `rover` in your terminal with no arguments to confirm that it installed successfully. Verify that the printed version number matches the [latest release](https://github.com/apollographql/rover/releases) (if it doesn't, you might need to manually delete a previous outdated installation).
-
-### Authenticate Rover with Studio
-
-We'll use the Rover CLI to publish our subgraph schemas to Studio. To do that, we first need to authenticate Rover with Studio.
-
-Complete the first two steps of <a href="/rover/configuring/" target="_blank">Configuring Rover</a> (**Obtain an API key** and **Provide the API key to Rover**), then return here.
+---
 
 ## 2. Create a router project directory
 
@@ -335,49 +207,6 @@ We have a Studio account, we've installed Rover, and our project directory is re
 
 
 Now that our project and tools are set up, we can start composing our supergraph schema with GraphOS Studio.
-
-## Managed federation concepts
-
-To compose our supergraph schema with Studio, we use a feature called  _managed federation_. With managed federation, each of our subgraphs publishes its schema to Apollo. Whenever a subgraph schema changes, Apollo attempts to compose a new supergraph schema.
-
-```mermaid
-flowchart BT;
-  subgraph " "
-  serviceA[Locations subgraph];
-  serviceB[Reviews subgraph];
-  end
-  registry{{Apollo Schema Registry}};
-  serviceA & serviceB -. Publishes schema .-> registry;
-  registry -- Composes supergraph schema--> registry;
-  class registry secondary;
-```
-
-Whenever composition succeeds, Apollo pushes an updated supergraph schema to _Apollo Uplink_, a special endpoint that routers use to fetch their configuration:
-
-```mermaid
-flowchart LR;
-  registry{{Apollo Schema Registry}};
-  uplink{{Apollo Uplink}};
-  registry --Updates config--> uplink;
-  class registry,uplink secondary;
-```
-
-Meanwhile, our running graph router regularly polls Uplink for changes to its supergraph schema:
-
-```mermaid
-flowchart BT;
-  subgraph " "
-  router[Graph router];
-  end
-  registry{{Apollo Uplink}};
-  router -. Polls for changes .-> registry;
-  registry -. Downloads changes .-> router;
-  class registry secondary;
-```
-
-Whenever an update is available, the router downloads it and automatically begins using the new supergraph schema, without requiring a restart.
-
-We strongly recommended managed federation for reducing downtime in your production supergraph. Let's set it up!
 
 ## 1. Register your subgraph schemas
 
