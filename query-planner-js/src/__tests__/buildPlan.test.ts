@@ -8841,7 +8841,7 @@ describe('@fromContext impacts on query planning', () => {
         type U @key(fields: "id") {
           id: ID!
           b: String!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -8951,7 +8951,7 @@ describe('@fromContext impacts on query planning', () => {
         }
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -9100,7 +9100,7 @@ describe('@fromContext impacts on query planning', () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -9266,7 +9266,7 @@ describe('@fromContext impacts on query planning', () => {
         type U @key(fields: "id") {
           id: ID!
           b: String!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -9392,7 +9392,7 @@ describe('@fromContext impacts on query planning', () => {
           id: ID!
           b: String!
           field(
-            a: String! @fromContext(field: "$context ... on I { prop }")
+            a: String @fromContext(field: "$context ... on I { prop }")
           ): Int!
         }
       `,
@@ -9517,7 +9517,7 @@ describe('@fromContext impacts on query planning', () => {
           id: ID!
           b: String!
           field(
-            a: String!
+            a: String
               @fromContext(
                 field: "$context ... on A { prop } ... on B { prop }"
               )

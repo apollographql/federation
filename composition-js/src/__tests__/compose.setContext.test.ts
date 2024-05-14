@@ -19,7 +19,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -59,7 +59,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: [String]! @fromContext(field: "$context { prop }")): Int!
+          field(a: [String] @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -148,7 +148,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -195,7 +195,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -218,7 +218,7 @@ describe("setContext tests", () => {
     expect(result.schema).toBeUndefined();
     expect(result.errors?.length).toBe(1);
     expect(result.errors?.[0].message).toBe(
-      '[Subgraph1] Context "context" is used in "U.field(a:)" but the selection is invalid: the type of the selection does not match the expected type "String!"'
+      '[Subgraph1] Context "context" is used in "U.field(a:)" but the selection is invalid: the type of the selection "Int" does not match the expected type "String"'
     );
   });
 
@@ -247,7 +247,7 @@ describe("setContext tests", () => {
         type U @key(fields: "id") {
           id: ID!
           field(
-            a: String!
+            a: String
               @fromContext(
                 field: "$context ... on Foo { prop } ... on Bar { prop2 }"
               )
@@ -291,7 +291,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$unknown { prop }")): Int!
+          field(a: String @fromContext(field: "$unknown { prop }")): Int!
         }
       `,
     };
@@ -336,7 +336,7 @@ describe("setContext tests", () => {
         type U @key(fields: "id") {
           id: ID!
           field(
-            a: String! @fromContext(field: "$context { invalidprop }")
+            a: String @fromContext(field: "$context { invalidprop }")
           ): Int!
         }
       `,
@@ -381,7 +381,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "{ prop }")): Int!
+          field(a: String @fromContext(field: "{ prop }")): Int!
         }
       `,
     };
@@ -432,7 +432,7 @@ describe("setContext tests", () => {
         type U @key(fields: "id") {
           id: ID!
           field(
-            a: String! @fromContext(field: "$context ... on Foo { prop }")
+            a: String @fromContext(field: "$context ... on Foo { prop }")
           ): Int!
         }
       `,
@@ -481,7 +481,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -526,7 +526,7 @@ describe("setContext tests", () => {
         type U @key(fields: "id") {
           id: ID!
           field(
-            a: String! @fromContext(field: "$context ... on I { prop }")
+            a: String @fromContext(field: "$context ... on I { prop }")
           ): Int!
         }
       `,
@@ -572,7 +572,7 @@ describe("setContext tests", () => {
         type U @key(fields: "id") {
           id: ID!
           field(
-            a: String!
+            a: String
               @fromContext(
                 field: "$context ... on I { prop } ... on T { prop }"
               )
@@ -626,7 +626,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -675,7 +675,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -698,7 +698,7 @@ describe("setContext tests", () => {
     expect(result.schema).toBeUndefined();
     expect(result.errors?.length).toBe(1);
     expect(result.errors?.[0].message).toBe(
-      '[Subgraph1] Context "context" is used in "U.field(a:)" but the selection is invalid for type T2. Error: Cannot query field "prop" on type "T2".'
+      '[Subgraph1] Context "context" is used in "U.field(a:)" but the selection is invalid for type T. Error: Cannot query field "prop" on type "T".'
     );
   });
   it.todo("type mismatch in context variable");
@@ -759,7 +759,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -781,7 +781,7 @@ describe("setContext tests", () => {
     expect(result.schema).toBeUndefined();
     expect(result.errors?.length).toBe(1);
     expect(result.errors?.[0].message).toBe(
-      '[Subgraph1] Context "context" is used in "U.field(a:)" but the selection is invalid: the type of the selection does not match the expected type "String!"'
+      '[Subgraph1] Context "context" is used in "U.field(a:)" but the selection is invalid: the type of the selection does not match the expected type "String"'
     );
   });
 
@@ -802,7 +802,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { id prop }")): Int!
+          field(a: String @fromContext(field: "$context { id prop }")): Int!
         }
       `,
     };
@@ -845,7 +845,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -892,7 +892,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id", resolvable: false) {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -936,7 +936,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { foo: prop }")): Int!
+          field(a: String @fromContext(field: "$context { foo: prop }")): Int!
         }
       `,
     };
@@ -980,7 +980,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$_context { prop }")): Int!
+          field(a: String @fromContext(field: "$_context { prop }")): Int!
         }
       `,
     };
@@ -1025,7 +1025,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop @foo }")): Int!
+          field(a: String @fromContext(field: "$context { prop @foo }")): Int!
         }
       `,
     };
@@ -1070,7 +1070,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -1114,7 +1114,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
             @shareable
         }
       `,
@@ -1156,7 +1156,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
             @shareable
         }
       `,
@@ -1202,7 +1202,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
             @shareable
         }
       `,
@@ -1244,7 +1244,7 @@ describe("setContext tests", () => {
 
         type U @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
             @shareable
         }
       `,
@@ -1293,7 +1293,7 @@ describe("setContext tests", () => {
       utl: "https://Subgraph1",
       typeDefs: gql`
         directive @foo(
-          a: String! @fromContext(field: "$context { prop }")
+          a: String @fromContext(field: "$context { prop }")
         ) on FIELD_DEFINITION
 
         type Query {
@@ -1353,7 +1353,7 @@ describe("setContext tests", () => {
         type U @key(fields: "id") {
           id: ID!
           field(
-            a: String! = "default" @fromContext(field: "$context { prop }")
+            a: String = "default" @fromContext(field: "$context { prop }")
           ): Int!
         }
       `,
@@ -1392,55 +1392,6 @@ describe("setContext tests", () => {
 
         interface I @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
-        }
-
-        type T @key(fields: "id") @context(name: "context") {
-          id: ID!
-          u: U!
-          prop: String!
-        }
-
-        type U implements I @key(fields: "id") {
-          id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
-        }
-      `,
-    };
-
-    const subgraph2 = {
-      name: "Subgraph2",
-      utl: "https://Subgraph2",
-      typeDefs: gql`
-        type Query {
-          a: Int!
-        }
-
-        type U @key(fields: "id") {
-          id: ID!
-        }
-      `,
-    };
-
-    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
-    expect(result.schema).toBeUndefined();
-    expect(result.errors?.length).toBe(1);
-    expect(result.errors?.[0].message).toBe(
-      '[Subgraph1] @fromContext argument cannot be used on a field that exists on an interface "I.field(a:)".'
-    );
-  });
-
-  it("forbid contextual arguments on interfaces", () => {
-    const subgraph1 = {
-      name: "Subgraph1",
-      utl: "https://Subgraph1",
-      typeDefs: gql`
-        type Query {
-          t: T!
-        }
-
-        interface I @key(fields: "id") {
-          id: ID!
           field: Int!
         }
 
@@ -1452,7 +1403,7 @@ describe("setContext tests", () => {
 
         type U implements I @key(fields: "id") {
           id: ID!
-          field(a: String! @fromContext(field: "$context { prop }")): Int!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
         }
       `,
     };
@@ -1475,7 +1426,7 @@ describe("setContext tests", () => {
     expect(result.schema).toBeUndefined();
     expect(result.errors?.length).toBe(1);
     expect(result.errors?.[0].message).toBe(
-      "[Subgraph1] Field U.field includes required argument a that is missing from the Interface field I.field."
+      '[Subgraph1] @fromContext argument cannot be used on a field implementing an interface field "I.field".'
     );
   });
 });

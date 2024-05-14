@@ -370,7 +370,7 @@ const wrapResolvedType = ({
   let unwrappedType: NamedType | WrapperType = originalType;
   while(unwrappedType.kind === 'NonNullType' || unwrappedType.kind === 'ListType') {
     stack.push(unwrappedType.kind);
-    unwrappedType = unwrappedType.baseType();
+    unwrappedType = unwrappedType.ofType;
   }
 
   let type: NamedType | WrapperType = resolvedType;
@@ -533,13 +533,13 @@ const validateSelectionFormat = ({
 function isValidImplementationFieldType(fieldType: InputType, implementedFieldType: InputType): boolean {
   if (isNonNullType(fieldType)) {
     if (isNonNullType(implementedFieldType)) {
-      return isValidImplementationFieldType(fieldType.ofType(), implementedFieldType.ofType());
+      return isValidImplementationFieldType(fieldType.ofType, implementedFieldType.ofType);
     } else {
-      return isValidImplementationFieldType(fieldType.ofType(), implementedFieldType);
+      return isValidImplementationFieldType(fieldType.ofType, implementedFieldType);
     }
   }
   if (isListType(fieldType) && isListType(implementedFieldType)) {
-    return isValidImplementationFieldType(fieldType.ofType(), implementedFieldType.ofType());
+    return isValidImplementationFieldType(fieldType.ofType, implementedFieldType.ofType);
   }
   return !isWrapperType(fieldType) &&
     !isWrapperType(implementedFieldType) &&
@@ -631,7 +631,7 @@ function validateFieldValue({
       });
       if (resolvedType === undefined || !isValidImplementationFieldType(resolvedType, expectedType!)) {
         errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
-          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: the type of the selection does not match the expected type "${expectedType?.toString()}"`,
+          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: the type of the selection "${resolvedType}" does not match the expected type "${expectedType?.toString()}"`,
           { nodes: sourceASTs(fromContextParent) }
         ));
         return;
@@ -698,12 +698,12 @@ function validateFieldValue({
           // it's always possible that none of the type conditions map, so we
           // must remove any surrounding non-null wrapper if present.
           if (isNonNullType(resolvedType)) {
-            resolvedType = resolvedType.ofType();
+            resolvedType = resolvedType.ofType;
           }
 
           if (!isValidImplementationFieldType(resolvedType!, expectedType!)) {
             errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
-              `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: the type of the selection does not match the expected type "${expectedType?.toString()}"`,
+              `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: the type of the selection "${resolvedType?.toString()}" does not match the expected type "${expectedType?.toString()}"`,
               { nodes: sourceASTs(fromContextParent) }
             ));
             return;
