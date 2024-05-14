@@ -21,11 +21,9 @@ import {
   Directive,
   DirectiveTargetElement,
   FieldDefinition,
-  InterfaceType,
   isCompositeType,
   isInterfaceType,
   isNullableType,
-  ObjectType,
   runtimeTypesIntersects,
   Schema,
   SchemaRootKind,
@@ -51,7 +49,7 @@ import {
   directivesToString,
   directivesToDirectiveNodes,
 } from "./definitions";
-import { isInterfaceObjectType } from "./federation";
+import { federationMetadata, isFederationDirectiveDefinedInSchema, isInterfaceObjectType } from "./federation";
 import { ERRORS } from "./error";
 import { isSubtype, sameType, typesCanBeMerged } from "./types";
 import { assert, mapKeys, mapValues, MapWithCachedArrays, MultiMap, SetMultiMap } from "./utils";
@@ -170,6 +168,17 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   baseType(): NamedType {
     return baseType(this.definition.type!);
   }
+  
+  withUpdatedArguments(newArgs: TArgs): Field<TArgs> {
+    const newField = new Field<TArgs>(
+      this.definition,
+      { ...this.args, ...newArgs },
+      this.appliedDirectives,
+      this.alias,
+    );
+    this.copyAttachementsTo(newField);
+    return newField;
+  }
 
   withUpdatedDefinition(newDefinition: FieldDefinition<any>): Field<TArgs> {
     const newField = new Field<TArgs>(
@@ -222,17 +231,12 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       };
     });
   }
-
-
-  appliesTo(type: ObjectType | InterfaceType): boolean {
-    const definition = type.field(this.name);
-    return !!definition && this.selects(definition);
-  }
-
+  
   selects(
     definition: FieldDefinition<any>,
     assumeValid: boolean = false,
     variableDefinitions?: VariableDefinitions,
+    contextualArguments?: string[],
   ): boolean {
     assert(assumeValid || variableDefinitions, 'Must provide variable definitions if validation is needed');
 
@@ -252,7 +256,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     for (const argDef of definition.arguments()) {
       const appliedValue = this.argumentValue(argDef.name);
       if (appliedValue === undefined) {
-        if (argDef.defaultValue === undefined && !isNullableType(argDef.type!)) {
+        if (argDef.defaultValue === undefined && !isNullableType(argDef.type!) && (!contextualArguments || !contextualArguments?.includes(argDef.name))) {
           return false;
         }
       } else {
@@ -273,19 +277,28 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     return true;
   }
 
-  validate(variableDefinitions: VariableDefinitions) {
+  validate(variableDefinitions: VariableDefinitions, validateContextualArgs: boolean) {
     validate(this.name === this.definition.name, () => `Field name "${this.name}" cannot select field "${this.definition.coordinate}: name mismatch"`);
-
+    
+    
     // We need to make sure the field has valid values for every non-optional argument.
     for (const argDef of this.definition.arguments()) {
       const appliedValue = this.argumentValue(argDef.name);
+
+      let isContextualArg = false;
+      const schema = this.definition.schema();
+      const fromContextDirective = federationMetadata(schema)?.fromContextDirective();
+      if (fromContextDirective && isFederationDirectiveDefinedInSchema(fromContextDirective)) {
+        isContextualArg = argDef.appliedDirectivesOf(fromContextDirective).length > 0;
+      }
+
       if (appliedValue === undefined) {
         validate(
-          argDef.defaultValue !== undefined || isNullableType(argDef.type!),
+          (isContextualArg && !validateContextualArgs) || argDef.defaultValue !== undefined || isNullableType(argDef.type!),
           () => `Missing mandatory value for argument "${argDef.name}" of field "${this.definition.coordinate}" in selection "${this}"`);
       } else {
         validate(
-          isValidValue(appliedValue, argDef, variableDefinitions),
+          (isContextualArg && !validateContextualArgs) || isValidValue(appliedValue, argDef, variableDefinitions),
           () => `Invalid value ${valueToString(appliedValue)} for argument "${argDef.coordinate}" of type ${argDef.type}`)
       }
     }
@@ -1998,10 +2011,10 @@ export class SelectionSet {
     return this.selections().every((selection) => selection.canAddTo(parentTypeToTest));
   }
 
-  validate(variableDefinitions: VariableDefinitions) {
+  validate(variableDefinitions: VariableDefinitions, validateContextualArgs: boolean = false) {
     validate(!this.isEmpty(), () => `Invalid empty selection set`);
     for (const selection of this.selections()) {
-      selection.validate(variableDefinitions);
+      selection.validate(variableDefinitions, validateContextualArgs);
     }
   }
 
@@ -2520,7 +2533,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
 
   abstract toSelectionNode(): SelectionNode;
 
-  abstract validate(variableDefinitions: VariableDefinitions): void;
+  abstract validate(variableDefinitions: VariableDefinitions, validateContextualArgs: boolean): void;
 
   abstract rebaseOn(args: { parentType: CompositeType, fragments: NamedFragments | undefined, errorIfCannotRebase: boolean}): TOwnType | undefined;
 
@@ -3035,8 +3048,8 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
   }
 
-  validate(variableDefinitions: VariableDefinitions) {
-    this.element.validate(variableDefinitions);
+  validate(variableDefinitions: VariableDefinitions, validateContextualArgs: boolean) {
+    this.element.validate(variableDefinitions, validateContextualArgs);
     // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
     validate(
@@ -3955,7 +3968,7 @@ export function parseSelectionSet({
   return selectionSet;
 }
 
-function parseOperationAST(source: string): OperationDefinitionNode {
+export function parseOperationAST(source: string): OperationDefinitionNode {
   const parsed = parse(source);
   validate(parsed.definitions.length === 1, () => 'Selections should contain a single definitions, found ' + parsed.definitions.length);
   const def = parsed.definitions[0];
@@ -3979,4 +3992,18 @@ export function operationToDocument(operation: Operation): DocumentNode {
     kind: Kind.DOCUMENT,
     definitions: [operationAST as DefinitionNode].concat(fragmentASTs),
   };
+}
+
+export function hasSelectionWithPredicate(selectionSet: SelectionSet, predicate: (s: Selection) => boolean): boolean {
+  for (const selection of selectionSet.selections()) {
+    if (predicate(selection)) {
+      return true;
+    }
+    if (selection.selectionSet) {
+      if (hasSelectionWithPredicate(selection.selectionSet, predicate)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }

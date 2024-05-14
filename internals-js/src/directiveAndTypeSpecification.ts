@@ -24,6 +24,7 @@ import { sameType } from "./types";
 import { arrayEquals, assert } from "./utils";
 import { ArgumentCompositionStrategy } from "./argumentCompositionStrategies";
 import { FeatureDefinition, FeatureVersion } from "./specs/coreSpec";
+import { Subgraph } from '.';
 
 export type DirectiveSpecification = {
   name: string,
@@ -34,7 +35,10 @@ export type DirectiveSpecification = {
 export type DirectiveCompositionSpecification = {
   supergraphSpecification: (federationVersion: FeatureVersion) => FeatureDefinition,
   argumentsMerger?: (schema: Schema, feature: CoreFeature) => ArgumentMerger | GraphQLError,
+  staticArgumentTransform?: StaticArgumentsTransform,
 }
+
+export type StaticArgumentsTransform = (subgraph: Subgraph, args: Readonly<{[key: string]: any}>) => Readonly<{[key: string]: any}>;
 
 export type ArgumentMerger = {
   merge: (argName: string, values: any[]) => any,
@@ -75,6 +79,7 @@ export function createDirectiveSpecification({
   args = [],
   composes = false,
   supergraphSpecification = undefined,
+  staticArgumentTransform = undefined,
 }: {
   name: string,
   locations: DirectiveLocation[],
@@ -82,6 +87,7 @@ export function createDirectiveSpecification({
   args?: DirectiveArgumentSpecification[],
   composes?: boolean,
   supergraphSpecification?: (fedVersion: FeatureVersion) => FeatureDefinition,
+  staticArgumentTransform?: (subgraph: Subgraph, args: {[key: string]: any}) => {[key: string]: any},
 }): DirectiveSpecification {
   let composition: DirectiveCompositionSpecification | undefined = undefined;
   if (composes) {
@@ -109,7 +115,7 @@ export function createDirectiveSpecification({
               + `${strategy.name} only supports ${supportedMsg}`
             );
           }
-        };
+        }
         return {
           merge: (argName, values) => {
             const strategy = argStrategies.get(argName);
@@ -128,6 +134,7 @@ export function createDirectiveSpecification({
     composition = {
       supergraphSpecification,
       argumentsMerger,
+      staticArgumentTransform,
     };
   }
 
