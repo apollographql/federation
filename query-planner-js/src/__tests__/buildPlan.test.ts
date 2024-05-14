@@ -9478,7 +9478,12 @@ describe('@fromContext impacts on query planning', () => {
     expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
       {
         kind: 'KeyRenamer',
-        path: ['..', '... on A,B', 'prop'],
+        path: ['..', '... on A', 'prop'],
+        renameKeyTo: 'contextualArgument_1_0',
+      },
+      {
+        kind: 'KeyRenamer',
+        path: ['..', '... on B', 'prop'],
         renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
