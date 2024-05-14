@@ -12,13 +12,8 @@
   ],
   "sidebar": {
     "Introduction": "/",
+    "Quickstart": "/quickstart",
     "Changelog": "/federation-versions",
-    "Quickstart": {
-      "Project setup": "/quickstart/setup",
-      "Composition in GraphOS Studio": "/quickstart/studio-composition",
-      "Local composition": "/quickstart/local-composition",
-      "Working with subgraphs": "/quickstart/local-subgraphs"
-    },
     "Building Your Supergraph": {
       "Subgraphs": "/building-supergraphs/subgraphs-overview",
       "Supported subgraph libraries": "/building-supergraphs/supported-subgraphs",
