@@ -438,14 +438,6 @@ When the router sees this special `Fetch` syntax, it knows to query a subgraph's
 
 Now that you've learned about each query plan node, take another look at the example query plan in [Example graph](#example-graph) to see how these nodes work together in a complete query plan.
 
-## Viewing query plans
-
-You can view the query plan for a particular operation in any of the following ways:
-
-- [In the GraphOS Studio Explorer](/graphos/explorer/additional-features#query-plans-for-supergraphs)
-    - Note that you must [register your federated graph](./managed-federation/setup/) with GraphOS to view query plans in the Explorer.
-- As direct output from the `@apollo/gateway` library (see below)
-
 ### Defer node
 
 A `Defer` node corresponds to one or more `@defer`s at the same level of nesting in the query plan.
@@ -454,9 +446,58 @@ The node contains a _primary block_ and an array of _deferred blocks_. The prima
 
 Read more about how `@defer` operatates at [Apollo Router support for @defer](/router/executing-operations/defer-support/).
 
+```graphql
+QueryPlan {
+  Defer {
+    Primary {
+      Fetch(...) {}
+    }, [
+      Deferred(...) {
+        Flatten(...) {
+          Fetch(...) {}
+        }
+      }
+    ]
+  }
+}
+```
+
 ### Condition node
 
 A `Condition` node splits a query plan into an if-else branch. `Condition` nodes are commonly used for `@skip` and `@include` directives so the query plan to select different nodes based on the provided runtime variables.
+
+```graphql
+QueryPlan {
+  Sequence {
+    Fetch(...) {}
+    Include(...) {
+      Flatten(...) {
+        Fetch(...) { }
+      }
+    }
+  }
+}
+```
+```graphql
+QueryPlan {
+  Sequence {
+    Fetch(...) {}
+    Skip(...) {
+      Flatten(...) {
+        Fetch(...) { }
+      }
+    }
+  }
+}
+```
+
+## Viewing query plans
+
+You can view the query plan for a particular operation in any of the following ways:
+
+- [In the GraphOS Studio Explorer](/graphos/explorer/additional-features#query-plans-for-supergraphs)
+    - Note that you must [register your federated graph](./managed-federation/setup/) with GraphOS to view query plans in the Explorer.
+- As direct output from the `@apollo/gateway` library (see below)
 
 ### Outputting query plans with headers
 
