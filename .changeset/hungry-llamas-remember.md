@@ -6,7 +6,7 @@
 "@apollo/gateway": minor
 ---
 
-Implement new directives to allow getting and setting context. This allows resolvers to reference and access data referenced by entities that exist in the GraphPath that was used to access the field. The following example demonstrates the abillity to access the `prop` field within the Child resolver.
+Implement new directives to allow getting and setting context. This allows resolvers to reference and access data referenced by entities that exist in the GraphPath that was used to access the field. The following example demonstrates the ability to access the `prop` field within the Child resolver.
 
 ```graphql
 type Query {
