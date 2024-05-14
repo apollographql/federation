@@ -35,7 +35,7 @@ import {
   isScalarType,
   isEnumType,
   isUnionType,
-  SelectionSetUpdates,
+  Selection,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, FEDERATED_GRAPH_ROOT_SOURCE } from "./querygraph";
@@ -1913,19 +1913,19 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
       let levelsInDataPath = 1;
       for (const [e, trigger] of [...path].reverse()) {
         const parentType = getFieldParentType(trigger);
-        if (e !== null && !contextMap.has(cxt.context) && !someSelectionUnsatisfied) {
-          
+        if (e !== null && !contextMap.has(cxt.namedParameter) && !someSelectionUnsatisfied) {
           const matches = Array.from(cxt.typesWithContextSet).some(t => {
             if (parentType) {
-              if (parentType.name === t) {
+              const parentInSupergraph = path.graph.schema.type(parentType.name)!;
+              if (parentInSupergraph.name === t) {
                 return true;
               }
-              if (isObjectType(parentType)) {
-                if (parentType.interfaces().some(i => i.name === t)) {
+              if (isObjectType(parentInSupergraph)) {
+                if (parentInSupergraph.interfaces().some(i => i.name === t)) {
                   return true;
                 }
               }
-              const tInSupergraph = parentType.schema().type(t);
+              const tInSupergraph = parentInSupergraph.schema().type(t);
               if (tInSupergraph && isUnionType(tInSupergraph)) {
                 return tInSupergraph.types().some(t => t.name === parentType.name);              
               }
@@ -1933,17 +1933,21 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
             return false;
           });
           if (parentType && matches) {
-            let selectionSet = parseSelectionSet({ parentType, source: cxt.selection });
+            const parentInSupergraph = path.graph.schema.type(parentType.name)!;
+            assert(isCompositeType(parentInSupergraph), "Parent type should be composite type");
+            let selectionSet = parseSelectionSet({ parentType: parentInSupergraph, source: cxt.selection });
             
-            // If there are multiple FragmentSelections, we want to pick out the one that matches the parentType 
-            if (selectionSet.selections().length > 1) {
-              const fragmentSelection = selectionSet.selections().find(s => s.kind === 'FragmentSelection' && s.element.typeCondition?.name === parentType.name);
-              if (fragmentSelection) {
-                const ss = new SelectionSetUpdates();
-                ss.add(fragmentSelection);
-                selectionSet = ss.toSelectionSet(parentType);
+            // We want to ignore type conditions that are impossible/don't intersect with the parent type
+            selectionSet = selectionSet.lazyMap((selection): Selection | undefined => {
+              if (selection.kind === 'FragmentSelection') {
+                if (selection.element.typeCondition && isObjectType(selection.element.typeCondition)) {
+                  if (!possibleRuntimeTypes(parentInSupergraph).includes(selection.element.typeCondition)) {
+                    return undefined;
+                  }
+                }
               }
-            }
+              return selection;
+            })
             const resolution = conditionResolver(e, context, excludedEdges, excludedConditions, selectionSet);
             assert(edge.transition.kind === 'FieldCollection', () => `Expected edge to be a FieldCollection edge, got ${edge.transition.kind}`);
             
@@ -1952,7 +1956,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
             
             const id = argIndices.get(cxt.coordinate);
             assert(id !== undefined, () => `Expected to find arg index for ${cxt.coordinate}`);
-            contextMap.set(cxt.context, { selectionSet, levelsInDataPath, levelsInQueryPath, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, id, argType: cxt.argType });
+            contextMap.set(cxt.namedParameter, { selectionSet, levelsInDataPath, levelsInQueryPath, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, id, argType: cxt.argType });
             someSelectionUnsatisfied = someSelectionUnsatisfied || !resolution.satisfied;
             if (resolution.cost === -1 || totalCost === -1) {
               totalCost = -1;
@@ -1968,7 +1972,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
       }
     }
     
-    if (requiredContexts.some(c => !contextMap.has(c.context))) {
+    if (requiredContexts.some(c => !contextMap.has(c.namedParameter))) {
       // in this case there is a context that is unsatisfied. Return no path.
       debug.groupEnd('@fromContext requires a context that is not set in graph path');
       return { ...unsatisfiedConditionsResolution, unsatisfiedConditionReason: UnsatisfiedConditionReason.NO_CONTEXT_SET };
@@ -1980,14 +1984,11 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     }
     
     // it's possible that we will need to create a new fetch group at this point, in which case we'll need to collect the keys
-    // to jump back to this object as a precondition for satisfying it.
-    const keyEdge = path.graph.outEdges(edge.head).find(e => e.transition.kind === 'KeyResolution');
-    assert(keyEdge, () => `Expected to find a key edge from ${edge.head}`);
-    
-    debug.log('@fromContext conditions are satisfied, but validating post-require key.');
-    const postRequireKeyCondition = getLocallySatisfiableKey(path.graph, edge.head);
-    if (!postRequireKeyCondition) {
-      debug.groupEnd('Post-require conditions cannot be satisfied');
+    // to jump back to this object as a precondition for satisfying it.    
+    debug.log('@fromContext conditions are satisfied, but validating post-context key.');
+    const postContextKeyCondition = getLocallySatisfiableKey(path.graph, edge.head);
+    if (!postContextKeyCondition) {
+      debug.groupEnd('Post-context conditions cannot be satisfied');
       return { ...unsatisfiedConditionsResolution, unsatisfiedConditionReason: UnsatisfiedConditionReason.NO_POST_REQUIRE_KEY };
     }
 
@@ -2030,7 +2031,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   }
 
   debug.groupEnd('Conditions satisfied');
-  return { ...resolution, contextMap, cost: totalCost + resolution.cost, pathTree: resolution.pathTree };
+  return { ...resolution, contextMap, cost: totalCost + resolution.cost };
 }
 
 function isTerminalOperation(operation: OperationElement): boolean {

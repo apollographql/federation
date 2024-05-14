@@ -363,6 +363,8 @@ export class QueryGraph {
     readonly subgraphToArgs: Map<string, string[]>,
     
     readonly subgraphToArgIndices: Map<string, Map<string, string>>,
+
+    readonly schema: Schema,
   ) {
     this.nonTrivialFollowupEdges = preComputeNonTrivialFollowupEdges(this);
   }
@@ -690,7 +692,7 @@ function resolvableKeyApplications(
 
 function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGraph {
   const [verticesCount, rootKinds, schemas] = federatedProperties(subgraphs);
-  const builder = new GraphBuilder(verticesCount);
+  const builder = new GraphBuilder(supergraph, verticesCount);
   rootKinds.forEach(k => builder.createRootVertex(
     k,
     new ObjectType(federatedGraphRootTypeName(k)),
@@ -1124,11 +1126,13 @@ class GraphBuilder {
   private readonly sources: Map<string, Schema> = new Map();
   private subgraphToArgs: Map<string, string[]> = new Map();
   private subgraphToArgIndices: Map<string, Map<string, string>> = new Map();
+  readonly schema: Schema;
 
-  constructor(verticesCount?: number) {
+  constructor(schema: Schema, verticesCount?: number) {
     this.vertices = verticesCount ? new Array(verticesCount) : [];
     this.outEdges = verticesCount ? new Array(verticesCount) : [];
     this.inEdges = verticesCount ? new Array(verticesCount) : [];
+    this.schema = schema;
   }
 
   verticesForType(typeName: string): Vertex[] {
@@ -1301,7 +1305,9 @@ class GraphBuilder {
       this.rootVertices,
       this.sources,
       this.subgraphToArgs,
-      this.subgraphToArgIndices);
+      this.subgraphToArgIndices,
+      this.schema,
+    );
   }
   
   setContextMaps(subgraphToArgs: Map<string, string[]>, subgraphToArgIndices: Map<string, Map<string, string>>) {
@@ -1320,11 +1326,11 @@ class GraphBuilderFromSchema extends GraphBuilder {
 
   constructor(
     private readonly name: string,
-    private readonly schema: Schema,
+    schema: Schema,
     private readonly supergraph?: { apiSchema: Schema, isFed1: boolean },
     private readonly overrideLabelsByCoordinate?: Map<string, string>,
   ) {
-    super();
+    super(schema);
     this.isFederatedSubgraph = !!supergraph && isFederationSubgraphSchema(schema);
   }
 
