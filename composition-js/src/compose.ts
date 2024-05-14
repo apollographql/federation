@@ -70,7 +70,12 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
   const supergraph = new Supergraph(mergeResult.supergraph, null);
   const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
   const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
-  const { errors, hints } = validateGraphComposition(supergraph.schema, supergraphQueryGraph, federatedQueryGraph);
+  const { errors, hints } = validateGraphComposition(
+    supergraph.schema,
+    supergraph.subgraphNameToGraphEnumValue(),
+    supergraphQueryGraph,
+    federatedQueryGraph
+  );
   if (errors) {
     return { errors };
   }

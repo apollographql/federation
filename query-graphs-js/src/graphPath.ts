@@ -29,14 +29,28 @@ import {
   DeferDirectiveArgs,
   isInterfaceType,
   isSubset,
+  parseSelectionSet,
+  Variable,
+  Type,
+  isScalarType,
+  isEnumType,
+  isUnionType,
+  Selection,
 } from "@apollo/federation-internals";
 import { OpPathTree, traversePathTree } from "./pathTree";
 import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRootType, FEDERATED_GRAPH_ROOT_SOURCE } from "./querygraph";
 import { DownCast, Transition } from "./transition";
-import { PathContext, emptyContext } from "./pathContext";
+import { PathContext, emptyContext, isPathContext } from "./pathContext";
 import { v4 as uuidv4 } from 'uuid';
 
 const debug = newDebugLogger('path');
+
+export type ContextAtUsageEntry = { 
+  contextId: string, 
+  relativePath: string[],
+  selectionSet: SelectionSet,
+  subgraphArgType: Type,
+};
 
 function updateRuntimeTypes(currentRuntimeTypes: readonly ObjectType[], edge: Edge | null): readonly ObjectType[] {
   if (!edge) {
@@ -160,9 +174,15 @@ type PathProps<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | ne
   readonly runtimeTypesBeforeTailIfLastIsCast?: readonly ObjectType[],
 
   readonly deferOnTail?: DeferDirectiveArgs,
+  
+  /** We may have a map of selections that get mapped to a context */
+  readonly contextToSelection: readonly (Set<string> | null)[],
+  
+  /** This parameter is for mapping contexts back to the parameter used to collect the field */
+  readonly parameterToContext: readonly (Map<string, ContextAtUsageEntry> | null)[],
 }
 
-export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> implements Iterable<[Edge | TNullEdge, TTrigger, OpPathTree | null]> {
+export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends null | never = never> implements Iterable<[Edge | TNullEdge, TTrigger, OpPathTree | null, Set<string> | null, Map<string, ContextAtUsageEntry> | null]> {
   private constructor(
     private readonly props: PathProps<TTrigger, RV, TNullEdge>,
   ) {
@@ -207,6 +227,8 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       ownPathIds: [],
       overriddingPathIds: [],
       runtimeTypesOfTail: runtimeTypes,
+      contextToSelection: [],
+      parameterToContext: [],
     });
   }
 
@@ -362,7 +384,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     return {
       currentIndex: 0,
       currentVertex: this.root,
-      next(): IteratorResult<[Edge | TNullEdge, TTrigger, OpPathTree | null]> {
+      next(): IteratorResult<[Edge | TNullEdge, TTrigger, OpPathTree | null, Set<string> | null, Map<string, ContextAtUsageEntry> | null]> {
         if (this.currentIndex >= path.size) {
           return { done: true, value: undefined };
         }
@@ -371,7 +393,13 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
         if (edge) {
           this.currentVertex = edge.tail;
         }
-        return { done: false, value: [edge, path.props.edgeTriggers[idx], path.props.edgeConditions[idx]] };
+        return { done: false, value: [
+          edge, 
+          path.props.edgeTriggers[idx],
+          path.props.edgeConditions[idx],
+          path.props.contextToSelection[idx],
+          path.props.parameterToContext[idx],
+        ] };
       }
     };
   }
@@ -417,7 +445,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
   add(trigger: TTrigger, edge: Edge | TNullEdge, conditionsResolution: ConditionResolution, defer?: DeferDirectiveArgs): GraphPath<TTrigger, RV, TNullEdge> {
     assert(!edge || this.tail.index === edge.head.index, () => `Cannot add edge ${edge} to path ending at ${this.tail}`);
     assert(conditionsResolution.satisfied, 'Should add to a path if the conditions cannot be satisfied');
-    assert(!edge || edge.conditions || !conditionsResolution.pathTree, () => `Shouldn't have conditions paths (got ${conditionsResolution.pathTree}) for edge without conditions (edge: ${edge})`);
+    assert(!edge || edge.conditions || edge.requiredContexts.length > 0 || !conditionsResolution.pathTree, () => `Shouldn't have conditions paths (got ${conditionsResolution.pathTree}) for edge without conditions (edge: ${edge})`);
 
     // We clear `subgraphEnteringEdge` as we enter a @defer: that is because `subgraphEnteringEdge` is used to eliminate some
     // non-optimal paths, but we don't want those optimizations to bypass a defer.
@@ -503,13 +531,25 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
         }
       }
     }
-
+    
+    const { edgeConditions, contextToSelection, parameterToContext } = this.mergeEdgeConditionsWithResolution(conditionsResolution);
+    const lastParameterToContext = parameterToContext[parameterToContext.length-1];
+    let newTrigger = trigger;
+    if (lastParameterToContext !== null && (trigger as any).kind === 'Field') {
+      // If this is the last edge that reaches a contextual element, we should update the trigger to use the contextual arguments
+      const args = Array.from(lastParameterToContext).reduce((acc: {[key: string]: any}, [key, value]: [string, ContextAtUsageEntry]) => {
+        acc[key] = new Variable(value.contextId);
+        return acc;
+      }, {});
+      newTrigger = (trigger as Field).withUpdatedArguments(args) as TTrigger;
+    }
+      
     return new GraphPath({
       ...this.props,
       tail: edge ? edge.tail : this.tail,
-      edgeTriggers: this.props.edgeTriggers.concat(trigger),
+      edgeTriggers: this.props.edgeTriggers.concat(newTrigger),
       edgeIndexes: this.props.edgeIndexes.concat((edge ? edge.index : null) as number | TNullEdge),
-      edgeConditions: this.props.edgeConditions.concat(conditionsResolution.pathTree ?? null),
+      edgeConditions,
       subgraphEnteringEdge,
       edgeToTail: edge,
       runtimeTypesOfTail: updateRuntimeTypes(this.props.runtimeTypesOfTail, edge),
@@ -518,9 +558,56 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
       // is because we only try to re-enter subgraphs for @defer on concrete fields, and so as long as we add downcasts,
       // we should remember that we still need to try re-entering the subgraph.
       deferOnTail: defer ?? (edge && edge.transition.kind === 'DownCast' ? this.props.deferOnTail : undefined),
+      contextToSelection,
+      parameterToContext,
     });
   }
-
+  
+  /**
+   * We are going to grow the conditions by one element with the pathTree on the resolution. Additionally, we may need to merge or replace
+   * the existing elements with elements from the ContextMap
+   */
+  private mergeEdgeConditionsWithResolution(conditionsResolution: ConditionResolution): {
+    edgeConditions: (OpPathTree | null)[],
+    contextToSelection: (Set<string> | null)[],
+    parameterToContext: (Map<string, ContextAtUsageEntry> | null)[],
+  }{
+    const edgeConditions = this.props.edgeConditions.concat(conditionsResolution.pathTree ?? null);
+    const contextToSelection = this.props.contextToSelection.concat(null);
+    const parameterToContext = this.props.parameterToContext.concat(null);
+    
+    if (conditionsResolution.contextMap === undefined || conditionsResolution.contextMap.size === 0) {
+      return {
+        edgeConditions,
+        contextToSelection,
+        parameterToContext,
+      };
+    }
+    
+    parameterToContext[parameterToContext.length-1] = new Map();
+    
+    for (const [_, entry] of conditionsResolution.contextMap) {
+      const idx = edgeConditions.length - entry.levelsInQueryPath -1;
+      assert(idx >= 0, 'calculated condition index must be positive');
+      
+      
+      if (entry.pathTree) {
+        edgeConditions[idx] = edgeConditions[idx]?.merge(entry.pathTree) ?? entry.pathTree;
+      }
+      if (contextToSelection[idx] === null) {
+        contextToSelection[idx] = new Set();
+      }
+      contextToSelection[idx]?.add(entry.id);
+      
+      parameterToContext[parameterToContext.length-1]?.set(entry.paramName, { contextId: entry.id, relativePath: Array(entry.levelsInDataPath).fill(".."), selectionSet: entry.selectionSet, subgraphArgType: entry.argType } );
+    }
+    return {
+      edgeConditions,
+      contextToSelection,
+      parameterToContext,
+    };
+  }
+  
   /**
    * Creates a new path corresponding to concatenating the provide path _after_ this path.
    *
@@ -808,7 +895,7 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
   }
 }
 
-export interface PathIterator<TTrigger, TNullEdge extends null | never = never> extends Iterator<[Edge | TNullEdge, TTrigger, OpPathTree | null]> {
+export interface PathIterator<TTrigger, TNullEdge extends null | never = never> extends Iterator<[Edge | TNullEdge, TTrigger, OpPathTree | null, Set<string> | null, Map<string, ContextAtUsageEntry> | null]> {
   currentIndex: number,
   currentVertex: Vertex
 }
@@ -879,19 +966,32 @@ export function traversePath(
 
 // Note that ConditionResolver are guaranteed to be only called for edge with conditions.
 export type ConditionResolver =
-  (edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions) => ConditionResolution;
+  (edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions, extraConditions?: SelectionSet) => ConditionResolution;
 
 
+type ContextMapEntry = {
+  levelsInDataPath: number,
+  levelsInQueryPath: number,
+  pathTree?: OpPathTree,
+  selectionSet: SelectionSet,
+  inboundEdge: Edge,
+  paramName: string,
+  argType: Type,
+  id: string,
+}
+  
 export type ConditionResolution = {
   satisfied: boolean,
   cost: number,
-  pathTree?: OpPathTree
+  pathTree?: OpPathTree,
+  contextMap?: Map<string, ContextMapEntry>,
   // Note that this is not guaranteed to be set even if satistied === false.
   unsatisfiedConditionReason?: UnsatisfiedConditionReason
 }
 
 export enum UnsatisfiedConditionReason {
-  NO_POST_REQUIRE_KEY
+  NO_POST_REQUIRE_KEY,
+  NO_CONTEXT_SET
 }
 
 export const noConditionsResolution: ConditionResolution = { satisfied: true, cost: 0 };
@@ -988,6 +1088,7 @@ export class TransitionPathWithLazyIndirectPaths<V extends Vertex = Vertex> {
       (t) => t,
       pathTransitionToEdge,
       this.overrideConditions,
+      getFieldParentTypeForEdge,
     );
   }
 
@@ -1270,6 +1371,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   convertTransitionWithCondition: (transition: Transition, context: PathContext) => TTrigger,
   triggerToEdge: (graph: QueryGraph, vertex: Vertex, t: TTrigger, overrideConditions: Map<string, boolean>) => Edge | null | undefined,
   overrideConditions: Map<string, boolean>,
+  getFieldParentType: (trigger: TTrigger) => CompositeType | null,
 ): IndirectPaths<TTrigger, V, TNullEdge, TDeadEnds>  {
   // If we're asked for indirect paths after an "@interfaceObject fake down cast" but that down cast comes just after a non-collecting edges, then
   // we can ignore it (skip indirect paths from there). The reason is that the presence of the non-collecting just before the fake down-cast means
@@ -1396,6 +1498,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         context,
         addDestinationExclusion(excludedDestinations, target.source),
         excludedConditions,
+        getFieldParentType,
       );
       if (conditionResolution.satisfied) {
         debug.groupEnd('Condition satisfied');
@@ -1614,7 +1717,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
     }
 
     // Additionally, we can only take an edge if we can satisfy its conditions.
-    const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, emptyContext, [], []);
+    const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, emptyContext, [], [], getFieldParentTypeForEdge);
     if (conditionResolution.satisfied) {
       options.push(path.add(transition, edge, conditionResolution));
     } else {
@@ -1626,6 +1729,11 @@ function advancePathWithDirectTransition<V extends Vertex>(
             const parentTypeInSubgraph = path.graph.sources.get(edge.head.source)!.type(field.parent.name)! as CompositeType;
             const details = conditionResolution.unsatisfiedConditionReason === UnsatisfiedConditionReason.NO_POST_REQUIRE_KEY
               ? `@require condition on field "${field.coordinate}" can be satisfied but missing usable key on "${parentTypeInSubgraph}" in subgraph "${edge.head.source}" to resume query`
+              : conditionResolution.unsatisfiedConditionReason === UnsatisfiedConditionReason.NO_CONTEXT_SET
+              ? `could not find a match for required context for field "${field.coordinate}"`
+              // TODO: This isn't necessarily just because an @requires
+              // condition was unsatisfied, but could also be because a
+              // @fromContext condition was unsatisfied.
               : `cannot satisfy @require conditions on field "${field.coordinate}"${warnOnKeyFieldsMarkedExternal(parentTypeInSubgraph)}`;
             deadEnds.push({
               sourceSubgraph: edge.head.source,
@@ -1786,12 +1894,109 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   conditionResolver: ConditionResolver,
   context: PathContext,
   excludedEdges: ExcludedDestinations,
-  excludedConditions: ExcludedConditions
+  excludedConditions: ExcludedConditions,
+  getFieldParentType: (trigger: TTrigger) => CompositeType | null,
 ): ConditionResolution {
-  const conditions = edge.conditions;
-  if (!conditions) {
+  const { conditions, requiredContexts } = edge;
+  if (!conditions && requiredContexts.length === 0) {
     return noConditionsResolution;
   }
+  
+  let totalCost = 0;
+  const contextMap = new Map<string, ContextMapEntry>();
+  
+  if (requiredContexts.length > 0) {
+    // if one of the conditions fails to satisfy, it's ok to bail
+    let someSelectionUnsatisfied = false;
+    for (const cxt of requiredContexts) {
+      let levelsInQueryPath = 1;
+      let levelsInDataPath = 1;
+      for (const [e, trigger] of [...path].reverse()) {
+        const parentType = getFieldParentType(trigger);
+        if (e !== null && !contextMap.has(cxt.namedParameter) && !someSelectionUnsatisfied) {
+          const matches = Array.from(cxt.typesWithContextSet).some(t => {
+            if (parentType) {
+              const parentInSupergraph = path.graph.schema.type(parentType.name)!;
+              if (parentInSupergraph.name === t) {
+                return true;
+              }
+              if (isObjectType(parentInSupergraph)) {
+                if (parentInSupergraph.interfaces().some(i => i.name === t)) {
+                  return true;
+                }
+              }
+              const tInSupergraph = parentInSupergraph.schema().type(t);
+              if (tInSupergraph && isUnionType(tInSupergraph)) {
+                return tInSupergraph.types().some(t => t.name === parentType.name);              
+              }
+            }
+            return false;
+          });
+          if (parentType && matches) {
+            const parentInSupergraph = path.graph.schema.type(parentType.name)!;
+            assert(isCompositeType(parentInSupergraph), "Parent type should be composite type");
+            let selectionSet = parseSelectionSet({ parentType: parentInSupergraph, source: cxt.selection });
+            
+            // We want to ignore type conditions that are impossible/don't intersect with the parent type
+            selectionSet = selectionSet.lazyMap((selection): Selection | undefined => {
+              if (selection.kind === 'FragmentSelection') {
+                if (selection.element.typeCondition && isObjectType(selection.element.typeCondition)) {
+                  if (!possibleRuntimeTypes(parentInSupergraph).includes(selection.element.typeCondition)) {
+                    return undefined;
+                  }
+                }
+              }
+              return selection;
+            })
+            const resolution = conditionResolver(e, context, excludedEdges, excludedConditions, selectionSet);
+            assert(edge.transition.kind === 'FieldCollection', () => `Expected edge to be a FieldCollection edge, got ${edge.transition.kind}`);
+            
+            const argIndices = path.graph.subgraphToArgIndices.get(cxt.subgraphName);
+            assert(argIndices, () => `Expected to find arg indices for subgraph ${cxt.subgraphName}`);
+            
+            const id = argIndices.get(cxt.coordinate);
+            assert(id !== undefined, () => `Expected to find arg index for ${cxt.coordinate}`);
+            contextMap.set(cxt.namedParameter, { selectionSet, levelsInDataPath, levelsInQueryPath, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, id, argType: cxt.argType });
+            someSelectionUnsatisfied = someSelectionUnsatisfied || !resolution.satisfied;
+            if (resolution.cost === -1 || totalCost === -1) {
+              totalCost = -1;
+            } else {
+              totalCost += resolution.cost;            
+            }
+          }
+        }
+        levelsInQueryPath += 1;
+        if (parentType) {
+          levelsInDataPath += 1;
+        }
+      }
+    }
+    
+    if (requiredContexts.some(c => !contextMap.has(c.namedParameter))) {
+      // in this case there is a context that is unsatisfied. Return no path.
+      debug.groupEnd('@fromContext requires a context that is not set in graph path');
+      return { ...unsatisfiedConditionsResolution, unsatisfiedConditionReason: UnsatisfiedConditionReason.NO_CONTEXT_SET };
+    }
+    
+    if (someSelectionUnsatisfied) {
+      debug.groupEnd('@fromContext selection set is unsatisfied');
+      return { ...unsatisfiedConditionsResolution };
+    }
+    
+    // it's possible that we will need to create a new fetch group at this point, in which case we'll need to collect the keys
+    // to jump back to this object as a precondition for satisfying it.    
+    debug.log('@fromContext conditions are satisfied, but validating post-context key.');
+    const postContextKeyCondition = getLocallySatisfiableKey(path.graph, edge.head);
+    if (!postContextKeyCondition) {
+      debug.groupEnd('Post-context conditions cannot be satisfied');
+      return { ...unsatisfiedConditionsResolution, unsatisfiedConditionReason: UnsatisfiedConditionReason.NO_POST_REQUIRE_KEY };
+    }
+
+    if (!conditions) {
+      return { contextMap, cost: totalCost, satisfied: true };
+    }
+  }
+  
   debug.group(() => `Checking conditions ${conditions} on edge ${edge}`);
   const resolution = conditionResolver(edge, context, excludedEdges, excludedConditions);
   if (!resolution.satisfied) {
@@ -1824,8 +2029,9 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     // clean that up, but it's unclear to me how at the moment and it may not be a small change so this will
     // have to do for now.
   }
+
   debug.groupEnd('Conditions satisfied');
-  return resolution;
+  return { ...resolution, contextMap, cost: totalCost + resolution.cost };
 }
 
 function isTerminalOperation(operation: OperationElement): boolean {
@@ -1882,6 +2088,7 @@ export class SimultaneousPathsWithLazyIndirectPaths<V extends Vertex = Vertex> {
       (_t, context) => context,
       opPathTriggerToEdge,
       this.overrideConditions,
+      getFieldParentTypeForOpTrigger,
     );
   }
 
@@ -2619,7 +2826,7 @@ function advanceWithOperation<V extends Vertex>(
         if (path.tailIsInterfaceObject()) {
           const fakeDownCastEdge = path.nextEdges().find((e) => e.transition.kind === 'InterfaceObjectFakeDownCast' && e.transition.castedTypeName === typeName);
           if (fakeDownCastEdge) {
-            const conditionResolution = canSatisfyConditions(path, fakeDownCastEdge, conditionResolver, context, [], []);
+            const conditionResolution = canSatisfyConditions(path, fakeDownCastEdge, conditionResolver, context, [], [], getFieldParentTypeForOpTrigger);
             if (!conditionResolution.satisfied) {
               return { options: undefined };
             }
@@ -2647,7 +2854,7 @@ function addFieldEdge<V extends Vertex>(
   conditionResolver: ConditionResolver,
   context: PathContext
 ): OpGraphPath<V> | undefined {
-  const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, context, [], []);
+  const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, context, [], [], getFieldParentTypeForOpTrigger);
   return conditionResolution.satisfied ? path.add(fieldOperation, edge, conditionResolution) : undefined;
 }
 
@@ -2672,7 +2879,7 @@ function edgeForField(
   const candidates = graph.outEdges(vertex)
     .filter(e =>
       e.transition.kind === 'FieldCollection'
-      && field.selects(e.transition.definition, true)
+      && field.selects(e.transition.definition, true, undefined, e.requiredContexts?.map(c => c.namedParameter))
       && e.satisfiesOverrideConditions(overrideConditions)
   );
   assert(candidates.length <= 1, () => `Vertex ${vertex} has multiple edges matching ${field} (${candidates})`);
@@ -2694,4 +2901,26 @@ function edgeForTypeCast(
   const candidates = graph.outEdges(vertex).filter(e => e.transition.kind === 'DownCast' && typeName === e.transition.castedType.name);
   assert(candidates.length <= 1, () => `Vertex ${vertex} has multiple edges matching ${typeName} (${candidates})`);
   return candidates.length === 0 ? undefined : candidates[0];
+}
+
+const getFieldParentTypeForOpTrigger = (trigger: OpTrigger): CompositeType | null => {
+  if (!isPathContext(trigger)) {
+    if (trigger.kind === 'Field') {
+      return trigger.definition.parent;
+    }
+  }
+  return null;
+};
+
+const getFieldParentTypeForEdge = (transition: Transition): CompositeType | null => {
+  if (transition.kind === 'FieldCollection') {
+    const type = transition.definition.parent;
+    if (!type || isScalarType(type) || isEnumType(type)) {
+      return null;
+    }
+    if (isObjectType(type) || isInterfaceType(type) || isUnionType(type)) {
+      return type;
+    }
+  }
+  return null;
 }

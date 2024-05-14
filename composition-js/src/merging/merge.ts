@@ -74,8 +74,12 @@ import {
   LinkDirectiveArgs,
   sourceIdentity,
   FeatureUrl,
+  isFederationDirectiveDefinedInSchema,
+  parseContext,
   CoreFeature,
   Subgraph,
+  StaticArgumentsTransform,
+  isNullableType,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -291,7 +295,7 @@ class Merger {
   readonly merged: Schema = new Schema();
   readonly subgraphNamesToJoinSpecName: Map<string, string>;
   readonly mergedFederationDirectiveNames = new Set<string>();
-  readonly mergedFederationDirectiveInSupergraph = new Map<string, { definition: DirectiveDefinition, argumentsMerger?: ArgumentMerger }>();
+  readonly mergedFederationDirectiveInSupergraph = new Map<string, { definition: DirectiveDefinition, argumentsMerger?: ArgumentMerger, staticArgumentTransform?: StaticArgumentsTransform }>();
   readonly enumUsages = new Map<string, EnumTypeUsage>();
   private composeDirectiveManager: ComposeDirectiveManager;
   private mismatchReporter: MismatchReporter;
@@ -455,6 +459,7 @@ class Merger {
       this.mergedFederationDirectiveInSupergraph.set(specInSupergraph.url.name, {
         definition: this.merged.directive(nameInSupergraph)!,
         argumentsMerger,
+        staticArgumentTransform: compositionSpec.staticArgumentTransform,
       });
     }
   }
@@ -872,6 +877,7 @@ class Merger {
       const isInterfaceObject = sourceMetadata.isInterfaceObjectType(source) ? true : undefined;
       const keys = source.appliedDirectivesOf(sourceMetadata.keyDirective());
       const name = this.joinSpecName(idx);
+
       if (!keys.length) {
         dest.applyDirective(joinTypeDirective, { graph: name, isInterfaceObject });
       } else {
@@ -1654,6 +1660,17 @@ class Merger {
     if (mergeContext.some(({ usedOverridden, overrideLabel }) => usedOverridden || !!overrideLabel)) {
       return true;
     }
+    
+    // if there is a @fromContext directive on one of the sources, we need a join__field
+    if (sources.some((s, idx) => {
+      const fromContextDirective = this.subgraphs.values()[idx].metadata().fromContextDirective();
+      if (isFederationDirectiveDefinedInSchema(fromContextDirective)) {
+        return (s?.appliedDirectivesOf(fromContextDirective).length ?? 0) > 0;
+      }
+      return false;
+    })) {
+      return true;
+    }
 
     // We can avoid the join__field if:
     //   1) the field exists in all sources having the field parent type,
@@ -1709,6 +1726,37 @@ class Merger {
         continue;
       }
 
+      const fromContextDirective = this.subgraphs.values()[idx].metadata().fromContextDirective();
+
+      const contextArguments = (source.kind === 'FieldDefinition' ? source.arguments() : [])
+        .map((arg): {
+          context: string,
+          name: string,
+          type: string,
+          selection: string,
+        } | undefined => {
+          if (!isFederationDirectiveDefinedInSchema(fromContextDirective)) {
+            return undefined;
+          }
+          const appliedDirectives = arg.appliedDirectivesOf(fromContextDirective);
+          if (appliedDirectives.length === 0) {
+            return undefined;
+          }
+          assert(appliedDirectives.length === 1, 'There should be at most one @fromContext directive applied to an argument');
+          const directive = appliedDirectives[0];
+          const { context, selection } = parseContext(directive.arguments().field);
+          // these are validated in the subgraph validation phase
+          assert(context, 'Context should be defined');
+          assert(selection, 'Selection should be defined');
+          return {
+            context: `${this.subgraphs.values()[idx].name}__${context}`,
+            name: arg.name,
+            type: arg.type!.toString(),
+            selection,
+          };
+        })
+        .filter(isDefined);
+
       const external = this.isExternal(idx, source);
       const sourceMeta = this.subgraphs.values()[idx].metadata();
       const name = this.joinSpecName(idx);
@@ -1721,10 +1769,10 @@ class Merger {
         external: external ? true : undefined,
         usedOverridden: usedOverridden ? true : undefined,
         overrideLabel: mergeContext.overrideLabel(idx),
+        contextArguments: contextArguments.length > 0 ? contextArguments : undefined,
       });
     }
   }
-
   private getFieldSet(element: SchemaElement<any, any>, directive: DirectiveDefinition<{fields: string}>): string | undefined {
     const applications = element.appliedDirectivesOf(directive);
     assert(applications.length <= 1, () => `Found more than one application of ${directive} on ${element}`);
@@ -1847,6 +1895,47 @@ class Merger {
       // some path. Done because this helps reusing our "reportMismatchHint" method
       // in those cases.
       const arg = dest.addArgument(argName);
+
+      // helper function to determine if an argument is contextual in a given subgraph
+      const isContextualArg = (index: number, arg: ArgumentDefinition<DirectiveDefinition<any>> | ArgumentDefinition<FieldDefinition<any>>) => {
+        const fromContextDirective = this.metadata(index).fromContextDirective();
+        return fromContextDirective && isFederationDirectiveDefinedInSchema(fromContextDirective) && arg.appliedDirectivesOf(fromContextDirective).length >= 1;
+      }
+      
+      const isContextualArray = sources.map((s, idx) => {
+        const arg = s?.argument(argName);
+        return arg && isContextualArg(idx, arg);
+      });
+      
+      
+
+      if (isContextualArray.some((c) => c === true)) {
+        // if the argument is contextual in some subgraph, then it should also be contextual in other subgraphs,
+        // unless it is nullable. Also, we need to remove it from the supergraph
+        isContextualArray.forEach((isContextual, idx) => {
+          const argument = sources[idx]?.argument(argName);
+          const argType = argument?.type;
+          if (!isContextual && argument && argType && isNonNullType(argType) && argument.defaultValue === undefined) {
+            this.errors.push(ERRORS.CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS.err(
+              `Argument "${arg.coordinate}" is contextual in at least one subgraph but in "${argument.coordinate}" it does not have @fromContext, is not nullable and has no default value.`,
+              { nodes: sourceASTs(sources[idx]?.argument(argName)) },
+            ));
+          }
+          
+          if (!isContextual && argument && argType && (isNullableType(argType) || argument.defaultValue !== undefined)) {
+            // in this case, we want to issue a hint that the argument will not be present in the supergraph schema
+            this.mismatchReporter.pushHint(new CompositionHint(
+              HINTS.CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS,
+              `Contextual argument "${argument.coordinate}" will not be included in the supergraph since it is contextual in at least one subgraph`,
+              undefined,
+            ));              
+          }
+        });
+        
+        arg.remove();
+        continue;
+      }
+
       // If all the sources that have the field have the argument, we do merge it
       // and we're good, but otherwise ...
       if (sources.some((s) => s && !s.argument(argName))) {
@@ -2575,32 +2664,36 @@ class Merger {
     // TODO: we currently "only" merge together applications that have the exact same arguments (with defaults expanded however),
     // but when an argument is an input object type, we should (?) ignore those fields that will not be included in the supergraph
     // due the intersection merging of input types, otherwise the merged value may be invalid for the supergraph.
-    let perSource: Directive[][] = [];
-    for (const source of sources) {
-      if (!source) {
-        continue;
+    let perSource: { directives: Directive[], subgraphIndex: number}[] = [];
+    sources.forEach((source, index) => {
+      if (source) {
+        const directives: Directive[] = source.appliedDirectivesOf(name);
+        if (directives.length > 0) {
+          perSource.push({ directives, subgraphIndex: index });
+        }
       }
-      const directives: Directive[] = source.appliedDirectivesOf(name);
-      if (directives.length > 0) {
-        perSource.push(directives);
-      }
-    }
+    });
 
     if (perSource.length === 0) {
       return;
     }
 
+    const directiveInSupergraph = this.mergedFederationDirectiveInSupergraph.get(name);
+    
     if (dest.schema().directive(name)?.repeatable) {
       // For repeatable directives, we simply include each application found but with exact duplicates removed
       while (perSource.length > 0) {
-        const directive = this.pickNextDirective(perSource);
-        dest.applyDirective(directive.name, directive.arguments(false));
+        const directive = perSource[0].directives[0];
+        const subgraphIndex = perSource[0].subgraphIndex;
+        
+        const transformedArgs = directiveInSupergraph && directiveInSupergraph.staticArgumentTransform && directiveInSupergraph.staticArgumentTransform(this.subgraphs.values()[subgraphIndex], directive.arguments(false));
+        dest.applyDirective(directive.name, transformedArgs ?? directive.arguments(false));
         // We remove every instances of this particular application. That is we remove any other applicaiton with
         // the same arguments. Note that when doing so, we include default values. This allows "merging" 2 applications
         // when one rely on the default value while another don't but explicitely uses that exact default value.
         perSource = perSource
-          .map(ds => ds.filter(d => !this.sameDirectiveApplication(directive, d)))
-          .filter(ds => ds.length);
+          .map(ds => ({ directives: ds.directives.filter(d => !this.sameDirectiveApplication(directive, d)), subgraphIndex: ds.subgraphIndex }))
+          .filter(ds => ds.directives.length);
       }
     } else {
       // When non-repeatable, we use a similar strategy than for descriptions: we count the occurence of each _different_ application (different arguments)
@@ -2609,7 +2702,7 @@ class Merger {
       // we'll never warn, but this is handled by the general code below.
       const differentApplications: Directive[] = [];
       const counts: number[] = [];
-      for (const source of perSource) {
+      for (const { directives: source } of perSource) {
         assert(source.length === 1, () => `Non-repeatable directive shouldn't have multiple application ${source} in a subgraph`)
         const application = source[0];
         const idx = differentApplications.findIndex((existing) => this.sameDirectiveApplication(existing, application));
@@ -2661,10 +2754,6 @@ class Merger {
         }
       }
     }
-  }
-
-  private pickNextDirective(directives: Directive[][]): Directive {
-    return directives[0][0];
   }
 
   private sameDirectiveApplication(application1: Directive, application2: Directive): boolean {
@@ -2980,7 +3069,6 @@ class Merger {
         }
       }
     }
-
   }
 
   private updateInaccessibleErrorsWithLinkToSubgraphs(

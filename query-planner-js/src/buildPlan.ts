@@ -61,6 +61,7 @@ import {
   typesCanBeMerged,
   Supergraph,
   sameType,
+  isInputType,
   possibleRuntimeTypes,
   NamedType,
 } from "@apollo/federation-internals";
@@ -98,7 +99,7 @@ import {
   FEDERATED_GRAPH_ROOT_SOURCE,
 } from "@apollo/query-graphs";
 import { stripIgnoredCharacters, print, OperationTypeNode, SelectionSetNode, Kind } from "graphql";
-import { DeferredNode, FetchDataRewrite } from ".";
+import { DeferredNode, FetchDataKeyRenamer, FetchDataRewrite } from ".";
 import { Conditions, conditionsOfSelectionSet, isConstantCondition, mergeConditions, removeConditionsFromSelectionSet, updatedConditions } from "./conditions";
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig, validateQueryPlannerConfig } from "./config";
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
@@ -400,7 +401,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     this.optionsLimit = parameters.config.debug?.pathsLimit;
     this.conditionResolver = cachingConditionResolver(
       federatedQueryGraph,
-      (edge, context, excludedEdges, excludedConditions) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions),
+      (edge, context, excludedEdges, excludedConditions, extras) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions, extras),
     );
 
     const initialPath: OpGraphPath<RV> = GraphPath.create(federatedQueryGraph, root);
@@ -756,13 +757,13 @@ class QueryPlanningTraversal<RV extends Vertex> {
       : computeNonRootFetchGroups(dependencyGraph, tree, this.rootKind, this.typeConditionedFetching);
   }
 
-  private resolveConditionPlan(edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions): ConditionResolution {
+  private resolveConditionPlan(edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions, extraConditions?: SelectionSet): ConditionResolution {
     const bestPlan = new QueryPlanningTraversal(
       {
         ...this.parameters,
         root: edge.head,
       },
-      edge.conditions!,
+      extraConditions ?? edge.conditions!,
       0,
       false,
       'query',
@@ -798,6 +799,7 @@ type ParentRelation = {
 const conditionsMemoizer = (selectionSet: SelectionSet) => ({ conditions: conditionsOfSelectionSet(selectionSet) });
 
 class GroupInputs {
+  readonly usedContexts = new Map<string, Type>;
   private readonly perType = new Map<string, MutableSelectionSet>();
   onUpdateCallback?: () => void | undefined = undefined;
 
@@ -818,10 +820,17 @@ class GroupInputs {
     typeSelection.updates().add(selection);
     this.onUpdateCallback?.();
   }
+  
+  addContext(context: string, type: Type) {
+    this.usedContexts.set(context, type);
+  }
 
   addAll(other: GroupInputs) {
     for (const otherSelection of other.perType.values()) {
       this.add(otherSelection.get());
+    }
+    for (const [context, type] of other.usedContexts) {
+      this.addContext(context, type);
     }
   }
 
@@ -847,6 +856,14 @@ class GroupInputs {
         return false;
       }
     }
+    if (this.usedContexts.size < other.usedContexts.size) {
+      return false;
+    }
+    for (const [c,_] of other.usedContexts) {
+      if (!this.usedContexts.has(c)) {
+        return false;
+      }
+    }
     return true;
   }
 
@@ -861,6 +878,14 @@ class GroupInputs {
         return false;
       }
     }
+    if (this.usedContexts.size !== other.usedContexts.size) {
+      return false;
+    }
+    for (const [c,_] of other.usedContexts) {
+      if (!this.usedContexts.has(c)) {
+        return false;
+      }
+    }
     return true;
   }
 
@@ -868,6 +893,9 @@ class GroupInputs {
     const cloned = new GroupInputs(this.supergraphSchema);
     for (const [type, selection] of this.perType.entries()) {
       cloned.perType.set(type, selection.clone());
+    }
+    for (const [c,v] of this.usedContexts) {
+      cloned.usedContexts.set(c,v);
     }
     return cloned;
   }
@@ -907,6 +935,7 @@ class FetchGroup {
     readonly isEntityFetch: boolean,
     private _selection: MutableSelectionSet<{ conditions: Conditions}>,
     private _inputs?: GroupInputs,
+    private _contextInputs?: FetchDataKeyRenamer[],
     readonly mergeAt?: ResponsePath,
     readonly deferRef?: string,
     // Some of the processing on the dependency graph checks for groups to the same subgraph and same mergeAt, and we use this
@@ -964,6 +993,7 @@ class FetchGroup {
       hasInputs,
       MutableSelectionSet.emptyWithMemoized(parentType, conditionsMemoizer),
       hasInputs ? new GroupInputs(dependencyGraph.supergraphSchema) : undefined,
+      undefined,
       mergeAt,
       deferRef,
       hasInputs ? `${toValidGraphQLName(subgraphName)}-${mergeAt?.join('::') ?? ''}` : undefined,
@@ -983,6 +1013,7 @@ class FetchGroup {
       this.isEntityFetch,
       this._selection.clone(),
       this._inputs?.clone(),
+      this._contextInputs ? this._contextInputs.map((c) => ({ ...c})) : undefined,
       this.mergeAt,
       this.deferRef,
       this.subgraphAndMergeAtKey,
@@ -1148,13 +1179,33 @@ class FetchGroup {
       rewrites.forEach((r) => this.inputRewrites.push(r));
     }
   }
+  
+  addInputContext(context: string, type: Type) {
+    assert(this._inputs, "Shouldn't try to add inputs to a root fetch group");
+
+    this._inputs.addContext(context, type);
+  }
 
   copyInputsOf(other: FetchGroup) {
     if (other.inputs) {
       this.inputs?.addAll(other.inputs);
 
       if (other.inputRewrites) {
-        other.inputRewrites.forEach((r) => this.inputRewrites.push(r));
+        other.inputRewrites.forEach((r) => {
+          if (!this.inputRewrites.some((r2) => r2 === r)) {
+            this.inputRewrites.push(r);
+          }
+        });
+      }
+      if (other._contextInputs) {
+        if (!this._contextInputs) {
+          this._contextInputs = [];
+        }
+        other._contextInputs.forEach((r) => {
+          if (!this._contextInputs!.some((r2) => sameKeyRenamer(r, r2))) {
+            this._contextInputs!.push(r);
+          }
+        });
       }
     }
   }
@@ -1482,7 +1533,7 @@ class FetchGroup {
 
     const { updated: selection, outputRewrites } = addAliasesForNonMergingFields(selectionWithTypenames);
 
-    selection.validate(variableDefinitions);
+    selection.validate(variableDefinitions, true);
     return { selection, outputRewrites };
   }
 
@@ -1507,6 +1558,13 @@ class FetchGroup {
   ) : PlanNode | undefined {
     if (this.selection.isEmpty()) {
       return undefined;
+    }
+    
+    // for all contextual arguments, the values will be provided as an inputRewrite rather than in the variableDefintions.
+    // Note that it won't match the actual type, so we just use String! here as a placeholder
+    for (const [context, type] of this.inputs?.usedContexts ?? []) {
+      assert(isInputType(type), () => `Expected ${type} to be a input type`);
+      variableDefinitions.add(new VariableDefinition(type.schema(), new Variable(context), type));
     }
 
     const { selection, outputRewrites } = this.finalizeSelection(variableDefinitions, handledConditions);
@@ -1550,6 +1608,7 @@ class FetchGroup {
       operationDocumentNode: queryPlannerConfig.exposeDocumentNodeInFetchNode ? operationDocument : undefined,
       inputRewrites: this.inputRewrites.length === 0 ? undefined : this.inputRewrites,
       outputRewrites: outputRewrites.length === 0 ? undefined : outputRewrites,
+      contextRewrites: this._contextInputs,
     };
 
     return this.isTopLevel
@@ -1559,6 +1618,15 @@ class FetchGroup {
         path: this.mergeAt!,
         node: fetchNode,
       };
+  }
+  
+  addContextRenamer(renamer: FetchDataKeyRenamer) {
+    if (!this._contextInputs) {
+      this._contextInputs = [];
+    }
+    if (!this._contextInputs.some((c) => sameKeyRenamer(c, renamer))) {
+      this._contextInputs.push(renamer);
+    }
   }
 
   toString(): string {
@@ -1603,6 +1671,36 @@ type FieldToAlias = {
   path: string[],
   responseName: string,
   alias: string,
+}
+
+function selectionSetAsKeyRenamers(selectionSet: SelectionSet, relPath: string[], alias: string): FetchDataKeyRenamer[] {
+  return selectionSet.selections().map((selection: Selection): FetchDataKeyRenamer[] | undefined => {
+    if (selection.kind === 'FieldSelection') {
+      // We always have at least one '..' in the relative path.
+      if (relPath[relPath.length - 1] === '..') {
+        const runtimeTypes = 
+          possibleRuntimeTypes(selectionSet.parentType).map((t) => t.name).join(",");
+        return [{
+          kind: 'KeyRenamer',
+          path: [...relPath, `... on ${runtimeTypes}`, selection.element.name],
+          renameKeyTo: alias,
+        }];
+      } else {
+        return [{
+          kind: 'KeyRenamer',
+          path: [...relPath, selection.element.name],
+          renameKeyTo: alias,
+        }];
+      }
+    } else if (selection.kind === 'FragmentSelection') {
+      const element = selection.element;
+      if (element.typeCondition) {
+        return selectionSetAsKeyRenamers(selection.selectionSet, [...relPath, `... on ${element.typeCondition.name}`], alias);
+      }
+    }
+    return undefined;
+  }).filter(isDefined)
+  .reduce((acc, val) => acc.concat(val), []);
 }
 
 function computeAliasesForNonMergingFields(selections: SelectionSetAtPath[], aliasCollector: FieldToAlias[]) {
@@ -3910,7 +4008,13 @@ function computeRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTree:
     // If a type is in a subgraph, it has to be in the supergraph.
     // A root type has to be a Composite type.
     const rootTypeInSupergraph = dependencyGraph.supergraphSchemaType(rootType.name) as CompositeType;
-    computeGroupsForTree(dependencyGraph, child, group, GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph), emptyDeferContext);
+    computeGroupsForTree({ 
+      dependencyGraph,
+      pathTree: child,
+      startGroup: group,
+      initialGroupPath: GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph),
+      initialDeferContext: emptyDeferContext,
+    });
   }
   return dependencyGraph;
 }
@@ -3924,7 +4028,13 @@ function computeNonRootFetchGroups(dependencyGraph: FetchDependencyGraph, pathTr
   // If a type is in a subgraph, it has to be in the supergraph.
   // A root type has to be a Composite type.
   const rootTypeInSupergraph = dependencyGraph.supergraphSchemaType(rootType.name) as CompositeType;
-  computeGroupsForTree(dependencyGraph, pathTree, group, GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph), emptyDeferContext);
+  computeGroupsForTree({
+    dependencyGraph, 
+    pathTree, 
+    startGroup: group, 
+    initialGroupPath: GroupPath.empty(typeConditionedFetching, rootTypeInSupergraph), 
+    initialDeferContext: emptyDeferContext,
+  });
   return dependencyGraph;
 }
 
@@ -4007,29 +4117,41 @@ function updateCreatedGroups(createdGroups: FetchGroup[], ...newCreatedGroups: F
 }
 
 function computeGroupsForTree(
-  dependencyGraph: FetchDependencyGraph,
-  pathTree: OpPathTree<any>,
-  startGroup: FetchGroup,
-  initialGroupPath: GroupPath,
-  initialDeferContext: DeferContext,
-  initialContext: PathContext = emptyContext,
-): FetchGroup[] {
+  {
+    dependencyGraph,
+    pathTree,
+    startGroup,
+    initialGroupPath,
+    initialDeferContext,
+    initialContext = emptyContext,
+    initialContextsToConditionsGroups = new Map(),
+  }: {
+    dependencyGraph: FetchDependencyGraph,
+    pathTree: OpPathTree<any>,
+    startGroup: FetchGroup,
+    initialGroupPath: GroupPath,
+    initialDeferContext: DeferContext,
+    initialContext?: PathContext,
+    initialContextsToConditionsGroups?: Map<string, FetchGroup[]>,
+}): FetchGroup[] {
   const stack: {
     tree: OpPathTree,
     group: FetchGroup,
     path: GroupPath,
     context: PathContext,
     deferContext: DeferContext,
+    contextToConditionsGroups: Map<string, FetchGroup[]>,
   }[] = [{
     tree: pathTree,
     group: startGroup,
     path: initialGroupPath,
     context: initialContext,
     deferContext: initialDeferContext,
+    contextToConditionsGroups: initialContextsToConditionsGroups,
   }];
   const createdGroups: FetchGroup[] = [ ];
   while (stack.length > 0) {
-    const { tree, group, path, context, deferContext } = stack.pop()!;
+    const { tree, group, path, context, deferContext, contextToConditionsGroups } = stack.pop()!;
     if (tree.localSelections) {
       for (const selection of tree.localSelections) {
         group.addAtPath(path.inGroup(), selection);
@@ -4042,7 +4164,7 @@ function computeGroupsForTree(
     } else {
       // We want to preserve the order of the elements in the child, but the stack will reverse everything, so we iterate
       // in reverse order to counter-balance it.
-      for (const [edge, operation, conditions, child] of tree.childElements(true)) {
+      for (const [edge, operation, conditions, child, contextToSelection, parameterToContext] of tree.childElements(true)) {
         if (isPathContext(operation)) {
           const newContext = operation;
           // The only 3 cases where we can take edge not "driven" by an operation is either when we resolve a key, resolve
@@ -4052,7 +4174,13 @@ function computeGroupsForTree(
           if (edge.transition.kind === 'KeyResolution') {
             assert(conditions, () => `Key edge ${edge} should have some conditions paths`);
             // First, we need to ensure we fetch the conditions from the current group.
-            const conditionsGroups = computeGroupsForTree(dependencyGraph, conditions, group, path, deferContextForConditions(deferContext));
+            const conditionsGroups = computeGroupsForTree({
+              dependencyGraph, 
+              pathTree: conditions, 
+              startGroup: group, 
+              initialGroupPath: path, 
+              initialDeferContext: deferContextForConditions(deferContext),
+            });
             updateCreatedGroups(createdGroups, ...conditionsGroups);
             // Then we can "take the edge", creating a new group. That group depends
             // on the condition ones.
@@ -4110,6 +4238,7 @@ function computeGroupsForTree(
               path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, edge.tail.type as CompositeType, newContext)),
               context: newContext,
               deferContext: updatedDeferContext,
+              contextToConditionsGroups,
             });
           } else {
             assert(edge.transition.kind === 'RootTypeResolution', () => `Unexpected non-collecting edge ${edge}`);
@@ -4143,13 +4272,14 @@ function computeGroupsForTree(
               mergeAt: path.inResponse(),
               deferRef: updatedDeferContext.activeDeferRef,
             });
-            newGroup.addParent({ group, path: path.inGroup() });
+            newGroup.addParent({ group, path: path.inGroup() });            
             stack.push({
               tree: child,
               group: newGroup,
               path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, type, newContext)),
               context: newContext,
               deferContext: updatedDeferContext,
+              contextToConditionsGroups,
             });
           }
         } else if (edge === null) {
@@ -4177,6 +4307,7 @@ function computeGroupsForTree(
             path: newPath,
             context,
             deferContext: updatedDeferContext,
+            contextToConditionsGroups,
           });
         } else {
           assert(edge.head.source === edge.tail.source, () => `Collecting edge ${edge} for ${operation} should not change the underlying subgraph`)
@@ -4209,9 +4340,11 @@ function computeGroupsForTree(
             group,
             path,
             context,
-            deferContext: updatedDeferContext
+            deferContext: updatedDeferContext,
+            contextToConditionsGroups,
           };
-          if (conditions) {
+
+          if (conditions && edge.conditions) {
             // We have @requires or some other dependency to create groups for.
             const requireResult = handleRequires(
               dependencyGraph,
@@ -4224,7 +4357,102 @@ function computeGroupsForTree(
             );
             updated.group = requireResult.group;
             updated.path = requireResult.path;
+            
+            if (contextToSelection) {
+              const newContextToConditionsGroups = new Map<string, FetchGroup[]>([...contextToConditionsGroups]);
+              for (const context of contextToSelection) {
+                newContextToConditionsGroups.set(context, [group]);
+              }
+              updated.contextToConditionsGroups = newContextToConditionsGroups;
+            }
             updateCreatedGroups(createdGroups, ...requireResult.createdGroups);
+          } else if (conditions) {
+            const conditionsGroups = computeGroupsForTree({
+              dependencyGraph, 
+              pathTree: conditions, 
+              startGroup: group, 
+              initialGroupPath: path, 
+              initialDeferContext: deferContextForConditions(deferContext),
+            });
+
+            if (contextToSelection) {
+              const newContextToConditionsGroups = new Map<string, FetchGroup[]>([...contextToConditionsGroups]);
+              for (const context of contextToSelection) {
+                newContextToConditionsGroups.set(context, [group, ...conditionsGroups]);
+              }
+              updated.contextToConditionsGroups = newContextToConditionsGroups;
+            }
+            updateCreatedGroups(createdGroups, ...conditionsGroups);
+          }
+
+          // if we're going to start using context variables, every variable used must be set in a different parent
+          // fetch group or else we need to create a new one
+          if (parameterToContext && Array.from(parameterToContext.values()).some(({ contextId }) => updated.contextToConditionsGroups.get(contextId)?.[0] === updated.group)) { 
+            assert(group === updated.group, "Group created by @requires handling shouldn't have set context already");
+            // All groups that get the contextual variable should be parents of this group
+            const conditionGroups: Set<FetchGroup> = new Set();
+            for (const { contextId } of parameterToContext.values()) {
+              const groups = updated.contextToConditionsGroups.get(contextId);
+              assert(groups, () => `Could not find groups for context ${contextId}`);
+              for (const conditionGroup of groups) {
+                conditionGroups.add(conditionGroup);
+              }
+            }
+
+            assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
+            updated.group = dependencyGraph.getOrCreateKeyFetchGroup({
+              subgraphName: edge.tail.source,
+              mergeAt: updated.path.inResponse(),
+              type: edge.head.type,
+              parent: { group: group, path: path.inGroup() },
+              conditionsGroups: [...conditionGroups],
+            });
+            updateCreatedGroups(createdGroups, updated.group);
+            updated.path = path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, edge.head.type, context));
+
+            const keyCondition = getLocallySatisfiableKey(dependencyGraph.federatedQueryGraph, edge.head);
+            assert(keyCondition, () => `canSatisfyConditions() validation should have required a key to be present for ${edge}`);
+            const keyInputs = newCompositeTypeSelectionSet(edge.head.type);
+            keyInputs.updates().add(keyCondition);
+            group.addAtPath(path.inGroup(), keyInputs.get());
+            
+            // We also ensure to get the __typename of the current type in the "original" group.
+            // TODO: It may be safe to remove this, but I'm not 100% convinced. Come back and take a look at some point
+            group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
+
+            const inputType = dependencyGraph.typeForFetchInputs(edge.head.type.name);
+            const inputSelectionSet = newCompositeTypeSelectionSet(inputType);
+            inputSelectionSet.updates().add(keyCondition);
+            const inputs = wrapInputsSelections(inputType, inputSelectionSet.get(), context);
+            updated.group.addInputs(
+              inputs,
+              computeInputRewritesOnKeyFetch(edge.head.type.name, edge.head.type),
+            );
+            
+            // Add the condition groups as parent groups.
+            for (const parentGroup of conditionGroups) {
+              updated.group.addParent({ group: parentGroup });
+            }
+
+            // Add context renamers.
+            for (const [_, { contextId, selectionSet, relativePath, subgraphArgType }] of parameterToContext) {
+              updated.group.addInputContext(contextId, subgraphArgType);
+              const keyRenamers = selectionSetAsKeyRenamers(selectionSet, relativePath, contextId);
+              for (const keyRenamer of keyRenamers) {
+                updated.group.addContextRenamer(keyRenamer);
+              }
+            }
+          } else {
+            // in this case we can just continue with the current group, but we need to add the context rewrites
+            if (parameterToContext) {
+              for (const [_, { selectionSet, relativePath, contextId, subgraphArgType }] of parameterToContext) {
+                updated.group.addInputContext(contextId, subgraphArgType);
+                const keyRenamers = selectionSetAsKeyRenamers(selectionSet, relativePath, contextId);
+                for (const keyRenamer of keyRenamers) {
+                  updated.group.addContextRenamer(keyRenamer);
+                }
+              }
+            }
           }
 
           if (updatedOperation.kind === 'Field' && updatedOperation.name === typenameFieldName) {
@@ -4461,7 +4689,13 @@ function handleRequires(
     });
     newGroup.addParent(parent);
     newGroup.copyInputsOf(group);
-    const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, newGroup, path, deferContextForConditions(deferContext));
+    const createdGroups = computeGroupsForTree({
+      dependencyGraph, 
+      pathTree: requiresConditions, 
+      startGroup: newGroup, 
+      initialGroupPath: path, 
+      initialDeferContext: deferContextForConditions(deferContext)
+    });
     if (createdGroups.length === 0) {
       // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
       // and continue.
@@ -4613,7 +4847,13 @@ function handleRequires(
     // just after having jumped to that subgraph). In that case, there isn't tons of optimisation we can do: we have to
     // see what satisfying the @require necessitate, and if it needs anything from another subgraph, we have to stop the
     // current subgraph fetch there, get the requirements from other subgraphs, and then resume the query of that particular subgraph.
-    const createdGroups = computeGroupsForTree(dependencyGraph, requiresConditions, group, path, deferContextForConditions(deferContext));
+    const createdGroups = computeGroupsForTree({
+      dependencyGraph, 
+      pathTree: requiresConditions, 
+      startGroup: group, 
+      initialGroupPath: path, 
+      initialDeferContext: deferContextForConditions(deferContext)
+    });
     // If we didn't created any group, that means the whole condition was fetched from the current group
     // and we're good.
     if (createdGroups.length == 0) {
@@ -4713,7 +4953,9 @@ function inputsForRequire(
   assert(inputType && isCompositeType(inputType), () => `Type ${inputTypeName} should exist in the supergraph and be a composite type`);
 
   const fullSelectionSet = newCompositeTypeSelectionSet(inputType);
-  fullSelectionSet.updates().add(edge.conditions!);
+  if (edge.conditions) {
+    fullSelectionSet.updates().add(edge.conditions);
+  }
   let keyInputs: MutableSelectionSet | undefined = undefined;
   if (includeKeyInputs) {
     const keyCondition = getLocallySatisfiableKey(dependencyGraph.federatedQueryGraph, edge.head);
@@ -4816,4 +5058,16 @@ function operationForQueryFetch(
   return new Operation(subgraphSchema, rootKind, selectionSet,
                        allVariableDefinitions.filter(collectUsedVariables(selectionSet, directives)),
                        /*fragments*/undefined, operationName, directives);
+}
+
+const sameKeyRenamer = (k1: FetchDataKeyRenamer, k2: FetchDataKeyRenamer): boolean => {
+  if (k1.renameKeyTo !== k2.renameKeyTo || k1.path.length !== k2.path.length) {
+    return false;
+  }
+  for (let i = 0; i < k1.path.length; i++) {
+    if (k1.path[i] !== k2.path[i]) {
+      return false;
+    }  
+  }
+  return true;
 }

@@ -212,6 +212,12 @@ const IMPLICITLY_UPGRADED_FEDERATION_VERSION = makeCodeDefinition({
     + ' In this case, the supergraph uses the federation version required by the directive.'
 });
 
+const CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS = makeCodeDefinition({
+  code: 'CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS',
+  level: HintLevel.INFO,
+  description: 'Indicates that the argument will not be present in the supergraph because it is contextual in at least one subgraph.'
+});
+
 export const HINTS = {
   INCONSISTENT_BUT_COMPATIBLE_FIELD_TYPE,
   INCONSISTENT_BUT_COMPATIBLE_ARGUMENT_TYPE,
@@ -242,6 +248,7 @@ export const HINTS = {
   DIRECTIVE_COMPOSITION_WARN,
   INCONSISTENT_RUNTIME_TYPES_FOR_SHAREABLE_RETURN,
   IMPLICITLY_UPGRADED_FEDERATION_VERSION,
+  CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS,
 }
 
 export class CompositionHint {
