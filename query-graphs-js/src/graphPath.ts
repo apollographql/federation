@@ -1909,10 +1909,14 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     // if one of the conditions fails to satisfy, it's ok to bail
     let someSelectionUnsatisfied = false;
     for (const cxt of requiredContexts) {
-      let levelsInQueryPath = 1;
-      let levelsInDataPath = 1;
+      let levelsInQueryPath = 0;
+      let levelsInDataPath = 0;
       for (const [e, trigger] of [...path].reverse()) {
         const parentType = getFieldParentType(trigger);
+        levelsInQueryPath += 1;
+        if (parentType) {
+          levelsInDataPath += 1;
+        }
         if (e !== null && !contextMap.has(cxt.namedParameter) && !someSelectionUnsatisfied) {
           const matches = Array.from(cxt.typesWithContextSet).some(t => {
             if (parentType) {
@@ -1964,10 +1968,6 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
               totalCost += resolution.cost;            
             }
           }
-        }
-        levelsInQueryPath += 1;
-        if (parentType) {
-          levelsInDataPath += 1;
         }
       }
     }
