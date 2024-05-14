@@ -27,7 +27,7 @@ type Child<TTrigger, RV extends Vertex, TNullEdge extends null | never> = {
 
 function findTriggerIdx<TTrigger, TElements>(
   triggerEquality: (t1: TTrigger, t2: TTrigger) => boolean,
-  forIndex: [TTrigger, OpPathTree | null, TElements, Set<string> | null, Map<string, ContextAtUsageEntry> | null][] | [TTrigger, OpPathTree | null, TElements][],
+  forIndex: [TTrigger, OpPathTree | null, TElements, Set<string> | null, Map<string, ContextAtUsageEntry> | null][],
   trigger: TTrigger
 ): number {
   for (let i = 0; i < forIndex.length; i++) {
@@ -276,6 +276,9 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
   }
 
   private static parameterToContextEquals(ptc1: Map<string, ContextAtUsageEntry> | null, ptc2: Map<string, ContextAtUsageEntry> | null): boolean {
+    if (ptc1 === ptc2) {
+      return true;
+    }
     const thisKeys = Array.from(ptc1?.keys() ?? []);
     const thatKeys = Array.from(ptc2?.keys() ?? []);
     
@@ -290,13 +293,13 @@ export class PathTree<TTrigger, RV extends Vertex = Vertex, TNullEdge extends nu
       
       if (!thatSelection 
         || (thisSelection.contextId !== thatSelection.contextId) 
-        || !arrayEquals(thisSelection.relativePath, thatSelection.relativePath) 
-        || !thisSelection.selectionSet.equals(thatSelection.selectionSet) 
+        || !arrayEquals(thisSelection.relativePath, thatSelection.relativePath)
+        || !thisSelection.selectionSet.equals(thatSelection.selectionSet)
         || (thisSelection.subgraphArgType !== thatSelection.subgraphArgType)) {
         return false;
       }
     }
-    return false;
+    return true;
   }
 
   // Like merge(), this create a new tree that contains the content of both `this` and `other` to this pathTree, but contrarily

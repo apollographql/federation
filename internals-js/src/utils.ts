@@ -463,6 +463,9 @@ export function composeSets<T>(s1: Set<T> | null, s2: Set<T> | null): Set<T> | n
 }
 
 export function setsEqual<T>(s1: Set<T> | null, s2: Set<T> | null): boolean {
+  if (s1 === s2) {
+    return true;
+  }
   if (!s1 && !s2) {
     return true;
   }

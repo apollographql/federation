@@ -84,7 +84,7 @@ export function simpleValidationConditionResolver({
     excludedConditions: ExcludedConditions,
     extraConditions?: SelectionSet,
   ): ConditionResolution => {
-    const conditions = (edge.conditions ?? extraConditions)!; // TODO: ensure that only one is set
+    const conditions = (extraConditions ?? edge.conditions)!; // TODO: ensure that only one is set
     excludedConditions = addConditionExclusion(excludedConditions, conditions);
 
     const initialPath: OpGraphPath = GraphPath.create(queryGraph, edge.head);
