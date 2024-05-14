@@ -250,7 +250,7 @@ Assuming you're using the retail demo supergraph and running its subgraphs local
       width="500"
       alt="A dialog from GraphOS Studio updates to show a schema has been published."
     />
-    
+
 4. Run the `rover subgraph publish` command for the `inventory` subgraph, substituting your graph ref. You no longer need to include the first line containing your graph API key:
 
     ```bash showLineNumbers=false
@@ -266,9 +266,7 @@ Assuming you're using the retail demo supergraph and running its subgraphs local
     --schema ./subgraphs/orders/schema.graphql \
     --name orders \
     --routing-url http://localhost:4001/orders/graphql
-
 5. Do the same for the `users` subgraph, substituting your graph ref:
-
     ```bash showLineNumbers=false
     rover subgraph publish <GRAPH_REF> \
     --schema ./subgraphs/users/schema.graphql \
@@ -282,9 +280,7 @@ Assuming you're using the retail demo supergraph and running its subgraphs local
     --schema ./subgraphs/shipping/schema.graphql \
     --name shipping \
     --routing-url http://localhost:4001/shipping/graphql
-
 7. Do the same thing for the `checkout` subgraph, substituting your graph ref:
-
     ```bash showLineNumbers=false
     rover subgraph publish <GRAPH_REF> \
     --schema ./subgraphs/checkout/schema.graphql \
@@ -294,14 +290,12 @@ Assuming you're using the retail demo supergraph and running its subgraphs local
 Now, if you open the **Schema** page from the left nav in [Studio](https://studio.apollographql.com/?referrer=docs-content), you'll see all the subgraphs you've published.
 
   - The **Reference** tab lets you filter your schema's type and field definitions.
-
     <img
       src="./images/quickstart/schema-reference.jpg"
       className="screenshot"
       width="700"
       alt="The GraphOS Studio Schema Reference page shows filterable list of types and fields."
     />
-
   - The **SDL** tab displays your supergraph's API schema and supergraph schema, filterable by subgraph.
 
     <img
@@ -327,17 +321,14 @@ The sample query in the next and final step only requires the subgraphs in the i
 
 Once you've published subgraphs and GraphOS has successfully composed your supergraph schema, you can execute queries against your supergraph. To do that, you'll use the GraphOS Studio Explorer.
 The Explorer is a GraphQL IDE that provides visibility into your supergraph's entire schema and helps you build, run, and understand queries.
-
 Querying in the Explorer may not feel that different from running the query in the Sandbox.
 Sandbox has many of the same features as Explorer, such as running operations and inspecting their query plans.
 Running operations on a published supergraph from the Explorer has the additional benefit of collecting and visualizing metrics on your operations.
-
 You'll see these in action by running the sample query below.
 
 1. In [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content), open the **Explorer** page from the left navigation.
 2. Open the **Settings** tab and click **Edit** next to **Connection settings**. Enter `http://localhost:4000/` as your supergraph's **Endpoint**.
 3. Copy and paste the following query into the **Operation** window, but do not run it.
-
   ```graphql showLineNumbers=false
   # Get the current user's cart with all the items and their product info as well as the price.
   query GetCart {
@@ -362,7 +353,6 @@ You'll see these in action by running the sample query below.
     }
   }
   ```
-
   This operation retrieves a particular user's shopping cart given the user's. The operation expects the user ID to be in the request header. You can inlude request headers in the Explorer by doing the following:
     - Open the **Header** tab below **Operation**.
     - Click **+New header++**.
@@ -374,12 +364,9 @@ You'll see these in action by running the sample query below.
     width="700"
     alt="The GraphOS Studio Explorer with a GetCart operation and headers."
   />
-
 4. Run the request by clicking the play button, now labeled **GetCart**, in the top right of the **Operation** window.
 5. In the **Response** window, confirm you see the following response.
-
   <ExpansionPanel title="Click to see response">
-
   ```JSON showLineNumbers=false disableCopy=true
   {
     "data": {
@@ -387,47 +374,33 @@ You'll see these in action by running the sample query below.
     }
   }
   ```
-
   </ExpansionPanel>
-
 #### Inspect query plans
-
 The previous sample operation is powerful because it gathers data across various subgraphs: `users`, `products`, `inventory`, and more. The Explorer displays **Query Plan Previews** in the right panel to help you understand how the router intelligently orchestrates subrequests to these subgraphs.
-
 A query plan is a blueprint for dividing a single incoming operation into one or more operations that are each resolvable by a single subgraph.
 You can toggle to view the query plan instead of the response by clicking **Response** and selecting **Query Plan Preview**.
-
 <img
   src="./images/quickstart/query-plan.jpg"
   className="screenshot"
   width="700"
   alt="The GraphOS Studio Explorer shows a query plan."
 />
-
 As you edit an operation, the Explorer recalculates its query plan accordingly.
-
 #### Collect and visualize metrics
-
 Operations you run in the Explorer are sent to the GraphOS Router that sits in front of your federated API.
 The router automatically collects metrics on those operations and their fields. You can then visualize those metrics in Studio.
-
 Go to your variant's **Insights** page, which looks something like this:
-
 <img
   src="./images/insights-quickstart.jpg"
   className="screenshot"
   width="700"
   alt="The Insights page in GraphOS Studio, showing metrics for operations and their fields"
 />
-
 The **Insights** page should already display the `GetCart` operation you executed in the Explorer.
 As your router receives more requests, they will appear here as well.
 After you update your clients to query your router, this page becomes vital to monitoring your supergraph's performance.
-
 ## Next steps
-
 Depending on your goals, you have several options for moving your supergraph closer to production or learning more about GraphOS Studio's capabilities:
-
 - Learn about the available GraphOS insights in the [metrics and reporting documentation](/graphos/metrics).
 - Learn more about Studio features, including [schema visualization](/graphos/graphs/studio-features#the-schema-page), [proposals](/graphos/delivery/schema-proposals), and [checks](/graphos/delivery/schema-checks).
 - Check out the [`rover template`](/rover/commands/template) command to quickly start a new GraphQL project or explore various subgraph implementations.
