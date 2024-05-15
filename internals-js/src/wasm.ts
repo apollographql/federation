@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 /**
  * The TypeScript interface to the `wasm` module (implemented in Rust) with all the helpers needed to convert between
  * the two.
@@ -14,7 +15,7 @@ import {
 import {FeatureUrl, LinkDirectiveArgs} from "./specs/coreSpec";
 import {connectIdentity} from "./specs/connectSpec";
 import {aggregateError} from "./error";
-import {ErrorLocation, SourceArgument, SourceDirective} from "../wasm/node";
+import type {ErrorLocation, SourceDirective} from "../wasm/node";
 import {ASTNode, ConstValueNode, SchemaExtensionNode, StringValueNode} from "graphql";
 
 /**
@@ -70,6 +71,8 @@ function findNode(ast: DocumentNode, location: ErrorLocation): ASTNode | undefin
 }
 
 function findSourceDirective(ast: DocumentNode, sourceDirective: SourceDirective): ASTNode | undefined {
+    const {SourceArgument} =
+        require('../wasm/node') as typeof import('../wasm/node');
     const schema = ast.definitions.find(isSchemaExtension);
     const sourceDirectives = schema?.directives?.
         filter(directive => directive.name.value === "source");
