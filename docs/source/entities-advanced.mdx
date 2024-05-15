@@ -905,7 +905,7 @@ This problem is not limited to reference resolvers. In fact, it can occur with a
 
 ## Using contexts to share data along type hierarchies
 
-Use the `@context` and `@fromContext` directives to set and get a _context_ through which types of a subgraph can share data. Contexts enable a subgraph to share data between types of a nested-type hieararchy, without overloading entity keys with extraneous fields and without breaking any separation of concerns between different subgraphs.  
+Use the `@context` and `@fromContext` directives to set and get a _context_ through which types of a subgraph can share data. Contexts enable a subgraph to share data between types of a nested-type hierarchy, without overloading entity keys with extraneous fields and without breaking any separation of concerns between different subgraphs.  
 
 An entity may contain nested objects, and each nested object may have a dependency on an ancestor type and thus need access to an ancestor's field(s). 
 
