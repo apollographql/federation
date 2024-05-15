@@ -984,3 +984,36 @@ type Child @key(fields: "id") {
 ```
 
 When the same contextual value is set in multiple places—as is done in the example with the args of `Child.prop1` and `Child.prop2`—the `FieldValue` must resolve all types from each place into a single value that matches the parameter type.
+
+### Disambiguating contexts
+
+When a set context could be fulfilled by multiple ancestor entities in the type hierarchy, the nearest ancestor is chosen. For example, if both the parent and grandparent of a type can provide the value of a context, the parent is chosen because it's the closer ancestor.
+
+In the following example, given nested types `A`, `B`, and `C`, and `C` referencing a context that could be provided by either `A` or `B`, the value used by `C` is from `B` because it's a closer ancestor to `C` than `A`:
+
+```graphql
+type Query { 
+  a: A!
+}
+
+type A @key(fields: "id") @context(name: "context_1") {
+  id: ID!
+  field: String!
+  b: B!
+} 
+
+type B @key(fields: "id") @context(name: "context_1") {
+  id: ID!
+  field: String!
+  c: C!
+} 
+
+type C @key(fields: "id") {
+  id: ID!
+  prop(
+    arg: String! @fromContext(field: "$context_1 { field }")
+  ): Int!
+} 
+```
+
+In a more complex graph, a field could be reachable via multiple paths, and there could be a different field used to resolve the `prop` depending on which path was used.
