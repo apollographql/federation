@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.8.0-connectors.4
+
+### Patch Changes
+
+- Fix WASM import to be lazy
+
 ## 2.8.0-connectors.3
 
 ### Patch Changes

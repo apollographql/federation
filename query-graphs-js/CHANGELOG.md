@@ -1,5 +1,12 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.8.0-connectors.4
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.0-connectors.4
+
 ## 2.8.0-connectors.3
 
 ### Patch Changes
