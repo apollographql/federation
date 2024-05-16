@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.7.8-alpha.0
+
+### Patch Changes
+
+- Prerelease `-alpha.0` to validate `federation-rs` build process before publishing 2.7.8. ([#3008](https://github.com/apollographql/federation/pull/3008))
+
 ## 2.7.7
 
 ### Patch Changes
