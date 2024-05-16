@@ -71,35 +71,35 @@ impl From<ValidationError> for GraphQLError {
                 code: ErrorCode::SourceUrlInvalid,
                 message,
                 location: Some(ErrorLocation {
-                    source_directive: Some(SourceDirective {
-                        name: source_name.into(),
+                    source_directive: source_name.into_value_or_error().ok().map(|name| SourceDirective {
+                        name,
                         arg: SourceArgument::Url,
                     }),
                 }),
             },
-            ValidationError::GraphQLError(_) | ValidationError::SourceNameType => GraphQLError {
+            ValidationError::GraphQLError(_) => GraphQLError {
                 code: ErrorCode::InvalidGraphQL,
                 message,
                 location: None,
             },
-            ValidationError::InvalidSourceName(source_name) => GraphQLError {
+            ValidationError::InvalidSourceName {source_name, ..} => GraphQLError {
                 code: ErrorCode::InvalidSourceName,
                 message,
                 location: Some(ErrorLocation {
                     source_directive: Some(SourceDirective {
-                        name: source_name.into(),
+                        name: source_name,
                         arg: SourceArgument::Name,
                     }),
                 }),
             },
-            ValidationError::DuplicateSourceName(name) => GraphQLError {
+            ValidationError::DuplicateSourceName {source_name, ..} => GraphQLError {
                 code: ErrorCode::DuplicateSourceName,
                 message,
                 location: Some(ErrorLocation {
-                    source_directive: Some(SourceDirective { name, arg: SourceArgument::Name}),
+                    source_directive: Some(SourceDirective { name: source_name, arg: SourceArgument::Name}),
                 }),
             },
-            ValidationError::EmptySourceName => {
+            ValidationError::EmptySourceName{..} => {
                 GraphQLError {
                     code: ErrorCode::InvalidSourceName,
                     message,

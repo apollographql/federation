@@ -22,47 +22,61 @@ import {ASTNode, ConstValueNode, SchemaExtensionNode, StringValueNode} from "gra
  * @throws AggregateGraphQLError
  */
 export function validateSubgraphSchema(schema: Schema, ast: DocumentNode) {
-    const errors = [];
-    if (hasConnectDirectives(schema)) {
-        errors.push(...validateConnectDirectives(ast));
-    }
-
-    if (errors.length > 0) {
-        throw aggregateError("FROM_WASM", "WASM validation detected errors", errors)
+    const names = getConnectDirectives(schema);
+    if (names.connectName || names.sourceName) {
+        const errors = validateConnectDirectives(ast, names);
+        if (errors.length > 0) {
+            throw aggregateError("FROM_WASM", "WASM validation detected errors", errors)
+        }
     }
 }
 
-function hasConnectDirectives(schema: Schema): boolean {
-    return schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')
-        .some(linkDirective => {
-            const {url, import: imports} = linkDirective.arguments();
+type DirectiveNames = {
+    sourceName?: string;
+    connectName?: string;
+};
+
+function getConnectDirectives(schema: Schema): DirectiveNames {
+    const result: DirectiveNames = {};
+
+    schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')
+        .forEach(linkDirective => {
+            const { url, import: imports } = linkDirective.arguments();
             const featureUrl = FeatureUrl.maybeParse(url);
-            return imports && featureUrl && featureUrl.identity === connectIdentity && imports.some(nameOrRename => {
-                const originalName = typeof nameOrRename === 'string' ? nameOrRename : nameOrRename.name;
-                return originalName === '@source' || originalName === '@connect';
-            });
+            if (imports && featureUrl && featureUrl.identity === connectIdentity) {
+                imports.forEach(nameOrRename => {
+                    const originalName = typeof nameOrRename === 'string' ? nameOrRename : nameOrRename.name;
+                    const importedName = typeof nameOrRename === 'string' ? nameOrRename : nameOrRename.as || originalName;
+                    const importedNameWithoutAt = importedName.replace(/^@/, '');
+
+                    if (originalName === '@source') {
+                        result.sourceName = importedNameWithoutAt;
+                    } else if (originalName === '@connect') {
+                        result.connectName = importedNameWithoutAt;
+                    }
+                });
+            }
         });
+    return result;
 }
 
-function validateConnectDirectives(ast: DocumentNode): GraphQLError[] {
-    // TODO: pass the _original_ source, not the one with added federation stuff (otherwise positions will be wrong)
-    // TODO: unless, of course, there's already infrastructure up above which does translation somehow
+function validateConnectDirectives(ast: DocumentNode, names: DirectiveNames): GraphQLError[] {
     const {validate_connect_directives} =
         require('../wasm/node') as typeof import('../wasm/node');
     const source = print(ast)
     return validate_connect_directives(source).map(
         raw => new GraphQLError(raw.message, {
             // source: new Source(source),
-            nodes: raw.location && findNode(ast, raw.location),
+            nodes: raw.location && findNode(ast, raw.location, names),
             extensions: {code: raw.code},
         }),
     );
 }
 
 
-function findNode(ast: DocumentNode, location: ErrorLocation): ASTNode | undefined {
-    if (location.source) {
-        const sourceDirective = findSourceDirective(ast, location.source);
+function findNode(ast: DocumentNode, location: ErrorLocation, names: DirectiveNames): ASTNode | undefined {
+    if (location.source && names.sourceName) {
+        const sourceDirective = findSourceDirective(ast, location.source, names.sourceName);
         if (sourceDirective) {
             return sourceDirective;
         }
@@ -70,12 +84,12 @@ function findNode(ast: DocumentNode, location: ErrorLocation): ASTNode | undefin
     return undefined;
 }
 
-function findSourceDirective(ast: DocumentNode, sourceDirective: SourceDirective): ASTNode | undefined {
+function findSourceDirective(ast: DocumentNode, sourceDirective: SourceDirective, directiveName: string): ASTNode | undefined {
     const {SourceArgument} =
         require('../wasm/node') as typeof import('../wasm/node');
     const schema = ast.definitions.find(isSchemaExtension);
     const sourceDirectives = schema?.directives?.
-        filter(directive => directive.name.value === "source");
+        filter(directive => directive.name.value === directiveName);
     const matchingSource = sourceDirectives?.find(directive => {
         const nameArg = directive.arguments?.find(arg => arg.name.value === "name");
         return nameArg && isStringValue(nameArg.value) && nameArg.value.value === sourceDirective.name;
