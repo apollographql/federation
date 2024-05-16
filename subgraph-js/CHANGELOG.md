@@ -1,5 +1,14 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.7.8-alpha.0
+
+### Patch Changes
+
+- Prerelease `-alpha.0` to validate `federation-rs` build process before publishing 2.7.8. ([#3008](https://github.com/apollographql/federation/pull/3008))
+
+- Updated dependencies [[`dc819ebbf09f7a86b74c86260947d4557f4aa7ca`](https://github.com/apollographql/federation/commit/dc819ebbf09f7a86b74c86260947d4557f4aa7ca)]:
+  - @apollo/federation-internals@2.7.8-alpha.0
+
 ## 2.7.7
 
 ### Patch Changes
