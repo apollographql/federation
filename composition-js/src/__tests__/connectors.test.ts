@@ -326,4 +326,35 @@ describe("connect spec and join__directive", () => {
         expect(error.extensions.code).toEqual("SOURCE_URL_INVALID");
         expect(error.locations).toBeDefined()
     })
+
+    it("includes locations for renamed directives", () => {
+        const subgraphs = [
+            {
+                name: "with-connectors",
+                typeDefs: parse(`
+          extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.7"
+          )
+          @link(
+            url: "https://specs.apollo.dev/connect/v0.1"
+            import: [{name: "@source", as: "@api"}, "@connect"]
+          )
+          @api(name: "v1", http: {baseURL: "127.0.0.1"})
+
+          type Query {
+            resources: [String!]!
+            @connect(source: "v1", http: {GET: "/resources"})
+          }
+        `),
+            },
+        ];
+
+        const result = composeServices(subgraphs);
+        expect(result.errors?.length).toBe(1);
+        const error = result.errors![0];
+        expect(error.message).toEqual('[with-connectors] baseURL argument for @api \"v1\" was not a valid URL: relative URL without a base');
+        expect(error.extensions.code).toEqual("SOURCE_URL_INVALID");
+        expect(error.locations).toBeDefined()
+    })
 });
