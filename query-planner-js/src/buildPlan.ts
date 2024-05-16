@@ -4355,7 +4355,14 @@ function computeGroupsForTree(
             );
             updated.group = requireResult.group;
             updated.path = requireResult.path;
-            
+
+            // add __typename to site where we are retrieving context from
+            // this is necessary because the context rewrites path will start with a type condition
+            if (contextToSelection) {
+              assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
+              updated.group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
+            }
+
             if (contextToSelection) {
               const newContextToConditionsGroups = new Map<string, FetchGroup[]>([...contextToConditionsGroups]);
               for (const context of contextToSelection) {
@@ -4365,6 +4372,11 @@ function computeGroupsForTree(
             }
             updateCreatedGroups(createdGroups, ...requireResult.createdGroups);
           } else if (conditions) {
+            // add __typename to site where we are retrieving context from
+            // this is necessary because the context rewrites path will start with a type condition
+            assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
+            group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
+
             const conditionsGroups = computeGroupsForTree({
               dependencyGraph, 
               pathTree: conditions, 
