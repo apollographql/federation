@@ -8899,6 +8899,7 @@ describe('@fromContext impacts on query planning', () => {
           Fetch(service: "Subgraph1") {
             {
               t {
+                __typename
                 prop
                 u {
                   __typename
@@ -9144,6 +9145,7 @@ describe('@fromContext impacts on query planning', () => {
           Fetch(service: "Subgraph1") {
             {
               t {
+                __typename
                 prop
                 u {
                   __typename
@@ -9322,6 +9324,7 @@ describe('@fromContext impacts on query planning', () => {
           Fetch(service: "Subgraph1") {
             {
               t {
+                __typename
                 prop
                 u {
                   __typename
@@ -9589,6 +9592,7 @@ describe('@fromContext impacts on query planning', () => {
               t {
                 __typename
                 ... on A {
+                  __typename
                   prop
                   u {
                     __typename
@@ -9597,6 +9601,7 @@ describe('@fromContext impacts on query planning', () => {
                   }
                 }
                 ... on B {
+                  __typename
                   prop
                   u {
                     __typename
