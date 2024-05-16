@@ -1,6 +1,6 @@
 {
   "name": "@apollo/federation-internals",
-  "version": "2.7.7",
+  "version": "2.7.8",
   "description": "Apollo Federation internal utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
