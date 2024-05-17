@@ -10,5 +10,8 @@
     "@apollo/query-planner": "2.7.8",
     "@apollo/subgraph": "2.7.8"
   },
-  "changesets": []
+  "changesets": [
+    "hungry-llamas-remember",
+    "rare-grapes-dream"
+  ]
 }
