@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.7.8
+
+### Patch Changes
+
+- Triggering a clean 2.7.8 release now that harmonizer build has been fixed. ([#3010](https://github.com/apollographql/federation/pull/3010))
+
 ## 2.7.7
 
 ### Patch Changes
