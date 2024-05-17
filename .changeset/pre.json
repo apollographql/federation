@@ -1,0 +1,14 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "@apollo/composition": "2.7.7",
+    "apollo-federation-integration-testsuite": "2.7.7",
+    "@apollo/gateway": "2.7.7",
+    "@apollo/federation-internals": "2.7.7",
+    "@apollo/query-graphs": "2.7.7",
+    "@apollo/query-planner": "2.7.7",
+    "@apollo/subgraph": "2.7.7"
+  },
+  "changesets": []
+}
