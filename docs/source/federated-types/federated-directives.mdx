@@ -102,7 +102,7 @@ For more information on `@link`, see the [official spec](https://specs.apollo.de
 directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 ```
 
-Designates an object type as an [entity](../entities/) and specifies its key fields (a set of fields that the subgraph can use to uniquely identify any instance of the entity).
+Designates an object type as an entity and specifies its key fields. Key fields are a set of fields that a subgraph can use to uniquely identify any instance of the entity.
 
 ```graphql {1}
 type Product @key(fields: "id") {
@@ -112,7 +112,16 @@ type Product @key(fields: "id") {
 }
 ```
 
-You can apply multiple `@key` directives to a single entity (to specify multiple valid sets of key fields), if your subgraph library supports repeatable directives:
+<Tip>
+
+To learn best practices and advanced use cases for `@key`, refer to the following guides:
+
+- [Introduction to entities](../entities#1-define-a-key)
+- [Advanced entities](../entities-advanced)
+
+</Tip>
+
+You can apply multiple `@key` directives to a single entity to specify multiple valid sets of key fields, if your subgraph library supports repeatable directives:
 
 ```graphql {1}
 type Product @key(fields: "upc") @key(fields: "sku") {
@@ -122,7 +131,11 @@ type Product @key(fields: "upc") @key(fields: "sku") {
 }
 ```
 
+<Note>
+
 To check whether your subgraph library supports repeatable directives, see the `repeatable @key` item in [Federation-compatible subgraph implementations](../building-supergraphs/supported-subgraphs/).
+
+</Note>
 
 In Apollo Federation 2.3 and later, you can also apply `@key` to `interface` definitions to create [entity interfaces](./interfaces/). If you apply `@key` to an `interface` in earlier versions of Federation 2, a composition error occurs.
 
