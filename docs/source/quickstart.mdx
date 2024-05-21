@@ -7,91 +7,162 @@ description: Create a federated GraphQL API with Apollo Federation
 This tutorial gets you up and running with a cloud-hosted Apollo Federation 2 supergraph.
 The supergraph you set up is managed by GraphOS so that [to-do].
 
-To learn more about federation concepts and the benefits of using it, see the [Introduction to Apollo Federation](./).
+To learn more about federation concepts and the benefits of using federation, see the [Introduction to Apollo Federation](./).
 
 ## Prerequisites
 
-This tutorial assumes you have the following:
+To complete this quickstart, you must have the following:
 
 - A [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content) account
+- An organization with an [Enterprise trial](https://studio.apollographql.com/signup?type=enterprise-trial&referrer=docs-content) or Enterprise plan
 - The Rover CLI [installed](/rover/getting-started) and [connected to your Studio account](/rover/getting-started#connecting-to-graphos)
 
-If you haven't already, set them up and then return to this tutorial.
-
+If you haven't already, set these up before continuting.
 
 ## Overview
 
 Setting up a federated graph takes a few steps:
 
-1. Creating a graph in GraphOS Studio
-2. Registering your subgraphs
-3. Inspecting and configuring your router
+1. Schema design
+2. Registering subgraphs in GraphOS Studio
+3. Configuring your router
 4. Testing your graph
 5. Updating clients to query your new graph endpoint
 
 ---
 
+## Step 1. Update subgraph schemas
+
+When building a supergraph, it can be helpful to use a schema-first approach.
+With the schema in place, the frontend team can being build the client side app while backend developers develop and deploy backend services.
+
+This tutorial uses two subgraphs:
+
+- A `Products` subgraph with information about products in a retail business
+- A `Reviews` subgraph with reviews for those products
+
+It's standard retail practice to shows product details alongside reviews that users have given a product.
+You can imagine that before federation, a client might need to make two separate requests to retrieve both sets of data.
+With a federated graph, all of the data can be retrieved with just one call.
+
+Imagine the `Product` type has a schema like this:
+
+```yaml title="Products subgraph"
+type Product {
+  id: ID!
+  name: String!
+  price: Float!
+  description: String!
+  imageURL: String!
+}
+```
+
+The `Reviews` subgraph may have information about `Product` types as well:
+
+
+```yaml title="Reviews subgraph"
+type Product {
+  id: ID!
+  overallRating: Float
+  reviewsForProduct: [Review]!
+}
+
+type Review {
+  id: ID!
+  reviewText: String
+  rating: Int
+  product: Product
+}
+``` 
+
+So that a client can request a `Product`'s details such as description and image URL along with review data such as a product's overall rating and individual reviews, you need to update both schemas.
+
+Specifically, you need to denote `Product` as an entity—an object type that can resolve its fields across multiple subgraphs.
+You do this by adding a `@key` to both schemas:
+
+<CodeColumns>
+
+```graphql title="Products subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  name: String!
+  price: Float!
+  description: String!
+  imageURL: String!
+}
+```
+
+```graphql title="Reviews subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  overallRating: Float
+  reviewsForProduct: [Review]!
+}
+```
+
+</CodeColumns>
+
+The `@key` directive defines an entity's _unique key_, which consists of one or more of the type's `fields`. See the [entity guide](./entities) to learn more.
+
+Backend service owners also need to write reference resolvers for these types. See the [entity guide example](./entities#2-define-a-reference-resolver) for a subgraph using the Apollo Server library.
+
+## Step 2. Register subgraphs
+
+1. Go to your organization's **Graphs** tab in [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content).
+
+2. Click **Create New Graph** in the top right.
+
+3. In the dialog that appears, specify an **Organization** and **Graph title** for your graph. Leave the **Graph Architecture** as **Supergraph (Default)**. Click **Next**. 
+
+5. Leave the **Supergraph Pipeline Track** dropdown set to its default value. Click **Finish later**.
+
+## Step 3: Configure your router
+
+In a supergraph, a router acts as an entry point to your subgraphs and provides a unified interface for clients to interact with.
+
+```mermaid
+graph LR;
+  clients(Clients);
+  router([Router]);
+  subgraph "Supergraph"
+  serviceA[Subgraph <br/>A];
+  serviceB[Subgraph <br/>B];
+  serviceC[Subgraph <br/>C];
+  router --- serviceA & serviceB & serviceC;
+  end
+  clients -.- router;
+  class clients secondary;
+```
+
+With GraphOS, you can choose for Apollo to provision and manage a cloud-hosted router for you or you can self-host your router.
+This quickstart walks you through setting up your own self-hosted Apollo Router.
+
+1. On your development machine, first create a new directory for your router project. Then inside that directory, run the following to install the Apollo Router:
+
+    ```bash
+    curl -sSL https://router.apollo.dev/download/nix/latest | sh
+    ```
+
+    This installs the `router` executable in your project directory. You can try running it with the following command:
+
+    ```
+    ./router
+    ```
+
+If you do, you'll get a startup error message like `⚠️  The Apollo Router requires a composed supergraph schema at startup. ⚠️`
+
+That's because your aren't currently providing a supergraph schema to the router. We'll fix that soon.
+
+## Step 4: Test your graph
+
+## Step 5: Update clients
+
+---
+
+
 ## 2. Create a router project directory
 
-As mentioned in [Federation concepts](#federation-concepts), your federated supergraph is represented by a graph router that routes queries to various subgraphs. For this tutorial, we'll use some Apollo-hosted example services as our subgraphs, and we'll set up the Apollo Router in front of them.
 
-<Note>
-
-The Apollo Router is a high-performance, precompiled Rust executable that acts as the router for a supergraph.
-
-Alternatively, Apollo Server can act as your graph router, as documented in [The graph router](../building-supergraphs/router/). This tutorial uses the Apollo Router because it's the recommended default for all new supergraphs (for details, see [Choosing a router library](../building-supergraphs/router/#choosing-a-router-library)).
-
-</Note>
-
-On your development machine, first create a new directory for your router project. Then inside that directory, run the following to install the Apollo Router:
-
-```bash
-curl -sSL https://router.apollo.dev/download/nix/latest | sh
-```
-
-This installs the `router` executable in your project directory. You can try running it with the following command:
-
-```
-./router
-```
-
-If you do, you'll get a startup error message like the following:
-
-<ExpansionPanel title="Click to expand">
-
-```
-Apollo Router v0.12.0 // (c) Apollo Graph, Inc. // Licensed as ELv2 (https://go.apollo.dev/elv2)
-
-⚠️  The Apollo Router requires a composed supergraph schema at startup. ⚠️
-
-👉 DO ONE:
-
-  - Pass a local schema file with the '--supergraph' option:
-
-      $ ./router --supergraph <file_path>
-
-  - Fetch a registered schema from GraphOS Studio by setting
-    these environment variables:
-
-      $ APOLLO_KEY="..." APOLLO_GRAPH_REF="..." ./router
-
-      For details, see the Apollo docs:
-      https://www.apollographql.com/docs/router/managed-federation/setup
-
-🔬 TESTING THINGS OUT?
-
-  1. Download an example supergraph schema with Apollo-hosted subgraphs:
-
-    $ curl -L https://supergraph.demo.starstuff.dev/ > starstuff.graphql
-
-  2. Run the Apollo Router with the supergraph schema:
-
-    $ ./router --supergraph starstuff.graphql
-```
-
-</ExpansionPanel>
-
-That's because we aren't currently providing a supergraph schema to the router. We'll fix that soon.
 
 ## 3. Obtain your subgraph schemas
 
