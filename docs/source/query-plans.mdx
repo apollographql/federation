@@ -136,7 +136,7 @@ Each node defined inside the `QueryPlan` node is one of the following:
 | [`Sequence`](#sequence-node) | Tells the router that the node's immediate children must be executed serially in the order listed. |
 | [`Flatten`](#flatten-node) | Tells the router to merge the data returned by this node's child `Fetch` node with data previously returned in the current `Sequence`. |
 | [`Defer`](#defer-node) | Tells the router about one or more blocks of `@defer`ed fields at the same level of nesting. The node contains a primary block and an array of deferred blocks. |
-| [`Condition`](#condition-node) | Tells the router to split a query plan into two possible paths that can change at runtime. |
+| [`Skip`/`Include`](#condition-nodes) | Tells the router to split a query plan into two possible paths that can change at runtime. |
 
 Each of these is described in further detail below.
 
@@ -462,9 +462,9 @@ QueryPlan {
 }
 ```
 
-### Condition node
+### Condition nodes
 
-A `Condition` node splits a query plan into an if-else branch. `Condition` nodes are commonly used for `@skip` and `@include` directives so the query plan can select different nodes based on the provided runtime variables.
+A `Skip` or `Include` node splits a query plan into an if-else branch. Condition nodes are used when an operation contains a `@skip` or `@include` directive so the query plan can select different nodes based on the provided runtime variables.
 
 ```graphql
 QueryPlan {
