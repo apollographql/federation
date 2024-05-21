@@ -102,12 +102,6 @@ For more information on `@link`, see the [official spec](https://specs.apollo.de
 directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 ```
 
-<Note>
-
-`@key` can only use the `resolvable` flag in v2.0 and later.
-
-</Note>
-
 Designates an object type as an entity and specifies its key fields. Key fields are a set of fields that a subgraph can use to uniquely identify any instance of the entity.
 
 ```graphql {1}
@@ -259,7 +253,7 @@ directive @shareable repeatable on FIELD_DEFINITION | OBJECT
 
 <Note>
 
-`@shareable` is only `repeatable` in v2.2 and later.
+`@shareable` is only `repeatable` in [v2.2](./federation-versions#v22) and later.
 
 </Note>
 
@@ -588,12 +582,6 @@ Indicates to composition that the target element is restricted based on authoriz
 directive @external on FIELD_DEFINITION | OBJECT
 ```
 
-<Note>
-
-`@external` is only applicable on `OBJECT`s in v2.0 and later.
-
-</Note>>
-
 Indicates that this subgraph usually can't resolve a particular object field, but it still needs to define that field for other purposes.
 
 This directive is always used in combination with another directive that references object fields, such as [`@provides`](#provides) or [`@requires`](#requires).
@@ -781,12 +769,6 @@ Examples:
 ```graphql
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
 ```
-
-<Note>
-
-`@tag` is only applicable on `SCHEMA`s in v2.0 and later.
-
-</Note>
 
 Applies arbitrary string metadata to a schema location. Custom tooling can use this metadata during any step of the schema delivery flow, including composition, static analysis, and documentation. The GraphOS Enterprise [contracts feature](/graphos/delivery/contracts/) uses `@tag` with its inclusion and exclusion filters.
 
