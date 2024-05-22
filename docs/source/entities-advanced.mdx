@@ -936,11 +936,19 @@ type Transaction @key(fields: "id") {
   currency: Currency!
   amount: Int!
   amountInUserCurrency(
-    currencyCode: CurrencyCode! 
+    currencyCode: CurrencyCode!
         @fromContext(field: "$userContext { userCurrency { isoCode } }")
   ): Int!
 }
 ```
+
+<Note>
+
+An argument of `@fromContext` doesn't appear in the API schema. Instead, it's populated automatically by the router.
+
+In the example above, the argument `currencyCode: CurrencyCode!` wouldn't appear in the API schema.
+
+</Note>
 
 ### Using multiple contexts 
 
