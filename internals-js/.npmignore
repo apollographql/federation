@@ -3,6 +3,5 @@
 src/**/*.test.*
 src/__tests__/*
 !dist/**/*
-!wasm/node/**/*
 !package.json
 !README.md

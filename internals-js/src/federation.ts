@@ -85,7 +85,6 @@ import { createObjectTypeSpecification, createScalarTypeSpecification, createUni
 import { didYouMean, suggestionList } from "./suggestions";
 import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
 import { joinIdentity } from "./specs/joinSpec";
-import {validateSubgraphSchema} from "./wasm";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -1343,7 +1342,6 @@ export function buildSubgraph(
   try {
     const parsed = typeof source === 'string' ? parse(source) : source;
     const schema =  buildSchemaFromAST(parsed, buildOptions)
-    validateSubgraphSchema(schema, parsed)
     subgraph = new Subgraph(name, url, schema);
   } catch (e) {
     if (e instanceof GraphQLError && name !== FEDERATION_UNNAMED_SUBGRAPH_NAME) {
