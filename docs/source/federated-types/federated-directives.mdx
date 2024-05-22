@@ -248,8 +248,14 @@ In Federation 1, every subgraph must extend the `Query` and `Mutation` types (if
 </MinVersion>
 
 ```graphql
-directive @shareable on FIELD_DEFINITION | OBJECT
+directive @shareable repeatable on FIELD_DEFINITION | OBJECT
 ```
+
+<Note>
+
+`@shareable` is only `repeatable` in [v2.2](../federation-versions#v22) and later.
+
+</Note>
 
 Indicates that an object type's field is allowed to be resolved by multiple subgraphs (by default in Federation 2, object fields can be resolved by only one subgraph).
 
@@ -761,7 +767,7 @@ Examples:
 </MinVersion>
 
 ```graphql
-directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
 ```
 
 Applies arbitrary string metadata to a schema location. Custom tooling can use this metadata during any step of the schema delivery flow, including composition, static analysis, and documentation. The GraphOS Enterprise [contracts feature](/graphos/delivery/contracts/) uses `@tag` with its inclusion and exclusion filters.
