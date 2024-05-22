@@ -31,7 +31,7 @@
       "Composition": "/federated-types/composition",
       "Federated Directives": "/federated-types/federated-directives",
       "Sharing Types (Value Types)": "/federated-types/sharing-types",
-      "Basic Entities": "/entities",
+      "Introduction to Entities": "/entities",
       "Advanced Entities": "/entities-advanced",
       "Entity Interfaces": "/federated-types/interfaces",
       "Migrating from Schema Stitching": "/migrating-from-stitching"

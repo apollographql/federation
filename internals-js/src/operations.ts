@@ -1554,6 +1554,7 @@ export class SelectionSet {
         // compute and handle collisions as necessary.
         const mockHashCode = `on${selection.element.typeCondition}` + selection.selectionSet.selections().length;
         const equivalentSelectionSetCandidates = seenSelections.get(mockHashCode);
+
         if (equivalentSelectionSetCandidates) {
           // See if any candidates have an equivalent selection set, i.e. {x y} and {y x}.
           const match = equivalentSelectionSetCandidates.find(([candidateSet]) => candidateSet.equals(selection.selectionSet!));
@@ -1572,13 +1573,13 @@ export class SelectionSet {
           `_generated_${mockHashCode}_${equivalentSelectionSetCandidates?.length ?? 0}`,
           selection.element.typeCondition
         ).setSelectionSet(minimizedSelectionSet);
+        namedFragments.add(fragmentDefinition);
 
         // Create a new "hash code" bucket or add to the existing one.
-        if (!equivalentSelectionSetCandidates) {
-          seenSelections.set(mockHashCode, [[selection.selectionSet, fragmentDefinition]]);
-          namedFragments.add(fragmentDefinition);
-        } else {
+        if (equivalentSelectionSetCandidates) {
           equivalentSelectionSetCandidates.push([selection.selectionSet, fragmentDefinition]);
+        } else {
+            seenSelections.set(mockHashCode, [[selection.selectionSet, fragmentDefinition]]);
         }
 
         return new FragmentSpreadSelection(this.parentType, namedFragments, fragmentDefinition, []);
