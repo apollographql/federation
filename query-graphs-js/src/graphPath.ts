@@ -1924,7 +1924,7 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
               if (parentInSupergraph.name === t) {
                 return true;
               }
-              if (isObjectType(parentInSupergraph)) {
+              if (isObjectType(parentInSupergraph) || isInterfaceType(parentInSupergraph)) {
                 if (parentInSupergraph.interfaces().some(i => i.name === t)) {
                   return true;
                 }
