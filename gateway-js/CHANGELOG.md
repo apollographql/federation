@@ -1,5 +1,14 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.8.0-alpha.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/composition@2.8.0-alpha.1
+  - @apollo/query-planner@2.8.0-alpha.1
+  - @apollo/federation-internals@2.8.0-alpha.1
+
 ## 2.8.0-alpha.0
 
 ### Minor Changes

@@ -1,5 +1,16 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.8.0-alpha.1
+
+### Patch Changes
+
+- Fix bug in context-matching logic for interfaces-implementing-interfaces (#3014) ([#3015](https://github.com/apollographql/federation/pull/3015))
+
+  A field is considered to match a context if the field's parent type (in the original query) either has `@context` on it, or implements/is a member of a type with `@context` on it. We ended up missing the case where interfaces implement interfaces; this PR introduces a fix.
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.0-alpha.1
+
 ## 2.8.0-alpha.0
 
 ### Minor Changes
