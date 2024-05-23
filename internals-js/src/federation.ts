@@ -413,7 +413,10 @@ const validateFieldValueType = ({
     }
     const { element, selectionSet: childSelectionSet } = selection;
     assert(element.definition.type, 'Element type definition should exist');
-    const type = element.definition.type;
+    let type = element.definition.type;
+    if (type.kind === 'NonNullType') {
+      type = type.ofType;
+    }
     if (childSelectionSet) {
       assert(isCompositeType(type), 'Child selection sets should only exist on composite types');
       const { resolvedType } = validateFieldValueType({
