@@ -9863,4 +9863,176 @@ describe('@fromContext impacts on query planning', () => {
       },
     ]);
   });
+
+  it('fromContext required field is several levels deep going back and forth between subgraphs', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T!
+        }
+
+        type A @key(fields: "id") {
+          id: ID!
+          b: B! @external
+        }
+
+        type B @key(fields: "id") {
+          id: ID!
+          c: C!
+        }
+
+        type C @key(fields: "id") {
+          id: ID!
+          prop: String!
+        }
+
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          a: A!
+        }
+        type U @key(fields: "id") {
+          id: ID!
+          b: String!
+          field(
+            a: String @fromContext(field: "$context { a { b { c { prop }}} }")
+          ): Int!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          randomId: ID!
+        }
+
+        type A @key(fields: "id") {
+          id: ID!
+          b: B!
+        }
+
+        type B @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            u {
+              field
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                a {
+                  __typename
+                  id
+                }
+                u {
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "t.a") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on A {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on A {
+                  b {
+                    __typename
+                    id
+                  }
+                }
+              }
+            },
+          },
+          Flatten(path: "t.a.b") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on B {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on B {
+                  c {
+                    prop
+                  }
+                }
+              }
+            },
+          },
+          Flatten(path: "t.u") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on U {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on U {
+                  field(a: $contextualArgument_1_0)
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    expect((plan as any).node.nodes[3].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['..', '... on T', 'a', 'b', 'c', 'prop'],
+        renameKeyTo: 'contextualArgument_1_0',
+      },
+    ]);
+  });
 });
