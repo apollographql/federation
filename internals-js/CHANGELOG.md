@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.8.0-connectors.5
+
+### Minor Changes
+
+- Support validations on renamed sources ([#3007](https://github.com/apollographql/federation/pull/3007))
+
+### Patch Changes
+
+- Remove WASM
+
 ## 2.8.0-connectors.4
 
 ### Patch Changes

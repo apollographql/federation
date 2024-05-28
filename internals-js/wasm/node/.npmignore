@@ -1,2 +1,0 @@
-# We don't want to check in build artifacts (thus the .gitignore), but we _do_ need NPM to publish those files
-# .npmignore overrides .gitignore
