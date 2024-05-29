@@ -653,6 +653,12 @@ export class GraphPath<TTrigger, RV extends Vertex = Vertex, TNullEdge extends n
     if (!enteringEdge) {
       return undefined;
     }
+    
+    // TODO: Temporary fix to avoid optimization if context exists.
+    // permanent fix is described here: https://github.com/apollographql/federation/pull/3017#pullrequestreview-2083949094
+    if (this.graph.subgraphToArgs.size > 0) {
+      return undefined;
+    }
 
     // Usually, the starting subgraph in which we want to look for a direct path is the head of
     // `subgraphEnteringEdge`, that is, where we were just before coming to the current subgraph.

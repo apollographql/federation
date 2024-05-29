@@ -368,10 +368,23 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     if (this.name === typenameFieldName) {
       return parentType.typenameField()?.type;
     }
-
-    return this.canRebaseOn(parentType)
+    
+    const returnType = this.canRebaseOn(parentType)
       ? parentType.field(this.name)?.type
       : undefined;
+      
+    // If the field has an argument with fromContextDirective on it. We should not rebase it.
+    const fromContextDirective = federationMetadata(parentType.schema())?.fromContextDirective();
+    if (fromContextDirective && isFederationDirectiveDefinedInSchema(fromContextDirective)) {
+      const fieldInParent = parentType.field(this.name);
+      if (fieldInParent && fieldInParent.arguments()
+          .some(arg => arg.appliedDirectivesOf(fromContextDirective).length > 0 && (!this.args || this.args[arg.name] === undefined))
+        ) {
+        return undefined;
+      }  
+    }
+
+    return returnType;
   }
 
   hasDefer(): boolean {
