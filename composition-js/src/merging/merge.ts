@@ -1661,11 +1661,11 @@ class Merger {
       return true;
     }
     
-    // if there is a @fromContext directive on one of the sources, we need a join__field
+    // if there is a @fromContext directive on one of the source's arguments, we need a join__field
     if (sources.some((s, idx) => {
       const fromContextDirective = this.subgraphs.values()[idx].metadata().fromContextDirective();
-      if (isFederationDirectiveDefinedInSchema(fromContextDirective)) {
-        return (s?.appliedDirectivesOf(fromContextDirective).length ?? 0) > 0;
+      if (s && isFederationDirectiveDefinedInSchema(fromContextDirective)) {
+        return s.kind === 'FieldDefinition' && s.arguments().some(arg => arg.appliedDirectivesOf(fromContextDirective).length > 0);
       }
       return false;
     })) {

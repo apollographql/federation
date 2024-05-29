@@ -1673,22 +1673,23 @@ type FieldToAlias = {
   alias: string,
 }
 
-function selectionSetAsKeyRenamers(selectionSet: SelectionSet, relPath: string[], alias: string): FetchDataKeyRenamer[] {
+function selectionSetAsKeyRenamers(selectionSet: SelectionSet | undefined, relPath: string[], alias: string): FetchDataKeyRenamer[] {
+  if (!selectionSet || selectionSet.isEmpty()) {
+    return [
+      {
+        kind: 'KeyRenamer',
+        path: relPath,
+        renameKeyTo: alias,
+      }
+    ];
+  }
+  
   return selectionSet.selections().map((selection: Selection): FetchDataKeyRenamer[] | undefined => {
     if (selection.kind === 'FieldSelection') {
-      // We always have at least one '..' in the relative path.
-      if (relPath[relPath.length - 1] === '..') {
-        return possibleRuntimeTypes(selectionSet.parentType).map((t) => ({
-          kind: 'KeyRenamer',
-          path: [...relPath, `... on ${t.name}`, selection.element.name],
-          renameKeyTo: alias,
-        }));
+      if (relPath[relPath.length - 1] === '..' && selectionSet.parentType.name !== 'Query') {
+        return possibleRuntimeTypes(selectionSet.parentType).map((t) => selectionSetAsKeyRenamers(selectionSet, [...relPath, `... on ${t.name}`], alias)).flat();
       } else {
-        return [{
-          kind: 'KeyRenamer',
-          path: [...relPath, selection.element.name],
-          renameKeyTo: alias,
-        }];
+        return selectionSetAsKeyRenamers(selection.selectionSet, [...relPath, selection.element.name], alias);
       }
     } else if (selection.kind === 'FragmentSelection') {
       const element = selection.element;
