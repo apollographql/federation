@@ -377,7 +377,9 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     const fromContextDirective = federationMetadata(parentType.schema())?.fromContextDirective();
     if (fromContextDirective && isFederationDirectiveDefinedInSchema(fromContextDirective)) {
       const fieldInParent = parentType.field(this.name);
-      if (fieldInParent && fieldInParent.arguments().some(arg => arg.appliedDirectivesOf(fromContextDirective).length > 0)) {
+      if (fieldInParent && fieldInParent.arguments()
+          .some(arg => arg.appliedDirectivesOf(fromContextDirective).length > 0 && (!this.args || this.args[arg.name] === undefined))
+        ) {
         return undefined;
       }  
     }
