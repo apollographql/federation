@@ -1,5 +1,11 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.8.0
+
+### Patch Changes
+
+- Various set context bugfixes ([#3017](https://github.com/apollographql/federation/pull/3017))
+
 ## 2.8.0-alpha.1
 
 ## 2.8.0-alpha.0
