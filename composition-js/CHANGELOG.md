@@ -1,5 +1,35 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.8.0
+
+### Minor Changes
+
+- Implement new directives to allow getting and setting context. This allows resolvers to reference and access data referenced by entities that exist in the GraphPath that was used to access the field. The following example demonstrates the ability to access the `prop` field within the Child resolver. ([#2988](https://github.com/apollographql/federation/pull/2988))
+
+  ```graphql
+  type Query {
+    p: Parent!
+  }
+  type Parent @key(fields: "id") @context(name: "context") {
+    id: ID!
+    child: Child!
+    prop: String!
+  }
+  type Child @key(fields: "id") {
+    id: ID!
+    b: String!
+    field(a: String @fromContext(field: "$context { prop }")): Int!
+  }
+  ```
+
+### Patch Changes
+
+- Various set context bugfixes ([#3017](https://github.com/apollographql/federation/pull/3017))
+
+- Updated dependencies [[`c4744da360235d8bb8270ea048f0e0fa5d03be1e`](https://github.com/apollographql/federation/commit/c4744da360235d8bb8270ea048f0e0fa5d03be1e), [`8a936d741a0c05835ff2533714cf330d18209179`](https://github.com/apollographql/federation/commit/8a936d741a0c05835ff2533714cf330d18209179), [`f5fe3e74d36722f78004c1e2e03c77d8b95cd6bf`](https://github.com/apollographql/federation/commit/f5fe3e74d36722f78004c1e2e03c77d8b95cd6bf)]:
+  - @apollo/query-graphs@2.8.0
+  - @apollo/federation-internals@2.8.0
+
 ## 2.8.0-alpha.1
 
 ### Patch Changes
