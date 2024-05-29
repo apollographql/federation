@@ -993,6 +993,12 @@ type Child @key(fields: "id") {
 
 When the same contextual value is set in multiple places—as is done in the example with the args of `Child.prop1` and `Child.prop2`—the `FieldValue` must resolve all types from each place into a single value that matches the parameter type.
 
+<Note>
+
+Federation makes no guarantees about which context will be used if a field is reachable via multiple contexts.
+
+</Note>
+
 ### Disambiguating contexts
 
 When a set context could be fulfilled by multiple ancestor entities in the type hierarchy, the nearest ancestor is chosen. For example, if both the parent and grandparent of a type can provide the value of a context, the parent is chosen because it's the closer ancestor.
@@ -1025,3 +1031,54 @@ type C @key(fields: "id") {
 ```
 
 In a more complex graph, a field could be reachable via multiple paths, and there could be a different field used to resolve the `prop` depending on which path was used.
+
+### Referencing fields across subgraphs
+
+The definition of context scopes can only exist in one subgraph schema. You can't define `@context` in one subgraph and use `@fromContext` in another. However, you can use contexts to share data across subgraphs using the `@external` reference.
+
+Reusing our first example, let's say we had a subgraph responsible for the User and Currency type:
+
+```graphql
+scalar CurrencyCode
+
+type Currency @shareable {
+   id: ID!
+   isoCode: CurrencyCode!
+}
+
+type User @key(fields: "id") {
+   id: ID!
+   userCurrency: Currency!
+}
+```
+
+If you want to reference those fields from another subgraph, you can use the `@external` directive to pass data across subgraph boundaries:
+
+```graphql
+scalar CurrencyCode
+
+type Currency @shareable {
+   id: ID!
+   isoCode: CurrencyCode!
+}
+
+type User @key(fields: "id") @context(name: "userContext") {
+   id: ID!
+   
+  # This is a reference to the field resolved elsewhere
+   userCurrency: Currency! @external
+   
+   # We add this field to our type here
+   lastTransaction: Transaction! 
+}
+
+type Transaction @key(fields: "id") {
+  id: ID!
+  currency: Currency!
+  amount: Int!
+  amountInUserCurrency(
+    currencyCode: CurrencyCode! 
+        @fromContext(field: "$userContext { userCurrency { isoCode } }")
+  ): Int!
+}
+```
