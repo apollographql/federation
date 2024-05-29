@@ -129,12 +129,14 @@ QueryPlan {
 
 Each node defined inside the `QueryPlan` node is one of the following:
 
-| Node | Description |
-|------|-------------|
-| [`Fetch`](#fetch-node) | Tells the gateway to execute a particular operation on a particular subgraph. |
-| [`Parallel`](#parallel-node) | Tells the gateway that the node's immediate children can be executed in parallel. |
-| [`Sequence`](#sequence-node) | Tells the gateway that the node's immediate children must be executed serially in the order listed. |
-| [`Flatten`](#flatten-node) | Tells the gateway to merge the data returned by this node's child `Fetch` node with data previously returned in the current `Sequence`. |
+|  Node  | Description |
+|--------|-------------|
+| [`Fetch`](#fetch-node) | Tells the router to execute a particular operation on a particular subgraph. |
+| [`Parallel`](#parallel-node) | Tells the router that the node's immediate children can be executed in parallel. |
+| [`Sequence`](#sequence-node) | Tells the router that the node's immediate children must be executed serially in the order listed. |
+| [`Flatten`](#flatten-node) | Tells the router to merge the data returned by this node's child `Fetch` node with data previously returned in the current `Sequence`. |
+| [`Defer`](#defer-node) | Tells the router about one or more blocks of `@defer`ed fields at the same level of nesting. The node contains a primary block and an array of deferred blocks. |
+| [`Skip`/`Include`](#condition-nodes) | Tells the router to split a query plan into two possible paths that can change at runtime. |
 
 Each of these is described in further detail below.
 
@@ -435,6 +437,59 @@ Instead of containing a GraphQL operation, this `Fetch` node contains two GraphQ
 When the router sees this special `Fetch` syntax, it knows to query a subgraph's [`Query._entities` field](./building-supergraphs/subgraphs-overview/#query_entities). This field is what enables a subgraph to provide direct access to any available fields of an entity.
 
 Now that you've learned about each query plan node, take another look at the example query plan in [Example graph](#example-graph) to see how these nodes work together in a complete query plan.
+
+### Defer node
+
+A `Defer` node corresponds to one or more `@defer`s at the same level of nesting in the query plan.
+
+The node contains a _primary block_ and an array of _deferred blocks_. The primary block represents the part of the query that isn't deferred. Each deferred block corresponds to the one deferred part of the query.
+
+Read more about how `@defer` works in the [Apollo Router support for @defer article](/router/executing-operations/defer-support/).
+
+```graphql
+QueryPlan {
+  Defer {
+    Primary {
+      Fetch(...) {}
+    }, [
+      Deferred(...) {
+        Flatten(...) {
+          Fetch(...) {}
+        }
+      }
+    ]
+  }
+}
+```
+
+### Condition nodes
+
+A `Skip` or `Include` node splits a query plan into an if-else branch. Condition nodes are used when an operation contains a `@skip` or `@include` directive so the query plan can select different nodes based on the provided runtime variables.
+
+```graphql
+QueryPlan {
+  Sequence {
+    Fetch(...) {}
+    Include(...) {
+      Flatten(...) {
+        Fetch(...) { }
+      }
+    }
+  }
+}
+```
+```graphql
+QueryPlan {
+  Sequence {
+    Fetch(...) {}
+    Skip(...) {
+      Flatten(...) {
+        Fetch(...) { }
+      }
+    }
+  }
+}
+```
 
 ## Viewing query plans
 
