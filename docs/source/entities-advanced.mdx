@@ -914,11 +914,11 @@ This problem is not limited to reference resolvers. In fact, it can occur with a
 
 Use the `@context` and `@fromContext` directives to set and get a _context_ through which types of a subgraph can share data. Contexts enable a subgraph to share data between types of a nested-type hierarchy, without overloading entity keys with extraneous fields and without breaking any separation of concerns between different subgraphs.  
 
-An entity may contain nested objects, and each nested object may have a dependency on an ancestor type and thus need access to an ancestor's field(s). 
+In an entity, a nested object may have a dependency on an ancestor type and thus need access to that ancestor's field(s).
 
 To enable a descendant to access an ancestor's field, you could add it as a `@key` field to every entity along the chain of nested types, but that can become problematic. Deeply nested types can change the `@key` fields of many entities. The added field may be irrelevant to the entities it's added to. Most importantly, this overloading of `@key` fields often breaks the separation of concerns between different subgraphs.
 
-The `@context` and `@fromContext` directives enable a subgraph to share fields without overloading `@key` fields. You can use these directives to define one or more contexts of a subgraph from which a field gets retrieved.
+The `@context` and `@fromContext` directives enable a subgraph to share fields without overloading `@key` fields. You can use these directives to define one or more contexts in a subgraph.
 
 ### Using one context
 
@@ -998,19 +998,19 @@ type Child @key(fields: "id") {
 }
 ```
 
-When the same contextual value is set in multiple places—as is done in the example with the args of `Child.prop1` and `Child.prop2`—the `FieldValue` must resolve all types from each place into a single value that matches the parameter type.
+When the same contextual value is set in multiple places—as in the example with the `Child.prop1` and `Child.prop2` `args`—the `FieldValue` must resolve all types from each place into a single value that matches the parameter type.
 
 <Note>
 
-Federation makes no guarantees about which context will be used if a field is reachable via multiple contexts.
+Federation doesn't guarantee which context will be used if a field is reachable via multiple contexts.
 
 </Note>
 
 ### Disambiguating contexts
 
-When a set context could be fulfilled by multiple ancestor entities in the type hierarchy, the nearest ancestor is chosen. For example, if both the parent and grandparent of a type can provide the value of a context, the parent is chosen because it's the closer ancestor.
+When multiple ancestor entities in the type hierarchy could fulfill a set context, the nearest ancestor is chosen. For example, if both the parent and grandparent of a type can provide the value of a context, the parent is chosen because it's the closer ancestor.
 
-In the following example, given nested types `A`, `B`, and `C`, and `C` referencing a context that could be provided by either `A` or `B`, the value used by `C` is from `B` because it's a closer ancestor to `C` than `A`:
+In the following example, given nested types `A`, `B`, and `C`, with `C` referencing a context that either `A` or `B` could provide, `C` uses the value from `B` because it's a closer ancestor to `C` than `A`:
 
 ```graphql
 type Query { 
@@ -1043,7 +1043,7 @@ In a more complex graph, a field could be reachable via multiple paths, and ther
 
 The definition of context scopes can only exist in one subgraph schema. You can't define `@context` in one subgraph and use `@fromContext` in another. However, you can use contexts to share data across subgraphs using the `@external` reference.
 
-Reusing our first example, let's say we had a subgraph responsible for the User and Currency type:
+Reusing the [`Transaction` example](#using-one-context), imagine a subgraph responsible for the `User` and `Currency` types:
 
 ```graphql
 scalar CurrencyCode
