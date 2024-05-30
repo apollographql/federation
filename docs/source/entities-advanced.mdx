@@ -910,19 +910,23 @@ A basic implementation of the `fetchProductByID` function might make a database 
 
 This problem is not limited to reference resolvers. In fact, it can occur with any resolver that fetches from a data store. To handle this problem, we strongly recommend using [the dataloader pattern](https://github.com/graphql/dataloader). Nearly every GraphQL server library provides a dataloader implementation, and you should use it in every resolver. This is true even for resolvers that aren't for entities and that don't return a list. These resolvers can still cause N+1 issues via [batched requests](/technotes/TN0021-graph-security/#batched-requests).
 
+<MinVersion version="2.8">
+
 ## Using contexts to share data along type hierarchies
 
-Use the `@context` and `@fromContext` directives to set and get a _context_ through which types of a subgraph can share data. Contexts enable a subgraph to share data between types of a nested-type hierarchy, without overloading entity keys with extraneous fields and without breaking any separation of concerns between different subgraphs.  
+</MinVersion>
+
+Use the `@context` and `@fromContext` directives to set and get a _context_ to share data between types in a subgraph. Contexts provide a way for a subgraph to share data between types of a nested-type hierarchy without overloading entity keys with extraneous fields. Contexts also preserve the separation of concerns between different subgraphs.  
 
 In an entity, a nested object may have a dependency on an ancestor type and thus need access to that ancestor's field(s).
 
-To enable a descendant to access an ancestor's field, you could add it as a `@key` field to every entity along the chain of nested types, but that can become problematic. Deeply nested types can change the `@key` fields of many entities. The added field may be irrelevant to the entities it's added to. Most importantly, this overloading of `@key` fields often breaks the separation of concerns between different subgraphs.
+To enable a descendant to access an ancestor's field, you could add it as a `@key` field to every entity along the chain of nested types, but that can become problematic. Deeply nested types can change the `@key` fields of many entities. The added field may be irrelevant to the entities it's added to. Most importantly, overloading `@key` fields often breaks the separation of concerns between different subgraphs.
 
 The `@context` and `@fromContext` directives enable a subgraph to share fields without overloading `@key` fields. You can use these directives to define one or more contexts in a subgraph.
 
 ### Using one context
 
-For an example using a single context, we have a subgraph that tracks the last financial transaction made per user. Each transaction depends on a user's currency kind to calculate the transaction amount in the user's currency. That dependency—the `currencyCode` argument of a `Transaction` depending on the `userCurrency { isoCode } ` of a `User`— is defined by using `@context` on `User` and `@fromContext` on `currencyCode`.   
+As an example of a single context, the subgraph below tracks the last financial transaction made per user. The `Transaction` type is a child of the `User` type. Each transaction depends on the associated user's currency to calculate the transaction amount in the user's currency. That dependency—the `currencyCode` argument of a `Transaction` depending on the `userCurrency { isoCode } ` of a `User`— is defined with a context. The `@context` directive on `User` sets the context, and `@fromContext` on `currencyCode` gets the contextual data.  
 
 ```graphql title="Example: using @context and @fromContext"
 scalar CurrencyCode;
@@ -943,7 +947,7 @@ type Transaction @key(fields: "id") {
   currency: Currency!
   amount: Int!
   amountInUserCurrency(
-    currencyCode: CurrencyCode!
+    currencyCode: CurrencyCode
         @fromContext(field: "$userContext { userCurrency { isoCode } }")
   ): Int!
 }
@@ -959,7 +963,7 @@ In the example above, the argument `currencyCode: CurrencyCode!` wouldn't appear
 
 ### Using multiple contexts 
 
-For an example using multiple contexts, we have a subgraph with three entities using two contexts, and a nested child entity referencing fields using those contexts: 
+As an example using multiple contexts, the subgraph below has three entities using two contexts and a nested child entity referencing fields using those contexts: 
 
 ```graphql title="Example: using multiple contexts"
 type Query {
@@ -1037,11 +1041,11 @@ type C @key(fields: "id") {
 } 
 ```
 
-In a more complex graph, a field could be reachable via multiple paths, and there could be a different field used to resolve the `prop` depending on which path was used.
+In a more complex graph, a field could be reachable via multiple paths, and a different field could be used to resolve the `prop` depending on which path was used.
 
 ### Referencing fields across subgraphs
 
-The definition of context scopes can only exist in one subgraph schema. You can't define `@context` in one subgraph and use `@fromContext` in another. However, you can use contexts to share data across subgraphs using the `@external` reference.
+The definition of context scopes can only exist in one subgraph schema. The `@fromContext` directive can't reference a `@context` defined in another subgraph. However, you can use contexts to share data across subgraphs using the `@external` reference.
 
 Reusing the [`Transaction` example](#using-one-context), imagine a subgraph responsible for the `User` and `Currency` types:
 
@@ -1084,7 +1088,7 @@ type Transaction @key(fields: "id") {
   currency: Currency!
   amount: Int!
   amountInUserCurrency(
-    currencyCode: CurrencyCode! 
+    currencyCode: CurrencyCode 
         @fromContext(field: "$userContext { userCurrency { isoCode } }")
   ): Int!
 }

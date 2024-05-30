@@ -970,7 +970,7 @@ The selection syntax for `@fromContext` used in its `FieldValue` is similar to G
 - The `@skip` and `@include` directives must not be used.
 - The second element must be a selection set that resolves to a single field.
 - Top-level type conditions must not overlap with one another, so that the field can be resolved to a single value.
-- All fields referenced in the `FieldValue` must be expressed within the current subgraph. If necessary, the fields must be annotated with `@external`.
+- All fields referenced in the `FieldValue` must be expressed within the current subgraph. If the fields are referenced across multiple subgraphs, they must be annotated with [`@external`](../entities-advanced/#referencing-fields-across-subgraphs) .
 - The argument must be nullable. Because validation is done at the subgraph level, the referenced field may become nullable when merging subgraphs, such as when the field is nullable in one subgraph but not in another.
 
 When the same contextual value is set in multiple places, the `FieldValue` must resolve all types from each place into a single value that matches the parameter type. 
