@@ -930,24 +930,22 @@ directive @context(name: String!) on OBJECT | INTERFACE | UNION;
 
 A `@context` directive must be applied to an object, interface, or union type. A type can be annotated with one or more `@context` directives.
 
-Each `@context` must be defined with a name that's unique within the subgraph. 
-
-Each `@context` can be applied to multiple places within a subgraph. For example:
+Each `@context` must be defined with a name, and each `@context` name can be applied to multiple places within a subgraph. For example:
 
 ```graphql
-type A @key(fields: "id") @context(name: "ctxt") {
+type A @key(fields: "id") @context(name: "userContext") {
   id: ID!
   prop: String!
 }
 
-type B @key(fields: "id") @context(name: "ctxt") {
+type B @key(fields: "id") @context(name: "userContext") {
   id: ID!
   prop: String!
 }
 
 type U @key(fields: "id") {
   id: ID!
-  field (arg: String @fromContext(field: "$ctxt { prop }")): String!
+  field (arg: String @fromContext(field: "$userContext { prop }")): String!
 }
 ```
 
