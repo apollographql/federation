@@ -913,3 +913,66 @@ If different subgraphs use different versions of a directive's corresponding spe
 
 </tbody>
 </table>
+
+## Saving and referencing data with contexts
+
+<MinVersion version="2.8">
+
+### `@context`
+
+</MinVersion>
+
+The `@context` directive defines a named context from which a field of the annotated type can be passed to a receiver of the context. The receiver must be a field annotated with the `@fromContext` directive. 
+
+```graphql
+directive @context(name: String!) on OBJECT | INTERFACE | UNION;
+```
+
+A `@context` directive must be applied to an object, interface, or union type. A type can be annotated with one or more `@context` directives.
+
+Each `@context` must be defined with a name, and each `@context` name can be applied to multiple places within a subgraph. For example:
+
+```graphql
+type A @key(fields: "id") @context(name: "userContext") {
+  id: ID!
+  prop: String!
+}
+
+type B @key(fields: "id") @context(name: "userContext") {
+  id: ID!
+  prop: String!
+}
+
+type U @key(fields: "id") {
+  id: ID!
+  field (arg: String @fromContext(field: "$userContext { prop }")): String!
+}
+```
+
+<MinVersion version="2.8">
+
+### `@fromContext`
+
+</MinVersion>
+
+The `@fromContext` directive sets the context from which to receive the value of the annotated field. The context must have been defined with the `@context` directive.
+
+```graphql
+scalar FieldValue;
+
+directive @fromContext(field: FieldValue!) on ARGUMENT_DEFINITION;
+```
+
+A `@fromContext` directive must be used as an argument on a field. Its field value—the `FieldValue` scalar—must contain the name of a defined context and a selection of a field from the context's type.
+
+The selection syntax for `@fromContext` used in its `FieldValue` is similar to GraphQL field selection syntax, with some additional rules: 
+- The first element must be the name of a context defined by `@context` and prefixed with `$` (for example, `$myContext`). This is the only context that can be referenced by the annotated field.
+- The `@skip` and `@include` directives must not be used.
+- The second element must be a selection set that resolves to a single field.
+- Top-level type conditions must not overlap with one another, so that the field can be resolved to a single value.
+- All fields referenced in the `FieldValue` must be expressed within the current subgraph. If the fields are referenced across multiple subgraphs, they must be annotated with [`@external`](../entities-advanced/#referencing-fields-across-subgraphs) .
+- The argument must be nullable. Because validation is done at the subgraph level, the referenced field may become nullable when merging subgraphs, such as when the field is nullable in one subgraph but not in another.
+
+When the same contextual value is set in multiple places, the `FieldValue` must resolve all types from each place into a single value that matches the parameter type. 
+
+For examples using `@context` and `@fromContext`, see [Using contexts to share data along type hierarchies](../entities-advanced/#using-contexts-to-share-data-along-type-hierarchies).
