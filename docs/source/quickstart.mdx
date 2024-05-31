@@ -4,767 +4,146 @@ subtitle: Create a federated GraphQL API with Apollo Federation
 description: Create a federated GraphQL API with Apollo Federation
 ---
 
-This tutorial gets you up and running with a cloud-hosted Apollo Federation 2 supergraph.
-The supergraph you set up is managed by GraphOS so that [to-do].
+By the end of this tutorial, you will have set up a federated GraphQL API that you can query locally in the Apollo Sandbox.
+To learn more about federation and the benefits of using it with GraphOS, check out these resources:
 
-To learn more about federation concepts and the benefits of using federation, see the [Introduction to Apollo Federation](./).
+- [Introduction to Apollo Federation](./)
+- [Introduction to GraphOS](/graphos)
 
-## Prerequisites
+## Overview
+
+Setting up a federated GraphQL API with GraphOS takes a few steps:
+
+1. Select services to federate
+2. Install and authenticate the Rover CLI
+3. Start local development mode with one service
+4. Add another service
+
+### Prerequisites
 
 To complete this quickstart, you must have the following:
 
 - A [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content) account
 - An organization with an [Enterprise trial](https://studio.apollographql.com/signup?type=enterprise-trial&referrer=docs-content) or Enterprise plan
-- The Rover CLI [installed](/rover/getting-started) and [connected to your Studio account](/rover/getting-started#connecting-to-graphos)
 
 If you haven't already, set these up before continuting.
 
-## Overview
+### Step 1. Select services
 
-Setting up a federated graph takes a few steps:
+To build a federated GraphQL API, you need at least two GraphQL services and an entity.
+We recommend using Apollo's retail demo supergraph for this tutorial. The demo supergraph comes prebuilt with multiple services and sample schemas. 
 
-1. Schema design
-2. Registering subgraphs in GraphOS Studio
-3. Configuring your router
-4. Testing your graph
-5. Updating clients to query your new graph endpoint
+Alternatively, you can use your own API's URLs and schemas while going through the tutorial.
+These should be individual GraphQL services and you need their schemas on hand.
 
----
+See [Introduction to Entities](./entities) to learn how to create entities in existing schemas.
 
-## Step 1. Update subgraph schemas
+### Step 2. Install and authenticate the Rover CLI
 
-When building a supergraph, it can be helpful to use a schema-first approach.
-With the schema in place, the frontend team can being build the client side app while backend developers develop and deploy backend services.
-
-This tutorial uses two subgraphs:
-
-- A `Products` subgraph with information about products in a retail business
-- A `Reviews` subgraph with reviews for those products
-
-It's standard retail practice to shows product details alongside reviews that users have given a product.
-You can imagine that before federation, a client might need to make two separate requests to retrieve both sets of data.
-With a federated graph, all of the data can be retrieved with just one call.
-
-Imagine the `Product` type has a schema like this:
-
-```yaml title="Products subgraph"
-type Product {
-  id: ID!
-  name: String!
-  price: Float!
-  description: String!
-  imageURL: String!
-}
-```
-
-The `Reviews` subgraph may have information about `Product` types as well:
-
-
-```yaml title="Reviews subgraph"
-type Product {
-  id: ID!
-  overallRating: Float
-  reviewsForProduct: [Review]!
-}
-
-type Review {
-  id: ID!
-  reviewText: String
-  rating: Int
-  product: Product
-}
-``` 
-
-So that a client can request a `Product`'s details such as description and image URL along with review data such as a product's overall rating and individual reviews, you need to update both schemas.
-
-Specifically, you need to denote `Product` as an entity—an object type that can resolve its fields across multiple subgraphs.
-You do this by adding a `@key` to both schemas:
-
-<CodeColumns>
-
-```graphql title="Products subgraph"
-type Product @key(fields: "id") {
-  id: ID!
-  name: String!
-  price: Float!
-  description: String!
-  imageURL: String!
-}
-```
-
-```graphql title="Reviews subgraph"
-type Product @key(fields: "id") {
-  id: ID!
-  overallRating: Float
-  reviewsForProduct: [Review]!
-}
-```
-
-</CodeColumns>
-
-The `@key` directive defines an entity's _unique key_, which consists of one or more of the type's `fields`. See the [entity guide](./entities) to learn more.
-
-Backend service owners also need to write reference resolvers for these types. See the [entity guide example](./entities#2-define-a-reference-resolver) for a subgraph using the Apollo Server library.
-
-## Step 2. Register subgraphs
-
-1. Go to your organization's **Graphs** tab in [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content).
-
-2. Click **Create New Graph** in the top right.
-
-3. In the dialog that appears, specify an **Organization** and **Graph title** for your graph. Leave the **Graph Architecture** as **Supergraph (Default)**. Click **Next**. 
-
-5. Leave the **Supergraph Pipeline Track** dropdown set to its default value. Click **Finish later**.
-
-## Step 3: Configure your router
-
-In a supergraph, a router acts as an entry point to your subgraphs and provides a unified interface for clients to interact with.
-
-```mermaid
-graph LR;
-  clients(Clients);
-  router([Router]);
-  subgraph "Supergraph"
-  serviceA[Subgraph <br/>A];
-  serviceB[Subgraph <br/>B];
-  serviceC[Subgraph <br/>C];
-  router --- serviceA & serviceB & serviceC;
-  end
-  clients -.- router;
-  class clients secondary;
-```
-
-With GraphOS, you can choose for Apollo to provision and manage a cloud-hosted router for you or you can self-host your router.
-This quickstart walks you through setting up your own self-hosted Apollo Router.
-
-1. On your development machine, first create a new directory for your router project. Then inside that directory, run the following to install the Apollo Router:
-
-    ```bash
-    curl -sSL https://router.apollo.dev/download/nix/latest | sh
-    ```
-
-    This installs the `router` executable in your project directory. You can try running it with the following command:
-
-    ```
-    ./router
-    ```
-
-If you do, you'll get a startup error message like `⚠️  The Apollo Router requires a composed supergraph schema at startup. ⚠️`
-
-That's because your aren't currently providing a supergraph schema to the router. We'll fix that soon.
-
-## Step 4: Test your graph
-
-## Step 5: Update clients
-
----
-
-
-## 2. Create a router project directory
-
-
-
-## 3. Obtain your subgraph schemas
-
-To compose our supergraph schema, GraphOS Studio needs the following information about each of our subgraphs:
-
-- The subgraph's schema
-- The URL of the subgraph's GraphQL endpoint (which must be accessible by the router)
-
-Fortunately, we have all of this information! Let's collect it in our project.
-
-Do the following in your project's root directory:
-
-1. Create a new file called `locations.graphql` and paste the following schema into it:
-
-    <ExpansionPanel title="Locations">
-
-    ```graphql title="locations.graphql"
-    extend schema
-      @link(url: "https://specs.apollo.dev/federation/v2.0",
-            import: ["@key"])
-
-    type Query {
-      "The full list of locations presented by the Interplanetary Space Tourism department"
-      locations: [Location!]!
-      "The details of a specific location"
-      location(id: ID!): Location
-    }
-
-    type Location @key(fields: "id"){
-      id: ID!
-      "The name of the location"
-      name: String!
-      "A short description about the location"
-      description: String!
-      "The location's main photo as a URL"
-      photo: String!
-    }
-    ```
-
-    </ExpansionPanel>
-
-2. Create a new file called `reviews.graphql` and paste the following schema into it:
-
-    <ExpansionPanel title="Reviews">
-
-    ```graphql title="reviews.graphql"
-    extend schema
-      @link(url: "https://specs.apollo.dev/federation/v2.0",
-            import: ["@key"])
-
-    type Query {
-      "The three latest reviews submitted for FlyBy's locations"
-      latestReviews: [Review!]!
-    }
-
-    type Mutation {
-      submitReview(locationReview: LocationReviewInput): SubmitReviewResponse
-    }
-
-    type Location @key(fields: "id") {
-      id: ID!
-      "The calculated overall rating based on all reviews"
-      overallRating: Float
-      "All submitted reviews about this location"
-      reviewsForLocation: [Review]!
-    }
-
-    type Review {
-      id: ID!
-      "Written text"
-      comment: String
-      "A number from 1 - 5 with 1 being lowest and 5 being highest"
-      rating: Int
-      "The location the review is about"
-      location: Location
-    }
-
-    input LocationReviewInput {
-      "Written text"
-      comment: String!
-      "A number from 1 - 5 with 1 being lowest and 5 being highest"
-      rating: Int!
-      "Location Id"
-      locationId: String!
-    }
-
-    type SubmitReviewResponse {
-      "Similar to HTTP status code, represents the status of the mutation"
-      code: Int!
-      "Indicates whether the mutation was successful"
-      success: Boolean!
-      "Human-readable message for the UI"
-      message: String!
-      "Newly created review"
-      locationReview: Review
-    }
-    ```
-
-    </ExpansionPanel>
-
-<Tip>
-
-In most federated graphs, each subgraph schema lives in the codebase for its associated subgraph. Because we're using remotely hosted example subgraphs in this tutorial, we're saving these subgraph schemas in our router project for convenience.
-
-</Tip>
-
----
-
-We have a Studio account, we've installed Rover, and our project directory is ready. Next, we'll start [composing our supergraph schema in Studio.](./studio-composition/)
-
-
----
-
-
-Now that our project and tools are set up, we can start composing our supergraph schema with GraphOS Studio.
-
-## 1. Register your subgraph schemas
-
-Let's return to our router project. We can now use Rover's `subgraph publish` command to register our subgraph schemas with Apollo.
-
-Run the following from your project directory, substituting your Studio graph's _graph ref_ where indicated:
-
-<ExpansionPanel title="What's a graph ref?">
-
-A graph ref uniquely identifies a particular variant of a particular registered graph in GraphOS Studio. Every graph ref is a string with the following format:
-
-`graph-id@variant-name`
-
-If you open your graph's README page in GraphOS Studio, its graph ref is displayed as the top-level header of the page:
-
-<img class="screenshot" alt="Graph ref in Studio" src="../images/studio-graph-ref.jpg" width="300"/>
-
-Every Studio graph is initially created with a single variant named `current`.
-
-</ExpansionPanel>
-
-```shell {1}
-rover subgraph publish YOUR_GRAPH_REF \
-  --routing-url https://flyby-locations-sub.herokuapp.com/ \
-  --schema ./locations.graphql \
-  --name locations
-```
-
-If the command is successful, you'll see output like the following:
-
-```
-A new subgraph called 'locations' for the 'docs-example-graph@current' graph was created
-The gateway for the 'docs-example-graph' graph was updated with a new schema, composed from the updated 'locations' subgraph
-```
-
-Nice! If you open your graph's details in Studio now, you'll see types and fields from our `locations` subgraph listed in the Schema tab:
-
-<img class="screenshot" alt="Locations subgraph schema in Studio" src="../images/qs-studio-schema.jpg" width="300"/>
-
-Now, let's do the same thing for our `reviews` subgraph, again substituting your graph ref where indicated:
-
-```shell {1}
-rover subgraph publish YOUR_GRAPH_REF \
-  --routing-url https://flyby-reviews-sub.herokuapp.com/ \
-  --schema ./reviews.graphql \
-  --name reviews
-```
-
-If you refresh the Schema tab in Studio, you'll now see types and fields from our `reviews` service as well.
-
-Now that we've published our subgraph schemas, GraphOS Studio automatically composes them into a supergraph schema. However, our router doesn't know how to fetch that schema from Apollo. We'll tackle that next.
-
-## 2. Authenticate the router with GraphOS Studio
-
-It's time to enable our router to fetch its supergraph schema from Apollo. To do that, we'll need a graph API key that we set as the value of an environment variable.
-
-<Caution>
-
-API keys are secret credentials. Never share them outside your organization or commit them to version control. Delete and replace API keys that you believe are compromised.
-
-</Caution>
-
-1. Obtain a graph API key for your Studio graph by <a href="/graphos/api-keys/" target="_blank">following these steps</a>. If you have an Enterprise plan, set the API key's role to **Contributor**.
-
-    - Make sure to copy and paste the API key's value somewhere so you can reference it (for security, API keys are not visible in Studio after creation).
-
-2. Paste the following terminal command into your text editor so you can make changes to it:
-
-    ```bash
-    APOLLO_KEY=your-api-key \
-    APOLLO_GRAPH_REF=your-graph-id@your-variant \
-    ./router
-    ```
-
-    Then, make the following changes:
-
-    - Replace `your-api-key` with your graph API key.
-    - Replace `your-graph-id@your-variant` with your graph's graph ref.
-        - For a refresher on graph refs, see [Step 1](#1-register-your-subgraph-schemas).
-
-3. Paste the edited command into your terminal and run it.
-
-    This time there's no error, and you'll see output similar to the following:
-
-    <ExpansionPanel title="Click to expand">
-
-    ```
-    2022-07-27T23:49:11.362235Z  INFO apollo_router::executable: Apollo Router v0.12.0 // (c) Apollo Graph, Inc. // Licensed as ELv2 (https://go.apollo.dev/elv2)
-    2022-07-27T23:49:11.367689Z  INFO apollo_router::state_machine: transitioned to startup
-    2022-07-27T23:49:11.368352Z  INFO apollo_router::state_machine: transitioned to startup
-    2022-07-27T23:49:12.968871Z  INFO apollo_router::plugins::telemetry::metrics::apollo: GraphOS Studio usage reporting is enabled. See https://go.apollo.dev/o/data for details
-    2022-07-27T23:49:12.975441Z  INFO apollo_router::router_factory: list of plugins plugin_details=[("apollo.telemetry", "apollo_router::plugins::telemetry::Telemetry"), ("experimental.include_subgraph_errors", "apollo_router::plugins::include_subgraph_errors::IncludeSubgraphErrors"), ("apollo.csrf", "apollo_router::plugins::csrf::Csrf")]
-    2022-07-27T23:49:13.175090Z  INFO apollo_router::axum_http_server_factory: GraphQL endpoint exposed at http://127.0.0.1:4000/ 🚀
-    2022-07-27T23:49:13.175546Z  INFO apollo_router::state_machine: transitioned to running
-    ```
-
-    </ExpansionPanel>
-
-  <Note>
-  
-  By providing an API key to the router, you also automatically enable federated trace reporting to GraphOS Studio, enabling you to view helpful performance metrics. [Learn more about federated traces.](../metrics/)
-
-  </Note>
-
-4. Optionally, to help you keep track of your router's environment variables, consider setting up a tool like [direnv](https://direnv.net/) so you don't need to set the variables every time you run `./router`.
-
-    (Most cloud deployment environments provide a helpful way to set environment variables, so this issue is mostly limited to local development.)
-
-Now that our router is running, we can quickly open our browser to [localhost:4000](http://localhost:4000/) to explore our composed schema in Apollo Sandbox:
-
-<img src="../images/gateway_sandbox.jpg" class="screenshot" alt="Schema view in Apollo Sandbox" width="600" />
-
-While we're here, try executing some test queries against the supergraph!
-
-## Moving forward
-
-Nice work! We've registered two subgraph schemas with Apollo, and we have a graph router that then fetches the composed supergraph schema.
-
-If we now publish changes to one of our subgraph schemas, our running router automatically fetches the corresponding changes to the supergraph schema (assuming composition succeeds).
-
-Next, let's look at how to use the Rover CLI to compose a supergraph schema locally or in a CI environment. [Go to part 3.](./local-composition/)
-
----
-
-
-[Back in Part 2](./studio-composition/), we used managed federation with GraphOS Studio to compose our router's supergraph schema. Next, let's try out composing locally with the Rover CLI.
-
-## 1. Provide subgraph details
-
-Like GraphOS Studio, the Rover CLI needs the following information about each of our subgraphs to compose them:
-
-* The subgraph's schema
-* The URL of the subgraph's GraphQL endpoint (which must be accessible by the router)
-
-To provide these details to Rover, we define a YAML configuration file.
-
-In your router project directory, create a file called `supergraph-config.yaml` and paste the following into it:
-
-```yaml title="supergraph-config.yaml"
-federation_version: 2
-subgraphs:
-  locations:
-    routing_url: https://flyby-locations-sub.herokuapp.com/
-    schema:
-      subgraph_url: https://flyby-locations-sub.herokuapp.com/
-  reviews:
-    routing_url: https://flyby-reviews-sub.herokuapp.com/
-    schema:
-      subgraph_url: https://flyby-reviews-sub.herokuapp.com/
-```
-
-As you can see, we're providing the same URL as the value of two different fields. These fields serve different purposes:
-
-* `routing_url` is the URL the router will use to send GraphQL operations to the subgraph at runtime.
-* `schema.subgraph_url` is the URL that Rover will use to fetch the subgraph schema for composition purposes.
-
-These URLs might theoretically differ. The YAML file also supports providing a subgraph's schema as a local file path, or as a registered graph ref that Rover can fetch from Apollo (for details, [see the Rover docs](/rover/commands/supergraphs/#composing-a-supergraph-schema)).
-
-## 2. Perform composition
-
-Now that our configuration file is ready, we can compose our supergraph schema. To do that, we'll use Rover's `supergraph compose` command.
-
-<Tip>
-
-[Install the latest version of Rover, if you haven't already.](./setup/#install-the-rover-cli)
-
-</Tip>
-
-From your project directory, run the following command in your terminal:
-
-```bash
-rover supergraph compose --config ./supergraph-config.yaml
-```
+_Rover_ is Apollo's CLI for managing all kinds of graphs, including subgraphs and supergraphs. You'll use it throughout this quickstart.
 
 <Note>
 
-The first time you run this command with a Federation 2 YAML configuration, Rover installs a separate plugin and prompts you to accept the terms and conditions of the ELv2 license.
-
-To automatically accept this prompt (especially important for CI environments), add `APOLLO_ELV2_LICENSE=accept` to the beginning of the command.
-
-[Learn more about ELv2.](/resources/elastic-license-v2-faq/)
+Even if you already have Rover installed, update your version now by completing this step.
 
 </Note>
 
-Rover outputs the following supergraph schema:
+Install the latest Rover release with the appropriate command for your system:
 
-<ExpansionPanel title="Click to expand">
-
-```graphql
-schema
-  @link(url: "https://specs.apollo.dev/link/v1.0")
-  @link(url: "https://specs.apollo.dev/join/v0.2", for: EXECUTION)
-{
-  query: Query
-  mutation: Mutation
-}
-
-directive @join__field(graph: join__Graph!, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
-
-directive @join__graph(name: String!, url: String!) on ENUM_VALUE
-
-directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
-
-directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
-
-directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
-
-scalar join__FieldSet
-
-enum join__Graph {
-  LOCATIONS @join__graph(name: "locations", url: "https://flyby-locations-sub.herokuapp.com/")
-  REVIEWS @join__graph(name: "reviews", url: "https://flyby-reviews-sub.herokuapp.com/")
-}
-
-scalar link__Import
-
-enum link__Purpose {
-  """
-  `SECURITY` features provide metadata necessary to securely resolve fields.
-  """
-  SECURITY
-
-  """
-  `EXECUTION` features provide metadata necessary for operation execution.
-  """
-  EXECUTION
-}
-
-type Location
-  @join__type(graph: LOCATIONS, key: "id")
-  @join__type(graph: REVIEWS, key: "id")
-{
-  id: ID!
-
-  """The name of the location"""
-  name: String! @join__field(graph: LOCATIONS)
-
-  """A short description about the location"""
-  description: String! @join__field(graph: LOCATIONS)
-
-  """The location's main photo as a URL"""
-  photo: String! @join__field(graph: LOCATIONS)
-
-  """The calculated overall rating based on all reviews"""
-  overallRating: Float @join__field(graph: REVIEWS)
-
-  """All submitted reviews about this location"""
-  reviewsForLocation: [Review]! @join__field(graph: REVIEWS)
-}
-
-input LocationReviewInput
-  @join__type(graph: REVIEWS)
-{
-  """Written text"""
-  comment: String!
-
-  """A number from 1 - 5 with 1 being lowest and 5 being highest"""
-  rating: Int!
-
-  """Location Id"""
-  locationId: String!
-}
-
-type Mutation
-  @join__type(graph: REVIEWS)
-{
-  submitReview(locationReview: LocationReviewInput): SubmitReviewResponse
-}
-
-type Query
-  @join__type(graph: LOCATIONS)
-  @join__type(graph: REVIEWS)
-{
-  """
-  The full list of locations presented by the Interplanetary Space Tourism department
-  """
-  locations: [Location!]! @join__field(graph: LOCATIONS)
-
-  """The details of a specific location"""
-  location(id: ID!): Location @join__field(graph: LOCATIONS)
-
-  """The three latest reviews submitted for FlyBy's locations"""
-  latestReviews: [Review!]! @join__field(graph: REVIEWS)
-}
-
-type Review
-  @join__type(graph: REVIEWS)
-{
-  id: ID!
-
-  """Written text"""
-  comment: String
-
-  """A number from 1 - 5 with 1 being lowest and 5 being highest"""
-  rating: Int
-
-  """The location the review is about"""
-  location: Location
-}
-
-type SubmitReviewResponse
-  @join__type(graph: REVIEWS)
-{
-  """Similar to HTTP status code, represents the status of the mutation"""
-  code: Int!
-
-  """Indicates whether the mutation was successful"""
-  success: Boolean!
-
-  """Human-readable message for the UI"""
-  message: String!
-
-  """Newly created review"""
-  locationReview: Review
-}
+```bash title="MacOS / Unix-like"
+curl -sSL https://rover.apollo.dev/nix/latest | sh
 ```
 
-</ExpansionPanel>
+```bash title="Windows"
+iwr 'https://rover.apollo.dev/win/latest' | iex
+```
 
-As you can see, this composed schema includes all of the types and fields from our subgraph schemas, along with many additional directives that the router uses to route incoming operations.
+After installing, run `rover` in your terminal with no arguments to confirm that it installed successfully. Verify that the printed version number matches the [latest release](https://github.com/apollographql/rover/releases). If it doesn't, you might need to manually delete a previous outdated installation.
 
-Now, append ` --output supergraph.graphql` to the above command to write the composed schema to a file:
+You use the Rover CLI to publish subgraph schemas to Studio. To do that, you first need to authenticate Rover with Studio.
+This entails obtaining an API key and providing it to Rover.
+
+<ObtainGraphApiKey />
+
+You can provide your API key to Rover either via the [`config auth`](/rover/commands/config) command or by setting an environment variable.
+Since the command is recommended for local development, use that for this tutorial:
 
 ```shell
-rover supergraph compose --config ./supergraph-config.yaml --output supergraph.graphql
+rover config auth
 ```
 
-## 3. Provide the composed schema to the router
+The `auth` command is interactive to prevent your API key from appearing in your terminal command history. Because it's interactive, using an [environment variable](/rover/configuring/#with-an-environment-variable) in automated environments such as CI.
 
-To provide a Rover-composed supergraph schema to our router, we pass it as a command-line option. Run the following in your router project directory:
+### Step 3. Start local development 
 
-```bash
-./router --supergraph=supergraph.graphql
+The `rover dev` command starts a supergraph locally.
+To use `rover dev`, you need at least one running GraphQL API (subgraph).
+Rover can obtain a subgraph's schema via introspection or you can provide a local schema file.
+
+Assuming you're using the retail demo supergraph, you can use the `dev` command with the options below to provide the schema for the locally running `Products` subgraph.
+
+```bash title="Example command"
+rover dev --name products --schema ./products.graphql --url http://localhost:4000
 ```
 
 <Note>
 
-For brevity, we're skipping setting the `APOLLO_KEY` environment variable here. Although it isn't required if you provide your schema with `--supergraph`, you do need to provide it to enable federated trace reporting.
+You don't have to provide a locally running subgraph. You can point to any GraphQL endpoint that your local environment can reach. You can even mix and match local and remote subgraphs, which is helpful for testing local changes against your staging subgraphs.
 
 </Note>
 
-This time, the router reads your static supergraph schema from a file. This does not communicate with GraphOS Studio, which means it's well suited to local development or CI environments where you don't want to introduce an external dependency.
+When you start your first `rover dev` process:
 
-[Learn more about router configuration options.](/router/configuration/overview/)
+1. Rover obtains the subgraph schema you provide either via file path or introspection.
+2. Rover composes a supergraph schema from the subgraph schema.
+3. Rover starts a locally running router session and provides it the supergraph schema.
+4. Rover starts watching the provided subgraph schema for changes (via either introspection or file), and it recomposes the supergraph schema whenever it detects a change. This automatically reloads the router.
 
----
+To ensure everything is working as expected, try querying your router in the Apollo Sandbox:
 
-Great job! We've seen how to compose our supergraph schema with both managed federation and the Rover CLI. Next, let's look at how to apply what we've learned to our own subgraphs. [Go to part 4.](./local-subgraphs/)
+1. Open https://studio.apollographql.com/sandbox/explorer/.
+2. Update the sandbox URL to your locally running router's URL.
+3. Run the following query:
 
----
-
-
-In the previous parts of this quickstart, we used Apollo-hosted services for our subgraphs. Now, let's see what we can do with our own subgraphs.
-
-Our subgraphs can use any GraphQL server library that supports Apollo Federation. This includes Apollo Server, along with the other libraries listed in [Federation-compatible subgraph implementations](../building-supergraphs/supported-subgraphs/).
-
-## 1. Configure Apollo Server
-
-<Note>
-
-If you're using a GraphQL server besides Apollo Server, consult its documentation to learn how to configure it for use as a subgraph.
-
-</Note>
-
-If you have an existing GraphQL API that uses Apollo Server, you can use that server as a subgraph with the `@apollo/subgraph` library. You can get started with [this example server](https://github.com/apollographql/docs-examples/blob/main/apollo-server/v4/getting-started) (which is not yet federated).
-
-First, install the latest version of `@apollo/subgraph` and `graphql-tag` into your project:
-
-```shell
-npm install @apollo/subgraph graphql-tag
-```
-
-Import the `gql` tag into the file where you create your schema (`index.ts` for our example), and wrap your schema in that tag, like so:
-
-<MultiCodeBlock>
-
-```ts title="index.ts"
-import gql from 'graphql-tag';
-
-const typeDefs = gql`
-  type Book {
-    title: String
-    author: String
-  }
-
-  type Query {
-    books: [Book]
-  }
-`;
-```
-
-</MultiCodeBlock>
-
-<Note>
-
-We wrap our schema in the `gql` tag to convert it into an AST (i.e., `DocumentNode`). We do this because the [`buildSubgraphSchema`](/apollo-server/using-federation/api/apollo-subgraph/#buildsubgraphschema) function below requires the schema we pass in to be a `DocumentNode` type.
-
-</Note>
-
-Next, import the `buildSubgraphSchema` function in the file where you initialize `ApolloServer`:
-
-<MultiCodeBlock>
-
-```ts title="index.ts"
-import { buildSubgraphSchema } from '@apollo/subgraph'; // preserve-line
-```
-
-</MultiCodeBlock>
-
-Finally, modify your `ApolloServer` constructor by passing it a `schema` option instead of `typeDefs` and `resolvers`, like so:
-
-<MultiCodeBlock>
-
-```ts title="index.ts"
-const server = new ApolloServer({
-  schema: buildSubgraphSchema({ typeDefs, resolvers })
-});
-```
-
-</MultiCodeBlock>
-
-(As shown, you now pass your `typeDefs` and `resolvers` to `buildSubgraphSchema`.)
-
-Congratulations! You can now perform all of the same subgraph setup on your own service (schema publishing, introspection, etc.) that you did with the Apollo-hosted services we used in the previous parts. Refer to those parts for guidance.
-
-## 2. Learn about federated types
-
-In a federated graph, each subgraph's schema can define or reference types and fields that are also present in another subgraph's schema.
-
-Consider the `Location` type in our composed supergraph schema from [Part 3](./local-composition/#2-perform-composition). This type includes the following fields:
-
-```graphql
-type Location
-  @join__type(graph: LOCATIONS, key: "id")
-  @join__type(graph: REVIEWS, key: "id")
-{
-  id: ID!
-
-  """The name of the location"""
-  name: String! @join__field(graph: LOCATIONS)
-
-  """A short description about the location"""
-  description: String! @join__field(graph: LOCATIONS)
-
-  """The location's main photo as a URL"""
-  photo: String! @join__field(graph: LOCATIONS)
-
-  """The calculated overall rating based on all reviews"""
-  overallRating: Float @join__field(graph: REVIEWS)
-
-  """All submitted reviews about this location"""
-  reviewsForLocation: [Review]! @join__field(graph: REVIEWS)
+```graphQL
+query ExampleQuery {
+  todo
 }
 ```
 
-As the federation-specific `@join__field` directive suggests, these fields of the same object type are defined across two different subgraphs!
+### Step 4. Add another service
 
-This is possible because our Locations subgraph schema defines the `Location` object type as an _entity_. Entities are object types that multiple subgraphs can contribute fields to.
+After you start a router session with your first `rover` dev command, you can add other subgraphs to that same session.
+To add a subgraph, open a new terminal window and run `rover dev` again, this time providing the details of the subgraph to add. For example, this command adds the `Orders` subgraph.
 
-It makes logical sense that the `reviews` field of a `Location` should be resolved by the Reviews subgraph instead of the Locations subgraph. This reflects the design principle of [separation of concerns](../#separation-of-concerns).
+```bash title="Example command"
+rover dev --name orders --schema ./orders.graphql --url http://localhost:4001
+```
 
-[Learn how to work with entities.](../entities/)
+When you add a new subgraph to a session, Rover recomposes the supergraph schema and updates the router so you can query all added subgraphs via the single router endpoint.
 
-## 3. Try out schema checks
+<Note>
 
-After you've registered your first subgraph schema, you can try out one of GraphOS Studio's most powerful features: _schema checks_.
+Rover uses the port of the running router to identify an existing session. If you specify a custom port via `--supergraph-port` or `--router-config`, make sure to specify the same port for all `rover dev` processes that you want to attach to the same session.
 
-With schema checks, you can check whether some changes you want to make to your schema will affect any of the existing clients that use your supergraph. This feature is at its most powerful in your CI/CD environment, where you can automatically detect breaking schema changes before they're deployed to production.
+</Note>
 
-1. [Learn about the basics of schema checks](/graphos/delivery/schema-checks/)
-2. [Learn about using schema checks with Apollo Federation](../managed-federation/federated-schema-checks/)
-3. [Learn how to use Rover in a CI/CD environment](/rover/ci-cd/)
+Now you can go back to the Sandbox and try running a federated query.
 
----
+```graphQL
+query ExampleFederatedQuery {
+  todo
+}
+```
 
-Congratulations, you've completed the federation quickstart!
+Congrats! You've built and queried your a federated GraphQL API. 
 
----
-
+You can stop your initial `rover dev` process by pressing `CTRL+C`. This shuts down the local router session and any secondary `rover dev` processes attached to that same session.
 
 ## Next steps
 
-<Tip>
+Depending on your goals, you have several options for learning more about federation or moving your graph closer to product:
 
-Related resources:
-
-- Our [in-depth Apollo Federation course](https://www.apollographql.com/tutorials/voyage-part1) goes into greater detail on fundamental federation concepts. It walks through creating a supergraph from scratch, along with federating an existing monolith graph.
-- Our [Federation 2 demo app on GitHub](https://github.com/apollographql/supergraph-demo-fed2) is distinct from the project you create in this tutorial. It demonstrates many powerful Federation 2 features.
-
-</Tip>
+- Learn more about the power of the [`rover dev` command](/rover/commands/dev), including starting a session with multiple subgraphs, removing subgraphs, and configuring the router
+- To quickly start up a new GraphQL project or explore various subgraph implementations, check out the [`rover template`](/rover/commands/template) command.
+- [Publish your locally running supergraph](/graphos/delivery/publishing-schemas) to GraphOS Studio and share with your team
