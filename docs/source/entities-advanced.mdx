@@ -977,18 +977,21 @@ type Query {
 type A @key(fields: "id") @context(name: "context_1") @context(name: "context_2") {
   id: ID!
   field: String!
+  someField: String!
   child: Child!
 } 
 
 type B @key(fields: "id") @context(name: "context_1") @context(name: "context_2") {
   id: ID!
   field: String!
+  someField: String!
   child: Child!
 } 
 
 type C @key(fields: "id") @context(name: "context_2") {
   id: ID!
-  anotherField: String!
+  field: String!
+  someOtherField: String!
   child: Child!
 } 
 
@@ -999,7 +1002,7 @@ type Child @key(fields: "id") {
   ): Int!
   prop2(
     arg: String! 
-        @fromContext(field: "$context_2 ... on A { field } ... on B { field } ... on C { anotherField }")
+        @fromContext(field: "$context_2 ... on A { someField } ... on B { someField } ... on C { someOtherField }")
   ): Int!
 }
 ```
@@ -1094,4 +1097,4 @@ type Transaction @key(fields: "id") {
         @fromContext(field: "$userContext { userCurrency { isoCode } }")
   ): Int!
 }
-``` 
+```
