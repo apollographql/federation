@@ -986,7 +986,7 @@ type B @key(fields: "id") @context(name: "context_1") @context(name: "context_2"
   child: Child!
 } 
 
-type C @key(fields: "id") @context(name: "context_1") {
+type C @key(fields: "id") @context(name: "context_2") {
   id: ID!
   anotherField: String!
   child: Child!
@@ -999,7 +999,7 @@ type Child @key(fields: "id") {
   ): Int!
   prop2(
     arg: String! 
-        @fromContext(field: "$context_2 ... A { field } ... B { field } ... C { anotherField }")
+        @fromContext(field: "$context_2 ... on A { field } ... on B { field } ... on C { anotherField }")
   ): Int!
 }
 ```
