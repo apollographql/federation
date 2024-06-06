@@ -1,4 +1,4 @@
-import { assert } from "@apollo/federation-internals";
+import { SelectionSet, assert } from "@apollo/federation-internals";
 import { ConditionResolution, ConditionResolver, ExcludedConditions, ExcludedDestinations, sameExcludedDestinations } from "./graphPath";
 import { PathContext } from "./pathContext";
 import { Edge, QueryGraph, QueryGraphState } from "./querygraph";
@@ -14,8 +14,8 @@ export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionR
   // as the algorithm always try keys in the same order (the order of the edges in the query graph), including
   // the excluded edges we see on the first ever call is actually the proper thing to do.
   const cache = new QueryGraphState<undefined, [ConditionResolution, ExcludedDestinations]>(graph);
-  return (edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions) => {
-    assert(edge.conditions, 'Should not have been called for edge without conditions');
+  return (edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions, extraConditions?: SelectionSet) => {
+    assert(edge.conditions || extraConditions, 'Should not have been called for edge without conditions');
 
     // We don't cache if there is a context or excluded conditions because those would impact the resolution and
     // we don't want to cache a value per-context and per-excluded-conditions (we also don't cache per-excluded-edges though
@@ -25,8 +25,8 @@ export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionR
     // and we currently don't handle that. But we could cache with an empty context, and then apply the proper transformation on the
     // cached value `pathTree` when the context is not empty. That said, the context is about active @include/@skip and it's not use
     // that commonly, so this is probably not an urgent improvement.
-    if (!context.isEmpty() || excludedConditions.length > 0) {
-      return resolver(edge, context, excludedDestinations, excludedConditions);
+    if (!context.isEmpty() || excludedConditions.length > 0 || extraConditions) {
+      return resolver(edge, context, excludedDestinations, excludedConditions, extraConditions);
     }
 
     const cachedResolutionAndExcludedEdges = cache.getEdgeState(edge);
@@ -34,9 +34,9 @@ export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionR
       const [cachedResolution, forExcludedEdges] = cachedResolutionAndExcludedEdges;
       return sameExcludedDestinations(forExcludedEdges, excludedDestinations)
         ? cachedResolution
-        : resolver(edge, context, excludedDestinations, excludedConditions);
+        : resolver(edge, context, excludedDestinations, excludedConditions, extraConditions);
     } else {
-      const resolution = resolver(edge, context, excludedDestinations, excludedConditions);
+      const resolution = resolver(edge, context, excludedDestinations, excludedConditions, extraConditions);
       cache.setEdgeState(edge, [resolution, excludedDestinations]);
       return resolution;
     }

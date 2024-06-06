@@ -40,7 +40,7 @@ import { parseSelectionSet } from "./operations";
 import fs from 'fs';
 import path from 'path';
 import { validateStringContainsBoolean } from "./utils";
-import { errorCauses, printErrors } from ".";
+import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
 
 function filteredTypes(
   supergraph: Schema,
@@ -193,7 +193,7 @@ function typesUsedInFederationDirective(fieldSet: string | undefined, parentType
   return usedTypes;
 }
 
-export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtractedSubgraphs: boolean = true): Subgraphs {
+export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtractedSubgraphs: boolean = true): [Subgraphs, Map<string, string>] {
   const [coreFeatures, joinSpec] = validateSupergraph(supergraph);
   const isFed1 = joinSpec.version.equals(new FeatureVersion(0, 1));
   try {
@@ -212,6 +212,17 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtra
       return subgraph;
     };
 
+    const subgraphNameToGraphEnumValue = new Map<string, string>();
+    for (const [k, v] of graphEnumNameToSubgraphName.entries()) {
+      subgraphNameToGraphEnumValue.set(v, k);
+    }
+
+    const getSubgraphEnumValue = (subgraphName: string): string => {
+      const enumValue = subgraphNameToGraphEnumValue.get(subgraphName);
+      assert(enumValue, () => `Invalid subgraph name ${subgraphName} found: does not match a subgraph defined in the @join__Graph enum`);
+      return enumValue;
+    }
+
     const types = filteredTypes(supergraph, joinSpec, coreFeatures.coreDefinition);
     const args: ExtractArguments = {
        supergraph,
@@ -219,6 +230,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtra
        joinSpec,
        filteredTypes: types,
        getSubgraph,
+       getSubgraphEnumValue,
     };
     if (isFed1) {
       extractSubgraphsFromFed1Supergraph(args);
@@ -241,7 +253,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtra
       }
     }
 
-    return subgraphs;
+    return [subgraphs, subgraphNameToGraphEnumValue];
   } catch (e) {
     let error = e;
     let subgraph: Subgraph | undefined = undefined;
@@ -281,6 +293,7 @@ type ExtractArguments = {
   joinSpec: JoinSpecDefinition,
   filteredTypes: NamedType[],
   getSubgraph: (application: Directive<any, { graph?: string }>) => Subgraph | undefined,
+  getSubgraphEnumValue: (subgraphName: string) => string
 }
 
 type SubgraphTypeInfo<T extends NamedType> = Map<string, { type: T, subgraph: Subgraph }>;
@@ -297,12 +310,13 @@ type TypesInfo = {
   unionTypes:    TypeInfo<UnionType>[],
 };
 
-function addAllEmptySubgraphTypes({
-  supergraph,
-  joinSpec,
-  filteredTypes,
-  getSubgraph,
-}: ExtractArguments): TypesInfo {
+function addAllEmptySubgraphTypes(args: ExtractArguments): TypesInfo {
+  const {
+    supergraph,
+    joinSpec,
+    filteredTypes,
+    getSubgraph,
+  } = args;
   const typeDirective = joinSpec.typeDirective(supergraph);
 
   const objOrItfTypes: TypeInfo<ObjectType | InterfaceType>[] = [];
@@ -316,16 +330,16 @@ function addAllEmptySubgraphTypes({
       // (on top of it making sense code-wise since both type behave exactly the same for most of what we're doing here).
       case 'InterfaceType':
       case 'ObjectType':
-        objOrItfTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph) });
+        objOrItfTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), args) });
         break;
       case 'InputObjectType':
-        inputObjTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph) });
+        inputObjTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), args) });
         break;
       case 'EnumType':
-        enumTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph) });
+        enumTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), args) });
         break;
       case 'UnionType':
-        unionTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), getSubgraph) });
+        unionTypes.push({ type, subgraphsInfo: addEmptyType(type, type.appliedDirectivesOf(typeDirective), args) });
         break;
       case 'ScalarType':
         // Scalar are a bit special in that they don't have any sub-component, so we don't track them beyond adding them to the
@@ -350,8 +364,9 @@ function addAllEmptySubgraphTypes({
 function addEmptyType<T extends NamedType>(
   type: T,
   typeApplications: Directive<T, JoinTypeDirectiveArguments>[],
-  getSubgraph: (application: Directive<any, { graph?: string }>) => Subgraph | undefined,
+  args: ExtractArguments,
 ): SubgraphTypeInfo<T> {
+  const { supergraph, getSubgraph, getSubgraphEnumValue } = args;
   // In fed2, we always mark all types with `@join__type` but making sure.
   assert(typeApplications.length > 0, `Missing @join__type on ${type}`)
   const subgraphsInfo: SubgraphTypeInfo<T> = new Map<string, { type: T, subgraph: Subgraph }>();
@@ -379,6 +394,33 @@ function addEmptyType<T extends NamedType>(
       const directive = subgraphInfo.type.applyDirective('key', {'fields': key, resolvable});
       if (extension) {
         directive.setOfExtension(subgraphInfo.type.newExtension());
+      }
+    }
+  }
+  
+  const coreFeatures = supergraph.coreFeatures;
+  assert(coreFeatures, 'Should have core features');
+  const contextFeature = coreFeatures.getByIdentity(ContextSpecDefinition.identity);
+  let supergraphContextDirective: DirectiveDefinition<{ name: string}> | undefined;
+  if (contextFeature) {
+    const contextSpec = CONTEXT_VERSIONS.find(contextFeature.url.version);
+    assert(contextSpec, 'Should have context spec');
+    supergraphContextDirective = contextSpec.contextDirective(supergraph);
+  }
+  
+  if (supergraphContextDirective) {
+    const contextApplications = type.appliedDirectivesOf(supergraphContextDirective);
+    // for every application, apply the context directive to the correct subgraph
+    for (const application of contextApplications) {
+      const { name } = application.arguments();
+      const match = name.match(/^(.*)__([A-Za-z]\w*)$/);
+      const graph = match ? match[1] : undefined;
+      const context = match ? match[2] : undefined;
+      assert(graph, `Invalid context name ${name} found in ${application} on ${application.parent}: does not match the expected pattern`);
+      const subgraphInfo = subgraphsInfo.get(getSubgraphEnumValue(graph));
+      const contextDirective = subgraphInfo?.subgraph.metadata().contextDirective();
+      if (subgraphInfo && contextDirective && isFederationDirectiveDefinedInSchema(contextDirective)) {
+        subgraphInfo.type.applyDirective(contextDirective, {name: context});
       }
     }
   }
@@ -609,6 +651,26 @@ function addSubgraphField({
   }
   if (joinFieldArgs?.provides) {
     subgraphField.applyDirective(subgraph.metadata().providesDirective(), {'fields': joinFieldArgs.provides});
+  }
+  if (joinFieldArgs?.contextArguments) {
+    const fromContextDirective = subgraph.metadata().fromContextDirective();
+    if (!isFederationDirectiveDefinedInSchema(fromContextDirective)) {
+      throw new Error(`@fromContext directive is not defined in the subgraph schema: ${subgraph.name}`);
+    } else {
+      for (const arg of joinFieldArgs.contextArguments) {
+        // this code will remove the subgraph name from the context
+        const match = arg.context.match(/^.*__([A-Za-z]\w*)$/);
+        if (!match) {
+          throw new Error(`Invalid context argument: ${arg.context}`);
+        }
+        
+        subgraphField.addArgument(arg.name, decodeType(arg.type, subgraph.schema, subgraph.name));
+        const argOnField = subgraphField.argument(arg.name);
+        argOnField?.applyDirective(fromContextDirective, {
+          field: `\$${match[1]} ${arg.selection}`,
+        });
+      }
+    }
   }
   const external = !!joinFieldArgs?.external;
   if (external) {

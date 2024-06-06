@@ -1,5 +1,28 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.8.0
+
+### Patch Changes
+
+- Various set context bugfixes ([#3017](https://github.com/apollographql/federation/pull/3017))
+
+- Updated dependencies [[`c4744da360235d8bb8270ea048f0e0fa5d03be1e`](https://github.com/apollographql/federation/commit/c4744da360235d8bb8270ea048f0e0fa5d03be1e), [`8a936d741a0c05835ff2533714cf330d18209179`](https://github.com/apollographql/federation/commit/8a936d741a0c05835ff2533714cf330d18209179)]:
+  - @apollo/federation-internals@2.8.0
+
+## 2.8.0-alpha.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.0-alpha.1
+
+## 2.8.0-alpha.0
+
+### Patch Changes
+
+- Updated dependencies [[`c4744da360235d8bb8270ea048f0e0fa5d03be1e`](https://github.com/apollographql/federation/commit/c4744da360235d8bb8270ea048f0e0fa5d03be1e)]:
+  - @apollo/federation-internals@2.8.0-alpha.0
+
 ## 2.7.8
 
 ### Patch Changes

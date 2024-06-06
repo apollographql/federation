@@ -1,10 +1,12 @@
 import { QueryPlanner } from '@apollo/query-planner';
 import {
   assert,
+  asFed2SubgraphDocument,
   operationFromDocument,
   ServiceDefinition,
   Supergraph,
   buildSubgraph,
+  Schema,
 } from '@apollo/federation-internals';
 import gql from 'graphql-tag';
 import {
@@ -28,6 +30,7 @@ import {
   findFetchNodes,
 } from './testHelper';
 import { enforceQueryPlannerConfigDefaults } from '../config';
+import { composeServices } from '@apollo/composition';
 
 describe('shareable root fields', () => {
   test('can use same root operation from multiple subgraphs in parallel', () => {
@@ -8646,7 +8649,14 @@ describe('handles operations with directives', () => {
     `,
   };
 
-  const [api, queryPlanner] = composeAndCreatePlanner(subgraphA, subgraphB);
+  let api: Schema;
+  let queryPlanner: QueryPlanner;
+
+  beforeAll(() => {
+    const [a, b] = composeAndCreatePlanner(subgraphA, subgraphB);
+    api = a;
+    queryPlanner = b;
+  });
 
   test('if directives at the operation level are passed down to subgraph queries', () => {
     const operation = operationFromDocument(
@@ -8813,3 +8823,1216 @@ describe('handles operations with directives', () => {
     `); // end of test
   });
 }); // end of `describe`
+
+describe('@fromContext impacts on query planning', () => {
+  it('fromContext variable is from same subgraph', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T!
+        }
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+        type U @key(fields: "id") {
+          id: ID!
+          b: String!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            u {
+              b
+              field
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                prop
+                u {
+                  __typename
+                  id
+                  b
+                }
+              }
+            }
+          },
+          Flatten(path: "t.u") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on U {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on U {
+                  field(a: $contextualArgument_1_0)
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['..', '... on T', 'prop'],
+        renameKeyTo: 'contextualArgument_1_0',
+      },
+    ]);
+  });
+
+  it('fromContext variable is from different subgraph', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T!
+        }
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          prop: String! @external
+        }
+        type U @key(fields: "id") {
+          id: ID!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+        type T @key(fields: "id") {
+          id: ID!
+          prop: String!
+        }
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            u {
+              id
+              field
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+                u {
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on T {
+                  prop
+                }
+              }
+            },
+          },
+          Flatten(path: "t.u") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on U {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on U {
+                  field(a: $contextualArgument_1_0)
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    expect((plan as any).node.nodes[2].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['..', '... on T', 'prop'],
+        renameKeyTo: 'contextualArgument_1_0',
+      },
+    ]);
+  });
+
+  it('fromContext variable is already in a different fetch group', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T!
+        }
+        type T @key(fields: "id") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          prop: String! @external
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
+        }
+      `,
+    };
+
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            u {
+              id
+              field
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                prop
+                u {
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "t.u") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on U {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on U {
+                  field(a: $contextualArgument_1_0)
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['..', '... on T', 'prop'],
+        renameKeyTo: 'contextualArgument_1_0',
+      },
+    ]);
+  });
+
+  it.skip('fromContext variable is a list', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T!
+        }
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          prop: [String]!
+        }
+        type U @key(fields: "id") {
+          id: ID!
+          field(a: [String]! @fromContext(field: "$context { prop }")): Int!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            u {
+              field
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(``);
+  });
+
+  it('fromContext fetched as a list', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: [T]!
+        }
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+        type U @key(fields: "id") {
+          id: ID!
+          b: String!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            u {
+              b
+              field
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                prop
+                u {
+                  __typename
+                  id
+                  b
+                }
+              }
+            }
+          },
+          Flatten(path: "t.@.u") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on U {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on U {
+                  field(a: $contextualArgument_1_0)
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['..', '... on T', 'prop'],
+        renameKeyTo: 'contextualArgument_1_0',
+      },
+    ]);
+  });
+
+  it('fromContext with type conditions interface', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: I!
+        }
+
+        interface I @context(name: "context") @key(fields: "id") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+
+        type A implements I @key(fields: "id") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+
+        type B implements I @key(fields: "id") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+          b: String!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            u {
+              b
+              field
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                prop
+                u {
+                  __typename
+                  id
+                  b
+                }
+              }
+            }
+          },
+          Flatten(path: "t.u") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on U {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on U {
+                  field(a: $contextualArgument_1_0)
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['..', '... on A', 'prop'],
+        renameKeyTo: 'contextualArgument_1_0',
+      },
+      {
+        kind: 'KeyRenamer',
+        path: ['..', '... on B', 'prop'],
+        renameKeyTo: 'contextualArgument_1_0',
+      },
+    ]);
+  });
+
+  it('fromContext with type conditions for union', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T!
+        }
+
+        union T @context(name: "context") = A | B
+
+        type A @key(fields: "id") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+
+        type B @key(fields: "id") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+
+        type U @key(fields: "id") {
+          id: ID!
+          b: String!
+          field(
+            a: String
+              @fromContext(
+                field: "$context ... on A { prop } ... on B { prop }"
+              )
+          ): Int!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          a: Int!
+        }
+        type U @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            ... on A {
+              u {
+                b
+                field
+              }
+            }
+            ... on B {
+              u {
+                b
+                field
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                ... on A {
+                  __typename
+                  prop
+                  u {
+                    __typename
+                    id
+                    b
+                  }
+                }
+                ... on B {
+                  __typename
+                  prop
+                  u {
+                    __typename
+                    id
+                    b
+                  }
+                }
+              }
+            }
+          },
+          Flatten(path: "t.u") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on U {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on U {
+                  field(a: $contextualArgument_1_0)
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['..', '... on A', 'prop'],
+        renameKeyTo: 'contextualArgument_1_0',
+      },
+      {
+        kind: 'KeyRenamer',
+        path: ['..', '... on B', 'prop'],
+        renameKeyTo: 'contextualArgument_1_0',
+      },
+    ]);
+  });
+
+  it('fromContext accesses a different top level query', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query @context(name: "topLevelQuery") {
+          me: User!
+          product: Product
+        }
+
+        type User @key(fields: "id") {
+          id: ID!
+          locale: String!
+        }
+
+        type Product @key(fields: "id") {
+          id: ID!
+          price(
+            locale: String
+              @fromContext(field: "$topLevelQuery { me { locale } }")
+          ): Int!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          randomId: ID!
+        }
+
+        type Product @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          product {
+            price
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              __typename
+              me {
+                locale
+              }
+              product {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "product") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on Product {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on Product {
+                  price(locale: $contextualArgument_1_0)
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['..', 'me', 'locale'],
+        renameKeyTo: 'contextualArgument_1_0',
+      },
+    ]);
+  });
+
+  it('fromContext type does not exist on other subgraph', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T!
+        }
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          prop: String!
+        }
+        type U @key(fields: "id") {
+          id: ID!
+          b: String!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          randomId: ID!
+        }
+      `,
+    };
+
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            u {
+              field
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                prop
+                u {
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "t.u") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on U {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on U {
+                  field(a: $contextualArgument_1_0)
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['..', '... on T', 'prop'],
+        renameKeyTo: 'contextualArgument_1_0',
+      },
+    ]);
+  });
+
+  it('fromContext required field is several levels deep going back and forth between subgraphs', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T!
+        }
+
+        type A @key(fields: "id") {
+          id: ID!
+          b: B! @external
+        }
+
+        type B @key(fields: "id") {
+          id: ID!
+          c: C!
+        }
+
+        type C @key(fields: "id") {
+          id: ID!
+          prop: String!
+        }
+
+        type T @key(fields: "id") @context(name: "context") {
+          id: ID!
+          u: U!
+          a: A!
+        }
+        type U @key(fields: "id") {
+          id: ID!
+          b: String!
+          field(
+            a: String @fromContext(field: "$context { a { b { c { prop }}} }")
+          ): Int!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          randomId: ID!
+        }
+
+        type A @key(fields: "id") {
+          id: ID!
+          b: B!
+        }
+
+        type B @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            u {
+              field
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                a {
+                  __typename
+                  id
+                }
+                u {
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "t.a") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on A {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on A {
+                  b {
+                    __typename
+                    id
+                  }
+                }
+              }
+            },
+          },
+          Flatten(path: "t.a.b") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on B {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on B {
+                  c {
+                    prop
+                  }
+                }
+              }
+            },
+          },
+          Flatten(path: "t.u") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on U {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on U {
+                  field(a: $contextualArgument_1_0)
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    expect((plan as any).node.nodes[3].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['..', '... on T', 'a', 'b', 'c', 'prop'],
+        renameKeyTo: 'contextualArgument_1_0',
+      },
+    ]);
+  });
+});
