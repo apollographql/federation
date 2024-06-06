@@ -14,11 +14,32 @@ export const DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
   'https://specs.apollo.dev/join/v0.2',
   'https://specs.apollo.dev/join/v0.3',
   'https://specs.apollo.dev/join/v0.4',
+  'https://specs.apollo.dev/join/v0.5',
   'https://specs.apollo.dev/tag/v0.1',
   'https://specs.apollo.dev/tag/v0.2',
   'https://specs.apollo.dev/tag/v0.3',
   'https://specs.apollo.dev/inaccessible/v0.1',
   'https://specs.apollo.dev/inaccessible/v0.2',
+]);
+
+export const ROUTER_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
+  'https://specs.apollo.dev/core/v0.1',
+  'https://specs.apollo.dev/core/v0.2',
+  'https://specs.apollo.dev/join/v0.1',
+  'https://specs.apollo.dev/join/v0.2',
+  'https://specs.apollo.dev/join/v0.3',
+  'https://specs.apollo.dev/join/v0.4',
+  'https://specs.apollo.dev/join/v0.5',
+  'https://specs.apollo.dev/tag/v0.1',
+  'https://specs.apollo.dev/tag/v0.2',
+  'https://specs.apollo.dev/tag/v0.3',
+  'https://specs.apollo.dev/inaccessible/v0.1',
+  'https://specs.apollo.dev/inaccessible/v0.2',
+  'https://specs.apollo.dev/authenticated/v0.1',
+  'https://specs.apollo.dev/requiresScopes/v0.1',
+  'https://specs.apollo.dev/policy/v0.1',
+  'https://specs.apollo.dev/source/v0.1',
+  'https://specs.apollo.dev/context/v0.1',
 ]);
 
 const coreVersionZeroDotOneUrl = FeatureUrl.parse('https://specs.apollo.dev/core/v0.1');
@@ -84,6 +105,7 @@ export class Supergraph {
   private readonly containedSubgraphs: readonly {name: string, url: string}[];
   // Lazily computed as that requires a bit of work.
   private _subgraphs?: Subgraphs;
+  private _subgraphNameToGraphEnumValue?: Map<string, string>;
 
   constructor(
     readonly schema: Schema,
@@ -114,6 +136,9 @@ export class Supergraph {
     return new Supergraph(schema, options?.supportedFeatures, options?.validateSupergraph);
   }
 
+  static buildForTests(supergraphSdl: string | DocumentNode, validateSupergraph?: boolean) {
+    return Supergraph.build(supergraphSdl, { supportedFeatures: ROUTER_SUPPORTED_SUPERGRAPH_FEATURES, validateSupergraph });
+  }
   /**
    * The list of names/urls of the subgraphs contained in this subgraph.
    *
@@ -129,9 +154,20 @@ export class Supergraph {
       // Note that `extractSubgraphsFromSupergraph` redo a little bit of work we're already one, like validating
       // the supergraph. We could refactor things to avoid it, but it's completely negligible in practice so we
       // can leave that to "some day, maybe".
-      this._subgraphs = extractSubgraphsFromSupergraph(this.schema, this.shouldValidate);
+      const extractionResults = extractSubgraphsFromSupergraph(this.schema, this.shouldValidate);
+      this._subgraphs = extractionResults[0];
+      this._subgraphNameToGraphEnumValue = extractionResults[1];
     }
     return this._subgraphs;
+  }
+
+  subgraphNameToGraphEnumValue(): Map<string, string> {
+    if (!this._subgraphNameToGraphEnumValue) {
+      const extractionResults = extractSubgraphsFromSupergraph(this.schema, this.shouldValidate);
+      this._subgraphs = extractionResults[0];
+      this._subgraphNameToGraphEnumValue = extractionResults[1];
+    }
+    return new Map([...this._subgraphNameToGraphEnumValue]);
   }
 
   apiSchema(): Schema {
