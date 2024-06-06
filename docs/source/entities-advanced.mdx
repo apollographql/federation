@@ -963,9 +963,9 @@ In the example above, the argument `currencyCode: CurrencyCode!` wouldn't appear
 
 </Note>
 
-### Using multiple contexts 
+### Using type conditions in @fromContext 
 
-As an example using multiple contexts, the subgraph below has three entities using two contexts and a nested child entity referencing fields using those contexts: 
+In this example, note how the `@fromContext` directive uses a series of type condition to select the desired field when accessing `Child.prop1`. A type condition is not required if all possible contexts have a field present as is the case for `Child.prop2`.
 
 ```graphql title="Example: using multiple contexts"
 type Query {
@@ -974,21 +974,21 @@ type Query {
   c: C!
 }
 
-type A @key(fields: "id") @context(name: "context_1") @context(name: "context_2") {
+type A @key(fields: "id") @context(name: "context_1"){
   id: ID!
   field: String!
   someField: String!
   child: Child!
 } 
 
-type B @key(fields: "id") @context(name: "context_1") @context(name: "context_2") {
+type B @key(fields: "id") @context(name: "context_1"){
   id: ID!
   field: String!
   someField: String!
   child: Child!
 } 
 
-type C @key(fields: "id") @context(name: "context_2") {
+type C @key(fields: "id") @context(name: "context_1") {
   id: ID!
   field: String!
   someOtherField: String!
@@ -998,11 +998,12 @@ type C @key(fields: "id") @context(name: "context_2") {
 type Child @key(fields: "id") {
   id: ID!
   prop1(
-    arg: String! @fromContext(field: "$context_1 { field }")
+    arg: String! 
+        @fromContext(field: "$context_1 ... on A { someField } ... on B { someField } ... on C { someOtherField }")
   ): Int!
   prop2(
     arg: String! 
-        @fromContext(field: "$context_2 ... on A { someField } ... on B { someField } ... on C { someOtherField }")
+        @fromContext(field: "$context_1 { field }")
   ): Int!
 }
 ```
