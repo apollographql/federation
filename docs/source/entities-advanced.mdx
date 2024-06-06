@@ -918,6 +918,12 @@ This problem is not limited to reference resolvers. In fact, it can occur with a
 
 </MinVersion>
 
+<EnterpriseFeature>
+
+The `@context` and `@fromContext` directives are [Enterprise features](/router/enterprise-features) of the Apollo Router and require an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/). If your organization doesn't have an Enterprise plan, you can test it out by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+
+</EnterpriseFeature>
+
 Use the `@context` and `@fromContext` directives to set and get a _context_ to share data between types in a subgraph. Contexts provide a way for a subgraph to share data between types of a nested-type hierarchy without overloading entity keys with extraneous fields. Contexts also preserve the separation of concerns between different subgraphs.  
 
 In an entity, a nested object may have a dependency on an ancestor type and thus need access to that ancestor's field(s).
