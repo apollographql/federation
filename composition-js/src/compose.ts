@@ -64,27 +64,11 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
     return { errors: mergeResult.errors };
   }
 
-  // We pass `null` for the `supportedFeatures` to disable the feature support validation. Validating feature support
-  // is useful when executing/handling a supergraph, but here we're just validating the supergraph we've just created,
-  // and there is no reason to error due to an unsupported feature.
-  const supergraph = new Supergraph(mergeResult.supergraph, null);
-  const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
-  const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
-  const { errors, hints } = validateGraphComposition(
-    supergraph.schema,
-    supergraph.subgraphNameToGraphEnumValue(),
-    supergraphQueryGraph,
-    federatedQueryGraph
-  );
-  if (errors) {
-    return { errors };
-  }
-
   // printSchema calls validateOptions, which can throw
   let supergraphSdl;
   try {
     supergraphSdl = printSchema(
-      supergraph.schema,
+      mergeResult.supergraph,
       options.sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions),
     );
   } catch (err) {
@@ -92,9 +76,9 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
   }
 
   return {
-    schema: supergraph.schema,
+    schema: mergeResult.supergraph,
     supergraphSdl,
-    hints: mergeResult.hints.concat(hints ?? []),
+    hints: mergeResult.hints,
   };
 }
 
@@ -107,4 +91,17 @@ export function composeServices(services: ServiceDefinition[], options: Composit
     return { errors: subgraphs };
   }
   return compose(subgraphs, options);
+}
+
+export function satisfiability(supergraphSdl: string) : {
+  errors? : GraphQLError[],
+  hints? : CompositionHint[],
+} {
+  // We pass `null` for the `supportedFeatures` to disable the feature support validation. Validating feature support
+  // is useful when executing/handling a supergraph, but here we're just validating the supergraph we've just created,
+  // and there is no reason to error due to an unsupported feature.
+  const supergraph = Supergraph.build(supergraphSdl);
+  const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
+  const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
+  return validateGraphComposition(supergraph.schema, supergraph.subgraphNameToGraphEnumValue(), supergraphQueryGraph, federatedQueryGraph);
 }

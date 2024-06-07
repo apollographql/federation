@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.9.0-connectors.0
+
+### Minor Changes
+
+- Support for connectors
+
 ## 2.8.0
 
 ### Minor Changes

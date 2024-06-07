@@ -2,20 +2,15 @@
   "mode": "pre",
   "tag": "connectors",
   "initialVersions": {
-    "@apollo/composition": "2.7.7",
-    "apollo-federation-integration-testsuite": "2.7.7",
-    "@apollo/gateway": "2.7.7",
-    "@apollo/federation-internals": "2.7.7",
-    "@apollo/query-graphs": "2.7.7",
-    "@apollo/query-planner": "2.7.7",
-    "@apollo/subgraph": "2.7.7"
+    "@apollo/composition": "2.8.0",
+    "apollo-federation-integration-testsuite": "2.8.0",
+    "@apollo/gateway": "2.8.0",
+    "@apollo/federation-internals": "2.8.0",
+    "@apollo/query-graphs": "2.8.0",
+    "@apollo/query-planner": "2.8.0",
+    "@apollo/subgraph": "2.8.0"
   },
   "changesets": [
-    "fuzzy-eagles-reply",
-    "many-ads-move",
-    "strange-ads-bake",
-    "strong-seals-camp",
-    "tall-birds-change",
-    "two-rivers-jump"
+    "plenty-queens-rescue"
   ]
 }
