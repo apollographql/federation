@@ -45,9 +45,95 @@ function validateCompositionOptions(options: CompositionOptions) {
   assert(!options?.allowedFieldTypeMergingSubtypingRules?.includes("list_upgrade"), "The `list_upgrade` field subtyping rule is currently not supported");
 }
 
-export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}): CompositionResult {
+/**
+ * Used to compose a supergraph from subgraphs
+ * 
+ * @param subgraphs Subgraphs
+ * @param options CompositionOptions
+ * @param runSatisfiability Boolean - flag used to toggle satisfiability. Defaults to `true`
+ */
+export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}, runSatisfiability = true): CompositionResult {
   validateCompositionOptions(options);
 
+  const mergeResult = validateSubgraphsAndMerge(subgraphs);
+  if (mergeResult.errors) {
+    return { errors: mergeResult.errors };
+  }
+
+  let satisfiabilityResult;
+  if (runSatisfiability) {
+    satisfiabilityResult = validateSatisfiability({
+      supergraphSchema: mergeResult.supergraph
+    });
+    if (satisfiabilityResult.errors) {
+      return { errors: satisfiabilityResult.errors };
+    }
+  }
+
+  // printSchema calls validateOptions, which can throw
+  let supergraphSdl;
+  try {
+    supergraphSdl = printSchema(
+      mergeResult.supergraph,
+      options.sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions),
+    );
+  } catch (err) {
+    return { errors: [err] };
+  }
+
+  return {
+    schema: mergeResult.supergraph,
+    supergraphSdl,
+    hints: [...mergeResult.hints, ...(satisfiabilityResult?.hints ?? [])],
+  };
+}
+
+/**
+ * Method to validate and compose services
+ * 
+ * @param services List of Service definitions
+ * @param options CompositionOptions
+ * @param runSatisfiability Flag to toggle satisfiability check within composition. Defaults to `true`
+ * @returns CompositionResult
+ */
+export function composeServices(services: ServiceDefinition[], options: CompositionOptions = {}, runSatisfiability = true): CompositionResult  {
+  const subgraphs = subgraphsFromServiceList(services);
+  if (Array.isArray(subgraphs)) {
+    // Errors in subgraphs are not truly "composition" errors, but it's probably still the best place
+    // to surface them in this case. Not that `subgraphsFromServiceList` do ensure the errors will
+    // include the subgraph name in their message.
+    return { errors: subgraphs };
+  }
+
+  return compose(subgraphs, options, runSatisfiability);
+}
+
+type SatisfiabilityArgs = {
+  supergraphSchema: Schema
+  supergraphSdl?: never
+} | { supergraphSdl: string, supergraphSchema?: never };
+
+/**
+ * Run satisfiability check for a supergraph
+ * 
+ * Can pass either the supergraph's Schema or SDL to validate
+ * @param args: SatisfiabilityArgs 
+ * @returns { errors? : GraphQLError[], hints? : CompositionHint[] }
+ */
+export function validateSatisfiability({ supergraphSchema, supergraphSdl} : SatisfiabilityArgs) : {
+  errors? : GraphQLError[],
+  hints? : CompositionHint[],
+} {
+  // We pass `null` for the `supportedFeatures` to disable the feature support validation. Validating feature support
+  // is useful when executing/handling a supergraph, but here we're just validating the supergraph we've just created,
+  // and there is no reason to error due to an unsupported feature.
+  const supergraph = supergraphSchema ? new Supergraph(supergraphSchema, null) : Supergraph.build(supergraphSdl);
+  const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
+  const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
+  return validateGraphComposition(supergraph.schema, supergraph.subgraphNameToGraphEnumValue(), supergraphQueryGraph, federatedQueryGraph);
+}
+
+export function validateSubgraphsAndMerge(subgraphs: Subgraphs){
   const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
   if (upgradeResult.errors) {
     return { errors: upgradeResult.errors };
@@ -59,52 +145,5 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
     return { errors: validationErrors };
   }
 
-  const mergeResult = mergeSubgraphs(toMerge);
-  if (mergeResult.errors) {
-    return { errors: mergeResult.errors };
-  }
-
-  // We pass `null` for the `supportedFeatures` to disable the feature support validation. Validating feature support
-  // is useful when executing/handling a supergraph, but here we're just validating the supergraph we've just created,
-  // and there is no reason to error due to an unsupported feature.
-  const supergraph = new Supergraph(mergeResult.supergraph, null);
-  const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
-  const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
-  const { errors, hints } = validateGraphComposition(
-    supergraph.schema,
-    supergraph.subgraphNameToGraphEnumValue(),
-    supergraphQueryGraph,
-    federatedQueryGraph
-  );
-  if (errors) {
-    return { errors };
-  }
-
-  // printSchema calls validateOptions, which can throw
-  let supergraphSdl;
-  try {
-    supergraphSdl = printSchema(
-      supergraph.schema,
-      options.sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions),
-    );
-  } catch (err) {
-    return { errors: [err] };
-  }
-
-  return {
-    schema: supergraph.schema,
-    supergraphSdl,
-    hints: mergeResult.hints.concat(hints ?? []),
-  };
-}
-
-export function composeServices(services: ServiceDefinition[], options: CompositionOptions = {}): CompositionResult  {
-  const subgraphs = subgraphsFromServiceList(services);
-  if (Array.isArray(subgraphs)) {
-    // Errors in subgraphs are not truly "composition" errors, but it's probably still the best place
-    // to surface them in this case. Not that `subgraphsFromServiceList` do ensure the errors will
-    // include the subgraph name in their message.
-    return { errors: subgraphs };
-  }
-  return compose(subgraphs, options);
+  return mergeSubgraphs(toMerge);
 }
