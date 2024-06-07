@@ -4,22 +4,13 @@ subtitle: Create a federated GraphQL API with Apollo Federation
 description: Create a federated GraphQL API with Apollo Federation
 ---
 
-By the end of this tutorial, you will have set up a federated GraphQL API that you can query locally in the Apollo Sandbox.
+By the end of this tutorial, you will have set up a federated GraphQL API.
 To learn more about federation and the benefits of using it with GraphOS, check out these resources:
 
 - [Introduction to Apollo Federation](./)
 - [Introduction to GraphOS](/graphos)
 
-## Overview
-
-Setting up a federated GraphQL API with GraphOS takes a few steps:
-
-1. Select services to federate
-2. Install and authenticate the Rover CLI
-3. Start local development mode with one service
-4. Add another service
-
-### Prerequisites
+## Prerequisites
 
 To complete this quickstart, you must have the following:
 
@@ -28,13 +19,21 @@ To complete this quickstart, you must have the following:
 
 If you haven't already, set these up before continuting.
 
-### Step 1. Select services
+## Overview
 
-To build a federated GraphQL API, you need at least two GraphQL services and an entity.
-We recommend using Apollo's retail demo supergraph for this tutorial. The demo supergraph comes prebuilt with multiple services and sample schemas. 
+Setting up a federated GraphQL API with GraphOS takes a few steps:
 
+1. Select APIs to federate
+2. Install and authenticate the Rover CLI
+3. Start local development
+4. Publish your subgraph schemas
+
+### Step 1. Select APIs
+
+To build a federated GraphQL API, you need at least two GraphQL APIs and an entity. The individual GraphQL APIs are called subgraphs.
+We recommend using Apollo's retail demo supergraph for this tutorial. The demo supergraph comes prebuilt with multiple GraphQL APIs and sample schemas. 
 Alternatively, you can use your own API's URLs and schemas while going through the tutorial.
-These should be individual GraphQL services and you need their schemas on hand.
+These should be individual GraphQL APIs and you need their schemas available.
 
 See [Introduction to Entities](./entities) to learn how to create entities in existing schemas.
 
@@ -58,52 +57,47 @@ curl -sSL https://rover.apollo.dev/nix/latest | sh
 iwr 'https://rover.apollo.dev/win/latest' | iex
 ```
 
-After installing, run `rover` in your terminal with no arguments to confirm that it installed successfully. Verify that the printed version number matches the [latest release](https://github.com/apollographql/rover/releases). If it doesn't, you might need to manually delete a previous outdated installation.
+After installing, run `rover` in your terminal with no arguments to confirm that it installed successfully.
+Verify that the printed version number matches the [latest release](https://github.com/apollographql/rover/releases).
+If it doesn't, you might need to manually delete a previous outdated installation.
 
-You use the Rover CLI to publish subgraph schemas to Studio. To do that, you first need to authenticate Rover with Studio.
+You use the Rover CLI to manage graphs in Studio. To do that, you first need to authenticate Rover with Studio.
 This entails obtaining an API key and providing it to Rover.
 
 <ObtainGraphApiKey />
 
-You can provide your API key to Rover either via the [`config auth`](/rover/commands/config) command or by setting an environment variable.
-Since the command is recommended for local development, use that for this tutorial:
+You can provide your API key to Rover either via the `config auth` command or by setting an environment variable.
+For this tutorial, use the `config auth` command which is intended for local development.
 
 ```shell
 rover config auth
 ```
 
-The `auth` command is interactive to prevent your API key from appearing in your terminal command history. Because it's interactive, using an [environment variable](/rover/configuring/#with-an-environment-variable) in automated environments such as CI.
+The `auth` command is interactive to prevent your API key from appearing in your terminal command history.
 
 ### Step 3. Start local development 
 
-The `rover dev` command starts a supergraph locally.
-To use `rover dev`, you need at least one running GraphQL API (subgraph).
-Rover can obtain a subgraph's schema via introspection or you can provide a local schema file.
-
-Assuming you're using the retail demo supergraph, you can use the `dev` command with the options below to provide the schema for the locally running `Products` subgraph.
+The `rover dev` command starts a supergraph—specifically the supergraph's router—locally.
+You can use the `dev` command with the `--supergraph-config` option to provide the router's configuration.
+Assuming you're using the retail demo supergraph, you can use this command:
 
 ```bash title="Example command"
-rover dev --name products --schema ./products.graphql --url http://localhost:4000
+rover dev --supergraph-config retail-supergraph.yaml
 ```
 
-<Note>
+The `retail-supergraph.yaml` is a [YAML configuration file](/rover/commands/dev#starting-a-session-with-multiple-subgraphs) that includes subgraph names, URLs, and schemas.
 
-You don't have to provide a locally running subgraph. You can point to any GraphQL endpoint that your local environment can reach. You can even mix and match local and remote subgraphs, which is helpful for testing local changes against your staging subgraphs.
+When you first start the `rover dev` process:
 
-</Note>
-
-When you start your first `rover dev` process:
-
-1. Rover obtains the subgraph schema you provide either via file path or introspection.
-2. Rover composes a supergraph schema from the subgraph schema.
+1. Rover obtains the provided subgraph schemas.
+2. Rover composes a supergraph schema from the subgraph schemas.
 3. Rover starts a locally running router session and provides it the supergraph schema.
-4. Rover starts watching the provided subgraph schema for changes (via either introspection or file), and it recomposes the supergraph schema whenever it detects a change. This automatically reloads the router.
+4. Rover starts watching the provided subgraph schema for changes and it recomposes the supergraph schema whenever it detects a change. This automatically reloads the router.
 
 To ensure everything is working as expected, try querying your router in the Apollo Sandbox:
 
-1. Open https://studio.apollographql.com/sandbox/explorer/.
-2. Update the sandbox URL to your locally running router's URL.
-3. Run the following query:
+1. Open [localhost:4000](http://localhost:4000/). This lets you explore the composed schema in Apollo Sandbox.
+2. Run the following query:
 
 ```graphQL
 query ExampleQuery {
@@ -111,39 +105,101 @@ query ExampleQuery {
 }
 ```
 
-### Step 4. Add another service
-
-After you start a router session with your first `rover` dev command, you can add other subgraphs to that same session.
-To add a subgraph, open a new terminal window and run `rover dev` again, this time providing the details of the subgraph to add. For example, this command adds the `Orders` subgraph.
-
-```bash title="Example command"
-rover dev --name orders --schema ./orders.graphql --url http://localhost:4001
-```
-
-When you add a new subgraph to a session, Rover recomposes the supergraph schema and updates the router so you can query all added subgraphs via the single router endpoint.
+Congrats! You've built and queried a federated GraphQL API locally.
+Next, you'll publish your subgraph schemas to Studio so that your supergraph is externally accessible.
 
 <Note>
 
-Rover uses the port of the running router to identify an existing session. If you specify a custom port via `--supergraph-port` or `--router-config`, make sure to specify the same port for all `rover dev` processes that you want to attach to the same session.
+You can stop your initial `rover dev` process by pressing `CTRL+C`. This shuts down the local router session and any secondary `rover dev` processes attached to that same session.
 
 </Note>
 
-Now you can go back to the Sandbox and try running a federated query.
+### Step 4. Publish your subgraph schemas
+
+You individually publish each subgraph's schema to GraphOS with the `rover subgraph publish` command.
+Whenever you publish a subgraph schema, GraphOS attempts to compose all latest versions of your subgraph schemas into a single supergraph schema for your router.
+If this composition succeeds, your router is updated with the result. This enables clients to query any newly added fields, and it prevents them from querying any removed fields.
+
+Assuming you're using the retail demo supergraph and its included subgraph schemas, you can use the following commands:
+
+1. Paste the following multi-line command into your terminal, but don't run it—you need to modify it first.
+
+    ```bash showLineNumbers=false
+    rover subgraph introspect https://retail-demo-products-subgraph.com/ | \
+    rover subgraph publish --name products \
+    --routing-url https://retail-demo-products-subgraph.com/ \
+    --schema - <GRAPH_REF>
+    ```
+
+2. In your terminal, replace the final value `<GRAPH_REF>` with the appropriate value for your graph.  A graph ref uniquely identifies a particular _variant_ of a particular graph in GraphOS. Every graph ref is a string with the following format:
+
+    `graph-id@variant-name`
+
+    - The value before the `@` is your graph's unique ID in GraphOS.
+    - The value after the `@` is the name of the graph variant you're interacting with.
+
+    Each variant of a graph represents a different environment where that graph runs (such as staging and production). For this quickstart, you can keep the default suggested variant name or change it to anything else you like (for example, `quickstart`). Just make sure to provide the same graph ref to every command in this quickstart!
+
+    After you've published a schema to a particular variant, that variant's graph ref is always available at the top of its README page.
+
+3. Run the modified command.
+
+    - If the command is successful, you'll see output like the following:
+
+      ```
+      A new subgraph called 'products' was created in 'docs-example-graph@main'
+      The supergraph schema for 'docs-example-graph@main' was updated, composed from the updated 'products' subgraph
+      ```
+
+    - If the command fails, make sure you've [authenticated Rover with GraphOS](#step-2-install-and-authenticate-the-rover-cli). All Rover commands that interact with GraphOS require a valid API key.
+
+    If you open your graph's details in Studio now, you'll see types and fields from the `products` subgraph listed on the **Schema** page.
+
+4. Do the same thing for the `orders` subgraph, again substituting your graph ref:
+
+    ```bash showLineNumbers=false
+    rover subgraph introspect https://retail-demo-orders-subgraph.com/ | \
+    rover subgraph publish --name orders \
+    --routing-url https://retail-demo-orders-subgraph.com/ \
+    --schema - <GRAPH_REF>
+    ```
+
+    You only need to provide a subgraph's `--routing-url` the first time you publish that subgraph's schema to a particular variant unless the URL later changes.
+
+
+Every time you publish a subgraph schema, GraphOS automatically composes all subgraph schemas into a supergraph schema.
+
+Now you can execute a query against your newly published supergraph To do that, you'll use one of Studio's most powerful features: the Explorer.
+The Explorer is a GraphQL IDE that provides visibility into your supergraph's entire schema and helps you build and run queries against it.
+
+From your organization's **Graphs** tab, select your new variant and then open its **Explorer** page from the left navigation.
+
+Run the following query you ran in the Sandbox:
 
 ```graphQL
-query ExampleFederatedQuery {
+query ExampleQuery {
   todo
 }
 ```
 
-Congrats! You've built and queried your a federated GraphQL API. 
+Because you've created a cloud supergraph, operations you run in the Explorer are sent to the GraphOS Router that sits in front of your federated API.
+The router automatically collects metrics on those operations and their fields. You can then visualize those metrics in Studio.
 
-You can stop your initial `rover dev` process by pressing `CTRL+C`. This shuts down the local router session and any secondary `rover dev` processes attached to that same session.
+Go to your variant's **Insights** page, which looks like this:
+
+<img
+  src="../../img/insights-quickstart.jpg"
+  className="screenshot"
+  alt="The Insights page in GraphOS Studio, showing metrics for operations and their fields"
+/>
+
+The operations you executed in the Explorer should already be represented on this page. After you update all your clients to query your router, the **Insights** page becomes vital to monitoring your supergraph's performance.
 
 ## Next steps
 
-Depending on your goals, you have several options for learning more about federation or moving your graph closer to product:
+Depending on your goals, you have several options for moving your graph closer to production or learning more GraphOS Studio's capabalities:
 
-- Learn more about the power of the [`rover dev` command](/rover/commands/dev), including starting a session with multiple subgraphs, removing subgraphs, and configuring the router
-- To quickly start up a new GraphQL project or explore various subgraph implementations, check out the [`rover template`](/rover/commands/template) command.
-- [Publish your locally running supergraph](/graphos/delivery/publishing-schemas) to GraphOS Studio and share with your team
+- Check out the [`rover template`](/rover/commands/template) command to quickly start up a new GraphQL project or explore various subgraph implementations.
+- Learn about the available GraphOS insights in the [metrics and reporting documentation](/graphos/metrics).
+- Other interesting features: schema viz, schema checks, schema proposals
+- [Invite team members](/graphos/org/members#inviting-members) to your GraphOS organization.
