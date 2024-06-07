@@ -65,6 +65,7 @@ const DISALLOWED_IDENTITIES = [
   'https://specs.apollo.dev/authenticated',
   'https://specs.apollo.dev/requiresScopes',
   'https://specs.apollo.dev/source',
+  'https://specs.apollo.dev/context',
 ];
 
 export class ComposeDirectiveManager {
@@ -176,6 +177,7 @@ export class ComposeDirectiveManager {
       sg.metadata().authenticatedDirective(),
       sg.metadata().requiresScopesDirective(),
       sg.metadata().policyDirective(),
+      sg.metadata().contextDirective(),
     ].map(d => d.name);
     if (directivesComposedByDefault.includes(directive.name)) {
       this.pushHint(new CompositionHint(

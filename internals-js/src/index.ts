@@ -12,6 +12,7 @@ export * from './specs/joinSpec';
 export * from './specs/tagSpec';
 export * from './specs/inaccessibleSpec';
 export * from './specs/federationSpec';
+export * from './specs/contextSpec';
 export * from './supergraphs';
 export * from './error';
 export * from './schemaUpgrader';

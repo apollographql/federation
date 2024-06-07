@@ -1,6 +1,7 @@
 ---
-title: Migrating from schema stitching
-description: How to move your services to Apollo Federation
+title: Migrating from Schema Stitching
+subtitle: How to transition to Apollo Federation
+description: Learn how to smoothly transition from schema stitching to Apollo Federation for your distributed federated GraphQL services.
 ---
 
 If you have a distributed graph that uses schema stitching, follow the

@@ -1,52 +1,84 @@
 # CHANGELOG for `@apollo/query-planner`
 
-## 2.8.0-connectors.5
+## 2.8.0
+
+### Minor Changes
+
+- Implement new directives to allow getting and setting context. This allows resolvers to reference and access data referenced by entities that exist in the GraphPath that was used to access the field. The following example demonstrates the ability to access the `prop` field within the Child resolver. ([#2988](https://github.com/apollographql/federation/pull/2988))
+
+  ```graphql
+  type Query {
+    p: Parent!
+  }
+  type Parent @key(fields: "id") @context(name: "context") {
+    id: ID!
+    child: Child!
+    prop: String!
+  }
+  type Child @key(fields: "id") {
+    id: ID!
+    b: String!
+    field(a: String @fromContext(field: "$context { prop }")): Int!
+  }
+  ```
 
 ### Patch Changes
 
-- Updated dependencies [[`28850ffba17d4201321dc6de0edc24cae48ec5e5`](https://github.com/apollographql/federation/commit/28850ffba17d4201321dc6de0edc24cae48ec5e5)]:
-  - @apollo/federation-internals@2.8.0-connectors.5
-  - @apollo/query-graphs@2.8.0-connectors.5
+- Various set context bugfixes ([#3017](https://github.com/apollographql/federation/pull/3017))
 
-## 2.8.0-connectors.4
+- Fix relative path logic when eliding subgraph jumps for `@fromContext` ([#3005](https://github.com/apollographql/federation/pull/3005))
 
-### Patch Changes
+- Updated dependencies [[`c4744da360235d8bb8270ea048f0e0fa5d03be1e`](https://github.com/apollographql/federation/commit/c4744da360235d8bb8270ea048f0e0fa5d03be1e), [`8a936d741a0c05835ff2533714cf330d18209179`](https://github.com/apollographql/federation/commit/8a936d741a0c05835ff2533714cf330d18209179), [`f5fe3e74d36722f78004c1e2e03c77d8b95cd6bf`](https://github.com/apollographql/federation/commit/f5fe3e74d36722f78004c1e2e03c77d8b95cd6bf)]:
+  - @apollo/query-graphs@2.8.0
+  - @apollo/federation-internals@2.8.0
 
-- Updated dependencies []:
-  - @apollo/federation-internals@2.8.0-connectors.4
-  - @apollo/query-graphs@2.8.0-connectors.4
-
-## 2.8.0-connectors.3
+## 2.8.0-alpha.1
 
 ### Patch Changes
 
-- Updated dependencies []:
-  - @apollo/federation-internals@2.8.0-connectors.3
-  - @apollo/query-graphs@2.8.0-connectors.3
+- Updated dependencies [[`f5fe3e74d36722f78004c1e2e03c77d8b95cd6bf`](https://github.com/apollographql/federation/commit/f5fe3e74d36722f78004c1e2e03c77d8b95cd6bf)]:
+  - @apollo/query-graphs@2.8.0-alpha.1
+  - @apollo/federation-internals@2.8.0-alpha.1
 
-## 2.8.0-connectors.2
+## 2.8.0-alpha.0
+
+### Minor Changes
+
+- Implement new directives to allow getting and setting context. This allows resolvers to reference and access data referenced by entities that exist in the GraphPath that was used to access the field. The following example demonstrates the ability to access the `prop` field within the Child resolver. ([#2988](https://github.com/apollographql/federation/pull/2988))
+
+  ```graphql
+  type Query {
+    p: Parent!
+  }
+  type Parent @key(fields: "id") @context(name: "context") {
+    id: ID!
+    child: Child!
+    prop: String!
+  }
+  type Child @key(fields: "id") {
+    id: ID!
+    b: String!
+    field(a: String @fromContext(field: "$context { prop }")): Int!
+  }
+  ```
 
 ### Patch Changes
 
-- Updated dependencies []:
-  - @apollo/federation-internals@2.8.0-connectors.2
-  - @apollo/query-graphs@2.8.0-connectors.2
+- Fix relative path logic when eliding subgraph jumps for `@fromContext` ([#3005](https://github.com/apollographql/federation/pull/3005))
 
-## 2.8.0-connectors.1
+- Updated dependencies [[`c4744da360235d8bb8270ea048f0e0fa5d03be1e`](https://github.com/apollographql/federation/commit/c4744da360235d8bb8270ea048f0e0fa5d03be1e)]:
+  - @apollo/query-graphs@2.8.0-alpha.0
+  - @apollo/federation-internals@2.8.0-alpha.0
 
-### Patch Changes
-
-- Updated dependencies [[`9ffa43237e7dc8dc932edfa93dc86dfd4f75f92e`](https://github.com/apollographql/federation/commit/9ffa43237e7dc8dc932edfa93dc86dfd4f75f92e)]:
-  - @apollo/federation-internals@2.8.0-connectors.1
-  - @apollo/query-graphs@2.8.0-connectors.1
-
-## 2.8.0-connectors.0
+## 2.7.8
 
 ### Patch Changes
 
-- Updated dependencies []:
-  - @apollo/federation-internals@2.8.0-connectors.0
-  - @apollo/query-graphs@2.8.0-connectors.0
+- Triggering a clean 2.7.8 release now that harmonizer build has been fixed. ([#3010](https://github.com/apollographql/federation/pull/3010))
+
+- Updated dependencies [[`2ad72802044310a528e8944f4538efe519424504`](https://github.com/apollographql/federation/commit/2ad72802044310a528e8944f4538efe519424504)]:
+  - @apollo/federation-internals@2.7.8
+  - @apollo/query-graphs@2.7.8
 
 ## 2.7.7
 

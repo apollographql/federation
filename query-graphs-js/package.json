@@ -1,6 +1,6 @@
 {
   "name": "@apollo/query-graphs",
-  "version": "2.8.0-connectors.5",
+  "version": "2.8.0",
   "description": "Apollo Federation library to work with 'query graphs'",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,7 +23,7 @@
     "node": ">=14.15.0"
   },
   "dependencies": {
-    "@apollo/federation-internals": "2.8.0-connectors.5",
+    "@apollo/federation-internals": "2.8.0",
     "deep-equal": "^2.0.5",
     "ts-graphviz": "^1.5.4",
     "uuid": "^9.0.0"

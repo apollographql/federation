@@ -325,6 +325,36 @@ const TYPE_KIND_MISMATCH = makeCodeDefinition(
   { ...DEFAULT_METADATA, replaces: ['VALUE_TYPE_KIND_MISMATCH', 'EXTENSION_OF_WRONG_KIND', 'ENUM_MISMATCH_TYPE'] },
 );
 
+const CONTEXT_NOT_SET = makeCodeDefinition(
+  'CONTEXT_NOT_SET',
+  'Context is never set for context trying to be used.',
+  { addedIn: '2.8.0' },
+);
+
+const CONTEXT_INVALID_SELECTION= makeCodeDefinition(
+  'CONTEXT_INVALID_SELECTION',
+  'Selection within @fromContext must resolve to a single field.',
+  { addedIn: '2.8.0' },
+);
+
+const NO_CONTEXT_IN_SELECTION = makeCodeDefinition(
+  'NO_CONTEXT_IN_SELECTION',
+  'Selection in @fromContext field argument does not reference a context.',
+  { addedIn: '2.8.0' },
+);
+
+const CONTEXT_NO_RESOLVABLE_KEY = makeCodeDefinition(
+  'CONTEXT_NO_RESOLVABLE_KEY',
+  'If an ObjectType uses a @fromContext, at least one of its keys must be resolvable.',
+  { addedIn: '2.8.0' },
+);
+
+const CONTEXT_NAME_INVALID = makeCodeDefinition(
+  'CONTEXT_NAME_INVALID',
+  'Context name is invalid.',
+  { addedIn: '2.8.0' },
+);
+
 const EXTERNAL_TYPE_MISMATCH = makeCodeDefinition(
   'EXTERNAL_TYPE_MISMATCH',
   'An `@external` field has a type that is incompatible with the declaration(s) of that field in other subgraphs.',
@@ -561,6 +591,12 @@ const INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE = makeCodeDefinition(
   { addedIn: '2.3.0' },
 )
 
+const CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS = makeCodeDefinition(
+    'CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS',
+    'Argument on field is marked contextual in only some subgraphs',
+    { addedIn: '2.7.0' },
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -603,6 +639,11 @@ export const ERRORS = {
   NO_QUERIES,
   INTERFACE_FIELD_NO_IMPLEM,
   TYPE_KIND_MISMATCH,
+  CONTEXT_NOT_SET,
+  CONTEXT_INVALID_SELECTION,
+  NO_CONTEXT_IN_SELECTION,
+  CONTEXT_NO_RESOLVABLE_KEY,
+  CONTEXT_NAME_INVALID,
   EXTERNAL_TYPE_MISMATCH,
   EXTERNAL_ARGUMENT_MISSING,
   EXTERNAL_ARGUMENT_TYPE_MISMATCH,
@@ -649,6 +690,7 @@ export const ERRORS = {
   INTERFACE_OBJECT_USAGE_ERROR,
   INTERFACE_KEY_NOT_ON_IMPLEMENTATION,
   INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE,
+    CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

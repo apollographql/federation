@@ -7,6 +7,7 @@ import {
   Schema,
   NonNullType,
   ListType,
+  InputObjectType,
 } from "../definitions";
 import { Subgraph, Subgraphs } from "../federation";
 import { registerKnownFeature } from '../knownCoreFeatures';
@@ -36,7 +37,7 @@ export type JoinTypeDirectiveArguments = {
   key?: string,
   extension?: boolean,
   resolvable?: boolean,
-  isInterfaceObject?: boolean
+  isInterfaceObject?: boolean,
 };
 
 export type JoinFieldDirectiveArguments = {
@@ -48,6 +49,12 @@ export type JoinFieldDirectiveArguments = {
   external?: boolean,
   usedOverridden?: boolean,
   overrideLabel?: string,
+  contextArguments?: {
+    name: string,
+    type: string,
+    context: string,
+    selection: string,
+  }[],
 }
 
 export type JoinDirectiveArguments = {
@@ -151,8 +158,23 @@ export class JoinSpecDefinition extends FeatureDefinition {
       joinDirective.addArgument('name', new NonNullType(schema.stringType()));
       joinDirective.addArgument('args', this.addScalarType(schema, 'DirectiveArguments'));
 
-      //progressive override
+      // progressive override
       joinField.addArgument('overrideLabel', schema.stringType());
+    }
+    
+    if (this.version.gte(new FeatureVersion(0, 5))) {
+      const fieldValue = this.addScalarType(schema, 'FieldValue');
+
+      // set context
+      // there are no renames that happen within the join spec, so this is fine
+      // note that join spec will only used in supergraph schema
+      const contextArgumentsType = schema.addType(new InputObjectType('join__ContextArgument'));
+      contextArgumentsType.addField('name', new NonNullType(schema.stringType()));
+      contextArgumentsType.addField('type', new NonNullType(schema.stringType()));
+      contextArgumentsType.addField('context', new NonNullType(schema.stringType()));
+      contextArgumentsType.addField('selection', new NonNullType(fieldValue));
+
+      joinField.addArgument('contextArguments', new ListType(new NonNullType(contextArgumentsType)));
     }
 
     if (this.isV01()) {
@@ -261,10 +283,12 @@ export class JoinSpecDefinition extends FeatureDefinition {
 //  - 0.2: this is the original version released with federation 2.
 //  - 0.3: adds the `isInterfaceObject` argument to `@join__type`, and make the `graph` in `@join__field` skippable.
 //  - 0.4: adds the optional `overrideLabel` argument to `@join_field` for progressive override.
+//  - 0.5: adds the `contextArguments` argument to `@join_field` for setting context.
 export const JOIN_VERSIONS = new FeatureDefinitions<JoinSpecDefinition>(joinIdentity)
   .add(new JoinSpecDefinition(new FeatureVersion(0, 1)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 2)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 3), new FeatureVersion(2, 0)))
-  .add(new JoinSpecDefinition(new FeatureVersion(0, 4), new FeatureVersion(2, 7)));
+  .add(new JoinSpecDefinition(new FeatureVersion(0, 4), new FeatureVersion(2, 7)))
+  .add(new JoinSpecDefinition(new FeatureVersion(0, 5), new FeatureVersion(2, 8)));
 
 registerKnownFeature(JOIN_VERSIONS);

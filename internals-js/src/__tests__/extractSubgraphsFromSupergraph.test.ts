@@ -1,4 +1,4 @@
-import { Supergraph, InputObjectType, ObjectType } from "..";
+import { Supergraph, InputObjectType, ObjectType, printSchema } from "..";
 
 
 test('handles types having no fields referenced by other objects in a subgraph correctly', () => {
@@ -814,4 +814,116 @@ test('types that are empty because of overridden fields are erased', () => {
   const subgraph = subgraphs.get('b');
   const userType = subgraph?.schema.type('User') as ObjectType | undefined;
   expect(userType).toBeUndefined();
+});
+
+test('contextual arguments can be extracted', () => {
+  const supergraph = `
+  schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/join/v0.5", for: EXECUTION)
+  @link(url: "https://specs.apollo.dev/context/v0.1")
+{
+  query: Query
+}
+
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+
+directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
+
+directive @context(name: String!) repeatable on INTERFACE | OBJECT
+
+directive @context__fromContext(field: String) on ARGUMENT_DEFINITION
+
+enum link__Purpose {
+  """
+  \`SECURITY\` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+
+  """
+  \`EXECUTION\` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
+}
+
+scalar link__Import
+
+enum join__Graph {
+  SUBGRAPH1 @join__graph(name: "Subgraph1", url: "")
+  SUBGRAPH2 @join__graph(name: "Subgraph2", url: "")
+}
+
+scalar join__FieldSet
+
+scalar join__DirectiveArguments
+
+scalar join__FieldValue
+
+input join__ContextArgument {
+  name: String!
+  type: String!
+  context: String!
+  selection: join__FieldValue!
+}
+
+scalar context__context
+
+type Query
+  @join__type(graph: SUBGRAPH1)
+  @join__type(graph: SUBGRAPH2)
+{
+  t: T! @join__field(graph: SUBGRAPH1)
+  a: Int! @join__field(graph: SUBGRAPH2)
+}
+
+type T
+  @join__type(graph: SUBGRAPH1, key: "id")
+  @context(name: "Subgraph1__context")
+{
+  id: ID!
+  u: U!
+  prop: String!
+}
+
+type U
+  @join__type(graph: SUBGRAPH1, key: "id")
+  @join__type(graph: SUBGRAPH2, key: "id")
+{
+  id: ID!
+  field: Int! @join__field(graph: SUBGRAPH1, contextArguments: [{context: "Subgraph1__context", name: "a", type: "String", selection: "{ prop }"}])
+}
+  `;
+
+  const subgraphs = Supergraph.build(supergraph).subgraphs();
+  const printedSchema = printSchema(subgraphs.get('Subgraph1')!.schema);
+
+  expect(printedSchema).toMatch(`
+type T
+  @key(fields: "id")
+  @federation__context(name: "context")
+{
+  id: ID!
+  u: U!
+  prop: String!
+}`);
+
+expect(printedSchema).toMatch(`
+type U
+  @key(fields: "id")
+{
+  id: ID! @shareable
+  field(a: String @federation__fromContext(field: "$context { prop }")): Int!
+}`);
 });

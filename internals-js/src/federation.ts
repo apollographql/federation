@@ -27,8 +27,17 @@ import {
   SchemaElement,
   sourceASTs,
   UnionType,
+  ArgumentDefinition,
+  InputType,
+  OutputType,
+  WrapperType,
+  isNonNullType,
+  isLeafType,
+  isListType,
+  isWrapperType,
+  possibleRuntimeTypes,
 } from "./definitions";
-import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues } from "./utils";
+import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues, assertUnreachable } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
 import {
@@ -47,7 +56,7 @@ import {
 } from "graphql";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchemaFromAST } from "./buildSchema";
-import { parseSelectionSet, SelectionSet } from './operations';
+import { FragmentSelection, hasSelectionWithPredicate, parseOperationAST, parseSelectionSet, Selection, SelectionSet } from './operations';
 import { TAG_VERSIONS } from "./specs/tagSpec";
 import {
   errorCodeDef,
@@ -330,6 +339,387 @@ function fieldSetTargetDescription(directive: Directive<any, {fields: any}>): st
   return `${targetKind} "${directive.parent?.coordinate}"`;
 }
 
+export function parseContext(input: string) {
+  const regex = /^(?:[\n\r\t ,]|#[^\n\r]*(?![^\n\r]))*\$(?:[\n\r\t ,]|#[^\n\r]*(?![^\n\r]))*([A-Za-z_]\w*(?!\w))([\s\S]*)$/;
+  const match = input.match(regex);
+  if (!match) {
+    return { context: undefined, selection: undefined };
+  }
+
+  const [, context, selection] = match;
+  return {
+    context,
+    selection,
+  };
+}
+
+const wrapResolvedType = ({
+  originalType,
+  resolvedType,
+}: {
+  originalType: OutputType,
+  resolvedType: InputType,
+}): InputType | undefined => {
+  const stack = [];
+  let unwrappedType: NamedType | WrapperType = originalType;
+  while(unwrappedType.kind === 'NonNullType' || unwrappedType.kind === 'ListType') {
+    stack.push(unwrappedType.kind);
+    unwrappedType = unwrappedType.ofType;
+  }
+
+  let type: NamedType | WrapperType = resolvedType;
+  while(stack.length > 0) {
+    const kind = stack.pop();
+    if (kind === 'ListType') {
+      type = new ListType(type);
+    }
+  }
+  return type;
+};
+
+const validateFieldValueType = ({
+  currentType,
+  selectionSet,
+  errorCollector,
+  metadata,
+  fromContextParent,
+}: {
+  currentType: CompositeType,
+  selectionSet: SelectionSet,
+  errorCollector: GraphQLError[],
+  metadata: FederationMetadata,
+  fromContextParent: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType | UnionType>>,
+}): { resolvedType: InputType | undefined } => {
+  const selections = selectionSet.selections();
+
+  // ensure that type is not an interfaceObject
+  const interfaceObjectDirective = metadata.interfaceObjectDirective();
+  if (currentType.kind === 'ObjectType' && isFederationDirectiveDefinedInSchema(interfaceObjectDirective) && (currentType.appliedDirectivesOf(interfaceObjectDirective).length > 0)) {
+    errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+      `Context "is used in "${fromContextParent.coordinate}" but the selection is invalid: One of the types in the selection is an interfaceObject: "${currentType.name}"`,
+      { nodes: sourceASTs(fromContextParent) }
+    ));
+  }
+
+  const typesArray = selections.map((selection): { resolvedType: InputType | undefined } => {
+    if (selection.kind !== 'FieldSelection') {
+      return { resolvedType: undefined };
+    }
+    const { element, selectionSet: childSelectionSet } = selection;
+    assert(element.definition.type, 'Element type definition should exist');
+    let type = element.definition.type;
+
+    if (childSelectionSet) {
+      assert(isCompositeType(baseType(type)), 'Child selection sets should only exist on composite types');
+      const { resolvedType } = validateFieldValueType({
+        currentType: baseType(type) as CompositeType,
+        selectionSet: childSelectionSet,
+        errorCollector,
+        metadata,
+        fromContextParent,
+      });
+      if (!resolvedType) {
+        return { resolvedType: undefined };
+      }
+      return { resolvedType: wrapResolvedType({ originalType: type, resolvedType}) };
+    }
+    assert(isLeafType(baseType(type)), 'Expected a leaf type');
+    return {
+      resolvedType: wrapResolvedType({
+        originalType: type,
+        resolvedType: baseType(type) as InputType
+      })
+    };
+  });
+  return typesArray.reduce((acc, { resolvedType }) => {
+    if (acc.resolvedType?.toString() === resolvedType?.toString()) {
+      return { resolvedType };
+    }
+    return { resolvedType: undefined };
+  });
+};
+
+const validateSelectionFormat = ({
+  context,
+  selection,
+  fromContextParent,
+  errorCollector,
+} : {
+  context: string,
+  selection: string,
+  fromContextParent: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType | UnionType>>,
+  errorCollector: GraphQLError[],
+}): {
+  selectionType: 'error' | 'field',
+} | {
+  selectionType: 'inlineFragment',
+  typeConditions: Set<string>,
+} => {
+  // we only need to parse the selection once, not do it for each location
+  try {
+    const node = parseOperationAST(selection.trim().startsWith('{') ? selection : `{${selection}}`);
+    const selections = node.selectionSet.selections;
+    if (selections.length === 0) {
+      // a selection must be made.
+      errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+        `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: no selection is made`,
+        { nodes: sourceASTs(fromContextParent) }
+      ));
+      return { selectionType: 'error' };
+    }
+    const firstSelectionKind = selections[0].kind;
+    if (firstSelectionKind === 'Field') {
+      // if the first selection is a field, there should be only one
+      if (selections.length !== 1) {
+        errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: multiple selections are made`,
+          { nodes: sourceASTs(fromContextParent) }
+        ));
+        return { selectionType: 'error' };
+      }
+      return { selectionType: 'field' };
+    } else if (firstSelectionKind === 'InlineFragment') {
+      const inlineFragmentTypeConditions: Set<string> = new Set();
+      if (!selections.every((s) => s.kind === 'InlineFragment')) {
+        errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: multiple fields could be selected`,
+          { nodes: sourceASTs(fromContextParent) }
+        ));
+        return { selectionType: 'error' };
+      }
+      selections.forEach((s) => {
+        assert(s.kind === 'InlineFragment', 'Expected an inline fragment');
+        const { typeCondition }= s;
+        if (typeCondition) {
+          inlineFragmentTypeConditions.add(typeCondition.name.value);
+        }
+      });
+      if (inlineFragmentTypeConditions.size !== selections.length) {
+        errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: type conditions have same name`,
+          { nodes: sourceASTs(fromContextParent) }
+        ));
+        return { selectionType: 'error' };
+      }
+      return {
+        selectionType: 'inlineFragment',
+        typeConditions: inlineFragmentTypeConditions,
+      };
+    } else if (firstSelectionKind === 'FragmentSpread') {
+      errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+        `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: fragment spread is not allowed`,
+        { nodes: sourceASTs(fromContextParent) }
+      ));
+      return { selectionType: 'error' };
+    } else {
+      assertUnreachable(firstSelectionKind);
+    }
+  } catch (err) {
+    errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+      `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: ${err.message}`,
+      { nodes: sourceASTs(fromContextParent) }
+    ));
+
+    return { selectionType: 'error' };
+  }
+}
+
+// implementation of spec https://spec.graphql.org/draft/#IsValidImplementationFieldType()
+function isValidImplementationFieldType(fieldType: InputType, implementedFieldType: InputType): boolean {
+  if (isNonNullType(fieldType)) {
+    if (isNonNullType(implementedFieldType)) {
+      return isValidImplementationFieldType(fieldType.ofType, implementedFieldType.ofType);
+    } else {
+      return isValidImplementationFieldType(fieldType.ofType, implementedFieldType);
+    }
+  }
+  if (isListType(fieldType) && isListType(implementedFieldType)) {
+    return isValidImplementationFieldType(fieldType.ofType, implementedFieldType.ofType);
+  }
+  return !isWrapperType(fieldType) &&
+    !isWrapperType(implementedFieldType) &&
+    fieldType.name === implementedFieldType.name;
+}
+
+function selectionSetHasDirectives(selectionSet: SelectionSet): boolean {
+  return hasSelectionWithPredicate(selectionSet, (s: Selection) => {
+    if (s.kind === 'FieldSelection') {
+      return s.element.appliedDirectives.length > 0;
+    }
+    else if (s.kind === 'FragmentSelection') {
+      return s.element.appliedDirectives.length > 0;
+    } else {
+      assertUnreachable(s);
+    }
+  });
+}
+
+function selectionSetHasAlias(selectionSet: SelectionSet): boolean {
+  return hasSelectionWithPredicate(selectionSet, (s: Selection) => {
+    if (s.kind === 'FieldSelection') {
+      return s.element.alias !== undefined;
+    }
+    return false;
+  });
+}
+
+function validateFieldValue({
+  context,
+  selection,
+  fromContextParent,
+  setContextLocations,
+  errorCollector,
+  metadata,
+} : {
+  context: string,
+  selection: string,
+  fromContextParent: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType | UnionType>>,
+  setContextLocations: (ObjectType | InterfaceType | UnionType)[],
+  errorCollector: GraphQLError[],
+  metadata: FederationMetadata,
+}): void {
+  const expectedType = fromContextParent.type;
+  assert(expectedType, 'Expected a type');
+  const validateSelectionFormatResults =
+    validateSelectionFormat({ context, selection, fromContextParent, errorCollector });
+  const selectionType = validateSelectionFormatResults.selectionType;
+
+  // if there was an error, just return, we've already added it to the errorCollector
+  if (selectionType === 'error') {
+    return;
+  }
+
+  const usedTypeConditions = new Set<string>;
+  for (const location of setContextLocations) {
+    // for each location, we need to validate that the selection will result in exactly one field being selected
+    // the number of selection sets created will be the same
+    let selectionSet: SelectionSet;
+    try {
+      selectionSet = parseSelectionSet({ parentType: location,  source: selection});
+    } catch (e) {
+      errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+        `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid for type ${location.name}. Error: ${e.message}`,
+        { nodes: sourceASTs(fromContextParent) }
+      ));
+      return;
+    }
+    if (selectionSetHasDirectives(selectionSet)) {
+      errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+        `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: directives are not allowed in the selection`,
+        { nodes: sourceASTs(fromContextParent) }
+      ));
+    }
+    if (selectionSetHasAlias(selectionSet)) {
+      errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+        `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: aliases are not allowed in the selection`,
+        { nodes: sourceASTs(fromContextParent) }
+      ));
+    }
+
+    if (selectionType === 'field') {
+      const { resolvedType } = validateFieldValueType({
+        currentType: location,
+        selectionSet,
+        errorCollector,
+        metadata,
+        fromContextParent,
+      });
+      if (resolvedType === undefined || !isValidImplementationFieldType(resolvedType, expectedType!)) {
+        errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: the type of the selection "${resolvedType}" does not match the expected type "${expectedType?.toString()}"`,
+          { nodes: sourceASTs(fromContextParent) }
+        ));
+        return;
+      }
+    } else if (selectionType === 'inlineFragment') {
+      // ensure that each location maps to exactly one fragment
+      const selections: FragmentSelection[] = [];
+      for (const selection of selectionSet.selections()) {
+        if (selection.kind !== 'FragmentSelection') {
+          errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+            `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: selection should only contain a single field or at least one inline fragment}"`,
+            { nodes: sourceASTs(fromContextParent) }
+          ));
+          continue;
+        }
+
+        const { typeCondition } = selection.element;
+        if (!typeCondition) {
+          errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+            `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: inline fragments must have type conditions"`,
+            { nodes: sourceASTs(fromContextParent) }
+          ));
+          continue;
+        }
+
+        if (typeCondition.kind === 'ObjectType') {
+          if (possibleRuntimeTypes(location).includes(typeCondition)) {
+            selections.push(selection);
+            usedTypeConditions.add(typeCondition.name);
+          }
+        } else {
+          errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+            `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: type conditions must be an object type"`,
+            { nodes: sourceASTs(fromContextParent) }
+          ));
+        }
+      }
+
+      if (selections.length === 0) {
+        errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: no type condition matches the location "${location.coordinate}"`,
+          { nodes: sourceASTs(fromContextParent) }
+        ));
+        return;
+      } else {
+        for (const selection of selections) {
+          let { resolvedType } = validateFieldValueType({
+            currentType: selection.element.typeCondition!,
+            selectionSet: selection.selectionSet,
+            errorCollector,
+            metadata,
+            fromContextParent,
+          });
+
+          if (resolvedType === undefined) {
+            errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+              `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: the type of the selection does not match the expected type "${expectedType?.toString()}"`,
+              { nodes: sourceASTs(fromContextParent) }
+            ));
+            return;
+          }
+
+          // Because other subgraphs may define members of the location type,
+          // it's always possible that none of the type conditions map, so we
+          // must remove any surrounding non-null wrapper if present.
+          if (isNonNullType(resolvedType)) {
+            resolvedType = resolvedType.ofType;
+          }
+
+          if (!isValidImplementationFieldType(resolvedType!, expectedType!)) {
+            errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+              `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: the type of the selection "${resolvedType?.toString()}" does not match the expected type "${expectedType?.toString()}"`,
+              { nodes: sourceASTs(fromContextParent) }
+            ));
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  if (validateSelectionFormatResults.selectionType === 'inlineFragment') {
+    for (const typeCondition of validateSelectionFormatResults.typeConditions) {
+      if (!usedTypeConditions.has(typeCondition)) {
+        errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
+          `Context "${context}" is used in "${fromContextParent.coordinate}" but the selection is invalid: type condition "${typeCondition}" is never used.`,
+          { nodes: sourceASTs(fromContextParent) }
+        ));
+      }
+    }
+  }
+}
+
 function validateAllFieldSet<TParent extends SchemaElement<any, any>>({
   definition,
   targetTypeExtractor,
@@ -399,6 +789,12 @@ export function collectUsedFields(metadata: FederationMetadata): Set<FieldDefini
     usedFields,
   );
 
+  // also for @fromContext
+  collectUsedFieldsForFromContext<CompositeType>(
+    metadata,
+    usedFields,
+  );
+
   // Collects all fields used to satisfy an interface constraint
   for (const itfType of metadata.schema.interfaceTypes()) {
     const runtimeTypes = itfType.possibleRuntimeTypes();
@@ -413,6 +809,80 @@ export function collectUsedFields(metadata: FederationMetadata): Set<FieldDefini
   }
 
   return usedFields;
+}
+
+function collectUsedFieldsForFromContext<TParent extends SchemaElement<any, any>>(
+  metadata: FederationMetadata,
+  usedFieldDefs: Set<FieldDefinition<CompositeType>>
+) {
+  const fromContextDirective = metadata.fromContextDirective();
+  const contextDirective = metadata.contextDirective();
+
+  // if one of the directives is not defined, there's nothing to validate
+  if (!isFederationDirectiveDefinedInSchema(fromContextDirective) || !isFederationDirectiveDefinedInSchema(contextDirective)) {
+    return;
+  }
+
+  // build the list of context entry points
+  const entryPoints = new Map<string, Set<CompositeType>>();
+  for (const application of contextDirective.applications()) {
+    const type = application.parent;
+    if (!type) {
+      // Means the application is wrong: we ignore it here as later validation will detect it
+      continue;
+    }
+    const context = application.arguments().name;
+    if (!entryPoints.has(context)) {
+      entryPoints.set(context, new Set());
+    }
+    entryPoints.get(context)!.add(type as CompositeType);
+  }
+
+  for (const application of fromContextDirective.applications()) {
+    const type = application.parent as TParent;
+    if (!type) {
+      // Means the application is wrong: we ignore it here as later validation will detect it
+      continue;
+    }
+
+    const fieldValue = application.arguments().field;
+    const { context, selection } = parseContext(fieldValue);
+
+    if (!context) {
+      continue;
+    }
+
+    // now we need to collect all the fields used for every type that they could be used for
+    const contextTypes = entryPoints.get(context);
+    if (!contextTypes) {
+      continue;
+    }
+
+    for (const contextType of contextTypes) {
+      try {
+        // helper function
+        const fieldAccessor = (t: CompositeType, f: string) => {
+          const field = t.field(f);
+          if (field) {
+            usedFieldDefs.add(field);
+            if (isInterfaceType(t)) {
+              for (const implType of t.possibleRuntimeTypes()) {
+                const implField = implType.field(f);
+                if (implField) {
+                  usedFieldDefs.add(implField);
+                }
+              }
+            }
+          }
+          return field;
+        };
+
+        parseSelectionSet({ parentType: contextType, source: selection, fieldAccessor });
+      } catch (e) {
+        // ignore the error, it will be caught later
+      }
+    }
+  }
 }
 
 function collectUsedFieldsForDirective<TParent extends SchemaElement<any, any>>(
@@ -453,7 +923,6 @@ function validateAllExternalFieldsUsed(metadata: FederationMetadata, errorCollec
       if (!metadata.isFieldExternal(field) || metadata.isFieldUsed(field)) {
         continue;
       }
-
       errorCollector.push(ERRORS.EXTERNAL_UNUSED.err(
         `Field "${field.coordinate}" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
         + ' the field declaration has no use and should be removed (or the field should not be @external).',
@@ -579,7 +1048,6 @@ function validateShareableNotRepeatedOnSameDeclaration(
     }
   }
 }
-
 export class FederationMetadata {
   private _externalTester?: ExternalTester;
   private _sharingPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
@@ -781,6 +1249,14 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.POLICY);
   }
 
+fromContextDirective(): Post20FederationDirectiveDefinition<{ field: string }> {
+    return this.getPost20FederationDirective(FederationDirectiveName.FROM_CONTEXT);
+}
+
+contextDirective(): Post20FederationDirectiveDefinition<{ name: string }> {
+    return this.getPost20FederationDirective(FederationDirectiveName.CONTEXT);
+}
+
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives: DirectiveDefinition[] = [
       this.keyDirective(),
@@ -820,6 +1296,16 @@ export class FederationMetadata {
     if (isFederationDirectiveDefinedInSchema(policyDirective)) {
       baseDirectives.push(policyDirective);
     }
+
+      const contextDirective = this.contextDirective();
+      if (isFederationDirectiveDefinedInSchema(contextDirective)) {
+          baseDirectives.push(contextDirective);
+      }
+
+      const fromContextDirective = this.fromContextDirective();
+      if (isFederationDirectiveDefinedInSchema(fromContextDirective)) {
+          baseDirectives.push(fromContextDirective);
+      }
 
     return baseDirectives;
   }
@@ -1053,6 +1539,106 @@ export class FederationBlueprint extends SchemaBlueprint {
       metadata,
     });
 
+    // validate @context and @fromContext
+    const contextDirective = metadata.contextDirective();
+    const contextToTypeMap = new Map<string, (ObjectType | InterfaceType | UnionType)[]>();
+    for (const application of contextDirective.applications()) {
+      const parent = application.parent;
+      const name = application.arguments().name as string;
+
+      if (name.includes('_')) {
+        errorCollector.push(ERRORS.CONTEXT_NAME_INVALID.err(
+          `Context name "${name}" may not contain an underscore.`,
+          { nodes: sourceASTs(application) }
+        ));
+      }
+      const types = contextToTypeMap.get(name);
+      if (types) {
+        types.push(parent);
+      } else {
+        contextToTypeMap.set(name, [parent]);
+      }
+    }
+
+    const fromContextDirective = metadata.fromContextDirective();
+    for (const application of fromContextDirective.applications()) {
+      const { field } = application.arguments();
+      const { context, selection } = parseContext(field);
+
+      // error if parent's parent is a directive definition
+      if (application.parent.parent.kind === 'DirectiveDefinition') {
+        errorCollector.push(ERRORS.CONTEXT_NOT_SET.err(
+          `@fromContext argument cannot be used on a directive definition "${application.parent.coordinate}".`,
+          { nodes: sourceASTs(application) }
+        ));
+        continue;
+      }
+
+      const parent = application.parent as ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType | UnionType>>;
+
+      // error if parent's parent is an interface
+      if (parent?.parent?.parent?.kind !== 'ObjectType') {
+        errorCollector.push(ERRORS.CONTEXT_NOT_SET.err(
+          `@fromContext argument cannot be used on a field that exists on an abstract type "${application.parent.coordinate}".`,
+          { nodes: sourceASTs(application) }
+        ));
+        continue;
+      }
+
+      // error if the parent's parent implements an interface containing the field
+      const objectType = parent.parent.parent;
+      for (const implementedInterfaceType of objectType.interfaces()) {
+        const implementedInterfaceField = implementedInterfaceType.field(parent.parent.name);
+        if (implementedInterfaceField) {
+          errorCollector.push(ERRORS.CONTEXT_NOT_SET.err(
+            `@fromContext argument cannot be used on a field implementing an interface field "${implementedInterfaceField.coordinate}".`,
+            { nodes: sourceASTs(application) }
+          ));
+        }
+      }
+
+      if (parent.defaultValue !== undefined) {
+        errorCollector.push(ERRORS.CONTEXT_NOT_SET.err(
+          `@fromContext arguments may not have a default value: "${parent.coordinate}".`,
+          { nodes: sourceASTs(application) }
+        ));
+      }
+
+      if (!context || !selection) {
+        errorCollector.push(ERRORS.NO_CONTEXT_IN_SELECTION.err(
+          `@fromContext argument does not reference a context "${field}".`,
+          { nodes: sourceASTs(application) }
+        ));
+      } else {
+        const locations = contextToTypeMap.get(context);
+        if (!locations) {
+          errorCollector.push(ERRORS.CONTEXT_NOT_SET.err(
+            `Context "${context}" is used at location "${parent.coordinate}" but is never set.`,
+            { nodes: sourceASTs(application) }
+          ));
+        } else {
+          validateFieldValue({
+            context,
+            selection,
+            fromContextParent: parent,
+            setContextLocations: locations,
+            errorCollector,
+            metadata,
+          });
+        }
+
+        // validate that there is at least one resolvable key on the type
+        const keyDirective = metadata.keyDirective();
+        const keyApplications = objectType.appliedDirectivesOf(keyDirective);
+        if (!keyApplications.some(app => app.arguments().resolvable || app.arguments().resolvable === undefined)) {
+          errorCollector.push(ERRORS.CONTEXT_NO_RESOLVABLE_KEY.err(
+            `Object "${objectType.coordinate}" has no resolvable key but has an a field with a contextual argument.`,
+            { nodes: sourceASTs(objectType) }
+          ));
+        }
+      }
+    }
+
     validateNoExternalOnInterfaceFields(metadata, errorCollector);
     validateAllExternalFieldsUsed(metadata, errorCollector);
     validateKeyOnInterfacesAreAlsoOnAllImplementations(metadata, errorCollector);
@@ -1203,10 +1789,9 @@ export function setSchemaAsFed2Subgraph(schema: Schema, useLatest: boolean = fal
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy"])';
-
-// This is the federation @link for tests that go through the asFed2SubgraphDocument function.
-export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.7", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.8", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy", "@context", "@fromContext"])';
+// This is the full @link declaration that is added when upgrading fed v1 subgraphs to v2 version. It should only be used by tests.
+export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.8", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 
 // This is the federation @link for tests that go through the SchemaUpgrader.
 export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS_UPGRADED = '@link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';

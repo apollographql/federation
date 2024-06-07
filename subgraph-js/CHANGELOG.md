@@ -1,46 +1,36 @@
 # CHANGELOG for `@apollo/subgraph`
 
-## 2.8.0-connectors.5
+## 2.8.0
 
 ### Patch Changes
 
-- Updated dependencies [[`28850ffba17d4201321dc6de0edc24cae48ec5e5`](https://github.com/apollographql/federation/commit/28850ffba17d4201321dc6de0edc24cae48ec5e5)]:
-  - @apollo/federation-internals@2.8.0-connectors.5
+- Various set context bugfixes ([#3017](https://github.com/apollographql/federation/pull/3017))
 
-## 2.8.0-connectors.4
+- Updated dependencies [[`c4744da360235d8bb8270ea048f0e0fa5d03be1e`](https://github.com/apollographql/federation/commit/c4744da360235d8bb8270ea048f0e0fa5d03be1e), [`8a936d741a0c05835ff2533714cf330d18209179`](https://github.com/apollographql/federation/commit/8a936d741a0c05835ff2533714cf330d18209179)]:
+  - @apollo/federation-internals@2.8.0
 
-### Patch Changes
-
-- Updated dependencies []:
-  - @apollo/federation-internals@2.8.0-connectors.4
-
-## 2.8.0-connectors.3
+## 2.8.0-alpha.1
 
 ### Patch Changes
 
 - Updated dependencies []:
-  - @apollo/federation-internals@2.8.0-connectors.3
+  - @apollo/federation-internals@2.8.0-alpha.1
 
-## 2.8.0-connectors.2
-
-### Patch Changes
-
-- Updated dependencies []:
-  - @apollo/federation-internals@2.8.0-connectors.2
-
-## 2.8.0-connectors.1
+## 2.8.0-alpha.0
 
 ### Patch Changes
 
-- Updated dependencies [[`9ffa43237e7dc8dc932edfa93dc86dfd4f75f92e`](https://github.com/apollographql/federation/commit/9ffa43237e7dc8dc932edfa93dc86dfd4f75f92e)]:
-  - @apollo/federation-internals@2.8.0-connectors.1
+- Updated dependencies [[`c4744da360235d8bb8270ea048f0e0fa5d03be1e`](https://github.com/apollographql/federation/commit/c4744da360235d8bb8270ea048f0e0fa5d03be1e)]:
+  - @apollo/federation-internals@2.8.0-alpha.0
 
-## 2.8.0-connectors.0
+## 2.7.8
 
 ### Patch Changes
 
-- Updated dependencies []:
-  - @apollo/federation-internals@2.8.0-connectors.0
+- Triggering a clean 2.7.8 release now that harmonizer build has been fixed. ([#3010](https://github.com/apollographql/federation/pull/3010))
+
+- Updated dependencies [[`2ad72802044310a528e8944f4538efe519424504`](https://github.com/apollographql/federation/commit/2ad72802044310a528e8944f4538efe519424504)]:
+  - @apollo/federation-internals@2.7.8
 
 ## 2.7.7
 
