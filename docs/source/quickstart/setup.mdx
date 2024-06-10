@@ -194,17 +194,17 @@ Complete the first two steps of <a href="/rover/configuring/" target="_blank">Co
 
 ## 2. Create a router project directory
 
-As mentioned in [Federation concepts](#federation-concepts), your federated supergraph is represented by a graph router that routes queries to various subgraphs. For this tutorial, we'll use some Apollo-hosted example services as our subgraphs, and we'll set up the Apollo Router in front of them.
+As mentioned in [Federation concepts](#federation-concepts), your federated supergraph is represented by a graph router that routes queries to various subgraphs. For this tutorial, we'll use some Apollo-hosted example services as our subgraphs, and we'll set up the GraphOS Router in front of them.
 
 <Note>
 
-The Apollo Router is a high-performance, precompiled Rust executable that acts as the router for a supergraph.
+The GraphOS Router is a high-performance, precompiled Rust executable that acts as the router for a supergraph.
 
-Alternatively, Apollo Server can act as your graph router, as documented in [The graph router](../building-supergraphs/router/). This tutorial uses the Apollo Router because it's the recommended default for all new supergraphs (for details, see [Choosing a router library](../building-supergraphs/router/#choosing-a-router-library)).
+Alternatively, Apollo Server can act as your graph router, as documented in [The graph router](../building-supergraphs/router/). This tutorial uses the GraphOS Router because it's the recommended default for all new supergraphs (for details, see [Choosing a router library](../building-supergraphs/router/#choosing-a-router-library)).
 
 </Note>
 
-On your development machine, first create a new directory for your router project. Then inside that directory, run the following to install the Apollo Router:
+On your development machine, first create a new directory for your router project. Then inside that directory, run the following to install the GraphOS Router:
 
 ```bash
 curl -sSL https://router.apollo.dev/download/nix/latest | sh
