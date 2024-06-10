@@ -60,6 +60,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         source: String
         http: ConnectHTTP
         selection: JSONSelection!
+        entity: Boolean = false
       ) repeatable on FIELD_DEFINITION
     */
     const connect = this.addDirective(schema, CONNECT).addLocations(DirectiveLocation.FIELD_DEFINITION);
@@ -105,6 +106,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
     connect.addArgument('http', new NonNullType(ConnectHTTP));
 
     connect.addArgument('selection', JSONSelection);
+    connect.addArgument('entity', schema.booleanType(), false);
 
     /*
       directive @source(
