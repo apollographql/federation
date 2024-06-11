@@ -1662,7 +1662,7 @@ class Merger {
     }
     
     // if there is a @fromContext directive on one of the source's arguments, we need a join__field
-    if (sources.some((s, idx) => {
+    if (sources.filter(isDefined).some((s, idx) => {
       const fromContextDirective = this.subgraphs.values()[idx].metadata().fromContextDirective();
       if (s && isFederationDirectiveDefinedInSchema(fromContextDirective)) {
         return s.kind === 'FieldDefinition' && s.arguments().some(arg => arg.appliedDirectivesOf(fromContextDirective).length > 0);
