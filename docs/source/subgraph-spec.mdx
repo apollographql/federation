@@ -35,6 +35,7 @@ union _Entity
 scalar _Any
 scalar FieldSet
 scalar link__Import
+scalar federation__ContextFieldValue
 scalar federation__Scope
 scalar federation__Policy
 
@@ -73,6 +74,8 @@ directive @interfaceObject on OBJECT
 directive @authenticated on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
 directive @requiresScopes(scopes: [[federation__Scope!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
 directive @policy(policies: [[federation__Policy!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+directive @context(name: String!) repeatable on INTERFACE | OBJECT | UNION
+directive @fromContext(field: ContextFieldValue) on ARGUMENT_DEFINITION
 
 # This definition is required only for libraries that don't support
 # GraphQL's built-in `extend` keyword
