@@ -80,6 +80,7 @@ import {
   Subgraph,
   StaticArgumentsTransform,
   isNullableType,
+  isFieldDefinition,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -310,13 +311,15 @@ class Merger {
   private latestFedVersionUsed: FeatureVersion;
   private joinDirectiveIdentityURLs = new Set<string>();
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
+  private fieldsWithFromContext: Set<string>;
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.latestFedVersionUsed = this.getLatestFederationVersionUsed();
     this.joinSpec = JOIN_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.linkSpec = LINK_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.inaccessibleSpec = INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
-
+    this.fieldsWithFromContext = this.getFieldsWithFromContextDirective();
+    
     this.names = subgraphs.names();
     this.composeDirectiveManager = new ComposeDirectiveManager(
       this.subgraphs,
@@ -1661,14 +1664,8 @@ class Merger {
       return true;
     }
     
-    // if there is a @fromContext directive on one of the source's arguments, we need a join__field
-    if (sources.some((s, idx) => {
-      const fromContextDirective = this.subgraphs.values()[idx].metadata().fromContextDirective();
-      if (s && isFederationDirectiveDefinedInSchema(fromContextDirective)) {
-        return s.kind === 'FieldDefinition' && s.arguments().some(arg => arg.appliedDirectivesOf(fromContextDirective).length > 0);
-      }
-      return false;
-    })) {
+    const coordinate = sources.find(isDefined)?.coordinate;
+    if (coordinate && this.fieldsWithFromContext.has(coordinate)) {
       return true;
     }
 
@@ -3208,5 +3205,23 @@ class Merger {
         { nodes},
       ));
     }
+  }
+  
+  private getFieldsWithFromContextDirective(): Set<string> {
+    const fieldsWithFromContext = new Set<string>();
+    for (const subgraph of this.subgraphs) {
+      const fromContextDirective = subgraph.metadata().fromContextDirective();
+      if (isFederationDirectiveDefinedInSchema(fromContextDirective)) {
+        for (const application of fromContextDirective.applications()) {
+          const field = application.parent.parent;
+          assert(isFieldDefinition(field), () => `Expected ${application.parent.parent} to be a field`);
+          const coordinate = field.coordinate;
+          if (!fieldsWithFromContext.has(coordinate)) {
+            fieldsWithFromContext.add(coordinate);
+          }
+        }
+      }
+    }
+    return fieldsWithFromContext;
   }
 }
