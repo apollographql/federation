@@ -924,6 +924,8 @@ If different subgraphs use different versions of a directive's corresponding spe
 
 </MinVersion>
 
+<EnterpriseFeature />
+
 The `@context` directive defines a named context from which a field of the annotated type can be passed to a receiver of the context. The receiver must be a field annotated with the `@fromContext` directive. 
 
 ```graphql
@@ -956,6 +958,8 @@ type U @key(fields: "id") {
 ### `@fromContext`
 
 </MinVersion>
+
+<EnterpriseFeature />
 
 The `@fromContext` directive sets the context from which to receive the value of the annotated field. The context must have been defined with the `@context` directive.
 
