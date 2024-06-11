@@ -3786,3 +3786,7 @@ function copyDirectiveDefinitionInner(
   dest.sourceAST = source.sourceAST;
   dest.description = source.description;
 }
+
+export function isFieldDefinition(elem: SchemaElement<any, any>): elem is FieldDefinition<any> {
+  return elem instanceof FieldDefinition;
+}
