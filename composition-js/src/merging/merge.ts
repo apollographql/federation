@@ -906,7 +906,8 @@ class Merger {
         if (isValueType) {
           this.hintOnInconsistentValueTypeField(sources, dest, destField);
         }
-        const subgraphFields = sources.map(t => t?.field(destField.name));
+        const subgraphFields = sources.map(t => t?.field(destField.name))
+            .filter(isDefined);
         const mergeContext = this.validateOverride(subgraphFields, destField);
 
         if (isSubscription) {
@@ -2050,7 +2051,8 @@ class Merger {
       if (!hasKey) {
         this.hintOnInconsistentValueTypeField(sources, dest, destField);
       }
-      const subgraphFields = sources.map(t => t?.field(destField.name));
+      const subgraphFields = sources.map(t => t?.field(destField.name))
+          .filter(isDefined);
       const mergeContext = this.validateOverride(subgraphFields, destField);
       this.mergeField({
         sources: subgraphFields,
@@ -2239,7 +2241,7 @@ class Merger {
     // but we do so because:
     // 1. this will catch any problems merging the description/directives (which feels like a good thing).
     // 2. it easier to see if the value is marked @inaccessible.
-    const valueSources = sources.map(s => s?.value(value.name));
+    const valueSources = sources.map(s => s?.value(value.name)).filter(isDefined);
     this.mergeDescription(valueSources, value);
     this.recordAppliedDirectivesToMerge(valueSources, value);
     this.addJoinEnumValue(valueSources, value);
@@ -2348,7 +2350,8 @@ class Merger {
       // We merge the details of the field first, even if we may remove it afterwards because 1) this ensure we always checks type
       // compatibility between definitions and 2) we actually want to see if the result is marked inaccessible or not and it makes
       // that easier.
-      this.mergeInputField(sources.map(t => t?.field(name)), destField);
+      let subgraphFields = sources.map(t => t?.field(name)).filter(isDefined);
+      this.mergeInputField(subgraphFields, destField);
       const isInaccessible = inaccessibleInSupergraph && destField.hasAppliedDirective(inaccessibleInSupergraph.definition);
       // Note that if the field is manually marked @inaccessible, we can always accept it to be inconsistent between subgraphs since
       // it won't be exposed in the API, and we don't hint about it because we're just doing what the user is explicitely asking.
