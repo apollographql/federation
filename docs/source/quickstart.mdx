@@ -4,6 +4,8 @@ subtitle: Create a federated GraphQL API with Apollo Federation
 description: Create a federated GraphQL API with Apollo Federation
 ---
 
+[To-do: Intro story]
+
 By the end of this tutorial, you will have locally set up a federated GraphQL API using a demo supergraph.
 To learn more about Apollo Federation and the benefits of using it with GraphOS, check out these resources:
 
@@ -23,7 +25,7 @@ If you haven't already, set these up before continuing.
 
 ## Overview
 
-Setting up a federated GraphQL API with GraphOS takes a few steps:
+Locally running a federated GraphQL API with GraphOS takes a few steps:
 
 1. Install and authenticate the Rover CLI.
 2. Start local development.
@@ -106,14 +108,26 @@ When you first start the `rover dev` process, you'll see the following in the te
 3. Rover starts a locally running router session and provides it with the supergraph schema.
 4. Rover starts watching the provided subgraph schema for changes. It recomposes the supergraph schema whenever it detects one. Recomposition automatically reloads the router.
 
-To ensure everything is working as expected, you can try querying your router in the Apollo Sandbox that Rover automatically starts up.
-Specifically, you can try searching for all products that start with "A".
+Next, you'll query your locally running supergraph [to-do: storytelling].
 
-1. Open [localhost:4000](http://localhost:4000/). This lets you explore the composed schema in Apollo Sandbox.
+### Step 3. Query your supergraph
+
+To ensure everything is working as expected, you can try querying your router in the Apollo Sandbox that Rover automatically starts up.
+You can access your locally running router at [localhost:4000](http://localhost:4000/).
 
 [To-do: Sandbox image]
 
-2. Copy and paste the following query into the **Operation** window:
+This tutorial walks you through two sample queries to showcase some of the Sandbox's features:
+
+- Searching for all products that start with "A"
+- Getting a user's cart, given their user IDs
+
+#### Search for products
+
+First, you'll search for all products using the `SearchProducts` operation.
+The operation takes a `searchInput` argument that lets you filter products by certain criteria.
+
+1. Copy and paste the following operation into the **Operation** window:
 
 ```graphQL showLineNumbers=false
 # Search all products with some optional filters
@@ -131,7 +145,7 @@ query SearchProducts($searchInput: ProductSearchInput!) {
 }
 ```
 
-3. In the **Variables** tab below the **Operation** window, past the following JSON:
+2. To supply the search criteria, you can use the the **Variables** tab. In the **Variables** tab below the **Operation** window, paste the following JSON:
 
 ```JSON showLineNumbers=false
 {
@@ -140,7 +154,8 @@ query SearchProducts($searchInput: ProductSearchInput!) {
   }
 }
 ```
-4. Click the play button, now labeled with the name of the sample operation, **SearchProducts**.
+
+3. Click the play button, now labeled with the name of the sample operation, **SearchProducts**.
 
 You should see a response that looks like this:
 
@@ -170,62 +185,145 @@ You should see a response that looks like this:
 }
 ```
 
-Congrats, you've built and queried a federated GraphQL API locally!
-Next, you'll query your supergraph using the GraphOS Studio Explorer which offers additional capabilities over Apollo Sandbox.
+[To-do: Sandbox image]
 
-<Note>
+#### Get user's cart
 
-You can stop your initial `rover dev` process by pressing `CTRL+C`. This shuts down the local router session and any secondary `rover dev` processes attached to that same session.
-
-</Note>
-
-
-### Step 3. Query your supergraph
-
-The Explorer is a GraphQL IDE that provides visibility into your supergraph's entire schema and helps you build, run, and understand queries.
-
-In [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content), from your organization's **Graphs** tab, select your new variant and then open its **Explorer** page from the left navigation.
-
-Run the query you previously ran in the Sandbox:
-
-```graphQL showLineNumbers=false
-query ExampleQuery {
-  todo
+```graphql
+# Get the current user's cart with all the items and their product info as well as the price.
+query GetCart {
+  user {
+    id
+    username
+    shippingAddress
+    cart {
+      subtotal
+      items {
+        price
+        inventory {
+          inStock
+        }
+        product {
+          title
+          description
+          mediaUrl
+        }
+      }
+    }
+  }
 }
 ```
 
-Querying in Explorer may not feel that different from running the query in the Sandbox. Running operations on a published supergraph from the Explorer has a couple of additional benefits:
 
-- Inspecting query plans
-- Collecting and visualizing operation metrics
+```text
+Headers:
+x-user-id: user:1
+```
+
 
 #### Inspect query plans
 
-The Explorer dynamically displays example _query plans_ for your operations in the right-hand panel.
+Sandbox dynamically displays example _query plans_ for your operations in the right-hand panel.
 A query plan is a blueprint for dividing a single incoming operation into one or more operations that are each resolvable by a single subgraph.
 You can toggle to view the query plan instead of the response by clicking **Response** and selecting **Query Plan Preview**.
 
 [To-do: QP image]
 
-An example query plan for the query you previously ran may look something like this:
+An example query plan for the `GetCart` operation looks something like this:
 
 ```showLineNumbers=false
 QueryPlan {
-  Parallel {
-    Fetch(service: "products") {
+  Sequence {
+    Fetch(service: "users") {
       {
-        products {
+        user {
+          __typename
           id
-          name
+          username
+          shippingAddress
         }
       }
     },
-    Fetch(service: "orders") {
-      {
-        latestOrders {
-          id
+    Flatten(path: "user") {
+      Fetch(service: "checkout") {
+        {
+          ... on User {
+            __typename
+            id
+          }
+        } =>
+        {
+          ... on User {
+            cart {
+              __typename
+              items {
+                __typename
+                id
+              }
+              userId
+            }
+          }
         }
-      }
+      },
+    },
+    Parallel {
+      Sequence {
+        Flatten(path: "user.cart.items.@") {
+          Fetch(service: "products") {
+            {
+              ... on Variant {
+                __typename
+                id
+              }
+            } =>
+            {
+              ... on Variant {
+                price
+                product {
+                  title
+                  description
+                  mediaUrl
+                }
+              }
+            }
+          },
+        },
+        Flatten(path: "user.cart") {
+          Fetch(service: "checkout") {
+            {
+              ... on Cart {
+                __typename
+                items {
+                  price
+                }
+                userId
+              }
+            } =>
+            {
+              ... on Cart {
+                subtotal
+              }
+            }
+          },
+        },
+      },
+      Flatten(path: "user.cart.items.@") {
+        Fetch(service: "inventory") {
+          {
+            ... on Variant {
+              __typename
+              id
+            }
+          } =>
+          {
+            ... on Variant {
+              inventory {
+                inStock
+              }
+            }
+          }
+        },
+      },
     },
   },
 }
@@ -234,22 +332,11 @@ QueryPlan {
 As you edit an operation, the Explorer recalculates its example query plan accordingly.
 Query plans to help you understand the inner workings of Apollo Federation.
 
-#### Collect and visualize metrics
+<Note>
 
-Operations you run in the Explorer are sent to the GraphOS Router that sits in front of your federated API.
-The router automatically collects metrics on those operations and their fields. You can then visualize those metrics in Studio.
+You can stop your initial `rover dev` process by pressing `CTRL+C`. This shuts down the local router session and any secondary `rover dev` processes attached to that same session.
 
-Go to your variant's **Insights** page, which looks like this:
-
-<img
-  src="./images/insights-quickstart.jpg"
-  className="screenshot"
-  width="700"
-  alt="The Insights page in GraphOS Studio, showing metrics for operations and their fields"
-/>
-
-The **Insights** page should already display the operations you executed in the Explorer.
-After you update your clients to query your router, this page becomes vital to monitoring your supergraph's performance.
+</Note>
 
 ## Next steps
 
