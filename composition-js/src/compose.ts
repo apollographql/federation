@@ -45,7 +45,14 @@ function validateCompositionOptions(options: CompositionOptions) {
   assert(!options?.allowedFieldTypeMergingSubtypingRules?.includes("list_upgrade"), "The `list_upgrade` field subtyping rule is currently not supported");
 }
 
-export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}): CompositionResult {
+/**
+ * Used to compose a supergraph from subgraphs
+ * 
+ * @param subgraphs Subgraphs
+ * @param options CompositionOptions
+ * @param runSatisfiability Boolean - flag used to toggle satisfiability. Defaults to `true`
+ */
+export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}, runSatisfiability = true): CompositionResult {
   validateCompositionOptions(options);
 
   const mergeResult = validateSubgraphsAndMerge(subgraphs);
@@ -53,11 +60,14 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
     return { errors: mergeResult.errors };
   }
 
-  const satisfiabilityResult = validateSatisfiability({
-    supergraphSchema: mergeResult.supergraph
-  });
-  if (satisfiabilityResult.errors) {
-    return { errors: satisfiabilityResult.errors };
+  let satisfiabilityResult;
+  if (runSatisfiability) {
+    satisfiabilityResult = validateSatisfiability({
+      supergraphSchema: mergeResult.supergraph
+    });
+    if (satisfiabilityResult.errors) {
+      return { errors: satisfiabilityResult.errors };
+    }
   }
 
   // printSchema calls validateOptions, which can throw
@@ -74,11 +84,19 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
   return {
     schema: mergeResult.supergraph,
     supergraphSdl,
-    hints: [...mergeResult.hints, ...(satisfiabilityResult.hints ?? [])],
+    hints: [...mergeResult.hints, ...(satisfiabilityResult?.hints ?? [])],
   };
 }
 
-export function composeServices(services: ServiceDefinition[], options: CompositionOptions = {}): CompositionResult  {
+/**
+ * Method to validate and compose services
+ * 
+ * @param services List of Service definitions
+ * @param options CompositionOptions
+ * @param runSatisfiability Flag to toggle satisfiability check within composition. Defaults to `true`
+ * @returns CompositionResult
+ */
+export function composeServices(services: ServiceDefinition[], options: CompositionOptions = {}, runSatisfiability = true): CompositionResult  {
   const subgraphs = subgraphsFromServiceList(services);
   if (Array.isArray(subgraphs)) {
     // Errors in subgraphs are not truly "composition" errors, but it's probably still the best place
@@ -87,7 +105,7 @@ export function composeServices(services: ServiceDefinition[], options: Composit
     return { errors: subgraphs };
   }
 
-  return compose(subgraphs, options);
+  return compose(subgraphs, options, runSatisfiability);
 }
 
 type SatisfiabilityArgs = {
@@ -95,6 +113,13 @@ type SatisfiabilityArgs = {
   supergraphSdl?: never
 } | { supergraphSdl: string, supergraphSchema?: never };
 
+/**
+ * Run satisfiability check for a supergraph
+ * 
+ * Can pass either the supergraph's Schema or SDL to validate
+ * @param args: SatisfiabilityArgs 
+ * @returns { errors? : GraphQLError[], hints? : CompositionHint[] }
+ */
 export function validateSatisfiability({ supergraphSchema, supergraphSdl} : SatisfiabilityArgs) : {
   errors? : GraphQLError[],
   hints? : CompositionHint[],
