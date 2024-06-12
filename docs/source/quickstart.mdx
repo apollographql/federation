@@ -17,6 +17,7 @@ To complete this quickstart, you must have the following:
 - A [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content) account
 - An organization with an [Enterprise trial](https://studio.apollographql.com/signup?type=enterprise-trial&referrer=docs-content) or Enterprise plan
 - A local version of the retail demo supergraph—you can download or clone it from its [GitHub repository](https://github.com/apollosolutions/retail-supergraph)
+- The latest LTS version of [Node](https://nodejs.org/en)
 
 If you haven't already, set these up before continuing.
 
@@ -48,21 +49,23 @@ curl -sSL https://rover.apollo.dev/nix/latest | sh
 iwr 'https://rover.apollo.dev/win/latest' | iex
 ```
 
-After installing, run `rover` in your terminal to confirm that it installed successfully.
+After installing, run `rover -V` in your terminal to confirm that it installed successfully.
 Verify that the printed version number matches the [latest release](https://github.com/apollographql/rover/releases).
 If it doesn't, you might need to manually delete a previous outdated installation.
 
 To use the Rover CLI to manage graphs in GraphOS Studio, you first need to authenticate it.
 This entails obtaining an API key and providing it to Rover.
 
-<ObtainGraphApiKey />
+<ObtainPersonalApiKey />
 
 You can provide your API key to Rover either via the `config auth` command or by setting an environment variable.
-For this tutorial, use the `config auth` command because it's intended for local development.
+The `config auth` command is intended for local development so it's appropriate for this tutorial. Run the command:
 
 ```shell showLineNumbers=false
 rover config auth
 ```
+
+Then copy your personal API key into the prompt when requested.
 
 <Note>
 
@@ -70,43 +73,101 @@ The `auth` command is interactive to prevent your API key from appearing in your
 
 </Note>
 
-### Step 2. Start local development 
+### Step 2. Start local development
 
-The `rover dev` command locally starts a supergraph. Specifically, it starts the supergraph's router.
-You can use the `dev` command with the `--supergraph-config` option to provide the router's configuration.
-Assuming you're using the retail demo supergraph are in the root directory, you can use this command:
+To start local development, you first need to get the retail demo supergraph up and running.
+From the root directory, install dependencies:
 
-```bash title="Example configuration command" showLineNumbers=false
-rover dev --supergraph-config path/to/retail-supergraph.yaml
+```bash
+npm install
 ```
 
+Then run the subgraphs:
+
+```bash
+npm run dev:subgraphs
+```
+
+Now you can use Rover to start the supergraph locally.
+Specifically, the `rover dev` command starts the supergraph's router.
+You can use the `dev` command with the `--supergraph-config` option to provide the router's configuration.
 The `retail-supergraph.yaml` is a [YAML configuration file](/rover/commands/dev#starting-a-session-with-multiple-subgraphs) that includes subgraph names, URLs, and schemas for the retail demo supergraph.
 
-When you first start the `rover dev` process:
+In a separate terminal window, run this command:
 
-1. Rover obtains the provided subgraph schemas.
-2. Rover composes a supergraph schema from the subgraph schemas.
+```bash title="Example configuration command" showLineNumbers=false
+rover dev --supergraph-config supergraph-config-dev.yaml
+```
+
+When you first start the `rover dev` process, you'll see the following in the terminal:
+
+1. Rover obtains the provided subgraph schemas and starts sessions for each of them.
+2. Rover uses Apollo Federation to compose a supergraph schema from the subgraph schemas.
 3. Rover starts a locally running router session and provides it with the supergraph schema.
-4. Rover starts watching the provided subgraph schema for changes, and it recomposes the supergraph schema whenever it detects one. Recomposition automatically reloads the router.
+4. Rover starts watching the provided subgraph schema for changes. It recomposes the supergraph schema whenever it detects one. Recomposition automatically reloads the router.
 
-To ensure everything is working as expected, try querying your router in the Apollo Sandbox that Rover automatically starts up:
+To ensure everything is working as expected, you can try querying your router in the Apollo Sandbox that Rover automatically starts up.
+Specifically, you can try searching for all products that start with "A".
 
 1. Open [localhost:4000](http://localhost:4000/). This lets you explore the composed schema in Apollo Sandbox.
 
 [To-do: Sandbox image]
 
-2. Run the following query:
+2. Copy and paste the following query into the **Operation** window:
 
 ```graphQL showLineNumbers=false
-query ExampleQuery {
-  todo
+# Search all products with some optional filters
+query SearchProducts($searchInput: ProductSearchInput!) {
+  searchProducts(searchInput: $searchInput) {
+    id
+    title
+    description
+    mediaUrl
+    variants {
+      id
+      price
+    }
+  }
 }
 ```
 
+3. In the **Variables** tab below the **Operation** window, past the following JSON:
+
+```JSON showLineNumbers=false
+{
+  "searchInput": {
+    "titleStartsWith": "A"
+  }
+}
+```
+4. Click the play button, now labeled with the name of the sample operation, **SearchProducts**.
+
 You should see a response that looks like this:
 
-```graphQL showLineNumbers=false
-example response
+```JSON showLineNumbers=false
+{
+  "data": {
+    "searchProducts": [
+      {
+        "id": "product:1",
+        "title": "Air Jordan 1 Mid",
+        "description": "Air Jordan 1 Mid is a blue, grey and white sneaker from the iconic jordan brand",
+        "mediaUrl": "https://sneakernews.com/wp-content/uploads/2022/06/air-jordan-1-mid-university-blue-grey-dx9276-100-6.jpg",
+        "variants": [
+          {
+            "id": "variant:1",
+            "price": 600.25
+          },
+          {
+            "id": "variant:2",
+            "price": 20.12
+          }
+        ]
+      },
+      ...
+    ]
+  }
+}
 ```
 
 Congrats, you've built and queried a federated GraphQL API locally!
