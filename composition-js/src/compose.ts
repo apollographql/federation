@@ -53,9 +53,9 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
     return { errors: mergeResult.errors };
   }
 
-  const satisfiabilityResult = validateSatisfiability(
-    mergeResult.supergraph
-  );
+  const satisfiabilityResult = validateSatisfiability({
+    supergraphSchema: mergeResult.supergraph
+  });
   if (satisfiabilityResult.errors) {
     return { errors: satisfiabilityResult.errors };
   }
@@ -90,14 +90,19 @@ export function composeServices(services: ServiceDefinition[], options: Composit
   return compose(subgraphs, options);
 }
 
-export function validateSatisfiability(supergraphSchema: Schema) : {
+type SatisfiabilityArgs = {
+  supergraphSchema: Schema
+  supergraphSdl?: never
+} | { supergraphSdl: string, supergraphSchema?: never };
+
+export function validateSatisfiability({ supergraphSchema, supergraphSdl} : SatisfiabilityArgs) : {
   errors? : GraphQLError[],
   hints? : CompositionHint[],
 } {
   // We pass `null` for the `supportedFeatures` to disable the feature support validation. Validating feature support
   // is useful when executing/handling a supergraph, but here we're just validating the supergraph we've just created,
   // and there is no reason to error due to an unsupported feature.
-  const supergraph = new Supergraph(supergraphSchema, null);
+  const supergraph = supergraphSchema ? new Supergraph(supergraphSchema, null) : Supergraph.build(supergraphSdl);
   const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
   const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
   return validateGraphComposition(supergraph.schema, supergraph.subgraphNameToGraphEnumValue(), supergraphQueryGraph, federatedQueryGraph);
