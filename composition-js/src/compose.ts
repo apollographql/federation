@@ -48,20 +48,16 @@ function validateCompositionOptions(options: CompositionOptions) {
 export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}): CompositionResult {
   validateCompositionOptions(options);
 
-  const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
-  if (upgradeResult.errors) {
-    return { errors: upgradeResult.errors };
-  }
-
-  const toMerge = upgradeResult.subgraphs;
-  const validationErrors = toMerge.validate();
-  if (validationErrors) {
-    return { errors: validationErrors };
-  }
-
-  const mergeResult = mergeSubgraphs(toMerge);
+  const mergeResult = validateSubgraphsAndMerge(subgraphs);
   if (mergeResult.errors) {
     return { errors: mergeResult.errors };
+  }
+
+  const satisfiabilityResult = validateSatisfiability(
+    mergeResult.supergraph
+  );
+  if (satisfiabilityResult.errors) {
+    return { errors: satisfiabilityResult.errors };
   }
 
   // printSchema calls validateOptions, which can throw
@@ -78,7 +74,7 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
   return {
     schema: mergeResult.supergraph,
     supergraphSdl,
-    hints: mergeResult.hints,
+    hints: [...mergeResult.hints, ...(satisfiabilityResult.hints ?? [])],
   };
 }
 
@@ -90,18 +86,34 @@ export function composeServices(services: ServiceDefinition[], options: Composit
     // include the subgraph name in their message.
     return { errors: subgraphs };
   }
+
   return compose(subgraphs, options);
 }
 
-export function satisfiability(supergraphSdl: string) : {
+export function validateSatisfiability(supergraphSchema: Schema) : {
   errors? : GraphQLError[],
   hints? : CompositionHint[],
 } {
   // We pass `null` for the `supportedFeatures` to disable the feature support validation. Validating feature support
   // is useful when executing/handling a supergraph, but here we're just validating the supergraph we've just created,
   // and there is no reason to error due to an unsupported feature.
-  const supergraph = Supergraph.build(supergraphSdl);
+  const supergraph = new Supergraph(supergraphSchema, null);
   const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
   const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
   return validateGraphComposition(supergraph.schema, supergraph.subgraphNameToGraphEnumValue(), supergraphQueryGraph, federatedQueryGraph);
+}
+
+export function validateSubgraphsAndMerge(subgraphs: Subgraphs){
+  const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
+  if (upgradeResult.errors) {
+    return { errors: upgradeResult.errors };
+  }
+
+  const toMerge = upgradeResult.subgraphs;
+  const validationErrors = toMerge.validate();
+  if (validationErrors) {
+    return { errors: validationErrors };
+  }
+
+  return mergeSubgraphs(toMerge);
 }
