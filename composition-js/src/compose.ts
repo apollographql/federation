@@ -45,34 +45,7 @@ function validateCompositionOptions(options: CompositionOptions) {
   assert(!options?.allowedFieldTypeMergingSubtypingRules?.includes("list_upgrade"), "The `list_upgrade` field subtyping rule is currently not supported");
 }
 
-export function compose(schema: Schema, options: CompositionOptions = {}): CompositionResult {
-  // printSchema calls validateOptions, which can throw
-  let supergraphSdl;
-  try {
-    supergraphSdl = printSchema(
-      schema,
-      options.sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions),
-    );
-  } catch (err) {
-    return { errors: [err] };
-  }
-
-  return {
-    schema,
-    supergraphSdl,
-    hints: [],
-  };
-}
-
-export function composeServices(services: ServiceDefinition[], options: CompositionOptions = {}): CompositionResult  {
-  const subgraphs = subgraphsFromServiceList(services);
-  if (Array.isArray(subgraphs)) {
-    // Errors in subgraphs are not truly "composition" errors, but it's probably still the best place
-    // to surface them in this case. Not that `subgraphsFromServiceList` do ensure the errors will
-    // include the subgraph name in their message.
-    return { errors: subgraphs };
-  }
-
+export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}): CompositionResult {
   validateCompositionOptions(options);
 
   const mergeResult = validateSubgraphsAndMerge(subgraphs);
@@ -87,12 +60,34 @@ export function composeServices(services: ServiceDefinition[], options: Composit
     return { errors: satisfiabilityResult.errors };
   }
 
-  const composeResults =  compose(mergeResult.supergraph, options)
+  // printSchema calls validateOptions, which can throw
+  let supergraphSdl;
+  try {
+    supergraphSdl = printSchema(
+      mergeResult.supergraph,
+      options.sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions),
+    );
+  } catch (err) {
+    return { errors: [err] };
+  }
 
-  return composeResults.errors ? { errors: composeResults.errors} : {
-    ...composeResults,
-    hints: [...composeResults.hints, ...mergeResult.hints, ...(satisfiabilityResult.hints ?? [])],
+  return {
+    schema: mergeResult.supergraph,
+    supergraphSdl,
+    hints: [...mergeResult.hints, ...(satisfiabilityResult.hints ?? [])],
   };
+}
+
+export function composeServices(services: ServiceDefinition[], options: CompositionOptions = {}): CompositionResult  {
+  const subgraphs = subgraphsFromServiceList(services);
+  if (Array.isArray(subgraphs)) {
+    // Errors in subgraphs are not truly "composition" errors, but it's probably still the best place
+    // to surface them in this case. Not that `subgraphsFromServiceList` do ensure the errors will
+    // include the subgraph name in their message.
+    return { errors: subgraphs };
+  }
+
+  return compose(subgraphs, options);
 }
 
 export function validateSatisfiability(supergraphSchema: Schema) : {
