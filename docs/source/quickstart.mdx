@@ -16,14 +16,15 @@ To learn more about Apollo Federation and the benefits of using it with GraphOS,
 To complete this quickstart, you must have the following:
 
 - A [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content) account
-- A local version of Apollo's retail demo supergraph—you can download or clone it from its [GitHub repository](https://github.com/apollosolutions/retail-supergraph)
+- A local version of Apollo's retail demo supergraph
+  - Download or clone it from its [GitHub repository](https://github.com/apollosolutions/retail-supergraph)
 - The latest LTS version of [Node](https://nodejs.org/en)
 
 If you haven't already, set these up before continuing.
 
 ## Overview
 
-Locally running a federated GraphQL API with GraphOS takes a few steps:
+Setting up a federated GraphQL API with GraphOS takes a few steps:
 
 1. Install and authenticate the Rover CLI.
 2. Start local development.
@@ -33,6 +34,8 @@ Locally running a federated GraphQL API with GraphOS takes a few steps:
 ### Step 1. Install and authenticate the Rover CLI
 
 _Rover_ is Apollo's CLI for managing all kinds of graphs, including subgraphs and supergraphs. You'll use it throughout this quickstart.
+
+#### Install Rover
 
 <Note>
 
@@ -54,25 +57,37 @@ After installing, run `rover -V` in your terminal to confirm that it installed s
 Verify that the printed version number matches the [latest release](https://github.com/apollographql/rover/releases).
 If it doesn't, you might need to manually delete a previous outdated installation.
 
+#### Authenticate Rover
+
 To use the Rover CLI to manage graphs in GraphOS Studio, you first need to authenticate it.
 This entails obtaining an API key and providing it to Rover.
+For this tutorial, you'll use a graph key for the supergraph you'll build.
 
-<ObtainPersonalApiKey />
+<Caution>
 
-You can provide your API key to Rover either via the `config auth` command or by setting an environment variable.
-The `config auth` command is intended for local development so it's appropriate for this tutorial. Run the command:
+API keys are secret credentials. Never share them outside your organization or commit them to version control. Delete and replace API keys that you believe are compromised.
 
-```shell showLineNumbers=false
-rover config auth
-```
+</Caution>
 
-Then copy your personal API key into the prompt when requested.
+1. Go to [studio.apollographql.com](https://studio.apollographql.com/?referrer=docs-content) and click **+Create New Graph**.
+2. Enter a **Graph title**, for example `Quickstart Demo`. Leave the **Graph Architecture** set to `Supergraph (Default)` and click **Next**.
+3. Next, a **Publish your Schema** dialog appears. Copy the protected value that appears after `APOLLO_KEY=` in the example code block. It begins with `service:`. This is your graph API key.
+4. Copy the value that appears after `rover subgraph publish` and save it to a local text file. This is your graph ref and you'll use it in step 3. Click **Finish later**.
+5. Provide your API key to Rover by running the `config auth` command:
+
+    ```shell showLineNumbers=false
+    rover config auth
+    ```
+
+6. Paste your personal API key into the prompt when requested.
 
 <Note>
 
 The `auth` command is interactive to prevent your API key from appearing in your terminal command history.
 
 </Note>
+
+You've now authenticated Rover with GraphOS and are ready to start local development.
 
 ### Step 2. Start local development
 
@@ -108,13 +123,36 @@ When you first start the `rover dev` process, you'll see the following in the te
 4. Rover starts watching the provided subgraph schema for changes. It recomposes the supergraph schema whenever it detects one. Recomposition automatically reloads the router.
 
 Congrats! You've now got a supergraph running locally.
-Next, you'll publish your subgraph schemas to Studio to make your supergraph externally accessible.
 
-<Note>
+To ensure everything is working as expected, you can try querying your router in the Apollo Sandbox that Rover automatically starts up.
+You can access your locally running router at [localhost:4000](http://localhost:4000/).
 
-You can stop your initial `rover dev` process by pressing `CTRL+C`. This shuts down the local router session and any secondary `rover dev` processes attached to that same session.
+[To-do: Sandbox image]
 
-</Note>
+Try running this sample query by copying and pasting it into the **Operation** window:
+
+```graphQL showLineNumbers=false
+query ListAllProducts {
+  id
+  title
+  description
+  mediaUrl
+  variants {
+    id
+    price
+  }
+}
+```
+
+Once you run the operation, you should see this response in the right window:
+
+```JSON showLineNumbers=false
+to-do
+```
+
+You can try other operations to learn more about the available data.
+
+Next, you'll publish your subgraph schemas to Studio to make your supergraph externally accessible and start recording metrics.
 
 ### Step 3. Publish your subgraph schemas
 
@@ -134,16 +172,7 @@ Assuming you're using the retail demo supergraph and its included subgraph schem
     --schema - <GRAPH_REF>
     ```
 
-2. In your terminal, replace the final value `<GRAPH_REF>` with the appropriate value for your graph.  A graph ref uniquely identifies a particular _variant_ of a particular graph in GraphOS. Every graph ref is a string with the following format:
-
-    `graph-id@variant-name`
-
-    - The value before the `@` is your graph's unique ID in GraphOS.
-    - The value after the `@` is the name of the graph variant you're interacting with.
-
-    Each variant of a graph represents a different environment where that graph runs (such as staging and production). For this quickstart, you can keep the default suggested variant name or change it to anything else you like (for example, `quickstart`).
-
-    After you've published a schema to a particular variant, that variant's graph ref is always available at the top of its README page.
+2. In your terminal, replace the final value `<GRAPH_REF>` with the graph ref you saved in [step 1](#authenticate-rover).
 
 3. Run the modified command.
 
@@ -171,85 +200,24 @@ Assuming you're using the retail demo supergraph and its included subgraph schem
 
 
 Whenever you publish a subgraph schema, GraphOS automatically composes all subgraph schemas into a supergraph schema.
+Next, you'll query your supergraph using the GraphOS Studio Explorer which offers additional capabilities over Apollo Sandbox.
 
 ### Step 4. Query your supergraph
 
-To ensure everything is working as expected, you can try querying your router in the Apollo Sandbox that Rover automatically starts up.
-You can access your locally running router at [localhost:4000](http://localhost:4000/).
+Once you've published subgraph schemas, you can execute queries against your supergraph. To do that, you'll use the GraphOS Studio Explorer.
+The Explorer is a GraphQL IDE that provides visibility into your supergraph's entire schema and helps you build, run, and understand queries.
 
-[To-do: Sandbox image]
+In [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content), from your organization's **Graphs** tab, select your new variant and then open its **Explorer** page from the left navigation.
 
-This tutorial walks you through two sample queries to showcase some of the Sandbox's features:
+Querying in Explorer may not feel that different from running the query in the Sandbox.
+Running operations on a published supergraph from the Explorer has a couple of additional benefits:
 
-- Searching for all products that start with "A"
-- Getting a user's cart, given their user IDs
+- Inspecting query plans
+- Collecting and visualizing operation metrics
 
-#### Search for products
+You'll see these in action by running a sample query for getting a user's cart given the user's ID.
 
-First, you'll search for all products using the `SearchProducts` operation.
-The operation takes a `searchInput` argument that lets you filter products by certain criteria.
-
-1. Copy and paste the following operation into the **Operation** window:
-
-```graphQL showLineNumbers=false
-# Search all products with some optional filters
-query SearchProducts($searchInput: ProductSearchInput!) {
-  searchProducts(searchInput: $searchInput) {
-    id
-    title
-    description
-    mediaUrl
-    variants {
-      id
-      price
-    }
-  }
-}
-```
-
-2. To supply the search criteria, you can use the the **Variables** tab. In the **Variables** tab below the **Operation** window, paste the following JSON:
-
-```JSON showLineNumbers=false
-{
-  "searchInput": {
-    "titleStartsWith": "A"
-  }
-}
-```
-
-3. Click the play button, now labeled with the name of the sample operation, **SearchProducts**.
-
-You should see a response that looks like this:
-
-```JSON showLineNumbers=false
-{
-  "data": {
-    "searchProducts": [
-      {
-        "id": "product:1",
-        "title": "Air Jordan 1 Mid",
-        "description": "Air Jordan 1 Mid is a blue, grey and white sneaker from the iconic jordan brand",
-        "mediaUrl": "https://sneakernews.com/wp-content/uploads/2022/06/air-jordan-1-mid-university-blue-grey-dx9276-100-6.jpg",
-        "variants": [
-          {
-            "id": "variant:1",
-            "price": 600.25
-          },
-          {
-            "id": "variant:2",
-            "price": 20.12
-          }
-        ]
-      },
-      ...
-    ]
-  }
-}
-```
-
-[To-do: Sandbox image]
-
-#### Get user's cart
+Run this query by copying and pasting it into the **Operation** window:
 
 ```graphql
 # Get the current user's cart with all the items and their product info as well as the price.
