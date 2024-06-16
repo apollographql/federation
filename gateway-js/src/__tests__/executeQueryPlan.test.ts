@@ -6868,6 +6868,124 @@ describe('executeQueryPlan', () => {
       `);
     });
 
+    it('handles @key leading to a conflict with a requested alias', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            object: O
+          }
+
+          type O @key(fields: "id") {
+            id: ID!
+            legacyId: ID
+            a: String
+          }
+        `,
+        resolvers: {
+          Query: {
+            object() {
+              return { __typename: 'O', id: 'newId', legacyId: 'legacyId', a: 'a' };
+            },
+          },
+        },
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          extend type O @key(fields: "id") {
+            id: ID!
+            a: String @external
+            b: String @requires(fields: "a")
+          }
+        `,
+        resolvers: {
+          O: {
+            __resolveReference(ref: { id: number }) {
+              return ref;
+            },
+            b(o: { a: string }) {
+              return `B: ${o.a}`;
+            },
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
+
+      const operationWithoutJoin = parseOp(
+        `
+            query TestQuery {
+              object {
+                id: legacyId
+                legacyId
+                a
+              }
+            }
+          `,
+        schema,
+      );
+  
+      const queryPlanWithoutJoin = buildPlan(operationWithoutJoin, queryPlanner);
+      const requestContext = buildRequestContext();
+  
+      const responseWithoutJoin = await executePlan(
+        queryPlanWithoutJoin,
+        operationWithoutJoin,
+        requestContext,
+        schema,
+        serviceMap,
+      );
+      expect(responseWithoutJoin.data).toMatchInlineSnapshot(`
+        Object {
+          "object": Object {
+            "a": "a",
+            "id": "legacyId",
+            "legacyId": "legacyId",
+          },
+        }
+      `);
+
+      const operationWithJoin = parseOp(
+        `
+            query TestQuery {
+              object {
+                id: legacyId
+                legacyId
+                a
+                b
+              }
+            }
+          `,
+        schema,
+      );
+  
+      const queryPlanWithJoin = buildPlan(operationWithJoin, queryPlanner);
+  
+      const responseWithJoin = await executePlan(
+        queryPlanWithJoin,
+        operationWithJoin,
+        requestContext,
+        schema,
+        serviceMap,
+      );
+      // BUG: id is returned as 'newId' instead of being the legacyId
+      expect(responseWithJoin.data).toMatchInlineSnapshot(`
+        Object {
+          "object": Object {
+            "a": "a",
+            "b": "B: a",
+            "id": "legacyId",
+            "legacyId": "legacyId",
+          },
+        }
+      `);
+    })
+
     it('handles field conflicting when type-exploding', async () => {
       const s1 = {
         name: 'S1',
