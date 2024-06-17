@@ -1,11 +1,11 @@
 ---
 title: Apollo Federation Quickstart
-subtitle: Create a federated GraphQL API with Apollo Federation
-description: Create a federated GraphQL API with Apollo Federation
+subtitle: Build a federated GraphQL API with Apollo Federation
+description: Build a federated GraphQL API with Apollo Federation
 ---
 
-Apollo Federation streamlines the integration of microservices, enabling real-time access to your data sources for all your client applications.
-At the end of this quickstart, you will have set up a federated GraphQL API that integrates data from product, user, and order services using a demo retail supergraph.
+Apollo Federation combines microservices into a unified GraphQL API, enabling real-time access to all your data sources for all your client applications.
+At the end of this quickstart, you will have set up a queryable federated GraphQL API that integrates data from product, user, and order services using a retail demo supergraph.
 
 To learn more about Apollo Federation and the benefits of using it with GraphOS, check out these resources:
 
@@ -35,7 +35,7 @@ Setting up a federated GraphQL API with GraphOS takes a few steps:
 ### Step 1. Install and authenticate the Rover CLI
 
 _Rover_ is Apollo's CLI for managing all kinds of graphs, including subgraphs and supergraphs. You'll use it throughout this quickstart.
-In this step you both install and authenticate Rover with your GraphOS account.
+In this step, you both install and authenticate Rover with your GraphOS account.
 
 #### Install Rover
 
@@ -71,8 +71,8 @@ API keys are secret credentials. Never share them outside your organization or c
 </Caution>
 
 1. Go to [studio.apollographql.com](https://studio.apollographql.com/?referrer=docs-content) and click **+Create New Graph**.
-2. Enter a **Graph title**, for example `Federation Quickstart`. Leave the **Graph Architecture** set to `Supergraph (Default)` and click **Next**.
-3. Next, a **Publish your schema using Federation** dialog appears. Copy the protected value that appears after `APOLLO_KEY=` in the example code block. It begins with `service:`. This is your _graph API key_.
+2. Enter a **Graph title**, for example `Federation Quickstart`. Leave the **Graph Architecture** as `Supergraph (Default)`, and **Visible to Team Members** as `On` and click **Next**.
+3. A **Publish your schema using Federation** dialog appears. Copy the protected value that appears after `APOLLO_KEY=` in the example code block. It begins with `service:`. This is your _graph API key_.
 
     <img
       src="./images/quickstart/publish-your-schema.jpg"
@@ -94,7 +94,7 @@ API keys are secret credentials. Never share them outside your organization or c
     </Note>
 6. Paste your API key into the prompt when requested.
 
-You've now authenticated Rover with GraphOS and are ready to start local development!
+You've now authenticated Rover with GraphOS and are ready to start local development with your supergraph!
 
 ### Step 2. Start local development
 
@@ -120,7 +120,7 @@ In this step, you'll do the following:
 
 1. Locally run the subgraphs.
 2. Locally run your router.
-3. Query your locally running router to ensure it's working as expected.
+3. Query your router to ensure it's working as expected.
 
 
 #### Run subgraphs
@@ -137,6 +137,17 @@ Then run the subgraphs:
 ```bash showLineNumbers=false
 npm run dev:subgraphs
 ```
+
+In your terminal, you should see notifications for each subgraph:
+
+```bash showLineNumbers=false disableCopy=true
+Setting up [products] subgraph at http://localhost:4001/products/graphql
+Setting up [orders] subgraph at http://localhost:4001/orders/graphql
+Setting up [users] subgraph at http://localhost:4001/users/graphql
+...
+```
+
+Keep these subgraphs up and running so that the router can query them.
 
 #### Run router
 
@@ -161,7 +172,7 @@ When you first start the `rover dev` process, you'll see the following steps hap
 
 Congrats! You've now got a supergraph running locally.
 
-#### Locally query your router
+#### Query your router
 
 To ensure everything is working as expected, you can query your router in the Apollo Sandbox that Rover automatically starts up.
 
@@ -201,8 +212,8 @@ Next, you'll publish your locally running subgraph schemas to Studio to make you
 In a federated architecture, multiple services are _composed_ into a single federated supergraph.
 The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific metadata.
 
-To make your supergraph externally accessible, you individually publish each subgraph's schema to GraphOS. 
-Whenever you publish a subgraph schema, GraphOS attempts to compose all the latest versions of your subgraph schemas into a single supergraph schema.
+To make your supergraph externally accessible, you individually publish each subgraph schema to GraphOS. 
+Whenever you publish a subgraph schema, GraphOS attempts to compose all the latest subgraph schemas into a single supergraph schema.
 If this composition succeeds, your router is updated with the result.
 
 Assuming you're using the retail demo supergraph and running its subgraphs locally, you can use the following commands:
@@ -230,15 +241,15 @@ Assuming you're using the retail demo supergraph and running its subgraphs local
 
     - If the command fails, make sure you've [authenticated Rover with GraphOS](#step-1-install-and-authenticate-the-rover-cli). All Rover commands that interact with GraphOS require a valid API key.
 
-4. Do the same thing for the `orders` subgraph, again substituting your graph ref:
+4. Do the same thing for the `inventory` subgraph, substituting your graph ref:
 
     ```bash showLineNumbers=false
     rover subgraph publish <GRAPH_REF> \
-    --schema ./subgraphs/orders/schema.graphql \
-    --name orders \
-    --routing-url http://localhost:4001/orders/graphql
+    --schema ./subgraphs/inventory/schema.graphql \
+    --name inventory \
+    --routing-url http://localhost:4001/inventory/graphql
 
-5. Do the same thing for the `users` subgraph, again substituting your graph ref:
+5. Do the same thing for the `users` subgraph, substituting your graph ref:
 
     ```bash showLineNumbers=false
     rover subgraph publish <GRAPH_REF> \
@@ -246,21 +257,66 @@ Assuming you're using the retail demo supergraph and running its subgraphs local
     --name users \
     --routing-url http://localhost:4001/users/graphql
 
-The retail demo supergraph contains other subgraphs—for example, reviews and inventory—and you can also publish these to your supergraph.
-For the sample operations in the next step, only the subgraphs above are needed.
+6. Do the same thing for the `shipping` subgraph, substituting your graph ref:
+
+    ```bash showLineNumbers=false
+    rover subgraph publish <GRAPH_REF> \
+    --schema ./subgraphs/shipping/schema.graphql \
+    --name shipping \
+    --routing-url http://localhost:4001/shipping/graphql
+
+7. Do the same thing for the `checkout` subgraph, substituting your graph ref:
+
+    ```bash showLineNumbers=false
+    rover subgraph publish <GRAPH_REF> \
+    --schema ./subgraphs/checkout/schema.graphql \
+    --name checkout \
+    --routing-url http://localhost:4001/checkout/graphql
+
+Nice! Now if you open your graph in [Studio](https://studio.apollographql.com/?referrer=docs-content) now, you'll see all the subgraphs you've published on the **Schema** page.
+
+  - The **Reference** tab lets you filter your schema's type and field definitions
+
+    <img
+      src="./images/quickstart/schema-reference.jpg"
+      className="screenshot"
+      width="700"
+      alt="To-do."
+    />
+
+  - The **SDL** tab displays your schema's raw SDL, filterable by subgraph
+
+    <img
+      src="./images/quickstart/schema-sdl.jpg"
+      className="screenshot"
+      width="700"
+      alt="To-do."
+    />
+
+  - The ** Visualization** tab provides a filterable, navigable, graphical representation of your schema
+
+  <img
+    src="./images/quickstart/schema-visualization.jpg"
+    className="screenshot"
+    width="700"
+    alt="To-do."
+  />
+
+The retail demo supergraph contains other subgraphs—for example, `reviews` and `discovery` subgraphs.
+For the sample query in the final step, only the subgraphs in the instructions are needed, but you can publish the others to your supergraph if you want to explore their schemas and data.
 
 ### Step 4. Query your supergraph
 
-Once you've published subgraph schemas, you can execute queries against your supergraph. To do that, you'll use the GraphOS Studio Explorer.
+Once you've published subgraph and GraphOS has successfully composed your supergraph schema, you can execute queries against your supergraph. To do that, you'll use the GraphOS Studio Explorer.
 The Explorer is a GraphQL IDE that provides visibility into your supergraph's entire schema and helps you build, run, and understand queries.
 
-Querying in Explorer may not feel that different from running the query in the Sandbox.
+Querying in the Explorer may not feel that different from running the query in the Sandbox.
 Running operations on a published supergraph from the Explorer has a couple of additional benefits:
 
 - Inspecting query plans
 - Collecting and visualizing operation metrics
 
-You'll see these in action by running the sample operations below.
+You'll see these in action by running the sample query below.
 
 1. In [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content), from your organization's **Graphs** tab, select your graph and open the variant you've been publishing subgraph schemas to. By default this is `@current`.
 
@@ -300,7 +356,7 @@ You'll see these in action by running the sample operations below.
   }
   ```
 
-  This operation retrieves a particular user's shopping cart. It needs to know the user's ID to know which cart to retrieve, and expects this information to be in the request header. You can use the Explorer to send request headers by doing the following:
+  This operation retrieves a particular user's shopping cart given the user's. The operation expects the user ID to be in the request header. You can inlude request headers in the Explorer by doing the following:
     - Open the **Header** tab below **Operation**.
     - Click **+New header++**.
     - Enter `x-user-id` as the **header key** and `user:1` as the **value**.
@@ -359,7 +415,7 @@ You'll see these in action by running the sample operations below.
 
 #### Inspect query plans
 
-Sandbox dynamically displays example _query plans_ for your operations in the right-hand panel.
+The GraphOS Studio Explorer dynamically displays example _query plans_ for your operations in the right-hand panel.
 A query plan is a blueprint for dividing a single incoming operation into one or more operations that are each resolvable by a single subgraph.
 You can toggle to view the query plan instead of the response by clicking **Response** and selecting **Query Plan Preview**.
 
@@ -372,13 +428,15 @@ As you edit an operation, the Explorer recalculates its query plan accordingly.
 Operations you run in the Explorer are sent to the GraphOS Router that sits in front of your federated API.
 The router automatically collects metrics on those operations and their fields. You can then visualize those metrics in Studio.
 
-Go to your variant's **Insights** page, which looks like this:
+Go to your variant's **Insights** page, which looks something like this:
+
 <img
   src="./images/insights-quickstart.jpg"
   className="screenshot"
   width="700"
   alt="The Insights page in GraphOS Studio, showing metrics for operations and their fields"
 />
+
 The **Insights** page should already display the operations you executed in the Explorer.
 After you update your clients to query your router, this page becomes vital to monitoring your supergraph's performance.
 
@@ -387,5 +445,5 @@ After you update your clients to query your router, this page becomes vital to m
 Depending on your goals, you have several options for moving your supergraph closer to production or learning more about GraphOS Studio's capabilities:
 
 - Learn about the available GraphOS insights in the [metrics and reporting documentation](/graphos/metrics).
-- Explore other Studio features, including [schema visualization](/graphos/graphs/studio-features#the-schema-page), [proposals](/graphos/delivery/schema-proposals), and [checks](/graphos/delivery/schema-checks).
+- Learn more about Studio features, including [schema visualization](/graphos/graphs/studio-features#the-schema-page), [proposals](/graphos/delivery/schema-proposals), and [checks](/graphos/delivery/schema-checks).
 - Check out the [`rover template`](/rover/commands/template) command to quickly start a new GraphQL project or explore various subgraph implementations.
