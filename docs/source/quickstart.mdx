@@ -27,17 +27,14 @@ If you haven't already, set these up before continuing.
 
 Setting up a federated GraphQL API with GraphOS takes a few steps:
 
-1. Install and authenticate the Rover CLI.
+1. Install the Rover CLI.
 2. Start local development.
 3. Publish your subgraphs.
 4. Query your supergraph.
 
-### Step 1. Install and authenticate the Rover CLI
+### Step 1. Install the Rover CLI
 
 _Rover_ is Apollo's CLI for managing all kinds of graphs, including subgraphs and supergraphs. You'll use it throughout this quickstart.
-In this step, you both install and authenticate Rover with your GraphOS account.
-
-#### Install Rover
 
 <Note>
 
@@ -59,42 +56,7 @@ After installing, run `rover -V` in your terminal to confirm that it installed s
 Verify that the printed version number matches the [latest release](https://github.com/apollographql/rover/releases).
 If it doesn't, you might need to manually delete a previous outdated installation.
 
-#### Authenticate Rover
-
-To use the Rover CLI to manage graphs in GraphOS Studio, you first need to authenticate it.
-This entails obtaining an API key from Studio and providing it to Rover.
-
-<Caution>
-
-API keys are secret credentials. Never share them outside your organization or commit them to version control. Delete and replace API keys that you believe are compromised.
-
-</Caution>
-
-1. Go to [studio.apollographql.com](https://studio.apollographql.com/?referrer=docs-content) and click **+Create New Graph**.
-2. Enter a **Graph title**, for example `Federation Quickstart`. Leave the **Graph Architecture** as `Supergraph (Default)`, and **Visible to Team Members** as `On` and click **Next**.
-3. A **Publish your schema using Federation** dialog appears. Copy the protected value that appears after `APOLLO_KEY=` in the example code block. It begins with `service:`. This is your _graph API key_.
-
-    <img
-      src="./images/quickstart/publish-your-schema.jpg"
-      className="screenshot"
-      width="500"
-      alt="A dialog from GraphOS Studio displays a hidden API key and graph ref."
-    />
-
-4. Copy the value that appears after `rover subgraph publish` and save it to a local text file. By default, it ends with `@current`. This is your graph ref and you'll use it in step 3. Click **Finish later**.
-5. Back in your terminal, run the `config auth` command:
-
-    ```shell showLineNumbers=false
-    rover config auth
-    ```
-    <Note>
-
-      The `auth` command is interactive to prevent your API key from appearing in your terminal command history.
-
-    </Note>
-6. Paste your API key into the prompt when requested.
-
-You've now authenticated Rover with GraphOS and are ready to start local development with your supergraph!
+You've now installed Rover and ready to start local development with your supergraph!
 
 ### Step 2. Start local development
 
@@ -121,7 +83,6 @@ In this step, you'll do the following:
 1. Locally run the subgraphs.
 2. Locally run your router.
 3. Query your router to ensure it's working as expected.
-
 
 #### Run subgraphs
 
@@ -216,22 +177,56 @@ To make your supergraph externally accessible, you individually publish each sub
 Whenever you publish a subgraph schema, GraphOS attempts to compose all the latest subgraph schemas into a single supergraph schema.
 If this composition succeeds, your router is updated with the result.
 
-Assuming you're using the retail demo supergraph and running its subgraphs locally, you can use the following commands:
+In this step, you'll create an empty supergraph in GraphOS Studio and then publish subgraph schemas to it using Rover.
 
-1. In a new terminal window, paste the following multi-line command but don't run it—you must modify it first.
+#### Create supergraph
+
+1. Go to [studio.apollographql.com](https://studio.apollographql.com/?referrer=docs-content) and click **+Create New Graph**.
+2. Enter a **Graph title**, for example `Federation Quickstart`. Leave the **Graph Architecture** as `Supergraph (Default)`, and **Visible to Team Members** as `On` and click **Next**.
+3. A **Publish your schema using Federation** dialog appears. Copy the example codeblock to a local text file.
+  - The protected value that appears after `APOLLO_KEY=` and beginning with `service:` is your graph API key.
+  - The value that appears after `rover subgraph publish` is your graph ref. By default, it ends with `@current`.
+
+    <img
+      src="./images/quickstart/publish-your-schema.jpg"
+      className="screenshot"
+      width="500"
+      alt="A dialog from GraphOS Studio displays a hidden API key and graph ref."
+    />
+
+    <Caution>
+
+      API keys are secret credentials. Never share them outside your organization or commit them to version control. Delete and replace API keys that you believe are compromised.
+
+    </Caution>
+
+4. Leave the window open, you'll complete setup with Rover.
+
+#### Publish subgraph schemas
+
+Assuming you're using the retail demo supergraph and running its subgraphs locally, you can use the following Rover commands.
+
+1. Take the example codeblock you copied from Studio and replace the last three lines with the following:
 
     ```bash showLineNumbers=false
+        --schema ./subgraphs/products/schema.graphql \
+        --name products \
+        --routing-url http://localhost:4001/products/graphql
+    ```
+
+    It should look something like this, with the `<GRAPH_API_KEY>` and `<GRAPH_REF>` replaced with your graph's values.
+
+    ```bash showLineNumbers=false
+    APOLLO_KEY=service:<GRAPH_API_KEY> \
     rover subgraph publish <GRAPH_REF> \
     --schema ./subgraphs/products/schema.graphql \
     --name products \
     --routing-url http://localhost:4001/products/graphql
     ```
 
-2. Replace the `<GRAPH_REF>` with the graph ref you saved in [step 1](#authenticate-rover).
-
-3. Run the modified command.
+2. In a new terminal window, paste and run your multi-line command.
     - Because the command provides a `localhost` address for the `routing-url`, the terminal will confirm that you want to publish. Enter `Y`.
-    - If the command is successful, you'll see output like the following:
+    - If the command is successful, you'll see the following in your terminal:
 
       ```bash showLineNumbers=false disableCopy=true
       A new subgraph called 'products' was created in <GRAPH_REF>
@@ -239,9 +234,16 @@ Assuming you're using the retail demo supergraph and running its subgraphs local
       composed from the updated 'products' subgraph
       ```
 
-    - If the command fails, make sure you've [authenticated Rover with GraphOS](#step-1-install-and-authenticate-the-rover-cli). All Rover commands that interact with GraphOS require a valid API key.
+    - After a few moments, the GraphOS Studio dialog you left open will show **Schema published** on the bottom left.
 
-4. Do the same thing for the `inventory` subgraph, substituting your graph ref:
+    <img
+      src="./images/quickstart/schema-published.jpg"
+      className="screenshot"
+      width="500"
+      alt="A dialog from GraphOS Studio updates to show a schema has been published."
+    />
+    
+4. Run the `rover subgraph publish` command for the `inventory` subgraph, substituting your graph ref. You no longer need to include the first line containing your graph API key:
 
     ```bash showLineNumbers=false
     rover subgraph publish <GRAPH_REF> \
@@ -249,7 +251,15 @@ Assuming you're using the retail demo supergraph and running its subgraphs local
     --name inventory \
     --routing-url http://localhost:4001/inventory/graphql
 
-5. Do the same thing for the `users` subgraph, substituting your graph ref:
+5. Do the same for the `orders` subgraph, substituting your graph ref:
+
+    ```bash showLineNumbers=false
+    rover subgraph publish <GRAPH_REF> \
+    --schema ./subgraphs/orders/schema.graphql \
+    --name orders \
+    --routing-url http://localhost:4001/orders/graphql
+
+5. Do the same for the `users` subgraph, substituting your graph ref:
 
     ```bash showLineNumbers=false
     rover subgraph publish <GRAPH_REF> \
@@ -273,7 +283,7 @@ Assuming you're using the retail demo supergraph and running its subgraphs local
     --name checkout \
     --routing-url http://localhost:4001/checkout/graphql
 
-Nice! Now if you open your graph in [Studio](https://studio.apollographql.com/?referrer=docs-content) now, you'll see all the subgraphs you've published on the **Schema** page.
+Nice! Now if you open the **Schema** page from the left nav in [Studio](https://studio.apollographql.com/?referrer=docs-content), you'll see all the subgraphs you've published.
 
   - The **Reference** tab lets you filter your schema's type and field definitions
 
@@ -281,25 +291,25 @@ Nice! Now if you open your graph in [Studio](https://studio.apollographql.com/?r
       src="./images/quickstart/schema-reference.jpg"
       className="screenshot"
       width="700"
-      alt="To-do."
+      alt="The GraphOS Studio Schema Reference page shows filterable list of types and fields."
     />
 
-  - The **SDL** tab displays your schema's raw SDL, filterable by subgraph
+  - The **SDL** tab displays your supergraph's API schema and supergraph schema, filterable by subgraph
 
     <img
       src="./images/quickstart/schema-sdl.jpg"
       className="screenshot"
-      width="700"
-      alt="To-do."
+      width="275"
+      alt="The GraphOS Studio Schema SDL page has a left nav listing all subgraphs."
     />
 
-  - The ** Visualization** tab provides a filterable, navigable, graphical representation of your schema
+  - The **Visualization** tab provides a filterable, navigable, graphical representation of your schema
 
   <img
     src="./images/quickstart/schema-visualization.jpg"
     className="screenshot"
     width="700"
-    alt="To-do."
+    alt="The GraphOS Studio Schema Visualization page shows an interactive representation of an ecommerce supergraph schema including Orders, Users, Variants, Products, etc."
   />
 
 The retail demo supergraph contains other subgraphs—for example, `reviews` and `discovery` subgraphs.
@@ -311,24 +321,13 @@ Once you've published subgraph and GraphOS has successfully composed your superg
 The Explorer is a GraphQL IDE that provides visibility into your supergraph's entire schema and helps you build, run, and understand queries.
 
 Querying in the Explorer may not feel that different from running the query in the Sandbox.
-Running operations on a published supergraph from the Explorer has a couple of additional benefits:
-
-- Inspecting query plans
-- Collecting and visualizing operation metrics
+Sandbox has many of the same features as Explorer, such as running operations and inspecting their query plans.
+Running operations on a published supergraph from the Explorer has the additional benefit of collecting and visualizing metrics on the operations you run.
 
 You'll see these in action by running the sample query below.
 
-1. In [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content), from your organization's **Graphs** tab, select your graph and open the variant you've been publishing subgraph schemas to. By default this is `@current`.
-
-  <img
-    src="./images/quickstart/example-graph-page.jpg"
-    className="screenshot"
-    width="700"
-    alt="GraphOS Studio page"
-  />
-
-2. Open the **Explorer** page from the left navigation.
-3. Open the **Settings** tab and click **Edit** next to **Connection settings**. Enter `http://localhost:4000/` as you supergraph's **Endpoint**.
+1. In [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content), open the **Explorer** page from the left navigation.
+2. Open the **Settings** tab and click **Edit** next to **Connection settings**. Enter `http://localhost:4000/` as you supergraph's **Endpoint**.
 4. Copy and paste the following query into the **Operation** window, but do not run it.
 
   ```graphql showLineNumbers=false
@@ -365,9 +364,10 @@ You'll see these in action by running the sample query below.
     src="./images/quickstart/get-cart.jpg"
     className="screenshot"
     width="700"
-    alt="GraphOS Studio page"
+    alt="The GraphOS Studio Explorer with a GetCart operation and headers."
   />
-5. Run the request by clicking the play button, now labeled **GetCart**, in the **Operation** window.
+
+5. Run the request by clicking the play button, now labeled **GetCart**, in the top right of the **Operation** window.
 6. In the **Response** window, confirm you see the following response.
 
   <ExpansionPanel title="Click to see response">
@@ -375,38 +375,7 @@ You'll see these in action by running the sample query below.
   ```JSON showLineNumbers=false disableCopy=true
   {
     "data": {
-      "user": {
-        "id": "user:1",
-        "username": "User One",
-        "shippingAddress": "123 Main St",
-        "cart": {
-          "subtotal": 620.37,
-          "items": [
-            {
-              "price": 600.25,
-              "inventory": {
-                "inStock": false
-              },
-              "product": {
-                "title": "Air Jordan 1 Mid",
-                "description": "Air Jordan 1 Mid is a blue, grey and white sneaker from the iconic jordan brand",
-                "mediaUrl": "https://sneakernews.com/wp-content/uploads/2022/06/air-jordan-1-mid-university-blue-grey-dx9276-100-6.jpg"
-              }
-            },
-            {
-              "price": 20.12,
-              "inventory": {
-                "inStock": true
-              },
-              "product": {
-                "title": "Air Jordan 1 Mid",
-                "description": "Air Jordan 1 Mid is a blue, grey and white sneaker from the iconic jordan brand",
-                "mediaUrl": "https://sneakernews.com/wp-content/uploads/2022/06/air-jordan-1-mid-university-blue-grey-dx9276-100-6.jpg"
-              }
-            }
-          ]
-        }
-      }
+      "to":"do"
     }
   }
   ```
@@ -415,11 +384,18 @@ You'll see these in action by running the sample query below.
 
 #### Inspect query plans
 
-The GraphOS Studio Explorer dynamically displays example _query plans_ for your operations in the right-hand panel.
+The previous sample operation is a powerful one because it gathers data across various subgraphs: `users`, `products`, `inventory`, and more.
+The GraphOS Studio Explorer displays _query plans_ in the right panel to help you understand how the router  intelligently orchestrate subrequests to these subgraphs. 
+
 A query plan is a blueprint for dividing a single incoming operation into one or more operations that are each resolvable by a single subgraph.
 You can toggle to view the query plan instead of the response by clicking **Response** and selecting **Query Plan Preview**.
 
-[To-do: QP image]
+<img
+  src="./images/quickstart/query-plan.jpg"
+  className="screenshot"
+  width="700"
+  alt="The GraphOS Studio Explorer shows a query plan."
+/>
 
 As you edit an operation, the Explorer recalculates its query plan accordingly.
 
@@ -437,7 +413,8 @@ Go to your variant's **Insights** page, which looks something like this:
   alt="The Insights page in GraphOS Studio, showing metrics for operations and their fields"
 />
 
-The **Insights** page should already display the operations you executed in the Explorer.
+The **Insights** page should already display the `GetCart` operation you executed in the Explorer.
+As your router receives more requests, they will appear here as well.
 After you update your clients to query your router, this page becomes vital to monitoring your supergraph's performance.
 
 ## Next steps
