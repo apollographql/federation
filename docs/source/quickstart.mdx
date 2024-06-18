@@ -114,13 +114,13 @@ Keep these subgraphs up and running so that the router can query them.
 #### Run router
 
 With your subgraphs running, you can use Rover to start the router locally.
-To do so, use the `rover dev` command with the `--supergraph-config` option.
-The retail demo supergraph comes with a  `supergraph-config-dev.yaml` YAML configuration file that includes subgraph names, URLs, and schemas for the retail demo supergraph.
+To do so, use the `rover dev` command with the `--supergraph-config` and `--router-config` options.
+The retail demo supergraph comes with `supergraph-config-dev.yaml` and `supergraph-config-dev.yaml` YAML configuration files that includes subgraph names, URLs, and router configurations for the retail demo supergraph.
 
 In a different terminal window from the one where the subgraphs are running, run this command:
 
 ```bash showLineNumbers=false
-rover dev --supergraph-config supergraph-config-dev.yaml
+rover dev --supergraph-config supergraph-config-dev.yaml --router-config router-config-dev.yaml
 ```
 
 When you first start the `rover dev` process, you'll see the following happening in the terminal:
