@@ -5,7 +5,8 @@ description: Build a federated GraphQL API with Apollo Federation
 ---
 
 Apollo Federation combines microservices into a unified GraphQL API, enabling real-time access to all your data sources for all your client applications.
-At the end of this quickstart, you will have set up a queryable federated GraphQL API that integrates data from product, user, and order services using a retail demo supergraph.
+At the end of this quickstart, you will have set up a federated GraphQL API that integrates data from product, user, and order services using a retail demo supergraph.
+Along the way, you'll learn about Apollo toolks like the Rover CLI and GraphOS Studio Explorer.
 
 To learn more about Apollo Federation and the benefits of using it with GraphOS, check out these resources:
 
@@ -65,13 +66,13 @@ The router is the single access point for clients to your supergraph.
 It receives incoming operations and intelligently routes them across component services before returning a unified response. 
 
 ```mermaid
-graph RL;
+graph LR;
   clients(Clients);
   subgraph Supergraph;
     router([Router]);
-    serviceA[Products subgraph];
-    serviceB[Users subgraph];
-    serviceC[Orders subgraph];
+    serviceA[Products<br>subgraph];
+    serviceB[Users<br>subgraph];
+    serviceC[Orders<br>subgraph];
     router --- serviceA & serviceB & serviceC;
   end;
   clients -.- router;
@@ -113,22 +114,52 @@ Keep these subgraphs up and running so that the router can query them.
 #### Run router
 
 With your subgraphs running, you can use Rover to start the router locally.
-To do so, use the `rover dev` command with the `--supergraph-config` option to provide the router's configuration.
-
+To do so, use the `rover dev` command with the `--supergraph-config` option.
 The retail demo supergraph comes with a  `supergraph-config-dev.yaml` YAML configuration file that includes subgraph names, URLs, and schemas for the retail demo supergraph.
 
-In a separate terminal window from the one where you ran `npm run dev:subgraphs`, run this command:
+In a different terminal window from the one where the subgraphs are running, run this command:
 
 ```bash showLineNumbers=false
 rover dev --supergraph-config supergraph-config-dev.yaml
 ```
 
-When you first start the `rover dev` process, you'll see the following steps happening in the terminal:
+When you first start the `rover dev` process, you'll see the following happening in the terminal:
 
 - Rover obtains the provided subgraph schemas and starts sessions for each of them.
+
+  ```bash showLineNumbers=false
+  🛫 starting a session with the 'discovery' subgraph
+  🛫 starting a session with the 'checkout' subgraph
+  🛫 starting a session with the 'users' subgraph
+  🛫 starting a session with the 'inventory' subgraph
+  🛫 starting a session with the 'orders' subgraph
+  🛫 starting a session with the 'shipping' subgraph
+  🛫 starting a session with the 'products' subgraph
+  🛫 starting a session with the 'reviews' subgraph
+  ```
+
 - Rover uses Apollo Federation to compose a supergraph schema from the subgraph schemas.
+
+  ```bash showLineNumbers=false
+  🎶 composing supergraph with Federation v2.8.0
+  ✅ successfully composed after adding the 'products' subgraph
+  ```
+
 - Rover starts a locally running router session and provides it with the supergraph schema.
-- Rover starts watching the provided subgraph schema for changes. It recomposes the supergraph schema whenever it detects one. Recomposition automatically reloads the router.
+
+  ```bash showLineNumbers=false
+  🚀 your supergraph is running! head to http://localhost:4000 to query your supergraph
+  ```
+
+- Rover starts watching the provided subgraph schemas for changes.
+
+  ```bash showLineNumbers=false
+  👀 watching ./subgraphs/products/schema.graphql for changes
+  ```
+
+  - It recomposes the supergraph schema whenever it detects one. Recomposition automatically reloads the router.
+
+
 
 Congrats! You've now got a supergraph running locally.
 
@@ -174,7 +205,7 @@ query ListAllProducts {
 
   </ExpansionPanel>
 
-Next, you'll publish your locally running subgraph schemas to Studio to make your supergraph externally accessible.
+Next, you'll publish your locally running subgraph schemas to GraphOS Studio to make your supergraph externally accessible.
 
 ### Step 3. Publish your subgraphs
 
@@ -192,8 +223,6 @@ In this step, you'll create an empty supergraph in GraphOS Studio and then publi
 1. Go to [studio.apollographql.com](https://studio.apollographql.com/?referrer=docs-content) and click **+ Create New Graph**.
 2. Enter a **Graph title**, for example `Federation Quickstart`. Leave the **Graph Architecture** as `Supergraph (Default)` and **Visible to Team Members** as `On`. Click **Next**.
 3. A **Publish your schema using Federation** dialog appears. Copy the example code block to a local text file.
-  - The protected value that appears after `APOLLO_KEY=` and beginning with `service:` is your graph API key.
-  - The value that appears after `rover subgraph publish` is your graph ref. By default, it ends with `@current`.
 
     <img
       src="./images/quickstart/publish-your-schema.jpg"
@@ -202,17 +231,20 @@ In this step, you'll create an empty supergraph in GraphOS Studio and then publi
       alt="A dialog from GraphOS Studio displays a hidden API key and graph ref."
     />
 
+    - The protected value that appears after `APOLLO_KEY=` and beginning with `service:` is your graph API key.
+    - The value that appears after `rover subgraph publish` is your graph ref. By default, it ends with `@current`.
+
     <Caution>
 
       API keys are secret credentials. Never share them outside your organization or commit them to version control. Delete and replace API keys that you believe are compromised.
 
     </Caution>
 
-4. Leave the window open; you'll complete the setup with Rover.
+4. Leave the dialog open; you'll complete setup with Rover.
 
 #### Publish subgraph schemas
 
-Assuming you're using the retail demo supergraph and running its subgraphs locally, you can use the following Rover commands.
+In a separate terminal window, run the following Rover commands.
 
 1. Take the example code block you copied from Studio and replace the last three lines with the following:
 
@@ -222,7 +254,7 @@ Assuming you're using the retail demo supergraph and running its subgraphs local
         --routing-url http://localhost:4001/products/graphql
     ```
 
-    It should look something like this, with the `<GRAPH_API_KEY>` and `<GRAPH_REF>` replaced with your graph's values.
+    It should look something like the following, with the `<GRAPH_API_KEY>` and `<GRAPH_REF>` replaced with your graph's values:
 
     ```bash showLineNumbers=false
     APOLLO_KEY=service:<GRAPH_API_KEY> \
@@ -320,12 +352,15 @@ The sample query in the next and final step only requires the subgraphs in the i
 
 ### Step 4. Query your supergraph
 
-Once you've published subgraphs and GraphOS has successfully composed your supergraph schema, you can execute queries against your supergraph. To do that, you'll use the GraphOS Studio Explorer.
+Once you've published subgraphs and GraphOS has successfully composed your supergraph schema, you can execute queries against your supergraph.
+To do that, you'll use the GraphOS Studio Explorer.
+
 The Explorer is a GraphQL IDE that provides visibility into your supergraph's entire schema and helps you build, run, and understand queries.
 Querying in the Explorer may not feel that different from running the query in the Sandbox.
 Sandbox has many of the same features as Explorer, such as running operations and inspecting their query plans.
+
 Running operations on a published supergraph from the Explorer has the additional benefit of collecting and visualizing metrics on your operations.
-You'll see these in action by running the sample query below.
+You'll see the query plan and metrics collection in action by running the sample query below.
 
 1. In [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content), open the **Explorer** page from the left navigation.
 2. Open the **Settings** tab and click **Edit** next to **Connection settings**. Enter `http://localhost:4000/` as your supergraph's **Endpoint**.
@@ -357,8 +392,8 @@ You'll see these in action by running the sample query below.
   ```
 
   This operation retrieves a particular user's shopping cart given the user's. The operation expects the user ID to be in the request header. You can include request headers in the Explorer by doing the following:
-    - Open the **Header** tab below **Operation**.
-    - Click **+New header++**.
+    - Open the **Headers** tab below the **Operation** editor.
+    - Click **+ New header++**.
     - Enter `x-user-id` as the **header key** and `user:1` as the **value**.
   
   <img
@@ -382,6 +417,9 @@ You'll see these in action by running the sample query below.
   ```
 
   </ExpansionPanel>
+
+Congrats! You've queried the supergraph and gotten information from across different services.
+You can learn more about how the router accomplished this using query plans.
 
 #### Inspect query plans
 
@@ -421,4 +459,4 @@ After you update your clients to query your router, this page becomes vital to m
 Depending on your goals, you have several options for moving your supergraph closer to production or learning more about GraphOS Studio's capabilities:
 - Learn about the available GraphOS insights in the [metrics and reporting documentation](/graphos/metrics).
 - Learn more about Studio features, including [schema visualization](/graphos/graphs/studio-features#the-schema-page), [proposals](/graphos/delivery/schema-proposals), and [checks](/graphos/delivery/schema-checks).
-- Check out the [`rover template`](/rover/commands/template) command to quickly start a new GraphQL project or explore various subgraph implementations.
+- Check out the [`rover template` command](/rover/commands/template) to quickly start a new GraphQL project or explore various subgraph implementations.
