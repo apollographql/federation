@@ -1,6 +1,6 @@
 {
   "name": "@apollo/gateway",
-  "version": "2.8.0",
+  "version": "2.8.1",
   "description": "Apollo Gateway",
   "author": "Apollo <packages@apollographql.com>",
   "main": "dist/index.js",
@@ -25,9 +25,9 @@
     "access": "public"
   },
   "dependencies": {
-    "@apollo/composition": "2.8.0",
-    "@apollo/federation-internals": "2.8.0",
-    "@apollo/query-planner": "2.8.0",
+    "@apollo/composition": "2.8.1",
+    "@apollo/federation-internals": "2.8.1",
+    "@apollo/query-planner": "2.8.1",
     "@apollo/server-gateway-interface": "^1.1.0",
     "@apollo/usage-reporting-protobuf": "^4.1.0",
     "@apollo/utils.createhash": "^2.0.0",
