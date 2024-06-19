@@ -34,6 +34,72 @@ function astSSet(...selections: SelectionNode[]): SelectionSetNode {
   };
 }
 
+describe('generate query fragments', () => {
+  test('generateQueryFragments handles repeated fragment spreads', () => {
+    const schema = parseSchema(`
+      type Query {
+        entities: [Entity]
+      }
+
+      union Entity = A | B
+
+      type A {
+          a: Int
+      }
+
+      type B {
+          b: Int
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      query {
+          entities {
+              ... on B {
+                  ... on B {
+                      ... on B {
+                          ... on B {
+                              b
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    `);
+
+    const withGeneratedFragments = operation.generateQueryFragments();
+    expect(withGeneratedFragments.toString()).toMatchString(`
+      {
+        t {
+          ... on T1 {
+            a
+            b
+          }
+          ... on T2 {
+            x
+            y
+          }
+          b
+          u {
+            ... on I {
+              b
+            }
+            ... on T1 {
+              a
+              b
+            }
+            ... on T2 {
+              x
+              y
+            }
+          }
+        }
+      }
+    `);
+  });
+});
+
 describe('fragments optimization', () => {
   // Takes a query with fragments as inputs, expand all those fragments, and ensures that all the
   // fragments gets optimized back, and that we get back the exact same query.
