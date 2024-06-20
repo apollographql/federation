@@ -105,7 +105,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       new ListType(new NonNullType(HTTPHeaderMapping));
     connect.addArgument('http', new NonNullType(ConnectHTTP));
 
-    connect.addArgument('selection', JSONSelection);
+    connect.addArgument('selection', new NonNullType(JSONSelection));
     connect.addArgument('entity', schema.booleanType(), false);
 
     /*
