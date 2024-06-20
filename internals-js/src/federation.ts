@@ -1545,10 +1545,16 @@ export class FederationBlueprint extends SchemaBlueprint {
     for (const application of contextDirective.applications()) {
       const parent = application.parent;
       const name = application.arguments().name as string;
-
+const match = name.match(/^([A-Za-z]\w*)$/);
       if (name.includes('_')) {
         errorCollector.push(ERRORS.CONTEXT_NAME_INVALID.err(
           `Context name "${name}" may not contain an underscore.`,
+          { nodes: sourceASTs(application) }
+        ));
+      }
+      else if (!match) {
+        errorCollector.push(ERRORS.CONTEXT_NAME_INVALID.err(
+          `Context name "${name}" is invalid. It should have only alphanumeric characters.`,
           { nodes: sourceASTs(application) }
         ));
       }

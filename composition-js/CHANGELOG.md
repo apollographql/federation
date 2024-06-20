@@ -1,16 +1,14 @@
 # CHANGELOG for `@apollo/composition`
 
-## 2.9.0-connectors.0
-
-### Minor Changes
-
-- Support for connectors
+## 2.8.1
 
 ### Patch Changes
 
+- Fix performance regression in needsJoinField() for large graphs ([#3038](https://github.com/apollographql/federation/pull/3038))
+
 - Updated dependencies []:
-  - @apollo/federation-internals@2.9.0-connectors.0
-  - @apollo/query-graphs@2.9.0-connectors.0
+  - @apollo/federation-internals@2.8.1
+  - @apollo/query-graphs@2.8.1
 
 ## 2.8.0
 

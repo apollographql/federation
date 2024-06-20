@@ -99,9 +99,9 @@ directive @context(name: String!) on OBJECT | INTERFACE | UNION;
 Introduced. [Learn more](./federated-types/federated-directives/#fromcontext).
 
 ```graphql
-scalar FieldValue;
+scalar ContextFieldValue;
 
-directive @fromContext(field: FieldValue!) on ARGUMENT_DEFINITION;
+directive @fromContext(field: ContextFieldValue) on ARGUMENT_DEFINITION;
 ```
 
 </td>
