@@ -69,31 +69,25 @@ describe('generate query fragments', () => {
     `);
 
     const withGeneratedFragments = operation.generateQueryFragments();
+    console.log(withGeneratedFragments.toString());
     expect(withGeneratedFragments.toString()).toMatchString(`
-      {
-        t {
-          ... on T1 {
-            a
-            b
-          }
-          ... on T2 {
-            x
-            y
-          }
+      fragment _generated_onB1_0 on B {
+        ... on B {
           b
-          u {
-            ... on I {
-              b
-            }
-            ... on T1 {
-              a
-              b
-            }
-            ... on T2 {
-              x
-              y
-            }
-          }
+        }
+      }
+      
+      fragment _generated_onB1_1 on B {
+        ..._generated_onB1_0
+      }
+      
+      fragment _generated_onB1_2 on B {
+        ..._generated_onB1_1
+      }
+      
+      {
+        entities {
+          ..._generated_onB1_2
         }
       }
     `);
