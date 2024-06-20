@@ -30,7 +30,7 @@ Setting up a federated GraphQL API with GraphOS takes a few steps:
 
 1. Install the Rover CLI.
 2. Start local development.
-3. Publish your subgraphs.
+3. Publish your services—known as subgraphs in the context of federated GraphQL API—to GraphOS.
 
 Once you've published your subgraphs, you can use the GraphOS Studio to explore and better understand your supergraph.
 
@@ -63,8 +63,8 @@ You've now installed Rover and are ready to start local development with your su
 ### Step 2. Start local development
 
 Running a supergraph entails running its _router_.
-The router is the single access point for clients to your supergraph.
-It receives incoming operations and intelligently routes them across component services before returning a unified response. 
+The router is the single access point to your supergraph for clients.
+The router receives incoming operations and intelligently routes them across component services before returning a unified response. 
 
 ```mermaid
 graph LR;
@@ -112,6 +112,12 @@ Setting up [users] subgraph at http://localhost:4001/users/graphql
 
 Keep these subgraphs up and running so that the router can query them.
 
+<Note>
+
+The retail demo supergraph contains the code behind each of these subgraphs, including their schemas, resolvers, and mock data.
+These files are provided for your reference—understanding them isn't necessary for completing this quickstart. Check out these tutorials to learn more about [GraphQL schemas](https://www.apollographql.com/tutorials/lift-off-part1) and [resolvers](https://www.apollographql.com/tutorials/lift-off-part2).
+</Note>
+
 #### Run router
 
 With your subgraphs running, you can use Rover to start the router locally.
@@ -148,7 +154,7 @@ When you first start the `rover dev` process, you'll see the following happening
   ✅ successfully composed after adding the 'products' subgraph
   ```
 
-  - The order in which Rover adds subgraphs Rover adds is undefined, so you might see composition errors during intermediate steps.
+  - The order in which Rover adds subgraphs is undefined, so you might see composition errors like the following during intermediate steps.
 
   ```bash showLineNumbers=false
   error[E029]: Encountered 1 build error while trying to build a supergraph.
@@ -275,8 +281,9 @@ query ExampleQuery {
   </ExpansionPanel>
 
   This operation requests a list of all products from the `products` service.
-  Next, you'll execute a query that demonstrates the power of federation.
+  You can remove fields like `mediaUrl` or add fields like `releaseDate` to the query to see how the reponse changes.
 
+  Next, you'll execute a query that demonstrates the power of federation.
 
 4. Replace the example query in the **Operation** window with the following one, but don't run it yet.
 
@@ -361,24 +368,11 @@ query ExampleQuery {
   }
   ```
 
+    $600.25! That must be some t-shirt!
+
   </ExpansionPanel>
 
-Congrats! You've used one query to get information from across different services, including the `users`, `products`, and `inventory` subgraphs.
-
-```mermaid
-graph LR;
-  clients(Clients);
-  subgraph Supergraph;
-    router([Router]);
-    serviceA[Users<br>subgraph];
-    serviceB[Products<br>subgraph];
-    serviceC[Inventory<br>subgraph];
-    router --- serviceA & serviceB & serviceC;
-  end;
-  clients -.- router;
-  class clients secondary;
-```
-
+Excellent! You've used one request to get information from across different services, including the `users`, `products`, and `inventory` subgraphs.
 In the last part of this step, you'll learn more about how the router accomplished this.
 
 #### Inspect query plans
@@ -402,10 +396,7 @@ In the last step of this tutorial, you'll publish your locally running subgraph 
 
 ### Step 3. Publish your subgraphs
 
-In a federated architecture, multiple services are _composed_ into a single federated supergraph.
-The supergraph schema combines all subgraph schemas plus some special federation-specific metadata.
-
-To create the supergraph schema, you individually publish each subgraph schema to GraphOS. 
+To create a supergraph, you individually publish each subgraph schema to GraphOS. 
 Whenever you publish a subgraph schema, GraphOS attempts to compose all the latest subgraph schemas into a single supergraph schema.
 If this composition succeeds, GraphOS updates your router with the result.
 
@@ -437,9 +428,8 @@ In this step, you'll create an empty supergraph in GraphOS Studio and then publi
 
 #### Publish subgraph schemas
 
-In a separate terminal window, run the following Rover commands.
-
-1. Take the example code block you copied from Studio and replace the last three lines with the following:
+1. Ensure your subgraphs are still [running locally](#run-subgraphs).
+2. Take the example code block you copied from Studio and replace the last three lines with the following:
 
     ```bash showLineNumbers=false
         --schema ./subgraphs/products/schema.graphql \
@@ -459,11 +449,11 @@ In a separate terminal window, run the following Rover commands.
 
     - The `--schema` option specifies the path to the schema file to publish. 
     - The `--name` option specifies the name of the subgraph.
-    - The `--routing-url` is the address the router should send requests to. Ensure your subgraphs are still [running locally](#run-subgraphs).
+    - The `--routing-url` is the address the router should send requests to.
     
     <Note>
 
-    In a production supergraph, subgraph routing URLs are the public endpoints for each service.
+    In a production supergraph, a subgraph's routing URL is generally its public endpoint.
 
     </Note>
 
@@ -477,7 +467,7 @@ In a separate terminal window, run the following Rover commands.
       composed from the updated 'products' subgraph
       ```
 
-    - After a few moments, the GraphOS Studio dialog you left open will show **Schema published** on the bottom left.
+    - After a few moments, the GraphOS Studio dialog you left open when creating an empty supergraph will show **Schema published** on the bottom left.
 
     <img
       src="./images/quickstart/schema-published.jpg"
@@ -501,36 +491,38 @@ In a separate terminal window, run the following Rover commands.
     --name users \
     --routing-url http://localhost:4001/users/graphql
 
-With these subgraphs published, you can explore and interact with their schemas in GraphOS Studio.
+Congrats! With these subgraphs published, you can explore and interact with them in GraphOS Studio. 
 
 <Note>
 
 The demo retail supergraph contains other subgraphs—for example, `reviews` and `shipping` subgraphs.
-You can publish these to your supergraph if you want to explore their schemas and data.
+The three you've just published are enough to understand what GraphOS Studio has to offer, but you can publish the others if you want to explore their schemas and data.
 
 </Note>
 
 ## Explore your supergraph
 
-Once you've published your schemas, when you open the **Schema** page from the left nav in [Studio](https://studio.apollographql.com/?referrer=docs-content), you'll see all the subgraphs you've published.
+Once you've published subgraphs, you can open the **Schema** page from the left nav in [Studio](https://studio.apollographql.com/?referrer=docs-content) to explore the composed supergraph schema as well as individual subgraph schemas and the relationships between them.
 
-  - The **Reference** tab lets you filter your schema's type and field definitions.
+  - The **Reference** tab lets you view and filter your schema's type and field definitions. For example, select **Objects**, then **User**, to see all of the `user` type's fields and which subgraphs provide them.
+
     <img
       src="./images/quickstart/schema-reference.jpg"
       className="screenshot"
       width="700"
       alt="The GraphOS Studio Schema Reference page shows filterable list of types and fields."
     />
-  - The **SDL** tab displays your supergraph's API schema and supergraph schema, filterable by subgraph.
+
+  - The **SDL** tab displays your supergraph's API schema and supergraph schema, filterable by subgraph. Viewing the supergraph SDL (Schema Definition Language) allows developers to see exactly how subgraph schemas are composed together.
 
     <img
       src="./images/quickstart/schema-sdl.jpg"
       className="screenshot"
-      width="275"
+      width="700"
       alt="The GraphOS Studio Schema SDL page has a left nav listing all subgraphs."
     />
 
-  - The **Visualization** tab provides a filterable, navigable, graphical representation of your schema.
+  - The **Visualization** tab provides a filterable, navigable, graphical representation of your supergraph schema. Once you start collecting metrics on your supergraph, you can use the Visualization tool to create heatmaps to identify fields that are most frequently used, or have the highest latency or errors.
 
   <img
     src="./images/quickstart/schema-visualization.jpg"
@@ -539,7 +531,7 @@ Once you've published your schemas, when you open the **Schema** page from the l
     alt="The GraphOS Studio Schema Visualization page shows an interactive representation of an e-commerce supergraph schema including Orders, Users, Variants, Products, etc."
   />
 
-GraphOS offers many other tools for understanding and managing your schema, including schema proposals, checks, and linting. GraphOS also includes schema delivery tools to integrate schema publication into your DevOps workflows.
+GraphOS also offers tools for managing your schema, including schema proposals, checks, and linting. Additionally, GraphOS schema delivery tools help you integrate schema publication into your DevOps workflows.
 
 Once you deploy your router, either by self-hosting it using the Apollo-managed cloud option, you can use it to collect and export telemetry to GraphOS Studio and your application performance monitoring (APM) and observability tools.
 
@@ -547,7 +539,7 @@ Once you deploy your router, either by self-hosting it using the Apollo-managed 
 
 Depending on your goals, you have several options for moving your supergraph closer to production or learning more about GraphOS Studio's capabilities:
 
-- Learn about the different [router types](/graphos/routing).
+- Learn about the different [router types](/graphos/routing) to decide which type best fits your use case.
 - Learn more about Studio features, including [proposals](/graphos/delivery/schema-proposals), [linting](/graphos/delivery/schema-linter), and [checks](/graphos/delivery/schema-checks).
 - Learn about GraphOS [metrics](/graphos/metrics) and [router telemetry](/router/configuration/telemetry/overview/).
 - Check out the [`rover template` command](/rover/commands/template) to quickly start a new GraphQL project or explore various subgraph implementations.
