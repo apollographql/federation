@@ -67,11 +67,11 @@ Even if you already have Rover installed, update your version by completing this
 
 Install the latest Rover release with the appropriate command for your system:
 
-```bash title="MacOS / Unix-like" showLineNumbers=false
+```sh title="MacOS / Unix-like" showLineNumbers=false
 curl -sSL https://rover.apollo.dev/nix/latest | sh
 ```
 
-```bash title="Windows" showLineNumbers=false
+```sh title="Windows" showLineNumbers=false
 iwr 'https://rover.apollo.dev/win/latest' | iex
 ```
 
@@ -112,19 +112,19 @@ In this step, you'll do the following:
 To start local development, you must first get the subgraphs in the [retail demo](https://github.com/apollosolutions/retail-supergraph) up and running.
 From the root directory, install dependencies:
 
-```bash showLineNumbers=false
+```sh showLineNumbers=false
 npm install
 ```
 
 Then run the subgraphs:
 
-```bash showLineNumbers=false
+```sh showLineNumbers=false
 npm run dev:subgraphs
 ```
 
 In your terminal, you should see notifications for each subgraph:
 
-```bash showLineNumbers=false disableCopy=true
+```sh showLineNumbers=false disableCopy=true
 Setting up [products] subgraph at http://localhost:4001/products/graphql
 Setting up [orders] subgraph at http://localhost:4001/orders/graphql
 Setting up [users] subgraph at http://localhost:4001/users/graphql
@@ -150,7 +150,7 @@ The retail demo comes with `supergraph-config-dev.yaml` and `router-config-dev.y
 
 In a **different terminal window** from the one where the subgraphs are running, run this command:
 
-```bash showLineNumbers=false
+```sh showLineNumbers=false
 rover dev \
   --supergraph-config supergraph-config-dev.yaml \
   --router-config router-config-dev.yaml
@@ -160,7 +160,7 @@ When you first start the `rover dev` process, you'll see the following happening
 
 - Rover obtains the provided subgraph schemas and starts sessions for each of them.
 
-  ```bash showLineNumbers=false
+  ```sh showLineNumbers=false
   🛫 starting a session with the 'discovery' subgraph
   🛫 starting a session with the 'checkout' subgraph
   🛫 starting a session with the 'users' subgraph
@@ -173,26 +173,32 @@ When you first start the `rover dev` process, you'll see the following happening
 
 - Rover uses Apollo Federation to compose a supergraph schema by adding subgraph schemas one at a time.
 
-  ```bash showLineNumbers=false
+  ```sh showLineNumbers=false
   🎶 composing supergraph with Federation v2.8.0
   ✅ successfully composed after adding the 'products' subgraph
   ```
 
   - The order in which Rover adds subgraphs is undefined, so you might see composition errors like the following during intermediate steps.
 
-  ```bash showLineNumbers=false
+  ```sh showLineNumbers=false
   error[E029]: Encountered 1 build error while trying to build a supergraph.
   ```
 
-- Once composition completes successfully, Rover starts a locally running router session and provides it with the supergraph schema.
+- When composition completes successfully, Rover starts a locally running router session and provides it with the supergraph schema.
 
-  ```bash showLineNumbers=false
+  ```sh showLineNumbers=false
   🚀 your supergraph is running! head to http://localhost:4000 to query your supergraph
   ```
 
+  <Note>
+
+  This message may be followed by composition errors and successful composition notifications. As long as you can access http://localhost:4000, your router is running locally.
+
+  </Note>
+
 - Rover starts watching the provided subgraph schemas for changes.
 
-  ```bash showLineNumbers=false
+  ```sh showLineNumbers=false
   👀 watching ./subgraphs/products/schema.graphql for changes
   ```
 
@@ -309,7 +315,7 @@ query ExampleQuery {
 
   Next, you'll execute an operation that demonstrates the power of federation.
 
-4. Replace the example query in the **Operation** window with the following one, but don't run it yet.
+4. Replace the example query in the **Operation** window with the following one and run it by clicking the play button, now labeled **GetCart**.
 
   ```graphql showLineNumbers=false
     # Get the current user's cart with all the items and their product info as well as the price.
@@ -336,9 +342,12 @@ query ExampleQuery {
     }
     ```
 
-  This operation retrieves a particular user's shopping cart given the user's ID. The operation expects the user ID to be in the request header. You can include request headers in Sandbox by doing the following:
+5.  In the **Response** panel, you should see an error like this: `Could not locate user by id. Please specify a valid x-user-id header like user:1`.
+
+  That's because this operation retrieves a particular user's shopping cart _given the user's ID_. The operation expects the user ID to be in the request header. You can include it in the request headers in Sandbox by doing the following:
+
     - Open the **Headers** tab below the **Operation** editor.
-    - Click **+ New header++**.
+    - Click **+ New header**.
     - Enter `x-user-id` as the **header key** and `user:1` as the **value**.
   
   <img
@@ -348,8 +357,7 @@ query ExampleQuery {
     alt="The GraphOS Studio Explorer with a GetCart operation and headers."
   />
 
-5. Run the request by clicking the play button, now labeled **GetCart**, in the top right of the **Operation** window.
-6. In the **Response** panel, confirm you see the following:
+6. Rerun the request. In the **Response** panel, confirm you see the following:
 
   <ExpansionPanel title="Click to see response">
 
@@ -396,7 +404,7 @@ query ExampleQuery {
 
   </ExpansionPanel>
 
-Excellent! You've used _one_ request to your router to get information from across different services.
+Excellent! You've used _one_ request to your router to get data from across different services.
 In the last part of this local development step, you'll learn more about how the router accomplished this.
 
 #### Inspect query plans
@@ -430,7 +438,7 @@ In this step, you'll create an empty supergraph in GraphOS Studio and then publi
 
 1. Go to [studio.apollographql.com](https://studio.apollographql.com/?referrer=docs-content) and click **+ Create New Graph**.
 2. Enter a **Graph title**, for example `Federation Quickstart`. Leave the **Graph Architecture** as `Supergraph (Default)` and **Visible to Team Members** as `On`. Click **Next**.
-3. A **Publish your schema using Federation** dialog appears. Copy the example code block to a local text file.
+3. A **Publish your schema using Federation** dialog appears. Copy the entire example code block to a local text file using the copy button.
 
     <img
       src="./images/quickstart/publish-your-schema.jpg"
@@ -457,7 +465,7 @@ Complete the next steps back in your terminal:
 1. Ensure your subgraphs are still [running locally](#run-subgraphs).
 2. Take the example code block you copied from Studio and replace the last three lines with the following:
 
-    ```bash showLineNumbers=false
+    ```sh showLineNumbers=false
         --schema ./subgraphs/products/schema.graphql \
         --name products \
         --routing-url http://localhost:4001/products/graphql
@@ -465,7 +473,7 @@ Complete the next steps back in your terminal:
 
     It should look something like the following, with the `<GRAPH_API_KEY>` and `<GRAPH_REF>` replaced with your graph's values:
 
-    ```bash showLineNumbers=false
+    ```sh showLineNumbers=false
     APOLLO_KEY=service:<GRAPH_API_KEY> \
     rover subgraph publish <GRAPH_REF> \
     --schema ./subgraphs/products/schema.graphql \
@@ -475,7 +483,7 @@ Complete the next steps back in your terminal:
 
     - The `--schema` option specifies the path to the schema file to publish. 
     - The `--name` option specifies the name of the subgraph.
-    - The `--routing-url` is the address the router should send requests to.
+    - The `--routing-url` is the address the router should send subrequests for this particular subgraph to.
     
     <Note>
 
@@ -487,7 +495,7 @@ Complete the next steps back in your terminal:
     - Because the command provides a `localhost` address for the `routing-url`, the terminal will confirm that you want to publish. Enter `Y`.
     - If the command is successful, you'll see the following in your terminal:
 
-      ```bash showLineNumbers=false disableCopy=true
+      ```sh showLineNumbers=false disableCopy=true
       A new subgraph called 'products' was created in <GRAPH_REF>
       The supergraph schema for <GRAPH_REF> was updated,
       composed from the updated 'products' subgraph
@@ -504,14 +512,14 @@ Complete the next steps back in your terminal:
 
 3. Run the `rover subgraph publish` command for the `inventory` subgraph, substituting your graph ref. You no longer need to include the first line containing your graph API key:
 
-    ```bash showLineNumbers=false
+    ```sh showLineNumbers=false
     rover subgraph publish <GRAPH_REF> \
     --schema ./subgraphs/inventory/schema.graphql \
     --name inventory \
     --routing-url http://localhost:4001/inventory/graphql
 
 4. Do the same for the `users` subgraph, substituting your graph ref:
-    ```bash showLineNumbers=false
+    ```sh showLineNumbers=false
     rover subgraph publish <GRAPH_REF> \
     --schema ./subgraphs/users/schema.graphql \
     --name users \
