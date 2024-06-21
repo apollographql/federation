@@ -447,8 +447,19 @@ In this step, you'll create an empty supergraph in GraphOS Studio and then publi
       alt="A dialog from GraphOS Studio displays a hidden API key and graph ref."
     />
 
-    - The protected value that appears after `APOLLO_KEY=` and beginning with `service:` is your graph API key.
+    It should look something like this:
+
+    ```sh showLineNumbers=false disableCopy=true
+      APOLLO_KEY=service:Federation-Quickstart:••••••••••••••••••••• \
+    rover subgraph publish Federation-Quickstart@current \
+    --schema ./products-schema.graphql \
+    --name your-subgraph-name \
+    --routing-url http://products.prod.svc.cluster.local:4001/graphql
+    ```
+
+    - The protected value that appears after `APOLLO_KEY=` and begins with `service:` is your graph API key.
     - The value that appears after `rover subgraph publish` is your graph ref. By default, it ends with `@current`.
+    - You'll use both your graph API key and graph ref in the next step.
 
     <Caution>
 
@@ -463,15 +474,7 @@ In this step, you'll create an empty supergraph in GraphOS Studio and then publi
 Complete the next steps back in your terminal:
 
 1. Ensure your subgraphs are still [running locally](#run-subgraphs).
-2. Take the example code block you copied from Studio and replace the last three lines with the following:
-
-    ```sh showLineNumbers=false
-        --schema ./subgraphs/products/schema.graphql \
-        --name products \
-        --routing-url http://localhost:4001/products/graphql
-    ```
-
-    It should look something like the following, with the `<GRAPH_API_KEY>` and `<GRAPH_REF>` replaced with your graph's values:
+2. Copy the following multi-line command and replace the the `<GRAPH_API_KEY>` and `<GRAPH_REF>` with the values you copied from Studio:
 
     ```sh showLineNumbers=false
     APOLLO_KEY=service:<GRAPH_API_KEY> \
@@ -491,7 +494,7 @@ Complete the next steps back in your terminal:
 
     </Note>
 
-2. In a new terminal window, paste and run your multi-line command.
+2. While still in the retail demo's root directory, open a new terminal window. Paste and run your multi-line command.
     - Because the command provides a `localhost` address for the `routing-url`, the terminal will confirm that you want to publish. Enter `Y`.
     - If the command is successful, you'll see the following in your terminal:
 
@@ -519,6 +522,7 @@ Complete the next steps back in your terminal:
     --routing-url http://localhost:4001/inventory/graphql
 
 4. Do the same for the `users` subgraph, substituting your graph ref:
+
     ```sh showLineNumbers=false
     rover subgraph publish <GRAPH_REF> \
     --schema ./subgraphs/users/schema.graphql \
