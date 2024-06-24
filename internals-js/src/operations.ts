@@ -1594,16 +1594,17 @@ export class SelectionSet {
         // No match, so we need to create a new fragment. First, we minimize the
         // selection set before creating the fragment with it.
         const [minimizedSelectionSet] = selection.selectionSet.minimizeSelectionSet(namedFragments, seenSelections);
+        const updatedEquivalentSelectionSetCandidates = seenSelections.get(mockHashCode); // may have changed after previous statement
         const fragmentDefinition = new NamedFragmentDefinition(
           this.parentType.schema(),
-          `_generated_${mockHashCode}_${equivalentSelectionSetCandidates?.length ?? 0}`,
+          `_generated_${mockHashCode}_${updatedEquivalentSelectionSetCandidates?.length ?? 0}`,
           selection.element.typeCondition
         ).setSelectionSet(minimizedSelectionSet);
         namedFragments.add(fragmentDefinition);
 
         // Create a new "hash code" bucket or add to the existing one.
-        if (equivalentSelectionSetCandidates) {
-          equivalentSelectionSetCandidates.push([selection.selectionSet, fragmentDefinition]);
+        if (updatedEquivalentSelectionSetCandidates) {
+          updatedEquivalentSelectionSetCandidates.push([selection.selectionSet, fragmentDefinition]);
         } else {
             seenSelections.set(mockHashCode, [[selection.selectionSet, fragmentDefinition]]);
         }
