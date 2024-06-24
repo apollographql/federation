@@ -313,7 +313,7 @@ query ExampleQuery {
 
   Next, you'll execute an operation that demonstrates the power of federation.
 
-4. Replace the example query in the **Operation** window with the following one and run it by clicking the play button, now labeled **GetCart**.
+4. Replace the example query in the **Operation** window with the following. Run it by clicking the play button, now labeled **GetCart**.
 
   ```graphql showLineNumbers=false
     # Get the current user's cart with all the items and their product info as well as the price.
@@ -342,7 +342,7 @@ query ExampleQuery {
 
 5.  In the **Response** panel, you should see an error like this: `Could not locate user by id. Please specify a valid x-user-id header like user:1`.
 
-  That's because this operation retrieves a particular user's shopping cart _given the user's ID_. The operation expects the user ID to be in the request header. You can include it in the request headers in Sandbox by doing the following:
+  This error appears because the operation retrieves a particular user's shopping cart _given the user's ID_. The operation expects the user ID to be in the request header. You can include it in the request headers in Sandbox by doing the following:
 
     - Open the **Headers** tab below the **Operation** editor.
     - Click **+ New header**.
@@ -472,9 +472,17 @@ In this step, you'll create an empty supergraph in GraphOS Studio and then publi
 Complete the next steps back in your terminal:
 
 1. Ensure your subgraphs are still [running locally](#run-subgraphs).
-2. Copy the following multi-line command and replace the the `<GRAPH_API_KEY>` and `<GRAPH_REF>` with the values you copied from Studio:
+2. Take the multi-line command you copied from Studio and replace the last three lines with the following:
 
     ```sh showLineNumbers=false
+    --schema ./subgraphs/products/schema.graphql \
+    --name products \
+    --routing-url http://localhost:4001/products/graphql
+    ```
+
+  It should now look something like this:
+
+    ```sh showLineNumbers=false disableCopy
     APOLLO_KEY=service:<GRAPH_API_KEY> \
     rover subgraph publish <GRAPH_REF> \
     --schema ./subgraphs/products/schema.graphql \
@@ -492,7 +500,7 @@ Complete the next steps back in your terminal:
 
     </Note>
 
-2. While still in the retail demo's root directory, open a new terminal window. Paste and run your multi-line command.
+2. While still in the retail demo's root directory, open a new terminal window. Paste and run your updated multi-line command.
     - Because the command provides a `localhost` address for the `routing-url`, the terminal will confirm that you want to publish. Enter `Y`.
     - If the command is successful, you'll see the following in your terminal:
 
@@ -532,7 +540,7 @@ Congrats! With these subgraphs published, you can explore and interact with them
 <Note>
 
 The retail demo contains other subgraphs—for example, the `reviews` and `shipping` subgraphs.
-The three you've just published are enough to understand what GraphOS Studio has to offer, but you can publish the others if you want to explore their schemas and data.
+The three you've just published are enough to understand what GraphOS Studio has to offer, but you can publish the others if you want to explore their schemas.
 
 </Note>
 
@@ -569,7 +577,7 @@ Once you've published subgraphs, open the **Schema** page from the left nav in [
 
 GraphOS also offers tools for managing your schema, including schema proposals, checks, and linting. Additionally, GraphOS schema delivery tools help you integrate schema publication into your DevOps workflows.
 
-Once you deploy your router, either by self-hosting it or using the Apollo-managed cloud option, you can use it to collect and export telemetry to your application performance monitoring (APM) and observability tools, including GraphOS Studio.
+Once you deploy your router, either by self-hosting it or using the Apollo-managed cloud option, you can use it to collect and export telemetry to GraphOS Studio and other observability and application performance monitoring (APM) tools.
 
 ## Next steps
 
