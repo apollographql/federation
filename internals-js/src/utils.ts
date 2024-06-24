@@ -479,29 +479,3 @@ export function setsEqual<T>(s1: Set<T> | null, s2: Set<T> | null): boolean {
   }
   return true;
 }
-
-// ordering is done based on order that elements were added
-export class TimeOrderedSet<V extends { name: string }> {
-  private _values: V[] = [];
-  private _valueMap: Map<string, V> = new Map();
-  
-  constructor() {}
-  
-  add(v: V) {
-    this._valueMap.set(v.name, v);
-    this._values.push(v);
-  }
-  
-  values(): V[] {
-    return this._values;
-  }
-  
-  get(name: string): V | undefined {
-    return this._valueMap.get(name);
-  }
-  
-  remove(v: V) {
-    this._valueMap.delete(v.name);
-    removeArrayElement(v, this._values);
-  }
-}

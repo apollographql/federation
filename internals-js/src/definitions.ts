@@ -32,7 +32,7 @@ import {
   isCoreSpecDirectiveApplication,
   removeAllCoreFeatures,
 } from "./specs/coreSpec";
-import { assert, mapValues, MapWithCachedArrays, removeArrayElement, TimeOrderedSet } from "./utils";
+import { assert, mapValues, MapWithCachedArrays, removeArrayElement } from "./utils";
 import {
   withDefaultValues,
   valueEquals,
@@ -2291,7 +2291,7 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
 export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   readonly kind = 'EnumType' as const;
   readonly astDefinitionKind = Kind.ENUM_TYPE_DEFINITION;
-  private _values = new TimeOrderedSet<EnumValue>();
+  private _values = new Map<string, EnumValue>();
 
   get values(): readonly EnumValue[] {
     // Because our abstractions are mutable, and removal is done by calling
@@ -2319,7 +2319,7 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
     }
     const existing = this.value(toAdd.name);
     if (!existing) {
-      this._values.add(toAdd);
+      this._values.set(toAdd.name, toAdd);
       Element.prototype['setParent'].call(toAdd, this);
       this.onModification();
       return toAdd;
@@ -2333,7 +2333,7 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   }
 
   private removeValueInternal(value: EnumValue) {
-    this._values.remove(value);
+    this._values.delete(value.name);
   }
 
   protected removeInnerElements(): void {
@@ -2345,7 +2345,7 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   }
 
   protected hasNonExtensionInnerElements(): boolean {
-    return this._values.values().some(v => v.ofExtension() === undefined);
+    return Array.from(this._values.values()).some(v => v.ofExtension() === undefined);
   }
 
   protected removeReferenceRecursive(ref: OutputTypeReferencer): void {
@@ -2353,7 +2353,9 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   }
 
   protected removeInnerElementsExtensions(): void {
-    this._values.values().forEach(v => v.removeOfExtension());
+    for (const v of this._values.values()) {
+      v.removeOfExtension();
+    }
   }
 }
 
