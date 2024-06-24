@@ -480,15 +480,6 @@ export function setsEqual<T>(s1: Set<T> | null, s2: Set<T> | null): boolean {
   return true;
 }
 
-export function makeTimer() {
-  let last = Date.now();
-  return (message: string) => {
-    const temp = Date.now();
-    console.log(`${message} took ${temp - last} ms`);
-    last = temp;
-  }
-}
-
 // ordering is done based on order that elements were added
 export class TimeOrderedSet<V extends { name: string }> {
   private _values: V[] = [];
