@@ -34,6 +34,66 @@ function astSSet(...selections: SelectionNode[]): SelectionSetNode {
   };
 }
 
+describe('generate query fragments', () => {
+  test('generateQueryFragments handles repeated fragment spreads', () => {
+    const schema = parseSchema(`
+      type Query {
+        entities: [Entity]
+      }
+
+      union Entity = A | B
+
+      type A {
+          a: Int
+      }
+
+      type B {
+          b: Int
+      }
+    `);
+
+    const operation = parseOperation(schema, `
+      query {
+          entities {
+              ... on B {
+                  ... on B {
+                      ... on B {
+                          ... on B {
+                              b
+                          }
+                      }
+                  }
+              }
+          }
+      }
+    `);
+
+    const withGeneratedFragments = operation.generateQueryFragments();
+    console.log(withGeneratedFragments.toString());
+    expect(withGeneratedFragments.toString()).toMatchString(`
+      fragment _generated_onB1_0 on B {
+        ... on B {
+          b
+        }
+      }
+      
+      fragment _generated_onB1_1 on B {
+        ..._generated_onB1_0
+      }
+      
+      fragment _generated_onB1_2 on B {
+        ..._generated_onB1_1
+      }
+      
+      {
+        entities {
+          ..._generated_onB1_2
+        }
+      }
+    `);
+  });
+});
+
 describe('fragments optimization', () => {
   // Takes a query with fragments as inputs, expand all those fragments, and ensures that all the
   // fragments gets optimized back, and that we get back the exact same query.

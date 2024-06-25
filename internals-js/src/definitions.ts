@@ -2291,7 +2291,7 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
 export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   readonly kind = 'EnumType' as const;
   readonly astDefinitionKind = Kind.ENUM_TYPE_DEFINITION;
-  protected readonly _values: EnumValue[] = [];
+  private _values = new Map<string, EnumValue>();
 
   get values(): readonly EnumValue[] {
     // Because our abstractions are mutable, and removal is done by calling
@@ -2299,11 +2299,11 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
     // try to iterate on the result of this method and call `remove()` on
     // some of the return value based on some condition. But this will break
     // in an error-prone way if we don't copy, so we do.
-    return Array.from(this._values);
+    return Array.from(this._values.values());
   }
-
+  
   value(name: string): EnumValue | undefined {
-    return this._values.find(v => v.name === name);
+    return this._values.get(name);
   }
 
   addValue(value: EnumValue): EnumValue;
@@ -2319,7 +2319,7 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
     }
     const existing = this.value(toAdd.name);
     if (!existing) {
-      this._values.push(toAdd);
+      this._values.set(toAdd.name, toAdd);
       Element.prototype['setParent'].call(toAdd, this);
       this.onModification();
       return toAdd;
@@ -2333,7 +2333,7 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   }
 
   private removeValueInternal(value: EnumValue) {
-    removeArrayElement(value, this._values);
+    this._values.delete(value.name);
   }
 
   protected removeInnerElements(): void {
@@ -2345,7 +2345,7 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   }
 
   protected hasNonExtensionInnerElements(): boolean {
-    return this._values.some(v => v.ofExtension() === undefined);
+    return Array.from(this._values.values()).some(v => v.ofExtension() === undefined);
   }
 
   protected removeReferenceRecursive(ref: OutputTypeReferencer): void {
@@ -2353,7 +2353,9 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   }
 
   protected removeInnerElementsExtensions(): void {
-    this._values.forEach(v => v.removeOfExtension());
+    for (const v of this._values.values()) {
+      v.removeOfExtension();
+    }
   }
 }
 
