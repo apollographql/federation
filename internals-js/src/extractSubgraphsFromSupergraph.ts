@@ -689,6 +689,25 @@ function addSubgraphField({
   if (isShareable && !external && !usedOverridden) {
     subgraphField.applyDirective(subgraph.metadata().shareableDirective());
   }
+
+  const costDirective = field.appliedDirectivesOf('cost').pop();
+  if (costDirective) {
+    subgraphField.applyDirective(subgraph.metadata().costDirective().name, {
+      weight: costDirective.arguments().weight
+    });
+  }
+
+  const listSizeDirective = field.appliedDirectivesOf('listSize').pop();
+  if (listSizeDirective) {
+    const { assumedSize, sizedFields, slicingArguments, requireOneSlicingArgument } = listSizeDirective.arguments();
+    subgraphField.applyDirective(subgraph.metadata().listSizeDirective().name, {
+      assumedSize,
+      sizedFields,
+      slicingArguments,
+      requireOneSlicingArgument,
+    });
+  }
+
   return subgraphField;
 }
 

@@ -40,6 +40,8 @@ export const ROUTER_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
   'https://specs.apollo.dev/policy/v0.1',
   'https://specs.apollo.dev/source/v0.1',
   'https://specs.apollo.dev/context/v0.1',
+  'https://specs.apollo.dev/cost/v0.1',
+  'https://specs.apollo.dev/listSize/v0.1',
 ]);
 
 const coreVersionZeroDotOneUrl = FeatureUrl.parse('https://specs.apollo.dev/core/v0.1');

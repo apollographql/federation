@@ -8,6 +8,10 @@ import {
   NonNullType,
   ListType,
   InputObjectType,
+  FieldDefinition,
+  ObjectType,
+  InterfaceType,
+  Directive,
 } from "../definitions";
 import { Subgraph, Subgraphs } from "../federation";
 import { registerKnownFeature } from '../knownCoreFeatures';
@@ -229,6 +233,21 @@ export class JoinSpecDefinition extends FeatureDefinition {
       enumValue.applyDirective(graphDirective, { name: subgraph.name, url: subgraph.url });
     }
     return subgraphToEnumName;
+  }
+
+  getJoinDirectivesForSubgraph(schema: Schema, subgraph: Subgraph, field: FieldDefinition<ObjectType | InterfaceType>): Directive<FieldDefinition<ObjectType | InterfaceType>, JoinDirectiveArguments>[] {
+    const graphEnum = this.graphEnum(schema);
+    const subgraphEnumValue = graphEnum.values.find((v) => v.appliedDirectivesOf(this.graphDirective(schema)).find((d) => d.arguments().name == subgraph.name))
+    if (!subgraphEnumValue) {
+      return [];
+    }
+
+    return field
+      .appliedDirectivesOf(this.directiveDirective(schema).name)
+      .filter((d) => {
+        const graphsArg = d.arguments().graphs;
+        return Array.isArray(graphsArg) && graphsArg.includes(subgraphEnumValue.name)
+      }) as Directive<FieldDefinition<ObjectType | InterfaceType>, JoinDirectiveArguments>[]; // Makes the arguments parameter more specific than `{ [key: string]: any }`
   }
 
   fieldSetScalar(schema: Schema): ScalarType {
