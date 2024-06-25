@@ -28,7 +28,6 @@ files:
   - '.changeset/**'
 ignorePaths:
   - 'gateway-js/src/__generated__/**'
-  - 'internals-js/wasm/**'
 
 overrides:
   # Ignore anything in a changelog file that looks like a GitHub username.

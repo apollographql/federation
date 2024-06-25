@@ -1237,7 +1237,6 @@ describe('when shared field has intersecting but non equal runtime types in diff
   });
 });
 
-// TODO: Test this a different way
 describe('when a directive causes an implicit federation version upgrade', () => {
   const olderFederationSchema = gql`
     extend schema

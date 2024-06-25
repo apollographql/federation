@@ -10,7 +10,5 @@
     "@apollo/query-planner": "2.8.0",
     "@apollo/subgraph": "2.8.0"
   },
-  "changesets": [
-    "plenty-queens-rescue"
-  ]
+  "changesets": []
 }
