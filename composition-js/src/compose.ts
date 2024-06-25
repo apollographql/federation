@@ -141,7 +141,7 @@ type ValidateSubgraphsAndMergeResult = MergeResult | { errors: GraphQLError[] };
  * @param subgraphs 
  * @returns ValidateSubgraphsAndMergeResult
  */
-export function validateSubgraphsAndMerge(subgraphs: Subgraphs) : ValidateSubgraphsAndMergeResult {
+function validateSubgraphsAndMerge(subgraphs: Subgraphs) : ValidateSubgraphsAndMergeResult {
   const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
   if (upgradeResult.errors) {
     return { errors: upgradeResult.errors };
