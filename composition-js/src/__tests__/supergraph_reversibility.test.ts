@@ -237,4 +237,66 @@ describe('demand control directives', () => {
     expect(extractedSubgraphB?.toString()).toEqual(expectedSubgraphB.toString());
     // expect(extractedSubgraphB).toMatchSubgraph(expectedSubgraphB);
   });
+
+  it('extracts the correct @listSize for different subgraphs with @shareable fields', () => {
+    // We need to force the link import from the listSize spec instead of the federation spec
+    // because the use of join directive is driven by the url from which the directive is imported
+    const subgraphA = {
+      name: 'subgraph-a',
+      typeDefs: asFed2SubgraphDocument(gql`
+        extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+        type Query {
+          sharedWithListSize: [Int] @shareable @listSize(assumedSize: 10)
+        }
+      `)
+    };
+    const subgraphB = {
+      name: 'subgraph-b',
+      typeDefs: asFed2SubgraphDocument(gql`
+        extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+        type Query {
+          sharedWithListSize: [Int] @shareable @listSize(assumedSize: 20)
+        }
+      `)
+    };
+
+    // Since we've already invoked `asFed2SubgraphDocument`, we use `composeServices` directly
+    const result = composeServices([subgraphA, subgraphB]);
+    assertCompositionSuccess(result);
+    // TODO: expect(result.hints.length).toBe(0);
+    const supergraph = Supergraph.build(result.supergraphSdl);
+
+    const expectedSubgraphA = buildSubgraph(
+      'subgraph-a',
+      '',
+      asFed2SubgraphDocument(
+        gql`
+          type Query {
+            sharedWithListSize: [Int] @shareable @federation__listSize(assumedSize: 10)
+          }
+        `,
+        { addAsSchemaExtension: false, includeAllImports: false },
+      ),
+    );
+    const expectedSubgraphB = buildSubgraph(
+      'subgraph-b',
+      '',
+      asFed2SubgraphDocument(
+        gql`
+          type Query {
+            sharedWithListSize: [Int] @shareable @federation__listSize(assumedSize: 20)
+          }
+        `,
+        { addAsSchemaExtension: false, includeAllImports: false },
+      ),
+    );
+
+    const extractedSubgraphA = supergraph.subgraphs().get('subgraph-a');
+    expect(extractedSubgraphA?.toString()).toEqual(expectedSubgraphA.toString());
+    // expect(extractedSubgraphA).toMatchSubgraph(expectedSubgraphA);
+
+    const extractedSubgraphB = supergraph.subgraphs().get('subgraph-b');
+    expect(extractedSubgraphB?.toString()).toEqual(expectedSubgraphB.toString());
+    // expect(extractedSubgraphB).toMatchSubgraph(expectedSubgraphB);
+  });
 });

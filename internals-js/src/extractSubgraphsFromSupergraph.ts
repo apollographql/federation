@@ -29,7 +29,7 @@ import {
   removeInactiveProvidesAndRequires,
 } from "./federation";
 import { CoreSpecDefinition, FeatureVersion } from "./specs/coreSpec";
-import { JoinFieldDirectiveArguments, JoinSpecDefinition, JoinTypeDirectiveArguments } from "./specs/joinSpec";
+import { JoinFieldDirectiveArguments, JoinSpecDefinition, JoinTypeDirectiveArguments, sanitizeGraphQLName } from "./specs/joinSpec";
 import { FederationMetadata, Subgraph, Subgraphs } from "./federation";
 import { assert } from "./utils";
 import { validateSupergraph } from "./supergraphs";
@@ -690,22 +690,45 @@ function addSubgraphField({
     subgraphField.applyDirective(subgraph.metadata().shareableDirective());
   }
 
-  const costDirective = field.appliedDirectivesOf('cost').pop();
-  if (costDirective) {
+  const joinDirectives = field.appliedDirectivesOf('join__directive')
+    // TODO: Exporting and using `sanitizeGraphQLName` is hacky, and we shouldn't
+    // know about the internal string representation used by join spec here
+    .filter((d) => d.arguments().graphs.includes(sanitizeGraphQLName(subgraph.name)));
+
+  const joinDirectiveForCost = joinDirectives.find((d) => d.arguments().name === 'cost');
+  if (joinDirectiveForCost) {
     subgraphField.applyDirective(subgraph.metadata().costDirective().name, {
-      weight: costDirective.arguments().weight
+      weight: joinDirectiveForCost.arguments().args?.weight
     });
+  } else {
+    const costDirective = field.appliedDirectivesOf('cost').pop();
+    if (costDirective) {
+      subgraphField.applyDirective(subgraph.metadata().costDirective().name, {
+        weight: costDirective.arguments().weight
+      });
+    }
   }
 
-  const listSizeDirective = field.appliedDirectivesOf('listSize').pop();
-  if (listSizeDirective) {
-    const { assumedSize, sizedFields, slicingArguments, requireOneSlicingArgument } = listSizeDirective.arguments();
-    subgraphField.applyDirective(subgraph.metadata().listSizeDirective().name, {
-      assumedSize,
-      sizedFields,
-      slicingArguments,
-      requireOneSlicingArgument,
-    });
+  const joinDirectiveForListSize = joinDirectives.find((d) => d.arguments().name === 'listSize');
+  if (joinDirectiveForListSize) {
+    const { assumedSize, sizedFields, slicingArguments, requireOneSlicingArgument } = joinDirectiveForListSize.arguments().args ?? {};
+      subgraphField.applyDirective(subgraph.metadata().listSizeDirective().name, {
+        assumedSize,
+        sizedFields,
+        slicingArguments,
+        requireOneSlicingArgument,
+      });
+  } else {
+    const listSizeDirective = field.appliedDirectivesOf('listSize').pop();
+    if (listSizeDirective) {
+      const { assumedSize, sizedFields, slicingArguments, requireOneSlicingArgument } = listSizeDirective.arguments();
+      subgraphField.applyDirective(subgraph.metadata().listSizeDirective().name, {
+        assumedSize,
+        sizedFields,
+        slicingArguments,
+        requireOneSlicingArgument,
+      });
+    }
   }
 
   return subgraphField;
