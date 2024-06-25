@@ -33,5 +33,5 @@ node_modules/
 # Local Netlify folder
 .netlify
 
-# IntelliJ IDEs
-.idea
+# JetBrains IDE config
+.idea/
