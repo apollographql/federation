@@ -37,6 +37,8 @@ export interface CompositionSuccess {
 export interface CompositionOptions {
   sdlPrintOptions?: PrintOptions;
   allowedFieldTypeMergingSubtypingRules?: SubtypingRule[];
+  /// Flag to toggle if satisfiability should be performed during composition
+  runSatisfiability?: boolean;
 }
 
 function validateCompositionOptions(options: CompositionOptions) {
@@ -47,12 +49,14 @@ function validateCompositionOptions(options: CompositionOptions) {
 
 /**
  * Used to compose a supergraph from subgraphs
+ * `options.runSatisfiability` will default to `true`
  * 
  * @param subgraphs Subgraphs
  * @param options CompositionOptions
- * @param runSatisfiability Boolean - flag used to toggle satisfiability. Defaults to `true`
  */
-export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}, runSatisfiability = true): CompositionResult {
+export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}): CompositionResult {
+  const { runSatisfiability = true, sdlPrintOptions } = options;
+
   validateCompositionOptions(options);
 
   const mergeResult = validateSubgraphsAndMerge(subgraphs);
@@ -75,7 +79,7 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}, 
   try {
     supergraphSdl = printSchema(
       mergeResult.supergraph,
-      options.sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions),
+      sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions),
     );
   } catch (err) {
     return { errors: [err] };
@@ -93,10 +97,9 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}, 
  * 
  * @param services List of Service definitions
  * @param options CompositionOptions
- * @param runSatisfiability Flag to toggle satisfiability check within composition. Defaults to `true`
  * @returns CompositionResult
  */
-export function composeServices(services: ServiceDefinition[], options: CompositionOptions = {}, runSatisfiability = true): CompositionResult  {
+export function composeServices(services: ServiceDefinition[], options: CompositionOptions = {}): CompositionResult  {
   const subgraphs = subgraphsFromServiceList(services);
   if (Array.isArray(subgraphs)) {
     // Errors in subgraphs are not truly "composition" errors, but it's probably still the best place
@@ -105,7 +108,7 @@ export function composeServices(services: ServiceDefinition[], options: Composit
     return { errors: subgraphs };
   }
 
-  return compose(subgraphs, options, runSatisfiability);
+  return compose(subgraphs, options);
 }
 
 type SatisfiabilityArgs = {
