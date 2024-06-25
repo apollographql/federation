@@ -14,7 +14,7 @@ import {
 } from "@apollo/federation-internals";
 import { GraphQLError } from "graphql";
 import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/query-graphs";
-import { mergeSubgraphs } from "./merging";
+import { MergeResult, mergeSubgraphs } from "./merging";
 import { validateGraphComposition } from "./validate";
 import { CompositionHint } from "./hints";
 
@@ -133,7 +133,15 @@ export function validateSatisfiability({ supergraphSchema, supergraphSdl} : Sati
   return validateGraphComposition(supergraph.schema, supergraph.subgraphNameToGraphEnumValue(), supergraphQueryGraph, federatedQueryGraph);
 }
 
-export function validateSubgraphsAndMerge(subgraphs: Subgraphs){
+type ValidateSubgraphsAndMergeResult = MergeResult | { errors: GraphQLError[] };
+
+/**
+ * Upgrade subgraphs if necessary, then validates subgraphs before attempting to merge
+ * 
+ * @param subgraphs 
+ * @returns ValidateSubgraphsAndMergeResult
+ */
+export function validateSubgraphsAndMerge(subgraphs: Subgraphs) : ValidateSubgraphsAndMergeResult {
   const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
   if (upgradeResult.errors) {
     return { errors: upgradeResult.errors };
