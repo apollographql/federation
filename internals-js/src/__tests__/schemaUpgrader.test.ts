@@ -1,11 +1,22 @@
-import { FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS_UPGRADED, printSchema } from '..';
+import {
+  FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS_UPGRADED,
+  printSchema,
+} from '..';
 import { ObjectType } from '../definitions';
 import { buildSubgraph, Subgraphs } from '../federation';
-import { UpgradeChangeID, UpgradeResult, upgradeSubgraphsIfNecessary } from '../schemaUpgrader';
+import {
+  UpgradeChangeID,
+  UpgradeResult,
+  upgradeSubgraphsIfNecessary,
+} from '../schemaUpgrader';
 
-function changeMessages(res: UpgradeResult, subgraphName: string, id: UpgradeChangeID): string[] {
+function changeMessages(
+  res: UpgradeResult,
+  subgraphName: string,
+  id: UpgradeChangeID,
+): string[] {
   const changes = res.changes?.get(subgraphName)?.get(id);
-  return changes?.map(c => c.toString()) ?? [];
+  return changes?.map((c) => c.toString()) ?? [];
 }
 
 /**
@@ -57,36 +68,46 @@ test('upgrade complex schema', () => {
   const res = upgradeSubgraphsIfNecessary(subgraphs);
   expect(res.errors).toBeUndefined();
 
-  expect(changeMessages(res, 's1', 'EXTERNAL_ON_TYPE_EXTENSION_REMOVAL')).toStrictEqual([
-    'Removed @external from field "Product.upc" as it is a key of an extension type'
+  expect(
+    changeMessages(res, 's1', 'EXTERNAL_ON_TYPE_EXTENSION_REMOVAL'),
+  ).toStrictEqual([
+    'Removed @external from field "Product.upc" as it is a key of an extension type',
   ]);
 
   expect(changeMessages(res, 's1', 'TYPE_EXTENSION_REMOVAL')).toStrictEqual([
-    'Switched type "Product" from an extension to a definition'
+    'Switched type "Product" from an extension to a definition',
   ]);
 
   expect(changeMessages(res, 's1', 'UNUSED_EXTERNAL_REMOVAL')).toStrictEqual([
-    'Removed @external field "Product.name" as it was not used in any @key, @provides or @requires'
+    'Removed @external field "Product.name" as it was not used in any @key, @provides or @requires',
   ]);
 
-  expect(changeMessages(res, 's1', 'EXTERNAL_ON_INTERFACE_REMOVAL')).toStrictEqual([
-    'Removed @external directive on interface type field "I.description": @external is nonsensical on interface fields'
+  expect(
+    changeMessages(res, 's1', 'EXTERNAL_ON_INTERFACE_REMOVAL'),
+  ).toStrictEqual([
+    'Removed @external directive on interface type field "I.description": @external is nonsensical on interface fields',
   ]);
 
-  expect(changeMessages(res, 's1', 'INACTIVE_PROVIDES_OR_REQUIRES_REMOVAL')).toStrictEqual([
-    'Removed directive @requires(fields: "upc") on "Product.inventory": none of the fields were truly @external'
+  expect(
+    changeMessages(res, 's1', 'INACTIVE_PROVIDES_OR_REQUIRES_REMOVAL'),
+  ).toStrictEqual([
+    'Removed directive @requires(fields: "upc") on "Product.inventory": none of the fields were truly @external',
   ]);
 
-  expect(changeMessages(res, 's1', 'INACTIVE_PROVIDES_OR_REQUIRES_FIELDS_REMOVAL')).toStrictEqual([
-    'Updated directive @provides(fields: "upc description") on "Query.products" to @provides(fields: "description"): removed fields that were not truly @external'
+  expect(
+    changeMessages(res, 's1', 'INACTIVE_PROVIDES_OR_REQUIRES_FIELDS_REMOVAL'),
+  ).toStrictEqual([
+    'Updated directive @provides(fields: "upc description") on "Query.products" to @provides(fields: "description"): removed fields that were not truly @external',
   ]);
 
   expect(changeMessages(res, 's1', 'KEY_ON_INTERFACE_REMOVAL')).toStrictEqual([
-    'Removed @key on interface "I": while allowed by federation 0.x, @key on interfaces were completely ignored/had no effect'
+    'Removed @key on interface "I": while allowed by federation 0.x, @key on interfaces were completely ignored/had no effect',
   ]);
 
-  expect(changeMessages(res, 's1', 'PROVIDES_ON_NON_COMPOSITE_REMOVAL')).toStrictEqual([
-    'Removed @provides directive on field "Random.x" as it is of non-composite type "Int": while not rejected by federation 0.x, such @provide is nonsensical and was ignored'
+  expect(
+    changeMessages(res, 's1', 'PROVIDES_ON_NON_COMPOSITE_REMOVAL'),
+  ).toStrictEqual([
+    'Removed @provides directive on field "Random.x" as it is of non-composite type "Int": while not rejected by federation 0.x, such @provide is nonsensical and was ignored',
   ]);
 
   expect(res.subgraphs?.get('s1')?.toString()).toMatchString(`
@@ -140,7 +161,9 @@ test('update federation directive non-string arguments', () => {
   const res = upgradeSubgraphsIfNecessary(subgraphs);
   expect(res.errors).toBeUndefined();
 
-  expect(changeMessages(res, 's', 'FIELDS_ARGUMENT_COERCION_TO_STRING')).toStrictEqual([
+  expect(
+    changeMessages(res, 's', 'FIELDS_ARGUMENT_COERCION_TO_STRING'),
+  ).toStrictEqual([
     'Coerced "fields" argument for directive @key for "A" into a string: coerced from @key(fields: id) to @key(fields: "id")',
     'Coerced "fields" argument for directive @key for "A" into a string: coerced from @key(fields: ["id", "x"]) to @key(fields: "id x")',
   ]);
@@ -164,7 +187,7 @@ test('update federation directive non-string arguments', () => {
       x: Int
     }
   `);
-})
+});
 
 test('remove tag on external field if found on definition', () => {
   const s1 = `
@@ -196,11 +219,21 @@ test('remove tag on external field if found on definition', () => {
     'Removed @tag(name: "a tag") application on @external "A.y" as the @tag application is on another definition',
   ]);
 
-  const typeAInS1 = res.subgraphs?.get('s1')?.schema.type("A") as ObjectType;
-  const typeAInS2 = res.subgraphs?.get('s2')?.schema.type("A") as ObjectType;
-  expect(typeAInS1.field("y")?.appliedDirectivesOf('tag').map((d) => d.toString())).toStrictEqual([]);
-  expect(typeAInS2.field("y")?.appliedDirectivesOf('tag').map((d) => d.toString())).toStrictEqual([ '@tag(name: "a tag")' ]);
-})
+  const typeAInS1 = res.subgraphs?.get('s1')?.schema.type('A') as ObjectType;
+  const typeAInS2 = res.subgraphs?.get('s2')?.schema.type('A') as ObjectType;
+  expect(
+    typeAInS1
+      .field('y')
+      ?.appliedDirectivesOf('tag')
+      .map((d) => d.toString()),
+  ).toStrictEqual([]);
+  expect(
+    typeAInS2
+      .field('y')
+      ?.appliedDirectivesOf('tag')
+      .map((d) => d.toString()),
+  ).toStrictEqual(['@tag(name: "a tag")']);
+});
 
 test('reject @interfaceObject usage if not all subgraphs are fed2', () => {
   // Note that this test both validates the rejection of fed1 subgraph when @interfaceObject is used somewhere, but also
@@ -240,10 +273,10 @@ test('reject @interfaceObject usage if not all subgraphs are fed2', () => {
   subgraphs.add(buildSubgraph('s2', 'http://s2', s2));
   const res = upgradeSubgraphsIfNecessary(subgraphs);
   expect(res.errors?.map((e) => e.message)).toStrictEqual([
-    'The @interfaceObject directive can only be used if all subgraphs have federation 2 subgraph schema (schema with a `@link` to "https://specs.apollo.dev/federation" version 2.0 or newer): '
-    + '@interfaceObject is used in subgraph "s1" but subgraph "s2" is not a federation 2 subgraph schema.'
+    'The @interfaceObject directive can only be used if all subgraphs have federation 2 subgraph schema (schema with a `@link` to "https://specs.apollo.dev/federation" version 2.0 or newer): ' +
+      '@interfaceObject is used in subgraph "s1" but subgraph "s2" is not a federation 2 subgraph schema.',
   ]);
-})
+});
 
 test('handles the addition of @shareable when an @external is used on a type', () => {
   const s1 = `
@@ -278,22 +311,27 @@ test('handles the addition of @shareable when an @external is used on a type', (
   // 2. field `T.x` in s1 must be marked @shareable since it is resolved by s2 (since again, it's @external annotation is ignored).
 
   const s2Upgraded = res.subgraphs?.get('s2')!;
-  expect(s2Upgraded.schema.type('T')?.hasAppliedDirective('external')).toBe(false);
+  expect(s2Upgraded.schema.type('T')?.hasAppliedDirective('external')).toBe(
+    false,
+  );
 
   const s1Upgraded = res.subgraphs?.get('s1')!;
-  expect((s1Upgraded.schema.type('T') as ObjectType).field('x')?.hasAppliedDirective('shareable')).toBe(true);
+  expect(
+    (s1Upgraded.schema.type('T') as ObjectType)
+      .field('x')
+      ?.hasAppliedDirective('shareable'),
+  ).toBe(true);
+});
 
-})
-
-test("fully upgrades a schema with no @link directive", () => {
+test('fully upgrades a schema with no @link directive', () => {
   const subgraph = buildSubgraph(
-    "subgraph",
-    "",
+    'subgraph',
+    '',
     `#graphql
     type Query {
       hello: String
     }
-  `
+  `,
   );
 
   const subgraphs = new Subgraphs();
@@ -316,12 +354,12 @@ test("fully upgrades a schema with no @link directive", () => {
   // router that supports the build pipeline they're upgrading to, but that
   // mechanism isn't in place yet.
   // - Trevor
-  expect(printSchema(result.subgraphs!.get("subgraph")!.schema!)).toContain(
-`schema
+  expect(printSchema(result.subgraphs!.get('subgraph')!.schema!)).toContain(
+    `schema
   @link(url: "https://specs.apollo.dev/link/v1.0")
   @link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])
 {
   query: Query
-}`
+}`,
   );
 });
