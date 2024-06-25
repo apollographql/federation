@@ -1269,6 +1269,7 @@ describe('when a directive causes an implicit federation version upgrade', () =>
       resources: [Resource!]! @connect(
         source: "v1"
         http: { GET: "/resources" }
+        selection: ""
       )
     }
 

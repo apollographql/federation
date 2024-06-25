@@ -21,7 +21,7 @@ describe("connect spec and join__directive", () => {
 
                     type Query {
                         resources: [Resource!]!
-                        @connect(source: "v1", http: { GET: "/resources" })
+                        @connect(source: "v1", http: { GET: "/resources" }, selection: "")
                     }
 
                     type Resource @key(fields: "id") {
@@ -86,7 +86,7 @@ describe("connect spec and join__directive", () => {
       type Query
         @join__type(graph: WITH_CONNECTORS)
       {
-        resources: [Resource!]! @join__directive(graphs: [WITH_CONNECTORS], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\"}})
+        resources: [Resource!]! @join__directive(graphs: [WITH_CONNECTORS], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\"}, selection: \\"\\"})
       }
 
       type Resource
@@ -133,7 +133,7 @@ describe("connect spec and join__directive", () => {
 
                     type Query {
                         resources: [Resource!]!
-                        @http(source: "v1", http: { GET: "/resources" })
+                        @http(source: "v1", http: { GET: "/resources" }, selection: "")
                     }
 
                     type Resource @key(fields: "id") {
@@ -198,7 +198,7 @@ describe("connect spec and join__directive", () => {
       type Query
         @join__type(graph: WITH_CONNECTORS)
       {
-        resources: [Resource!]! @join__directive(graphs: [WITH_CONNECTORS], name: \\"http\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\"}})
+        resources: [Resource!]! @join__directive(graphs: [WITH_CONNECTORS], name: \\"http\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\"}, selection: \\"\\"})
       }
 
       type Resource
@@ -241,7 +241,7 @@ describe("connect spec and join__directive", () => {
 
           type Query {
             resources: [Resource!]!
-            @connect(source: "v1", http: { GET: "/resources" })
+            @connect(source: "v1", http: { GET: "/resources" }, selection: "")
           }
 
           type Resource {
@@ -277,7 +277,7 @@ describe("connect spec and join__directive", () => {
 
           type Query {
             resources: [Resource!]!
-            @connect(source: "v1")
+            @connect(source: "v1", selection: "")
           }
 
           type Resource {
