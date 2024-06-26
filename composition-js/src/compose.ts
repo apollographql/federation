@@ -14,7 +14,7 @@ import {
 } from "@apollo/federation-internals";
 import { GraphQLError } from "graphql";
 import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/query-graphs";
-import { mergeSubgraphs } from "./merging";
+import { MergeResult, mergeSubgraphs } from "./merging";
 import { validateGraphComposition } from "./validate";
 import { CompositionHint } from "./hints";
 
@@ -37,6 +37,8 @@ export interface CompositionSuccess {
 export interface CompositionOptions {
   sdlPrintOptions?: PrintOptions;
   allowedFieldTypeMergingSubtypingRules?: SubtypingRule[];
+  /// Flag to toggle if satisfiability should be performed during composition
+  runSatisfiability?: boolean;
 }
 
 function validateCompositionOptions(options: CompositionOptions) {
@@ -47,12 +49,14 @@ function validateCompositionOptions(options: CompositionOptions) {
 
 /**
  * Used to compose a supergraph from subgraphs
- * 
+ * `options.runSatisfiability` will default to `true`
+ *
  * @param subgraphs Subgraphs
  * @param options CompositionOptions
- * @param runSatisfiability Boolean - flag used to toggle satisfiability. Defaults to `true`
  */
-export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}, runSatisfiability = true): CompositionResult {
+export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}): CompositionResult {
+  const { runSatisfiability = true, sdlPrintOptions } = options;
+
   validateCompositionOptions(options);
 
   const mergeResult = validateSubgraphsAndMerge(subgraphs);
@@ -75,7 +79,7 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}, 
   try {
     supergraphSdl = printSchema(
       mergeResult.supergraph,
-      options.sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions),
+      sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions),
     );
   } catch (err) {
     return { errors: [err] };
@@ -90,13 +94,12 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}, 
 
 /**
  * Method to validate and compose services
- * 
+ *
  * @param services List of Service definitions
  * @param options CompositionOptions
- * @param runSatisfiability Flag to toggle satisfiability check within composition. Defaults to `true`
  * @returns CompositionResult
  */
-export function composeServices(services: ServiceDefinition[], options: CompositionOptions = {}, runSatisfiability = true): CompositionResult  {
+export function composeServices(services: ServiceDefinition[], options: CompositionOptions = {}): CompositionResult  {
   const subgraphs = subgraphsFromServiceList(services);
   if (Array.isArray(subgraphs)) {
     // Errors in subgraphs are not truly "composition" errors, but it's probably still the best place
@@ -105,7 +108,7 @@ export function composeServices(services: ServiceDefinition[], options: Composit
     return { errors: subgraphs };
   }
 
-  return compose(subgraphs, options, runSatisfiability);
+  return compose(subgraphs, options);
 }
 
 type SatisfiabilityArgs = {
@@ -115,9 +118,9 @@ type SatisfiabilityArgs = {
 
 /**
  * Run satisfiability check for a supergraph
- * 
+ *
  * Can pass either the supergraph's Schema or SDL to validate
- * @param args: SatisfiabilityArgs 
+ * @param args: SatisfiabilityArgs
  * @returns { errors? : GraphQLError[], hints? : CompositionHint[] }
  */
 export function validateSatisfiability({ supergraphSchema, supergraphSdl} : SatisfiabilityArgs) : {
@@ -133,7 +136,15 @@ export function validateSatisfiability({ supergraphSchema, supergraphSdl} : Sati
   return validateGraphComposition(supergraph.schema, supergraph.subgraphNameToGraphEnumValue(), supergraphQueryGraph, federatedQueryGraph);
 }
 
-export function validateSubgraphsAndMerge(subgraphs: Subgraphs){
+type ValidateSubgraphsAndMergeResult = MergeResult | { errors: GraphQLError[] };
+
+/**
+ * Upgrade subgraphs if necessary, then validates subgraphs before attempting to merge
+ *
+ * @param subgraphs
+ * @returns ValidateSubgraphsAndMergeResult
+ */
+function validateSubgraphsAndMerge(subgraphs: Subgraphs) : ValidateSubgraphsAndMergeResult {
   const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
   if (upgradeResult.errors) {
     return { errors: upgradeResult.errors };
