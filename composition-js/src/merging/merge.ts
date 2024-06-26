@@ -2913,8 +2913,6 @@ class Merger {
   // remove types imported from the original `@link` directive to avoid
   // orphaned types. When extractSubgraphsFromSupergraph is called, it will
   // add the types back to the subgraph.
-  //
-  // TODO: this doesn't handle renamed imports
   private removeTypesAfterJoinDirectiveSerialization(schema: Schema) {
     const joinDirectiveLinks = schema.directives()
       .filter(d => d.name === 'join__directive')
