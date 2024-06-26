@@ -1297,15 +1297,15 @@ contextDirective(): Post20FederationDirectiveDefinition<{ name: string }> {
       baseDirectives.push(policyDirective);
     }
 
-      const contextDirective = this.contextDirective();
-      if (isFederationDirectiveDefinedInSchema(contextDirective)) {
-          baseDirectives.push(contextDirective);
-      }
+    const contextDirective = this.contextDirective();
+    if (isFederationDirectiveDefinedInSchema(contextDirective)) {
+        baseDirectives.push(contextDirective);
+    }
 
-      const fromContextDirective = this.fromContextDirective();
-      if (isFederationDirectiveDefinedInSchema(fromContextDirective)) {
-          baseDirectives.push(fromContextDirective);
-      }
+    const fromContextDirective = this.fromContextDirective();
+    if (isFederationDirectiveDefinedInSchema(fromContextDirective)) {
+        baseDirectives.push(fromContextDirective);
+    }
 
     return baseDirectives;
   }
@@ -1545,7 +1545,7 @@ export class FederationBlueprint extends SchemaBlueprint {
     for (const application of contextDirective.applications()) {
       const parent = application.parent;
       const name = application.arguments().name as string;
-const match = name.match(/^([A-Za-z]\w*)$/);
+      const match = name.match(/^([A-Za-z]\w*)$/);
       if (name.includes('_')) {
         errorCollector.push(ERRORS.CONTEXT_NAME_INVALID.err(
           `Context name "${name}" may not contain an underscore.`,
