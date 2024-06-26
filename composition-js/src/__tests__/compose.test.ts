@@ -3,13 +3,11 @@ import {
   assert,
   AuthenticatedSpecDefinition,
   buildSubgraph,
-  costIdentity,
   defaultPrintOptions,
   FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS,
   inaccessibleIdentity,
   InputObjectType,
   isObjectType,
-  listSizeIdentity,
   ObjectType,
   orderPrintedDefinitions,
   printDirectiveDefinition,
@@ -5221,88 +5219,5 @@ describe('@source* directives', () => {
         '[renamed] @api(name: "not an identifier") must specify name using only [a-zA-Z0-9-_] characters'
       );
     });
-  });
-});
-
-describe('demand control directives', () => {
-  it('has the correct definition for @cost in the supergraph', () => {
-    const subgraphA = {
-      name: 'subgraphA',
-      typeDefs: gql`
-        type Query {
-          expensive: Int @cost(weight: "5.0")
-        }
-      `,
-    };
-
-    const result = composeAsFed2Subgraphs([subgraphA]);
-    assertCompositionSuccess(result);
-
-    expect(result.schema.coreFeatures?.getByIdentity(costIdentity)?.url.toString())
-      .toBe("https://specs.apollo.dev/cost/v0.1");
-    expect(printDirectiveDefinition(result.schema.directive('cost')!)).toMatchString(`
-      directive @cost(weight: String!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
-    `);
-  });
-
-  it('has the correct definition for @listSize in the supergraph', () => {
-    const subgraphA = {
-      name: 'subgraphA',
-      typeDefs: gql`
-        type Query {
-          expensive: [String!] @listSize(assumedSize: 10)
-        }
-      `,
-    };
-
-    const result = composeAsFed2Subgraphs([subgraphA]);
-    assertCompositionSuccess(result);
-
-    expect(result.schema.coreFeatures?.getByIdentity(listSizeIdentity)?.url.toString())
-      .toBe("https://specs.apollo.dev/listSize/v0.1");
-    expect(printDirectiveDefinition(result.schema.directive('listSize')!)).toMatchString(`
-      directive @listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
-    `);
-  });
-
-  it('propagates @cost and @listSize to the supergraph', () => {
-    const subgraphA = {
-      name: 'subgraphA',
-      typeDefs: gql`
-        type Query {
-          expensive: Int @cost(weight: "5.0")
-        }
-      `,
-    };
-
-    const subgraphB = {
-      name: 'subgraphB',
-      typeDefs: gql`
-        type Query {
-          bigList: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
-        }
-      `,
-    };
-
-    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
-    assertCompositionSuccess(result);
-
-    const costDirectiveApplications = result
-      .schema
-      .schemaDefinition
-      .rootType('query')
-      ?.field('expensive')
-      ?.appliedDirectivesOf('cost')
-      .toString();
-    expect(costDirectiveApplications).toMatchString(`@cost(weight: "5.0")`);
-
-    const listSizeDirectiveApplications = result
-      .schema
-      .schemaDefinition
-      .rootType('query')
-      ?.field('bigList')
-      ?.appliedDirectivesOf('listSize')
-      .toString();
-    expect(listSizeDirectiveApplications).toMatchString(`@listSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
   });
 });
