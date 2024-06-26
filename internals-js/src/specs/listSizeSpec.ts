@@ -19,7 +19,7 @@ export class ListSizeSpecDefinition extends FeatureDefinition {
         { name: 'sizedFields', type: (schema) => new ListType(new NonNullType(schema.stringType())) },
         { name: 'requireOneSlicingArgument', type: (schema) => schema.booleanType(), defaultValue: true },
       ],
-      composes: true,
+      composes: false,
       repeatable: false,
       supergraphSpecification: (fedVersion) => LIST_SIZE_VERSIONS.getMinimumRequiredVersion(fedVersion)
     }));

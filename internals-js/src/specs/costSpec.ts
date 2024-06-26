@@ -21,7 +21,7 @@ export class CostSpecDefinition extends FeatureDefinition {
         DirectiveLocation.SCALAR
       ],
       args: [{ name: 'weight', type: (schema) => new NonNullType(schema.stringType()) }],
-      composes: true,
+      composes: false,
       repeatable: false,
       supergraphSpecification: (fedVersion) => COST_VERSIONS.getMinimumRequiredVersion(fedVersion)
     }));
