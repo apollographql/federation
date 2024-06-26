@@ -9,75 +9,65 @@ import { composeServices } from '../compose';
 import gql from 'graphql-tag';
 import { assertCompositionSuccess } from "./testHelper";
 
+const subgraphWithCost = {
+  name: 'subgraphWithCost',
+  typeDefs: asFed2SubgraphDocument(gql`
+    extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
+
+    type Query {
+      fieldWithCost: Int @cost(weight: "5.0")
+    }
+  `),
+};
+
+const subgraphWithListSize = {
+  name: 'subgraphWithListSize',
+  typeDefs: asFed2SubgraphDocument(gql`
+    extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+
+    type Query {
+      fieldWithListSize: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+    }
+  `),
+};
+
 describe('demand control directive composition', () => {
   describe('when imported from the demand control spec', () => {
-    it('does not include @cost or @listSize as core features', () => {
-      const subgraphA = {
-        name: 'subgraphA',
-        typeDefs: asFed2SubgraphDocument(
-          gql`
-            extend schema
-              @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
-              @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
-
-            type Query {
-              expensive: Int @cost(weight: "5.0")
-              bigList: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
-            }
-          `,
-        ),
-      };
-      const result = composeServices([subgraphA]);
+    it('does not include @cost as a core feature', () => {
+      const result = composeServices([subgraphWithCost]);
 
       assertCompositionSuccess(result);
       expect(result.schema.coreFeatures?.getByIdentity(costIdentity)).toBeUndefined();
+    });
+
+    it('does not include @listSize as a core feature', () => {
+      const result = composeServices([subgraphWithListSize]);
+
+      assertCompositionSuccess(result);
       expect(result.schema.coreFeatures?.getByIdentity(listSizeIdentity)).toBeUndefined();
     });
 
-
     it('propagates @cost and @listSize to the supergraph using @join__directive', () => {
-      const subgraphA = {
-        name: 'subgraphA',
-        typeDefs: asFed2SubgraphDocument(gql`
-          extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
-  
-          type Query {
-            expensive: Int @cost(weight: "5.0")
-          }
-        `),
-      };
-  
-      const subgraphB = {
-        name: 'subgraphB',
-        typeDefs: asFed2SubgraphDocument(gql`
-          extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
-  
-          type Query {
-            bigList: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
-          }
-        `),
-      };
-  
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeServices([subgraphWithCost, subgraphWithListSize]);
       assertCompositionSuccess(result);
   
       const costDirectiveApplications = result
         .schema
         .schemaDefinition
         .rootType('query')
-        ?.field('expensive')
+        ?.field('fieldWithCost')
         ?.appliedDirectivesOf('join__directive')
         .toString();
-      expect(costDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHA], name: "cost", args: {weight: "5.0"})`);
+      expect(costDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "cost", args: {weight: "5.0"})`);
   
       const listSizeDirectiveApplications = result
         .schema
         .schemaDefinition
         .rootType('query')
-        ?.field('bigList')
+        ?.field('fieldWithListSize')
         ?.appliedDirectivesOf('join__directive')
         .toString();
-      expect(listSizeDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHB], name: "listSize", args: {assumedSize: 2000, requireOneSlicingArgument: false})`);
+      expect(listSizeDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHLISTSIZE], name: "listSize", args: {assumedSize: 2000, requireOneSlicingArgument: false})`);
     });
   });
 
@@ -93,7 +83,7 @@ describe('demand control directive composition', () => {
         typeDefs: asFed2SubgraphDocument(
           gql`  
             type Query {
-              expensive: Int @cost(weight: "5.0")
+              fieldWithCost: Int @cost(weight: "5.0")
             }
           `,
           { includeAllImports: true },
@@ -105,7 +95,7 @@ describe('demand control directive composition', () => {
         typeDefs: asFed2SubgraphDocument(
           gql`
             type Query {
-              bigList: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+              fieldWithListSize: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
             }
           `,
           { includeAllImports: true },
@@ -119,7 +109,7 @@ describe('demand control directive composition', () => {
         .schema
         .schemaDefinition
         .rootType('query')
-        ?.field('expensive')
+        ?.field('fieldWithCost')
         ?.appliedDirectivesOf('join__directive');
       expect(costDirectiveApplications?.length).toBe(0);
   
@@ -127,7 +117,7 @@ describe('demand control directive composition', () => {
         .schema
         .schemaDefinition
         .rootType('query')
-        ?.field('bigList')
+        ?.field('fieldWithListSize')
         ?.appliedDirectivesOf('join__directive');
       expect(listSizeDirectiveApplications?.length).toBe(0);
     });
@@ -136,21 +126,10 @@ describe('demand control directive composition', () => {
 
 describe('demand control directive extraction', () => {
   it('extracts @cost from the supergraph', () => {
-    const subgraph = {
-      name: 'my-subgraph', 
-      typeDefs: asFed2SubgraphDocument(gql`
-        extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
-
-        type Query {
-          fieldWithCost: Int @cost(weight: "5.0")
-        }
-      `)
-    };
-
-    const result = composeServices([subgraph]);
+    const result = composeServices([subgraphWithCost]);
     assertCompositionSuccess(result);
     expect(result.hints.length).toBe(0);
-    const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get('my-subgraph');
+    const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithCost.name);
 
     expect(extracted?.toString()).toMatchString(`
       schema
@@ -166,21 +145,10 @@ describe('demand control directive extraction', () => {
   });
 
   it('extracts @listSize from the supergraph', () => {
-    const subgraph = {
-      name: 'my-subgraph', 
-      typeDefs: asFed2SubgraphDocument(gql`
-        extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
-
-        type Query {
-          bigList: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
-        }
-      `)
-    };
-
-    const result = composeServices([subgraph]);
+    const result = composeServices([subgraphWithListSize]);
     assertCompositionSuccess(result);
     expect(result.hints.length).toBe(0);
-    const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get('my-subgraph');
+    const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithListSize.name);
 
     expect(extracted?.toString()).toMatchString(`
       schema
@@ -190,7 +158,7 @@ describe('demand control directive extraction', () => {
       }
 
       type Query {
-        bigList: [String!] @federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+        fieldWithListSize: [String!] @federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)
       }
     `);
   });
