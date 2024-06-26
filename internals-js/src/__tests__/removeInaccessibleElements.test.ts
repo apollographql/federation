@@ -4,13 +4,13 @@ import {
   InterfaceType,
   ObjectType,
   UnionType,
-} from "../definitions";
-import { buildSchema } from "../buildSchema";
-import { removeInaccessibleElements } from "../specs/inaccessibleSpec";
-import { GraphQLError } from "graphql";
-import { errorCauses } from "../error";
+} from '../definitions';
+import { buildSchema } from '../buildSchema';
+import { removeInaccessibleElements } from '../specs/inaccessibleSpec';
+import { GraphQLError } from 'graphql';
+import { errorCauses } from '../error';
 
-describe("removeInaccessibleElements", () => {
+describe('removeInaccessibleElements', () => {
   const INACCESSIBLE_V02_HEADER = `
     directive @core(feature: String!, as: String, for: core__Purpose) repeatable on SCHEMA
 
@@ -52,7 +52,7 @@ describe("removeInaccessibleElements", () => {
     expect(causes).toHaveLength(expectedCauseCount);
     const messages = causes.map((cause) => cause.message);
     for (const message of messages) {
-      expect(typeof message === "string").toBeTruthy();
+      expect(typeof message === 'string').toBeTruthy();
     }
     messages.sort();
     return messages;
@@ -106,7 +106,7 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("Query.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Query.someField')).toBeDefined();
   });
 
   it(`fails for no @inaccessible definition`, () => {
@@ -206,8 +206,8 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("Query.someField")).toBeDefined();
-    expect(schema.elementByCoordinate("Query.privateField")).toBeUndefined();
+    expect(schema.elementByCoordinate('Query.someField')).toBeDefined();
+    expect(schema.elementByCoordinate('Query.privateField')).toBeUndefined();
   });
 
   it(`handles renames of @inaccessible via import "as"`, () => {
@@ -242,8 +242,8 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("Query.someField")).toBeDefined();
-    expect(schema.elementByCoordinate("Query.privateField")).toBeUndefined();
+    expect(schema.elementByCoordinate('Query.someField')).toBeDefined();
+    expect(schema.elementByCoordinate('Query.privateField')).toBeUndefined();
   });
 
   it(`fails for @inaccessible built-ins`, () => {
@@ -473,25 +473,25 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("Query")).toBeDefined();
-    expect(schema.elementByCoordinate("Mutation")).toBeUndefined();
-    expect(schema.elementByCoordinate("Subscription")).toBeUndefined();
-    expect(schema.elementByCoordinate("Object")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Query')).toBeDefined();
+    expect(schema.elementByCoordinate('Mutation')).toBeUndefined();
+    expect(schema.elementByCoordinate('Subscription')).toBeUndefined();
+    expect(schema.elementByCoordinate('Object')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer1.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer1.privatefield")
+      schema.elementByCoordinate('Referencer1.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer2")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer3.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer2')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer3.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer3.privatefield")
+      schema.elementByCoordinate('Referencer3.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer4")).toBeUndefined();
-    const unionType = schema.elementByCoordinate("Referencer5");
+    expect(schema.elementByCoordinate('Referencer4')).toBeUndefined();
+    const unionType = schema.elementByCoordinate('Referencer5');
     expect(unionType instanceof UnionType).toBeTruthy();
-    expect((unionType as UnionType).hasTypeMember("Query")).toBeTruthy();
-    expect((unionType as UnionType).hasTypeMember("Object")).toBeFalsy();
-    expect(schema.elementByCoordinate("Referencer6")).toBeUndefined();
+    expect((unionType as UnionType).hasTypeMember('Query')).toBeTruthy();
+    expect((unionType as UnionType).hasTypeMember('Object')).toBeFalsy();
+    expect(schema.elementByCoordinate('Referencer6')).toBeUndefined();
   });
 
   it(`fails to remove @inaccessible object types for breaking removals`, () => {
@@ -594,33 +594,33 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("VisibleInterface")).toBeDefined();
-    expect(schema.elementByCoordinate("Interface")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('VisibleInterface')).toBeDefined();
+    expect(schema.elementByCoordinate('Interface')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer1.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer1.privatefield")
+      schema.elementByCoordinate('Referencer1.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer2")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer3.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer2')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer3.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer3.privatefield")
+      schema.elementByCoordinate('Referencer3.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer4")).toBeUndefined();
-    const objectType = schema.elementByCoordinate("Referencer5");
+    expect(schema.elementByCoordinate('Referencer4')).toBeUndefined();
+    const objectType = schema.elementByCoordinate('Referencer5');
     expect(objectType instanceof ObjectType).toBeTruthy();
     expect(
-      (objectType as ObjectType).implementsInterface("VisibleInterface")
+      (objectType as ObjectType).implementsInterface('VisibleInterface'),
     ).toBeTruthy();
     expect(
-      (objectType as ObjectType).implementsInterface("Interface")
+      (objectType as ObjectType).implementsInterface('Interface'),
     ).toBeFalsy();
-    const interfaceType = schema.elementByCoordinate("Referencer6");
+    const interfaceType = schema.elementByCoordinate('Referencer6');
     expect(interfaceType instanceof InterfaceType).toBeTruthy();
     expect(
-      (interfaceType as InterfaceType).implementsInterface("VisibleInterface")
+      (interfaceType as InterfaceType).implementsInterface('VisibleInterface'),
     ).toBeTruthy();
     expect(
-      (interfaceType as InterfaceType).implementsInterface("Interface")
+      (interfaceType as InterfaceType).implementsInterface('Interface'),
     ).toBeFalsy();
   });
 
@@ -703,18 +703,18 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("VisibleUnion")).toBeDefined();
-    expect(schema.elementByCoordinate("Union")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('VisibleUnion')).toBeDefined();
+    expect(schema.elementByCoordinate('Union')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer1.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer1.privatefield")
+      schema.elementByCoordinate('Referencer1.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer2")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer3.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer2')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer3.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer3.privatefield")
+      schema.elementByCoordinate('Referencer3.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer4")).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer4')).toBeUndefined();
   });
 
   it(`fails to remove @inaccessible union types for breaking removals`, () => {
@@ -829,34 +829,34 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("VisibleInputObject")).toBeDefined();
-    expect(schema.elementByCoordinate("InputObject")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('VisibleInputObject')).toBeDefined();
+    expect(schema.elementByCoordinate('InputObject')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer1.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer1.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer1.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer2.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer2.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer2.privateField")
+      schema.elementByCoordinate('Referencer2.privateField'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer3")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer4.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer3')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer4.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer4.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer4.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer5.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer5.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer5.privateField")
+      schema.elementByCoordinate('Referencer5.privateField'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer6")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer7.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer6')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer7.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer7.privatefield")
+      schema.elementByCoordinate('Referencer7.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer8")).toBeUndefined();
-    expect(schema.elementByCoordinate("@referencer9")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer8')).toBeUndefined();
+    expect(schema.elementByCoordinate('@referencer9')).toBeDefined();
     expect(
-      schema.elementByCoordinate("@referencer9(privateArg:)")
+      schema.elementByCoordinate('@referencer9(privateArg:)'),
     ).toBeUndefined();
   });
 
@@ -1007,44 +1007,44 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("VisibleEnum")).toBeDefined();
-    expect(schema.elementByCoordinate("Enum")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('VisibleEnum')).toBeDefined();
+    expect(schema.elementByCoordinate('Enum')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer1.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer1.privatefield")
+      schema.elementByCoordinate('Referencer1.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer2")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer3.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer2')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer3.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer3.privatefield")
+      schema.elementByCoordinate('Referencer3.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer4")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer5.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer4')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer5.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer5.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer5.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer6.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer6.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer6.privateField")
+      schema.elementByCoordinate('Referencer6.privateField'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer7")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer8.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer7')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer8.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer8.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer8.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer9.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer9.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer9.privateField")
+      schema.elementByCoordinate('Referencer9.privateField'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer10")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer11.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer10')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer11.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer11.privatefield")
+      schema.elementByCoordinate('Referencer11.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer12")).toBeUndefined();
-    expect(schema.elementByCoordinate("@referencer13")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer12')).toBeUndefined();
+    expect(schema.elementByCoordinate('@referencer13')).toBeDefined();
     expect(
-      schema.elementByCoordinate("@referencer13(privateArg:)")
+      schema.elementByCoordinate('@referencer13(privateArg:)'),
     ).toBeUndefined();
   });
 
@@ -1206,44 +1206,44 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("VisibleScalar")).toBeDefined();
-    expect(schema.elementByCoordinate("Scalar")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('VisibleScalar')).toBeDefined();
+    expect(schema.elementByCoordinate('Scalar')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer1.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer1.privatefield")
+      schema.elementByCoordinate('Referencer1.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer2")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer3.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer2')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer3.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer3.privatefield")
+      schema.elementByCoordinate('Referencer3.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer4")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer5.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer4')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer5.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer5.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer5.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer6.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer6.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer6.privateField")
+      schema.elementByCoordinate('Referencer6.privateField'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer7")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer8.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer7')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer8.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer8.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer8.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer9.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer9.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer9.privateField")
+      schema.elementByCoordinate('Referencer9.privateField'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer10")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer11.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer10')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer11.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer11.privatefield")
+      schema.elementByCoordinate('Referencer11.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer12")).toBeUndefined();
-    expect(schema.elementByCoordinate("@referencer13")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer12')).toBeUndefined();
+    expect(schema.elementByCoordinate('@referencer13')).toBeDefined();
     expect(
-      schema.elementByCoordinate("@referencer13(privateArg:)")
+      schema.elementByCoordinate('@referencer13(privateArg:)'),
     ).toBeUndefined();
   });
 
@@ -1364,30 +1364,30 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("Query.someField")).toBeDefined();
-    expect(schema.elementByCoordinate("Query.privateField")).toBeUndefined();
-    expect(schema.elementByCoordinate("Mutation.someField")).toBeDefined();
-    expect(schema.elementByCoordinate("Mutation.privateField")).toBeUndefined();
-    expect(schema.elementByCoordinate("Subscription.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Query.someField')).toBeDefined();
+    expect(schema.elementByCoordinate('Query.privateField')).toBeUndefined();
+    expect(schema.elementByCoordinate('Mutation.someField')).toBeDefined();
+    expect(schema.elementByCoordinate('Mutation.privateField')).toBeUndefined();
+    expect(schema.elementByCoordinate('Subscription.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Subscription.privateField")
+      schema.elementByCoordinate('Subscription.privateField'),
     ).toBeUndefined();
-    const objectType = schema.elementByCoordinate("Object");
+    const objectType = schema.elementByCoordinate('Object');
     expect(objectType instanceof ObjectType).toBeTruthy();
     expect(
-      (objectType as ObjectType).implementsInterface("Referencer1")
+      (objectType as ObjectType).implementsInterface('Referencer1'),
     ).toBeTruthy();
     expect(
-      (objectType as ObjectType).implementsInterface("Referencer2")
+      (objectType as ObjectType).implementsInterface('Referencer2'),
     ).toBeFalsy();
-    expect(schema.elementByCoordinate("Object.someField")).toBeDefined();
-    expect(schema.elementByCoordinate("Object.privateField")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Object.someField')).toBeDefined();
+    expect(schema.elementByCoordinate('Object.privateField')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer1.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer1.privatefield")
+      schema.elementByCoordinate('Referencer1.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer2")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer3")).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer2')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer3')).toBeUndefined();
   });
 
   it(`fails to remove @inaccessible object fields for breaking removals`, () => {
@@ -1491,24 +1491,24 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    const interfaceType = schema.elementByCoordinate("Interface");
+    const interfaceType = schema.elementByCoordinate('Interface');
     expect(interfaceType instanceof InterfaceType).toBeTruthy();
     expect(
-      (interfaceType as InterfaceType).implementsInterface("Referencer1")
+      (interfaceType as InterfaceType).implementsInterface('Referencer1'),
     ).toBeTruthy();
     expect(
-      (interfaceType as InterfaceType).implementsInterface("Referencer2")
+      (interfaceType as InterfaceType).implementsInterface('Referencer2'),
     ).toBeFalsy();
-    expect(schema.elementByCoordinate("Interface.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Interface.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Interface.privateField")
+      schema.elementByCoordinate('Interface.privateField'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer1.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer1.privatefield")
+      schema.elementByCoordinate('Referencer1.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer2")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer3")).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer2')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer3')).toBeUndefined();
   });
 
   it(`fails to remove @inaccessible interface fields for breaking removals`, () => {
@@ -1615,45 +1615,45 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("Query.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Query.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Query.someField(privateArg:)")
+      schema.elementByCoordinate('Query.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Mutation.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Mutation.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Mutation.someField(privateArg:)")
+      schema.elementByCoordinate('Mutation.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Subscription.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Subscription.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Subscription.someField(privateArg:)")
+      schema.elementByCoordinate('Subscription.someField(privateArg:)'),
     ).toBeUndefined();
-    const objectType = schema.elementByCoordinate("Object");
+    const objectType = schema.elementByCoordinate('Object');
     expect(objectType instanceof ObjectType).toBeTruthy();
     expect(
-      (objectType as ObjectType).implementsInterface("Referencer1")
+      (objectType as ObjectType).implementsInterface('Referencer1'),
     ).toBeTruthy();
     expect(
-      (objectType as ObjectType).implementsInterface("Referencer2")
+      (objectType as ObjectType).implementsInterface('Referencer2'),
     ).toBeTruthy();
     expect(
-      (objectType as ObjectType).implementsInterface("Referencer3")
+      (objectType as ObjectType).implementsInterface('Referencer3'),
     ).toBeFalsy();
     expect(
-      schema.elementByCoordinate("Object.someField(someArg:)")
+      schema.elementByCoordinate('Object.someField(someArg:)'),
     ).toBeDefined();
     expect(
-      schema.elementByCoordinate("Object.someField(privateArg:)")
+      schema.elementByCoordinate('Object.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer1.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer1.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer1.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer2")).toBeDefined();
-    expect(schema.elementByCoordinate("Referencer2.someField")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer3")).toBeUndefined();
-    expect(schema.elementByCoordinate("ObjectDefault.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer2')).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer2.someField')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer3')).toBeUndefined();
+    expect(schema.elementByCoordinate('ObjectDefault.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("ObjectDefault.someField(privateArg:)")
+      schema.elementByCoordinate('ObjectDefault.someField(privateArg:)'),
     ).toBeUndefined();
   });
 
@@ -1771,54 +1771,54 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    const interfaceType = schema.elementByCoordinate("Interface");
+    const interfaceType = schema.elementByCoordinate('Interface');
     expect(interfaceType instanceof InterfaceType).toBeTruthy();
     expect(
-      (interfaceType as InterfaceType).implementsInterface("Referencer1")
+      (interfaceType as InterfaceType).implementsInterface('Referencer1'),
     ).toBeTruthy();
     expect(
-      (interfaceType as InterfaceType).implementsInterface("Referencer2")
+      (interfaceType as InterfaceType).implementsInterface('Referencer2'),
     ).toBeTruthy();
     expect(
-      (interfaceType as InterfaceType).implementsInterface("Referencer3")
+      (interfaceType as InterfaceType).implementsInterface('Referencer3'),
     ).toBeFalsy();
     expect(
-      schema.elementByCoordinate("Interface.someField(someArg:)")
+      schema.elementByCoordinate('Interface.someField(someArg:)'),
     ).toBeDefined();
     expect(
-      schema.elementByCoordinate("Interface.someField(privateArg:)")
+      schema.elementByCoordinate('Interface.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer1.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer1.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer1.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer2")).toBeDefined();
-    expect(schema.elementByCoordinate("Referencer2.someField")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer3")).toBeUndefined();
-    expect(schema.elementByCoordinate("Interface.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer2')).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer2.someField')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer3')).toBeUndefined();
+    expect(schema.elementByCoordinate('Interface.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Interface.someField(privateArg:)")
+      schema.elementByCoordinate('Interface.someField(privateArg:)'),
     ).toBeUndefined();
     const objectArg = schema.elementByCoordinate(
-      "Referencer4.someField(privateArg:)"
+      'Referencer4.someField(privateArg:)',
     );
     expect(objectArg instanceof ArgumentDefinition).toBeTruthy();
     expect(
       (
         objectArg as ArgumentDefinition<FieldDefinition<ObjectType>>
-      ).isRequired()
+      ).isRequired(),
     ).toBeFalsy();
-    expect(schema.elementByCoordinate("Referencer5")).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer5')).toBeUndefined();
     const interfaceArg = schema.elementByCoordinate(
-      "Referencer6.someField(privateArg:)"
+      'Referencer6.someField(privateArg:)',
     );
     expect(interfaceArg instanceof ArgumentDefinition).toBeTruthy();
     expect(
       (
         interfaceArg as ArgumentDefinition<FieldDefinition<InterfaceType>>
-      ).isRequired()
+      ).isRequired(),
     ).toBeFalsy();
-    expect(schema.elementByCoordinate("Referencer7")).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer7')).toBeUndefined();
   });
 
   it(`fails to remove @inaccessible interface field arguments for breaking removals`, () => {
@@ -1973,46 +1973,46 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("InputObject.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('InputObject.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("InputObject.privateField")
+      schema.elementByCoordinate('InputObject.privateField'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer1.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer1.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer1.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer2.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer2.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer2.privateField")
+      schema.elementByCoordinate('Referencer2.privateField'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer3")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer4.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer3')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer4.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer4.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer4.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer5.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer5.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer5.privateField")
+      schema.elementByCoordinate('Referencer5.privateField'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer6")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer7.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer6')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer7.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer7.privatefield")
+      schema.elementByCoordinate('Referencer7.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer8")).toBeUndefined();
-    expect(schema.elementByCoordinate("@referencer9")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer8')).toBeUndefined();
+    expect(schema.elementByCoordinate('@referencer9')).toBeDefined();
     expect(
-      schema.elementByCoordinate("@referencer9(privateArg:)")
+      schema.elementByCoordinate('@referencer9(privateArg:)'),
     ).toBeUndefined();
     expect(
-      schema.elementByCoordinate("Referencer10.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer10.someField(privateArg:)'),
     ).toBeDefined();
-    expect(schema.elementByCoordinate("Referencer11")).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer11')).toBeUndefined();
     expect(
-      schema.elementByCoordinate("InputObjectDefault.someField")
+      schema.elementByCoordinate('InputObjectDefault.someField'),
     ).toBeDefined();
     expect(
-      schema.elementByCoordinate("InputObjectDefault.privatefield")
+      schema.elementByCoordinate('InputObjectDefault.privatefield'),
     ).toBeUndefined();
   });
 
@@ -2179,39 +2179,39 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("Enum.SOME_VALUE")).toBeDefined();
-    expect(schema.elementByCoordinate("Enum.PRIVATE_VALUE")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer1.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Enum.SOME_VALUE')).toBeDefined();
+    expect(schema.elementByCoordinate('Enum.PRIVATE_VALUE')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer1.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer1.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer1.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer2.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer2.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer2.privateField")
+      schema.elementByCoordinate('Referencer2.privateField'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer3")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer4.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer3')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer4.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer4.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer4.someField(privateArg:)'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer5.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer5.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer5.privateField")
+      schema.elementByCoordinate('Referencer5.privateField'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer6")).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer7.someField")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer6')).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer7.someField')).toBeDefined();
     expect(
-      schema.elementByCoordinate("Referencer7.privatefield")
+      schema.elementByCoordinate('Referencer7.privatefield'),
     ).toBeUndefined();
-    expect(schema.elementByCoordinate("Referencer8")).toBeUndefined();
-    expect(schema.elementByCoordinate("@referencer9")).toBeDefined();
+    expect(schema.elementByCoordinate('Referencer8')).toBeUndefined();
+    expect(schema.elementByCoordinate('@referencer9')).toBeDefined();
     expect(
-      schema.elementByCoordinate("@referencer9(privateArg:)")
+      schema.elementByCoordinate('@referencer9(privateArg:)'),
     ).toBeUndefined();
     expect(
-      schema.elementByCoordinate("Referencer10.someField(privateArg:)")
+      schema.elementByCoordinate('Referencer10.someField(privateArg:)'),
     ).toBeDefined();
-    expect(schema.elementByCoordinate("Referencer11")).toBeUndefined();
+    expect(schema.elementByCoordinate('Referencer11')).toBeUndefined();
   });
 
   it(`fails to remove @inaccessible enum values for breaking removals`, () => {
@@ -2296,15 +2296,15 @@ describe("removeInaccessibleElements", () => {
 
     removeInaccessibleElements(schema);
     schema.validate();
-    expect(schema.elementByCoordinate("@directive(someArg:)")).toBeDefined();
+    expect(schema.elementByCoordinate('@directive(someArg:)')).toBeDefined();
     expect(
-      schema.elementByCoordinate("@directive(privateArg:)")
+      schema.elementByCoordinate('@directive(privateArg:)'),
     ).toBeUndefined();
     expect(
-      schema.elementByCoordinate("@directiveDefault(someArg:)")
+      schema.elementByCoordinate('@directiveDefault(someArg:)'),
     ).toBeDefined();
     expect(
-      schema.elementByCoordinate("@directiveDefault(privateArg:)")
+      schema.elementByCoordinate('@directiveDefault(privateArg:)'),
     ).toBeUndefined();
   });
 

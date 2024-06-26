@@ -1,6 +1,4 @@
-import {
-  Schema,
-} from '../definitions';
+import { Schema } from '../definitions';
 import { buildSchema } from '../buildSchema';
 import { parseOperation } from '../operations';
 import gql from 'graphql-tag';
@@ -27,11 +25,14 @@ test('handles non-list value for list argument (as singleton)', () => {
     }
   `);
 
-  const operation = parseOperation(schema, `
+  const operation = parseOperation(
+    schema,
+    `
     query {
       f(v: MONDAY)
     }
-  `);
+  `,
+  );
 
   expect(operation.toString(false, false)).toBe('{ f(v: [MONDAY]) }');
   expect(operation.selectionSet.toSelectionSetNode()).toMatchInlineSnapshot(`
@@ -79,10 +80,12 @@ describe('default value validation', () => {
       }
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_GRAPHQL',
-      '[S] Invalid default value (got: "foo") provided for argument Query.f(a:) of type Int.'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_GRAPHQL',
+        '[S] Invalid default value (got: "foo") provided for argument Query.f(a:) of type Int.',
+      ],
+    ]);
   });
 
   it('errors on invalid default value in directive argument', () => {
@@ -94,10 +97,12 @@ describe('default value validation', () => {
       directive @myDirective(a: Int = "foo") on FIELD
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_GRAPHQL',
-      '[S] Invalid default value (got: "foo") provided for argument @myDirective(a:) of type Int.'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_GRAPHQL',
+        '[S] Invalid default value (got: "foo") provided for argument @myDirective(a:) of type Int.',
+      ],
+    ]);
   });
 
   it('errors on invalid default value in input field', () => {
@@ -107,10 +112,12 @@ describe('default value validation', () => {
       }
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_GRAPHQL',
-      '[S] Invalid default value (got: "foo") provided for input field I.x of type Int.'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_GRAPHQL',
+        '[S] Invalid default value (got: "foo") provided for input field I.x of type Int.',
+      ],
+    ]);
   });
 
   it('errors on invalid default value for existing input field', () => {
@@ -125,10 +132,12 @@ describe('default value validation', () => {
       }
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_GRAPHQL',
-      '[S] Invalid default value (got: {x: 2, y: "3"}) provided for argument Query.f(i:) of type I.'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_GRAPHQL',
+        '[S] Invalid default value (got: {x: 2, y: "3"}) provided for argument Query.f(i:) of type I.',
+      ],
+    ]);
   });
 
   it('errors on default value containing unexpected input fields', () => {
@@ -143,10 +152,12 @@ describe('default value validation', () => {
       }
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_GRAPHQL',
-      '[S] Invalid default value (got: {x: 1, y: 2, z: 3}) provided for argument Query.f(i:) of type I.'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_GRAPHQL',
+        '[S] Invalid default value (got: {x: 1, y: 2, z: 3}) provided for argument Query.f(i:) of type I.',
+      ],
+    ]);
   });
 
   it('errors on default value being unknown enum value', () => {
@@ -168,10 +179,12 @@ describe('default value validation', () => {
     // it in the error message). We could fix this someday if we change to using a specific class/object for
     // enum values internally (though this might have backward compatbility constraints), but in the meantime,
     // it's unlikely to trip users too much.
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_GRAPHQL',
-      '[S] Invalid default value (got: "THREE") provided for argument Query.f(e:) of type E.'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_GRAPHQL',
+        '[S] Invalid default value (got: "THREE") provided for argument Query.f(e:) of type E.',
+      ],
+    ]);
   });
 
   it('errors on default value being unknown enum value (as string)', () => {
@@ -186,10 +199,12 @@ describe('default value validation', () => {
       }
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_GRAPHQL',
-      '[S] Invalid default value (got: "TWOO") provided for argument Query.f(e:) of type E.'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_GRAPHQL',
+        '[S] Invalid default value (got: "TWOO") provided for argument Query.f(e:) of type E.',
+      ],
+    ]);
   });
 
   it('accepts default value enum value as string, if a valid enum value', () => {
@@ -242,7 +257,7 @@ describe('default value validation', () => {
   it('accepts any value for a custom scalar in an input field', () => {
     const doc = gql`
       input I {
-        x: Scalar = { z: { a: 4} }
+        x: Scalar = { z: { a: 4 } }
       }
 
       scalar Scalar
@@ -278,16 +293,18 @@ describe('default value validation', () => {
       }
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_GRAPHQL',
-      '[S] Invalid default value (got: 2) provided for argument Query.f(x:) of type [[[String]!]]!.'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_GRAPHQL',
+        '[S] Invalid default value (got: 2) provided for argument Query.f(x:) of type [[[String]!]]!.',
+      ],
+    ]);
   });
 
   it('accepts default value coercible to its type but needing multiple/nested coercions', () => {
     const doc = gql`
       type Query {
-        f(x: I = { j: {x: 1, z: "Foo"} }): Int
+        f(x: I = { j: { x: 1, z: "Foo" } }): Int
       }
 
       input I {
@@ -333,10 +350,12 @@ describe('default value validation', () => {
       }
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_GRAPHQL',
-      '[S] Invalid default value (got: null) provided for argument Query.f(i:) of type Int!.'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_GRAPHQL',
+        '[S] Invalid default value (got: null) provided for argument Query.f(i:) of type Int!.',
+      ],
+    ]);
   });
 
   it('Accepts null default value for nullable input', () => {
@@ -361,9 +380,9 @@ describe('values printing', () => {
         FOO
         BAR
       }
-    `
+    `;
     expect(printSchema(parseSchema(sdl))).toMatchString(sdl);
-  })
+  });
 
   it('prints enums value when its coercible to list through multiple coercions', () => {
     const sdl = `
@@ -375,16 +394,25 @@ describe('values printing', () => {
         FOO
         BAR
       }
-    `
+    `;
     expect(printSchema(parseSchema(sdl))).toMatchString(sdl);
-  })
+  });
 });
 
 describe('objectEquals tests', () => {
   it('simple object equality tests', () => {
-    expect(valueEquals({ foo: 'foo' }, { foo: 'foo'})).toBe(true);
-    expect(valueEquals({ foo: 'foo', bar: undefined }, { foo: 'foo', bar: undefined})).toBe(true);
-    expect(valueEquals({ foo: 'foo' }, { foo: 'foo', bar: undefined})).toBe(false);
-    expect(valueEquals({ foo: 'foo', bar: undefined }, { foo: 'foo' })).toBe(false);
+    expect(valueEquals({ foo: 'foo' }, { foo: 'foo' })).toBe(true);
+    expect(
+      valueEquals(
+        { foo: 'foo', bar: undefined },
+        { foo: 'foo', bar: undefined },
+      ),
+    ).toBe(true);
+    expect(valueEquals({ foo: 'foo' }, { foo: 'foo', bar: undefined })).toBe(
+      false,
+    );
+    expect(valueEquals({ foo: 'foo', bar: undefined }, { foo: 'foo' })).toBe(
+      false,
+    );
   });
 });
