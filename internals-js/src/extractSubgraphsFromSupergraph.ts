@@ -700,13 +700,6 @@ function addSubgraphField({
     subgraphField.applyDirective(subgraph.metadata().costDirective().name, {
       weight: joinDirectiveForCost.arguments().args?.weight
     });
-  } else {
-    const costDirective = field.appliedDirectivesOf('cost').pop();
-    if (costDirective) {
-      subgraphField.applyDirective(subgraph.metadata().costDirective().name, {
-        weight: costDirective.arguments().weight
-      });
-    }
   }
 
   const joinDirectiveForListSize = joinDirectives.find((d) => d.arguments().name === 'listSize');
@@ -718,17 +711,6 @@ function addSubgraphField({
         slicingArguments,
         requireOneSlicingArgument,
       });
-  } else {
-    const listSizeDirective = field.appliedDirectivesOf('listSize').pop();
-    if (listSizeDirective) {
-      const { assumedSize, sizedFields, slicingArguments, requireOneSlicingArgument } = listSizeDirective.arguments();
-      subgraphField.applyDirective(subgraph.metadata().listSizeDirective().name, {
-        assumedSize,
-        sizedFields,
-        slicingArguments,
-        requireOneSlicingArgument,
-      });
-    }
   }
 
   return subgraphField;
