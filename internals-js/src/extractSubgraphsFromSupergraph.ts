@@ -692,7 +692,7 @@ function addSubgraphField({
 
   const joinDirectives = field.appliedDirectivesOf('join__directive')
     .filter((d) => d.arguments().graphs.includes(subgraph.sanitizedGraphQLName()));
-
+  
   const joinDirectiveForCost = joinDirectives.find((d) => d.arguments().name === 'cost');
   if (joinDirectiveForCost) {
     subgraphField.applyDirective(subgraph.metadata().costDirective().name, {

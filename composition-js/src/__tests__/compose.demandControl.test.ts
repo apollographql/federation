@@ -2,6 +2,7 @@ import {
   asFed2SubgraphDocument,
   demandControlIdentity,
   FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS,
+  ServiceDefinition,
   Supergraph
 } from '@apollo/federation-internals';
 import { composeServices } from '../compose';
@@ -30,24 +31,73 @@ const subgraphWithListSize = {
   `),
 };
 
+const subgraphWithRenamedCost = {
+  name: 'subgraphWithCost',
+  typeDefs: asFed2SubgraphDocument(gql`
+    extend schema @link(url: "https://specs.apollo.dev/demandControl/v0.1", import: [{ name: "@cost", as: "@renamedCost" }])
+
+    type Query {
+      fieldWithCost: Int @renamedCost(weight: 5)
+    }
+  `),
+};
+
+const subgraphWithRenamedListSize = {
+  name: 'subgraphWithListSize',
+  typeDefs: asFed2SubgraphDocument(gql`
+    extend schema @link(url: "https://specs.apollo.dev/demandControl/v0.1", import: [{ name: "@listSize", as: "@renamedListSize" }])
+
+    type Query {
+      fieldWithListSize: [String!] @renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)
+    }
+  `),
+};
+
+const subgraphWithCostFromFederationSpec = {
+  name: 'subgraphWithCost',
+  typeDefs: asFed2SubgraphDocument(
+    gql`  
+      type Query {
+        fieldWithCost: Int @cost(weight: 5)
+      }
+    `,
+    { includeAllImports: true },
+  ),
+};
+
+const subgraphWithListSizeFromFederationSpec = {
+  name: 'subgraphWithListSize',
+  typeDefs: asFed2SubgraphDocument(
+    gql`
+      type Query {
+        fieldWithListSize: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+      }
+    `,
+    { includeAllImports: true },
+  ),
+};
+
 describe('demand control directive composition', () => {
   describe('when imported from the demand control spec', () => {
-    it('does not include @cost as a core feature', () => {
-      const result = composeServices([subgraphWithCost]);
+    it.each([subgraphWithCost, subgraphWithRenamedCost, subgraphWithCostFromFederationSpec])('does not include @cost as a core feature', (subgraph: ServiceDefinition) => {
+      const result = composeServices([subgraph]);
 
       assertCompositionSuccess(result);
       expect(result.schema.coreFeatures?.getByIdentity(demandControlIdentity)).toBeUndefined();
     });
 
-    it('does not include @listSize as a core feature', () => {
-      const result = composeServices([subgraphWithListSize]);
+    it.each([subgraphWithListSize, subgraphWithRenamedListSize, subgraphWithListSizeFromFederationSpec])('does not include @listSize as a core feature', (subgraph: ServiceDefinition) => {
+      const result = composeServices([subgraph]);
 
       assertCompositionSuccess(result);
       expect(result.schema.coreFeatures?.getByIdentity(demandControlIdentity)).toBeUndefined();
     });
 
-    it('propagates @cost and @listSize to the supergraph using @join__directive', () => {
-      const result = composeServices([subgraphWithCost, subgraphWithListSize]);
+    it.each([
+      [subgraphWithCost, subgraphWithListSize],
+      [subgraphWithCostFromFederationSpec, subgraphWithListSizeFromFederationSpec],
+    ])('propagates @cost and @listSize to the supergraph using @join__directive', (costSubgraph: ServiceDefinition, listSizeSubgraph: ServiceDefinition) => {
+      const result = composeServices([costSubgraph, listSizeSubgraph]);
       assertCompositionSuccess(result);
   
       const costDirectiveApplications = result
@@ -70,35 +120,11 @@ describe('demand control directive composition', () => {
     });
   });
 
-  describe('when imported from the federation spec', () => {
+  describe('when renamed', () => {
     it('propagates @cost and @listSize to the supergraph using @join__directive', () => {
-      const subgraphA = {
-        name: 'subgraphWithCost',
-        typeDefs: asFed2SubgraphDocument(
-          gql`  
-            type Query {
-              fieldWithCost: Int @cost(weight: 5)
-            }
-          `,
-          { includeAllImports: true },
-        ),
-      };
-  
-      const subgraphB = {
-        name: 'subgraphWithListSize',
-        typeDefs: asFed2SubgraphDocument(
-          gql`
-            type Query {
-              fieldWithListSize: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
-            }
-          `,
-          { includeAllImports: true },
-        ),
-      };
-  
-      const result = composeServices([subgraphA, subgraphB]);
+      const result = composeServices([subgraphWithRenamedCost, subgraphWithRenamedListSize]);
       assertCompositionSuccess(result);
-  
+
       const costDirectiveApplications = result
         .schema
         .schemaDefinition
@@ -106,8 +132,8 @@ describe('demand control directive composition', () => {
         ?.field('fieldWithCost')
         ?.appliedDirectivesOf('join__directive')
         .toString();
-      expect(costDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "cost", args: {weight: 5})`);
-  
+      expect(costDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "renamedCost", args: {weight: 5})`);
+
       const listSizeDirectiveApplications = result
         .schema
         .schemaDefinition
@@ -115,14 +141,14 @@ describe('demand control directive composition', () => {
         ?.field('fieldWithListSize')
         ?.appliedDirectivesOf('join__directive')
         .toString();
-      expect(listSizeDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHLISTSIZE], name: "listSize", args: {assumedSize: 2000, requireOneSlicingArgument: false})`);
+      expect(listSizeDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHLISTSIZE], name: "renamedListSize", args: {assumedSize: 2000, requireOneSlicingArgument: false})`);
     });
   });
 });
 
 describe('demand control directive extraction', () => {
-  it('extracts @cost from the supergraph', () => {
-    const result = composeServices([subgraphWithCost]);
+  it.each([subgraphWithCost, subgraphWithRenamedCost, subgraphWithCostFromFederationSpec])('extracts @cost from the supergraph', (subgraph: ServiceDefinition) => {
+    const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
     expect(result.hints.length).toBe(0);
     const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithCost.name);
@@ -140,8 +166,8 @@ describe('demand control directive extraction', () => {
     `);
   });
 
-  it('extracts @listSize from the supergraph', () => {
-    const result = composeServices([subgraphWithListSize]);
+  it.each([subgraphWithListSize, subgraphWithRenamedListSize, subgraphWithListSizeFromFederationSpec])('extracts @listSize from the supergraph', (subgraph: ServiceDefinition) => {
+    const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
     expect(result.hints.length).toBe(0);
     const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithListSize.name);
