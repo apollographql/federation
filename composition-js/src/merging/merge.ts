@@ -57,7 +57,6 @@ import {
   EnumValue,
   baseType,
   isEnumType,
-  filterTypesOfKind,
   isNonNullType,
   isExecutableDirectiveLocation,
   parseFieldSetArgument,
@@ -506,19 +505,48 @@ class Merger {
     this.addTypesShallow();
     this.addDirectivesShallow();
 
-    const typesToMerge = this.merged.types()
-      .filter((type) => !this.linkSpec.isSpecType(type) && !this.joinSpec.isSpecType(type));
+    const objectTypes: ObjectType[] = [];
+    const interfaceTypes: InterfaceType[] = [];
+    const unionTypes: UnionType[] = [];
+    const enumTypes: EnumType[] = [];
+    const nonUnionEnumTypes: NamedType[] = [];
+
+    this.merged.types().forEach(type => {
+      if (
+        this.linkSpec.isSpecType(type) ||
+        this.joinSpec.isSpecType(type)
+      ) {
+        return;
+      }
+
+      switch (type.kind) {
+        case 'UnionType':
+          unionTypes.push(type);
+          return;
+        case 'EnumType':
+          enumTypes.push(type);
+          return;
+        case 'ObjectType':
+          objectTypes.push(type);
+          break;
+        case 'InterfaceType':
+          interfaceTypes.push(type);
+          break;
+      }
+
+      nonUnionEnumTypes.push(type);
+    });
 
     // Then, for object and interface types, we merge the 'implements' relationship, and we merge the unions.
     // We do this first because being able to know if a type is a subtype of another one (which relies on those
     // 2 things) is used when merging fields.
-    for (const objectType of filterTypesOfKind<ObjectType>(typesToMerge, 'ObjectType')) {
+    for (const objectType of objectTypes) {
       this.mergeImplements(this.subgraphsTypes(objectType), objectType);
     }
-    for (const interfaceType of filterTypesOfKind<InterfaceType>(typesToMerge, 'InterfaceType')) {
+    for (const interfaceType of interfaceTypes) {
       this.mergeImplements(this.subgraphsTypes(interfaceType), interfaceType);
     }
-    for (const unionType of filterTypesOfKind<UnionType>(typesToMerge, 'UnionType')) {
+    for (const unionType of unionTypes) {
       this.mergeType(this.subgraphsTypes(unionType), unionType);
     }
 
@@ -528,11 +556,8 @@ class Merger {
     // calling root type a "value type" when hinting).
     this.mergeSchemaDefinition(this.subgraphsSchema.map(s => s.schemaDefinition), this.merged.schemaDefinition);
 
-    for (const type of typesToMerge) {
-      // We've already merged unions above and we've going to merge enums last
-      if (type.kind === 'UnionType' || type.kind === 'EnumType') {
-        continue;
-      }
+    // We've already merged unions above and we've going to merge enums last
+    for (const type of nonUnionEnumTypes) {
       this.mergeType(this.subgraphsTypes(type), type);
     }
 
@@ -547,7 +572,7 @@ class Merger {
     // We merge enum dead last because enums can be used as both input and output types and the merging behavior
     // depends on their usage and it's easier to check said usage if everything else has been merge (at least
     // anything that may use an enum type, so all fields and arguments).
-    for (const enumType of filterTypesOfKind<EnumType>(typesToMerge, 'EnumType')) {
+    for (const enumType of enumTypes) {
       this.mergeType(this.subgraphsTypes(enumType), enumType);
     }
 
