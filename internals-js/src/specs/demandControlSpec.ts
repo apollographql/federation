@@ -23,6 +23,7 @@ export class DemandControlSpecDefinition extends FeatureDefinition {
       args: [{ name: 'weight', type: (schema) => new NonNullType(schema.intType()) }],
       composes: false,
       repeatable: false,
+      usesJoinDirective: true,
       supergraphSpecification: (fedVersion) => DEMAND_CONTROL_VERSIONS.getMinimumRequiredVersion(fedVersion)
     }));
 
@@ -37,6 +38,7 @@ export class DemandControlSpecDefinition extends FeatureDefinition {
       ],
       composes: false,
       repeatable: false,
+      usesJoinDirective: true,
       supergraphSpecification: (fedVersion) => DEMAND_CONTROL_VERSIONS.getMinimumRequiredVersion(fedVersion)
     }));
   }

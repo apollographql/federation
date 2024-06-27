@@ -81,7 +81,6 @@ import {
   StaticArgumentsTransform,
   isNullableType,
   isFieldDefinition,
-  demandControlIdentity,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -348,7 +347,6 @@ class Merger {
 
     [ // Represent any applications of directives imported from these spec URLs
       // using @join__directive in the merged supergraph.
-      demandControlIdentity,
       sourceIdentity,
     ].forEach(url => this.joinDirectiveIdentityURLs.add(url));
   }
@@ -2867,7 +2865,7 @@ class Merger {
           // leading @.
           const nameWithAtSymbol =
             directive.name.startsWith('@') ? directive.name : '@' + directive.name;
-          shouldIncludeAsJoinDirective = this.shouldUseJoinDirectiveForURL(
+          shouldIncludeAsJoinDirective = directive.definition?.usesJoinDirective || this.shouldUseJoinDirectiveForURL(
             linkImportIdentityURLMap.get(nameWithAtSymbol),
           );
         }

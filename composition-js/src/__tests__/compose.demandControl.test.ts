@@ -71,14 +71,9 @@ describe('demand control directive composition', () => {
   });
 
   describe('when imported from the federation spec', () => {
-    // This is not necessarily desired behavior, but it should be called out.
-    // If users try to import @cost or @listSize from the federation spec, they
-    // will be skipped during composition because the federation URL is not
-    // registered as using @join__directive and @cost/@listSize are not composed
-    // by default.
-    it('does not propagate @cost and @listSize to the supergraph', () => {
+    it('propagates @cost and @listSize to the supergraph using @join__directive', () => {
       const subgraphA = {
-        name: 'subgraphA',
+        name: 'subgraphWithCost',
         typeDefs: asFed2SubgraphDocument(
           gql`  
             type Query {
@@ -90,7 +85,7 @@ describe('demand control directive composition', () => {
       };
   
       const subgraphB = {
-        name: 'subgraphB',
+        name: 'subgraphWithListSize',
         typeDefs: asFed2SubgraphDocument(
           gql`
             type Query {
@@ -109,16 +104,18 @@ describe('demand control directive composition', () => {
         .schemaDefinition
         .rootType('query')
         ?.field('fieldWithCost')
-        ?.appliedDirectivesOf('join__directive');
-      expect(costDirectiveApplications?.length).toBe(0);
+        ?.appliedDirectivesOf('join__directive')
+        .toString();
+      expect(costDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "cost", args: {weight: 5})`);
   
       const listSizeDirectiveApplications = result
         .schema
         .schemaDefinition
         .rootType('query')
         ?.field('fieldWithListSize')
-        ?.appliedDirectivesOf('join__directive');
-      expect(listSizeDirectiveApplications?.length).toBe(0);
+        ?.appliedDirectivesOf('join__directive')
+        .toString();
+      expect(listSizeDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHLISTSIZE], name: "listSize", args: {assumedSize: 2000, requireOneSlicingArgument: false})`);
     });
   });
 });
