@@ -81,8 +81,7 @@ import {
   StaticArgumentsTransform,
   isNullableType,
   isFieldDefinition,
-  costIdentity,
-  listSizeIdentity,
+  demandControlIdentity,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -349,8 +348,7 @@ class Merger {
 
     [ // Represent any applications of directives imported from these spec URLs
       // using @join__directive in the merged supergraph.
-      costIdentity,
-      listSizeIdentity,
+      demandControlIdentity,
       sourceIdentity,
     ].forEach(url => this.joinDirectiveIdentityURLs.add(url));
   }
