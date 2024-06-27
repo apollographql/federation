@@ -14,7 +14,7 @@ const subgraphWithCost = {
     extend schema @link(url: "https://specs.apollo.dev/demandControl/v0.1", import: ["@cost"])
 
     type Query {
-      fieldWithCost: Int @cost(weight: "5.0")
+      fieldWithCost: Int @cost(weight: 5)
     }
   `),
 };
@@ -57,7 +57,7 @@ describe('demand control directive composition', () => {
         ?.field('fieldWithCost')
         ?.appliedDirectivesOf('join__directive')
         .toString();
-      expect(costDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "cost", args: {weight: "5.0"})`);
+      expect(costDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "cost", args: {weight: 5})`);
   
       const listSizeDirectiveApplications = result
         .schema
@@ -82,7 +82,7 @@ describe('demand control directive composition', () => {
         typeDefs: asFed2SubgraphDocument(
           gql`  
             type Query {
-              fieldWithCost: Int @cost(weight: "5.0")
+              fieldWithCost: Int @cost(weight: 5)
             }
           `,
           { includeAllImports: true },
@@ -138,7 +138,7 @@ describe('demand control directive extraction', () => {
       }
 
       type Query {
-        fieldWithCost: Int @federation__cost(weight: "5.0")
+        fieldWithCost: Int @federation__cost(weight: 5)
       }
     `);
   });
@@ -169,7 +169,7 @@ describe('demand control directive extraction', () => {
         extend schema @link(url: "https://specs.apollo.dev/demandControl/v0.1", import: ["@cost"])
 
         type Query {
-          sharedWithCost: Int @shareable @cost(weight: "5.0")
+          sharedWithCost: Int @shareable @cost(weight: 5)
         }
       `)
     };
@@ -179,7 +179,7 @@ describe('demand control directive extraction', () => {
         extend schema @link(url: "https://specs.apollo.dev/demandControl/v0.1", import: ["@cost"])
 
         type Query {
-          sharedWithCost: Int @shareable @cost(weight: "10.0")
+          sharedWithCost: Int @shareable @cost(weight: 10)
         }
       `)
     };
@@ -197,7 +197,7 @@ describe('demand control directive extraction', () => {
       }
 
       type Query {
-        sharedWithCost: Int @shareable @federation__cost(weight: "5.0")
+        sharedWithCost: Int @shareable @federation__cost(weight: 5)
       }
     `);
     expect(supergraph.subgraphs().get(subgraphB.name)?.toString()).toMatchString(`
@@ -208,7 +208,7 @@ describe('demand control directive extraction', () => {
       }
 
       type Query {
-        sharedWithCost: Int @shareable @federation__cost(weight: "10.0")
+        sharedWithCost: Int @shareable @federation__cost(weight: 10)
       }
     `);
   });

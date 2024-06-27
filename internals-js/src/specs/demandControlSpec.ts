@@ -20,7 +20,7 @@ export class DemandControlSpecDefinition extends FeatureDefinition {
         DirectiveLocation.OBJECT,
         DirectiveLocation.SCALAR
       ],
-      args: [{ name: 'weight', type: (schema) => new NonNullType(schema.stringType()) }],
+      args: [{ name: 'weight', type: (schema) => new NonNullType(schema.intType()) }],
       composes: false,
       repeatable: false,
       supergraphSpecification: (fedVersion) => DEMAND_CONTROL_VERSIONS.getMinimumRequiredVersion(fedVersion)
