@@ -15,23 +15,6 @@ import { MultiMap } from "../utils";
 
 export const joinIdentity = 'https://specs.apollo.dev/join';
 
-export function sanitizeGraphQLName(name: string) {
-  // replace all non-word characters (\W). Word chars are _a-zA-Z0-9
-  const alphaNumericUnderscoreOnly = name.replace(/[\W]/g, '_');
-  // prefix a digit in the first position with an _
-  const noNumericFirstChar = alphaNumericUnderscoreOnly.match(/^\d/)
-    ? '_' + alphaNumericUnderscoreOnly
-    : alphaNumericUnderscoreOnly;
-  // suffix an underscore + digit in the last position with an _
-  const noUnderscoreNumericEnding = noNumericFirstChar.match(/_\d+$/)
-    ? noNumericFirstChar + '_'
-    : noNumericFirstChar;
-
-  // toUpper not really necessary but follows convention of enum values
-  const toUpper = noUnderscoreNumericEnding.toLocaleUpperCase();
-  return toUpper;
-}
-
 export type JoinTypeDirectiveArguments = {
   graph: string,
   key?: string,
@@ -205,8 +188,7 @@ export class JoinSpecDefinition extends FeatureDefinition {
     // collect the duplicates in an array so we can uniquify them in a second pass.
     const sanitizedNameToSubgraphs = new MultiMap<string, Subgraph>();
     for (const subgraph of subgraphs) {
-      const sanitized = sanitizeGraphQLName(subgraph.name);
-      sanitizedNameToSubgraphs.add(sanitized, subgraph);
+      sanitizedNameToSubgraphs.add(subgraph.sanitizedGraphQLName(), subgraph);
     }
 
     // if no duplicates for a given name, add it as is

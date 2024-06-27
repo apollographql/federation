@@ -29,7 +29,7 @@ import {
   removeInactiveProvidesAndRequires,
 } from "./federation";
 import { CoreSpecDefinition, FeatureVersion } from "./specs/coreSpec";
-import { JoinFieldDirectiveArguments, JoinSpecDefinition, JoinTypeDirectiveArguments, sanitizeGraphQLName } from "./specs/joinSpec";
+import { JoinFieldDirectiveArguments, JoinSpecDefinition, JoinTypeDirectiveArguments } from "./specs/joinSpec";
 import { FederationMetadata, Subgraph, Subgraphs } from "./federation";
 import { assert } from "./utils";
 import { validateSupergraph } from "./supergraphs";
@@ -691,9 +691,7 @@ function addSubgraphField({
   }
 
   const joinDirectives = field.appliedDirectivesOf('join__directive')
-    // TODO: Exporting and using `sanitizeGraphQLName` is hacky, and we shouldn't
-    // know about the internal string representation used by join spec here
-    .filter((d) => d.arguments().graphs.includes(sanitizeGraphQLName(subgraph.name)));
+    .filter((d) => d.arguments().graphs.includes(subgraph.sanitizedGraphQLName()));
 
   const joinDirectiveForCost = joinDirectives.find((d) => d.arguments().name === 'cost');
   if (joinDirectiveForCost) {

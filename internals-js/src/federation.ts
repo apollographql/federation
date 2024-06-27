@@ -2447,6 +2447,23 @@ export class Subgraph {
     }
   }
 
+  sanitizedGraphQLName() {
+    // replace all non-word characters (\W). Word chars are _a-zA-Z0-9
+    const alphaNumericUnderscoreOnly = this.name.replace(/[\W]/g, '_');
+    // prefix a digit in the first position with an _
+    const noNumericFirstChar = alphaNumericUnderscoreOnly.match(/^\d/)
+      ? '_' + alphaNumericUnderscoreOnly
+      : alphaNumericUnderscoreOnly;
+    // suffix an underscore + digit in the last position with an _
+    const noUnderscoreNumericEnding = noNumericFirstChar.match(/_\d+$/)
+      ? noNumericFirstChar + '_'
+      : noNumericFirstChar;
+  
+    // toUpper not really necessary but follows convention of enum values
+    const toUpper = noUnderscoreNumericEnding.toLocaleUpperCase();
+    return toUpper;
+  }
+
   private isPrintedDirective(d: DirectiveDefinition): boolean {
     if (this.metadata().allFederationDirectives().includes(d)) {
       return false;
