@@ -1249,13 +1249,13 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.POLICY);
   }
 
-fromContextDirective(): Post20FederationDirectiveDefinition<{ field: string }> {
-    return this.getPost20FederationDirective(FederationDirectiveName.FROM_CONTEXT);
-}
+  fromContextDirective(): Post20FederationDirectiveDefinition<{ field: string }> {
+      return this.getPost20FederationDirective(FederationDirectiveName.FROM_CONTEXT);
+  }
 
-contextDirective(): Post20FederationDirectiveDefinition<{ name: string }> {
-    return this.getPost20FederationDirective(FederationDirectiveName.CONTEXT);
-}
+  contextDirective(): Post20FederationDirectiveDefinition<{ name: string }> {
+      return this.getPost20FederationDirective(FederationDirectiveName.CONTEXT);
+  }
 
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives: DirectiveDefinition[] = [
