@@ -1275,10 +1275,12 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.CONTEXT);
   }
 
+  // TODO: Update arg parameter type
   costDirective(): Post20FederationDirectiveDefinition<{ weight: string }> {
     return this.getPost20FederationDirective(FederationDirectiveName.COST);
   }
 
+  // TODO: Update arg parameter type
   listSizeDirective(): Post20FederationDirectiveDefinition<{ tbd: string }> {
     return this.getPost20FederationDirective(FederationDirectiveName.LIST_SIZE);
   }
