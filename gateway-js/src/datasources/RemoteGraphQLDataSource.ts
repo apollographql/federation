@@ -67,7 +67,7 @@ export class RemoteGraphQLDataSource<
   async process(
     options: GraphQLDataSourceProcessOptions<TContext>,
   ): Promise<GatewayGraphQLResponse> {
-    const { request, context: originalContext } = options;
+    const { request: originalRequest, context: originalContext } = options;
     const pathInIncomingRequest =
       options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION
         ? options.pathInIncomingRequest
@@ -84,14 +84,14 @@ export class RemoteGraphQLDataSource<
 
     // Respect incoming http headers (eg, apollo-federation-include-trace).
     const headers = new NodeFetchHeaders();
-    if (request.http?.headers) {
-      for (const [name, value] of request.http.headers) {
+    if (originalRequest.http?.headers) {
+      for (const [name, value] of originalRequest.http.headers) {
         headers.append(name, value);
       }
     }
     headers.set('Content-Type', 'application/json');
 
-    request.http = {
+    originalRequest.http = {
       method: 'POST',
       url: this.url,
       headers,
@@ -101,11 +101,9 @@ export class RemoteGraphQLDataSource<
       await this.willSendRequest(options);
     }
 
-    if (!request.query) {
+    if (!originalRequest.query) {
       throw new Error('Missing query');
     }
-
-    const { query, ...requestWithoutQuery } = request;
 
     // Special handling of cache-control headers in response. Requires
     // Apollo Server 3, so we check to make sure the method we want is
@@ -118,60 +116,18 @@ export class RemoteGraphQLDataSource<
         ? options.incomingRequestContext.overallCachePolicy
         : null;
 
-    if (this.apq) {
-      const apqHash = createHash('sha256').update(request.query).digest('hex');
 
-      // Take the original extensions and extend them with
-      // the necessary "extensions" for APQ handshaking.
-      requestWithoutQuery.extensions = {
-        ...request.extensions,
-        persistedQuery: {
-          version: 1,
-          sha256Hash: apqHash,
-        },
-      };
-
-      const apqOptimisticResponse = await this.sendRequest(
-        requestWithoutQuery,
-        context,
-      );
-
-      // If we didn't receive notice to retry with APQ, then let's
-      // assume this is the best result we'll get and return it!
-      if (
-        !apqOptimisticResponse.errors ||
-        !apqOptimisticResponse.errors.find(
-          (error) => error.message === 'PersistedQueryNotFound',
-        )
-      ) {
-        return this.respond({
-          response: apqOptimisticResponse,
-          request: requestWithoutQuery,
-          context,
-          overallCachePolicy,
-          pathInIncomingRequest
-        });
-      }
-    }
-
-    // If APQ was enabled, we'll run the same request again, but add in the
-    // previously omitted `query`.  If APQ was NOT enabled, this is the first
-    // request (non-APQ, all the way).
-    const requestWithQuery: GatewayGraphQLRequest = {
-      query,
-      ...requestWithoutQuery,
-    };
-    const response = await this.sendRequest(requestWithQuery, context);
+    const { request, response } = await this.sendRequest(options);
     return this.respond({
       response,
-      request: requestWithQuery,
+      request,
       context,
       overallCachePolicy,
       pathInIncomingRequest
     });
   }
 
-  private async sendRequest(
+  private async _sendRequest(
     request: GatewayGraphQLRequest,
     context: TContext,
   ): Promise<GatewayGraphQLResponse> {
@@ -223,6 +179,58 @@ export class RemoteGraphQLDataSource<
       this.didEncounterError(error, fetchRequest, fetchResponse, context);
       throw error;
     }
+  }
+
+  async sendRequest(
+    options: GraphQLDataSourceProcessOptions
+  ): Promise<{ request: GatewayGraphQLRequest; response: GatewayGraphQLResponse }> {
+    const { request, context } = options;
+
+    if (!request.query) {
+      throw new Error('Missing query');
+    }
+
+    const { query, ...requestWithoutQuery } = request;
+
+    // If APQ was enabled, we'll run the same request again, but add in the
+    // previously omitted `query`.  If APQ was NOT enabled, this is the first
+    // request (non-APQ, all the way).
+    if (this.apq) {
+      const apqHash = createHash('sha256').update(request.query).digest('hex');
+
+      // Take the original extensions and extend them with
+      // the necessary "extensions" for APQ handshaking.
+      requestWithoutQuery.extensions = {
+        ...request.extensions,
+        persistedQuery: {
+          version: 1,
+          sha256Hash: apqHash,
+        },
+      };
+
+      const apqOptimisticResponse = await this._sendRequest(requestWithoutQuery, context as TContext);
+
+      // If we didn't receive notice to retry with APQ, then let's
+      // assume this is the best result we'll get and return it!
+      if (
+        !apqOptimisticResponse.errors ||
+        !apqOptimisticResponse.errors.find((error) => error.message === 'PersistedQueryNotFound')
+      ) {
+        return { request: requestWithoutQuery, response: apqOptimisticResponse };
+      }
+    }
+
+    // If APQ was enabled, we'll run the same request again, but add in the
+    // previously omitted `query`.  If APQ was NOT enabled, this is the first
+    // request (non-APQ, all the way).
+    const requestWithQuery: GatewayGraphQLRequest = {
+      query,
+      ...requestWithoutQuery,
+    };
+
+    const response = await this._sendRequest(requestWithQuery, context as TContext);
+
+    return { request: requestWithQuery, response };
   }
 
   public willSendRequest?(
