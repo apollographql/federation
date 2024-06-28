@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.8.3
+
+### Patch Changes
+
+- Don't put join\_\_enumValue onto an EnumValue if all subgraphs who have the enum have the value ([#3054](https://github.com/apollographql/federation/pull/3054))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.3
+  - @apollo/query-graphs@2.8.3
+
 ## 2.8.2
 
 ### Patch Changes
