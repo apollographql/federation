@@ -1261,7 +1261,7 @@ export class Schema {
     if (!this.apiSchema) {
       this.validate();
 
-      const apiSchema = this.clone();
+      const apiSchema = this.clone(undefined, false);
 
       // As we compute the API schema of a supergraph, we want to ignore explicit definitions of `@defer` and `@stream` because
       // those correspond to the merging of potential definitions from the subgraphs, but whether the supergraph API schema
@@ -1611,9 +1611,9 @@ export class Schema {
     this.isValidated = true;
   }
 
-  clone(builtIns?: SchemaBlueprint): Schema {
+  clone(builtIns?: SchemaBlueprint, cloneJoinDirectives: boolean = true): Schema {
     const cloned = new Schema(builtIns ?? this.blueprint);
-    copy(this, cloned);
+    copy(this, cloned, cloneJoinDirectives);
     if (this.isValidated) {
       cloned.assumeValid();
     }
@@ -3598,7 +3598,7 @@ export function copyDirectiveDefinitionToSchema({
   );
 }
 
-function copy(source: Schema, dest: Schema) {
+function copy(source: Schema, dest: Schema, cloneJoinDirectives: boolean) {
   // We shallow copy types first so any future reference to any of them can be dereferenced.
   for (const type of typesToCopy(source, dest)) {
     dest.addType(newNamedType(type.kind, type.name));
@@ -3615,7 +3615,7 @@ function copy(source: Schema, dest: Schema) {
 
   copySchemaDefinitionInner(source.schemaDefinition, dest.schemaDefinition);
   for (const type of typesToCopy(source, dest)) {
-    copyNamedTypeInner(type, dest.type(type.name)!);
+    copyNamedTypeInner(type, dest.type(type.name)!, cloneJoinDirectives);
   }
 }
 
@@ -3655,7 +3655,7 @@ function copySchemaDefinitionInner(source: SchemaDefinition, dest: SchemaDefinit
   dest.sourceAST = source.sourceAST;
 }
 
-function copyNamedTypeInner(source: NamedType, dest: NamedType) {
+function copyNamedTypeInner(source: NamedType, dest: NamedType, cloneJoinDirectives: boolean) {
   dest.preserveEmptyDefinition = source.preserveEmptyDefinition;
   const extensionsMap = copyExtensions(source, dest);
   // Same as copyAppliedDirectives, but as the directive applies to the type, we need to remember if the application
@@ -3672,7 +3672,7 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
       for (const sourceField of source.fields()) {
         const destField = destFieldBasedType.addField(new FieldDefinition(sourceField.name));
         copyOfExtension(extensionsMap, sourceField, destField);
-        copyFieldDefinitionInner(sourceField, destField);
+        copyFieldDefinitionInner(sourceField, destField, cloneJoinDirectives);
       }
       for (const sourceImpl of source.interfaceImplementations()) {
         const destImpl = destFieldBasedType.addImplementedInterface(sourceImpl.interface.name);
@@ -3692,7 +3692,7 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
         const destValue = destEnumType.addValue(sourceValue.name);
         destValue.description = sourceValue.description;
         copyOfExtension(extensionsMap, sourceValue, destValue);
-        copyAppliedDirectives(sourceValue, destValue);
+        copyAppliedDirectives(sourceValue, destValue, cloneJoinDirectives);
       }
       break
     case 'InputObjectType':
@@ -3700,13 +3700,13 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
       for (const sourceField of source.fields()) {
         const destField = destInputType.addField(new InputFieldDefinition(sourceField.name));
         copyOfExtension(extensionsMap, sourceField, destField);
-        copyInputFieldDefinitionInner(sourceField, destField);
+        copyInputFieldDefinitionInner(sourceField, destField, cloneJoinDirectives);
       }
   }
 }
 
-function copyAppliedDirectives(source: SchemaElement<any, any>, dest: SchemaElement<any, any>) {
-  source.appliedDirectives.forEach((d) => copyAppliedDirective(d, dest));
+function copyAppliedDirectives(source: SchemaElement<any, any>, dest: SchemaElement<any, any>, cloneJoinDirectives: boolean) {
+  source.appliedDirectives.filter(d => cloneJoinDirectives || !d.name.startsWith('join__')).forEach((d) => copyAppliedDirective(d, dest));
 }
 
 function copyAppliedDirective(source: Directive<any, any>, dest: SchemaElement<any, any>): Directive<any, any> {
@@ -3715,23 +3715,27 @@ function copyAppliedDirective(source: Directive<any, any>, dest: SchemaElement<a
   return res;
 }
 
-function copyFieldDefinitionInner<P extends ObjectType | InterfaceType>(source: FieldDefinition<P>, dest: FieldDefinition<P>) {
+function copyFieldDefinitionInner<P extends ObjectType | InterfaceType>(source: FieldDefinition<P>, dest: FieldDefinition<P>, cloneJoinDirectives: boolean) {
   const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()) as OutputType;
   dest.type = type;
   for (const arg of source.arguments()) {
     const argType = copyWrapperTypeOrTypeRef(arg.type, dest.schema());
-    copyArgumentDefinitionInner(arg, dest.addArgument(arg.name, argType as InputType));
+    copyArgumentDefinitionInner({
+      source: arg, 
+      dest: dest.addArgument(arg.name, argType as InputType),
+      cloneJoinDirectives,
+    });
   }
-  copyAppliedDirectives(source, dest);
+  copyAppliedDirectives(source, dest, cloneJoinDirectives);
   dest.description = source.description;
   dest.sourceAST = source.sourceAST;
 }
 
-function copyInputFieldDefinitionInner(source: InputFieldDefinition, dest: InputFieldDefinition) {
+function copyInputFieldDefinitionInner(source: InputFieldDefinition, dest: InputFieldDefinition, cloneJoinDirectives: boolean) {
   const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()) as InputType;
   dest.type = type;
   dest.defaultValue = source.defaultValue;
-  copyAppliedDirectives(source, dest);
+  copyAppliedDirectives(source, dest, cloneJoinDirectives);
   dest.description = source.description;
   dest.sourceAST = source.sourceAST;
 }
@@ -3750,16 +3754,22 @@ function copyWrapperTypeOrTypeRef(source: Type | undefined, destParent: Schema):
   }
 }
 
-function copyArgumentDefinitionInner<P extends FieldDefinition<any> | DirectiveDefinition>(
+function copyArgumentDefinitionInner<P extends FieldDefinition<any> | DirectiveDefinition>({
+  source,
+  dest,
+  copyDirectiveApplications = true,
+  cloneJoinDirectives,
+}: {
   source: ArgumentDefinition<P>,
   dest: ArgumentDefinition<P>,
-  copyDirectiveApplications: boolean = true,
-) {
+  copyDirectiveApplications?: boolean,
+  cloneJoinDirectives: boolean,
+}) {
   const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()) as InputType;
   dest.type = type;
   dest.defaultValue = source.defaultValue;
   if (copyDirectiveApplications) {
-    copyAppliedDirectives(source, dest);
+    copyAppliedDirectives(source, dest, cloneJoinDirectives);
   }
   dest.description = source.description;
   dest.sourceAST = source.sourceAST;
@@ -3781,7 +3791,12 @@ function copyDirectiveDefinitionInner(
 
   for (const arg of source.arguments()) {
     const type = copyWrapperTypeOrTypeRef(arg.type, dest.schema());
-    copyArgumentDefinitionInner(arg, dest.addArgument(arg.name, type as InputType), copyDirectiveApplicationsInArguments);
+    copyArgumentDefinitionInner({
+      source: arg,
+      dest: dest.addArgument(arg.name, type as InputType),
+      copyDirectiveApplications: copyDirectiveApplicationsInArguments,
+      cloneJoinDirectives: true,
+    });
   }
   dest.repeatable = source.repeatable;
   dest.addLocations(...locations);
