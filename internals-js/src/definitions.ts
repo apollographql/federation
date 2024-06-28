@@ -59,6 +59,8 @@ import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
 const validationErrorCode = 'GraphQLValidationFailed';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'The schema is not a valid GraphQL schema.';
 
+const EMPTY_SET = new Set<never>();
+
 export const ErrGraphQLValidationFailed = (causes: GraphQLError[], message: string = DEFAULT_VALIDATION_ERROR_MESSAGE) =>
   aggregateError(validationErrorCode, message, causes);
 
@@ -660,7 +662,7 @@ export abstract class NamedSchemaElement<TOwnType extends NamedSchemaElement<TOw
 }
 
 abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSchemaElement<TOwnType, Schema, TReferencer>> extends NamedSchemaElement<TOwnType, Schema, TReferencer> {
-  protected _referencers?: TReferencer[];
+  protected _referencers?: Set<TReferencer>;
   protected _extensions?: Extension<TOwnType>[];
   public preserveEmptyDefinition: boolean = false;
 
@@ -669,19 +671,12 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   }
 
   private addReferencer(referencer: TReferencer) {
-    if (this._referencers) {
-      if (!this._referencers.includes(referencer)) {
-        this._referencers.push(referencer);
-      }
-    } else {
-      this._referencers = [ referencer ];
-    }
+    this._referencers ??= new Set();
+    this._referencers.add(referencer);
   }
 
   private removeReferencer(referencer: TReferencer) {
-    if (this._referencers) {
-      removeArrayElement(referencer, this._referencers);
-    }
+    this._referencers?.delete(referencer)
   }
 
   get coordinate(): string {
@@ -789,10 +784,11 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
     this.removeAppliedDirectives();
     this.removeInnerElements();
     // Remove this type's references.
-    const toReturn = this._referencers?.map(r => {
+    const toReturn: TReferencer[] = [];
+    this._referencers?.forEach(r => {
       SchemaElement.prototype['removeTypeReferenceInternal'].call(r, this);
-      return r;
-    }) ?? [];
+      toReturn.push(r);
+    });
     this._referencers = undefined;
     // Remove this type from its parent schema.
     Schema.prototype['removeTypeInternal'].call(this._parent, this);
@@ -820,8 +816,8 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
 
   protected abstract removeReferenceRecursive(ref: TReferencer): void;
 
-  referencers(): readonly TReferencer[] {
-    return this._referencers ?? [];
+  referencers(): ReadonlySet<TReferencer> {
+    return this._referencers ?? EMPTY_SET;
   }
 
   isReferenced(): boolean {
@@ -2124,7 +2120,13 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
   }
 
   unionsWhereMember(): readonly UnionType[] {
-    return this._referencers?.filter<UnionType>((r): r is UnionType => r instanceof BaseNamedType && isUnionType(r)) ?? [];
+    const unions: UnionType[] = [];
+    this._referencers?.forEach((r) => {
+      if (r instanceof BaseNamedType && isUnionType(r)) {
+        unions.push(r);
+      }
+    });
+    return unions;
   }
 }
 
@@ -2133,7 +2135,13 @@ export class InterfaceType extends FieldBasedType<InterfaceType, InterfaceTypeRe
   readonly astDefinitionKind = Kind.INTERFACE_TYPE_DEFINITION;
 
   allImplementations(): (ObjectType | InterfaceType)[] {
-    return this.referencers().filter(ref => ref.kind === 'ObjectType' || ref.kind === 'InterfaceType') as (ObjectType | InterfaceType)[];
+    const implementations: (ObjectType | InterfaceType)[] = [];
+    this.referencers().forEach(ref => {
+      if (ref.kind === 'ObjectType' || ref.kind === 'InterfaceType') {
+        implementations.push(ref);
+      }
+    });
+    return implementations;
   }
 
   possibleRuntimeTypes(): readonly ObjectType[] {
@@ -2895,7 +2903,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
   private _args?: MapWithCachedArrays<string, ArgumentDefinition<DirectiveDefinition>>;
   repeatable: boolean = false;
   private readonly _locations: DirectiveLocation[] = [];
-  private _referencers?: Directive<SchemaElement<any, any>, TApplicationArgs>[];
+  private _referencers?: Set<Directive<SchemaElement<any, any>, TApplicationArgs>>;
 
   constructor(name: string, readonly isBuiltIn: boolean = false) {
     super(name);
@@ -2999,25 +3007,19 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     return this.locations.some((loc) => isTypeSystemDirectiveLocation(loc));
   }
 
-  applications(): readonly Directive<SchemaElement<any, any>, TApplicationArgs>[] {
-    return this._referencers ?? [];
+  applications(): ReadonlySet<Directive<SchemaElement<any, any>, TApplicationArgs>> {
+    this._referencers ??= new Set();
+    return this._referencers;
   }
 
   private addReferencer(referencer: Directive<SchemaElement<any, any>, TApplicationArgs>) {
     assert(referencer, 'Referencer should exists');
-    if (this._referencers) {
-      if (!this._referencers.includes(referencer)) {
-        this._referencers.push(referencer);
-      }
-    } else {
-      this._referencers = [ referencer ];
-    }
+    this._referencers ??= new Set();
+    this._referencers.add(referencer);
   }
 
   private removeReferencer(referencer: Directive<SchemaElement<any, any>, TApplicationArgs>) {
-    if (this._referencers) {
-      removeArrayElement(referencer, this._referencers);
-    }
+    this._referencers?.delete(referencer);
   }
 
   protected removeTypeReference(type: NamedType) {
@@ -3048,7 +3050,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     // doesn't store a link to that definition. Instead, we fetch the definition
     // from the schema when requested. So we don't have to do anything on the
     // referencers other than clear them (and return the pre-cleared set).
-    const toReturn = this._referencers ?? [];
+    const toReturn = Array.from(this._referencers ?? []);
     this._referencers = undefined;
     // Remove this directive definition from its parent schema.
     Schema.prototype['removeDirectiveInternal'].call(this._parent, this);

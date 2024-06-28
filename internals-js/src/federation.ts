@@ -1195,7 +1195,7 @@ export class FederationMetadata {
   ): Post20FederationDirectiveDefinition<TApplicationArgs> {
     return this.getFederationDirective<TApplicationArgs>(name) ?? {
       name,
-      applications: () => new Array<Directive<any, TApplicationArgs>>(),
+      applications: () => new Set<Directive<any, TApplicationArgs>>(),
     };
   }
 
@@ -1391,7 +1391,7 @@ export class FederationMetadata {
 
 export type FederationDirectiveNotDefinedInSchema<TApplicationArgs extends {[key: string]: any}> = {
   name: string,
-  applications: () => readonly Directive<any, TApplicationArgs>[],
+  applications: () => ReadonlySet<Directive<any, TApplicationArgs>>,
 }
 
 export type Post20FederationDirectiveDefinition<TApplicationArgs extends {[key: string]: any}> =
@@ -2040,7 +2040,7 @@ function completeFed1SubgraphSchema(schema: Schema): GraphQLError[] {
     // definition to re-add the "correct" version, we'd have to re-attach existing applications (doable but not
     // done). This assert is so we notice it quickly if that ever happens (again, unlikely, because fed1 schema
     // is a backward compatibility thing and there is no reason to expand that too much in the future).
-    assert(directive.applications().length === 0, `${directive} shouldn't have had validation at that places`);
+    assert(directive.applications().size === 0, `${directive} shouldn't have had validation at that places`);
 
     // The patterns we recognize and "correct" (by essentially ignoring the definition)
     // are:

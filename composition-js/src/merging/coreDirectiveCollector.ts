@@ -21,7 +21,7 @@ export function collectCoreDirectivesToCompose(
       const source = features.sourceFeature(directive);
       // We ignore directives that are not "core" ones, or the ones that are defined but unused (note that this
       // happen to ignore execution directives as a by-product)
-      if (!source || directive.applications().length === 0) {
+      if (!source || directive.applications().size === 0) {
         continue;
       }
 
