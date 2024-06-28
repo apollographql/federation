@@ -594,13 +594,12 @@ class SchemaUpgrader {
         // case territory in the first place, so this is probably good enough (that is, there is
         // customer schema for which what we do here matter but not that I know of for which it's
         // not good enough).
-        for (const other of this.otherSubgraphs) {
-          const typeInOther = other.schema.type(type.name);
-          if (!typeInOther) {
-            continue;
-          }
-          assert(isCompositeType(typeInOther), () => `Type ${type} is of kind ${type.kind} in ${this.subgraph.name} but ${typeInOther.kind} in ${other.name}`);
-          const keysInOther = typeInOther.appliedDirectivesOf(other.metadata().keyDirective());
+        const typeInOtherSubgraphs = Array.from(this.objectTypeMap.get(type.name)!.entries()).filter(([subgraphName, _]) => subgraphName !== this.subgraph.name);
+        
+        for (const [otherSubgraphName, v] of typeInOtherSubgraphs) {
+          const [typeInOther, metadata] = v;
+          assert(isCompositeType(typeInOther), () => `Type ${type} is of kind ${type.kind} in ${this.subgraph.name} but ${typeInOther.kind} in ${otherSubgraphName}`);
+          const keysInOther = typeInOther.appliedDirectivesOf(metadata.keyDirective());
           if (keysInOther.length === 0) {
             continue;
           }
