@@ -77,52 +77,87 @@ const subgraphWithListSizeFromFederationSpec = {
   ),
 };
 
+const subgraphWithRenamedCostFromFederationSpec = {
+  name: 'subgraphWithCost',
+  typeDefs:
+    gql`
+      extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: [{ name: "@cost", as: "@renamedCost" }])
+
+      type Query {
+        fieldWithCost: Int @renamedCost(weight: 5)
+      }
+    `,
+};
+
+const subgraphWithRenamedListSizeFromFederationSpec = {
+  name: 'subgraphWithListSize',
+  typeDefs:
+    gql`
+      extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: [{ name: "@listSize", as: "@renamedListSize" }])
+
+      type Query {
+        fieldWithListSize: [String!] @renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)
+      }
+    `,
+};
+
 describe('demand control directive composition', () => {
-  describe('when imported from the demand control spec', () => {
-    it.each([subgraphWithCost, subgraphWithRenamedCost, subgraphWithCostFromFederationSpec])('does not include @cost as a core feature', (subgraph: ServiceDefinition) => {
-      const result = composeServices([subgraph]);
+  it.each([
+    subgraphWithCost,
+    subgraphWithRenamedCost,
+    subgraphWithCostFromFederationSpec,
+    subgraphWithRenamedCostFromFederationSpec
+  ])('does not include @cost as a core feature', (subgraph: ServiceDefinition) => {
+    const result = composeServices([subgraph]);
 
-      assertCompositionSuccess(result);
-      expect(result.schema.coreFeatures?.getByIdentity(demandControlIdentity)).toBeUndefined();
-    });
+    assertCompositionSuccess(result);
+    expect(result.schema.coreFeatures?.getByIdentity(demandControlIdentity)).toBeUndefined();
+  });
 
-    it.each([subgraphWithListSize, subgraphWithRenamedListSize, subgraphWithListSizeFromFederationSpec])('does not include @listSize as a core feature', (subgraph: ServiceDefinition) => {
-      const result = composeServices([subgraph]);
+  it.each([
+    subgraphWithListSize,
+    subgraphWithRenamedListSize,
+    subgraphWithListSizeFromFederationSpec,
+    subgraphWithRenamedListSizeFromFederationSpec
+  ])('does not include @listSize as a core feature', (subgraph: ServiceDefinition) => {
+    const result = composeServices([subgraph]);
 
-      assertCompositionSuccess(result);
-      expect(result.schema.coreFeatures?.getByIdentity(demandControlIdentity)).toBeUndefined();
-    });
+    assertCompositionSuccess(result);
+    expect(result.schema.coreFeatures?.getByIdentity(demandControlIdentity)).toBeUndefined();
+  });
 
-    it.each([
-      [subgraphWithCost, subgraphWithListSize],
-      [subgraphWithCostFromFederationSpec, subgraphWithListSizeFromFederationSpec],
-    ])('propagates @cost and @listSize to the supergraph using @join__directive', (costSubgraph: ServiceDefinition, listSizeSubgraph: ServiceDefinition) => {
-      const result = composeServices([costSubgraph, listSizeSubgraph]);
-      assertCompositionSuccess(result);
-  
-      const costDirectiveApplications = result
-        .schema
-        .schemaDefinition
-        .rootType('query')
-        ?.field('fieldWithCost')
-        ?.appliedDirectivesOf('join__directive')
-        .toString();
-      expect(costDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "cost", args: {weight: 5})`);
-  
-      const listSizeDirectiveApplications = result
-        .schema
-        .schemaDefinition
-        .rootType('query')
-        ?.field('fieldWithListSize')
-        ?.appliedDirectivesOf('join__directive')
-        .toString();
-      expect(listSizeDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHLISTSIZE], name: "listSize", args: {assumedSize: 2000, requireOneSlicingArgument: false})`);
-    });
+  it.each([
+    [subgraphWithCost, subgraphWithListSize],
+    [subgraphWithCostFromFederationSpec, subgraphWithListSizeFromFederationSpec],
+  ])('propagates @cost and @listSize to the supergraph using @join__directive', (costSubgraph: ServiceDefinition, listSizeSubgraph: ServiceDefinition) => {
+    const result = composeServices([costSubgraph, listSizeSubgraph]);
+    assertCompositionSuccess(result);
+
+    const costDirectiveApplications = result
+      .schema
+      .schemaDefinition
+      .rootType('query')
+      ?.field('fieldWithCost')
+      ?.appliedDirectivesOf('join__directive')
+      .toString();
+    expect(costDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "cost", args: {weight: 5})`);
+
+    const listSizeDirectiveApplications = result
+      .schema
+      .schemaDefinition
+      .rootType('query')
+      ?.field('fieldWithListSize')
+      ?.appliedDirectivesOf('join__directive')
+      .toString();
+    expect(listSizeDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHLISTSIZE], name: "listSize", args: {assumedSize: 2000, requireOneSlicingArgument: false})`);
   });
 
   describe('when renamed', () => {
-    it('propagates @cost and @listSize to the supergraph using @join__directive', () => {
-      const result = composeServices([subgraphWithRenamedCost, subgraphWithRenamedListSize]);
+    it.each([
+      [subgraphWithRenamedCost, subgraphWithRenamedListSize],
+      [subgraphWithRenamedCostFromFederationSpec, subgraphWithRenamedListSizeFromFederationSpec]
+    ])('propagates the renamed @cost and @listSize to the supergraph using @join__directive', (costSubgraph: ServiceDefinition, listSizeSubgraph: ServiceDefinition) => {
+      const result = composeServices([costSubgraph, listSizeSubgraph]);
       assertCompositionSuccess(result);
 
       const costDirectiveApplications = result
@@ -147,7 +182,11 @@ describe('demand control directive composition', () => {
 });
 
 describe('demand control directive extraction', () => {
-  it.each([subgraphWithCost, subgraphWithRenamedCost, subgraphWithCostFromFederationSpec])('extracts @cost from the supergraph', (subgraph: ServiceDefinition) => {
+  it.each([
+    subgraphWithCost,
+    subgraphWithRenamedCost,
+    subgraphWithCostFromFederationSpec,
+  ])('extracts @cost from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
     expect(result.hints.length).toBe(0);
@@ -166,7 +205,11 @@ describe('demand control directive extraction', () => {
     `);
   });
 
-  it.each([subgraphWithListSize, subgraphWithRenamedListSize, subgraphWithListSizeFromFederationSpec])('extracts @listSize from the supergraph', (subgraph: ServiceDefinition) => {
+  it.each([
+    subgraphWithListSize,
+    subgraphWithRenamedListSize,
+    subgraphWithListSizeFromFederationSpec,
+  ])('extracts @listSize from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
     expect(result.hints.length).toBe(0);
@@ -285,5 +328,47 @@ describe('demand control directive extraction', () => {
         sharedWithListSize: [Int] @shareable @federation__listSize(assumedSize: 20)
       }
     `);
+  });
+
+  // These cases are not desired behavior, but they should be called out. This is caused
+  // by the extraction dropping the information of renamed federation imports.
+  describe('when the directives are renamed and imported from the federation spec', () => {
+    it('does not extract @cost from the supergraph', () => {
+      const result = composeServices([subgraphWithRenamedCostFromFederationSpec]);
+      assertCompositionSuccess(result);
+      expect(result.hints.length).toBe(0);
+
+      const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithCost.name);
+      expect(extracted?.toString()).toMatchString(`
+        schema
+          ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+        {
+          query: Query
+        }
+  
+        type Query {
+          fieldWithCost: Int
+        }
+      `);
+    });
+
+    it('does not extract @listSize from the supergraph', () => {
+      const result = composeServices([subgraphWithRenamedListSizeFromFederationSpec]);
+      assertCompositionSuccess(result);
+      expect(result.hints.length).toBe(0);
+      const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithListSize.name);
+
+      expect(extracted?.toString()).toMatchString(`
+        schema
+          ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+        {
+          query: Query
+        }
+
+        type Query {
+          fieldWithListSize: [String!]
+        }
+      `);
+    });
   });
 });

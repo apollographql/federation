@@ -427,7 +427,33 @@ function addEmptyType<T extends NamedType>(
   return subgraphsInfo;
 }
 
-function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectType | InterfaceType>[]) {
+function getDirectiveRenamings(args: ExtractArguments): Record<string, Record<string, string>> {
+  const joinDirective = args.joinSpec.directiveDirective(args.supergraph);
+  const joinDirectiveApplications = joinDirective && args.supergraph.schemaDefinition.appliedDirectivesOf(joinDirective);
+  
+  const renamings: Record<string, Record<string, string>> = {};
+  for (const subgraph of args.subgraphs) {
+    const joinedLinkDirectivesForThisSubgraph = joinDirectiveApplications?.filter((d) =>
+      d.arguments().name === 'link' &&
+      d.arguments().graphs.includes(subgraph.sanitizedGraphQLName())
+    ) ?? [];
+
+    const directiveRenamingsForThisSubgraph: Record<string, string> = {};
+    for (const linkDirective of joinedLinkDirectivesForThisSubgraph) {
+      for (const { name, as } of linkDirective.arguments().args?.import ?? []) {
+        if (name && as) {
+          directiveRenamingsForThisSubgraph[name.replace('@', '')] = as.replace('@', '');
+        }
+      }
+    }
+
+    renamings[subgraph.sanitizedGraphQLName()] = directiveRenamingsForThisSubgraph;
+  }
+
+  return renamings;
+}
+
+function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectType | InterfaceType>[], directiveRenamings: Record<string, Record<string, string>>) {
   const fieldDirective = args.joinSpec.fieldDirective(args.supergraph);
 
   // join_implements was added in join 0.2, and this method does not run for join 0.1, so it should be defined.
@@ -450,7 +476,7 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
         // In fed2 subgraph, no @join__field means that the field is in all the subgraphs in which the type is.
         const isShareable = isObjectType(type) && subgraphsInfo.size > 1;
         for (const { type: subgraphType, subgraph } of subgraphsInfo.values()) {
-          addSubgraphField({ field, type: subgraphType, subgraph, isShareable });
+          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, extractArgs: args, directiveRenamings });
         }
       } else {
         const isShareable = isObjectType(type)
@@ -468,7 +494,7 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
           }
 
           const { type: subgraphType, subgraph } = subgraphsInfo.get(joinFieldArgs.graph)!;
-          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, joinFieldArgs });
+          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, joinFieldArgs, extractArgs: args, directiveRenamings });
         }
       }
     }
@@ -567,8 +593,9 @@ function extractSubgraphsFromFed2Supergraph(args: ExtractArguments) {
     enumTypes,
     unionTypes,
   } = addAllEmptySubgraphTypes(args);
+  const directiveRenamings = getDirectiveRenamings(args);
 
-  extractObjOrItfContent(args, objOrItfTypes);
+  extractObjOrItfContent(args, objOrItfTypes, directiveRenamings);
   extractInputObjContent(args, inputObjTypes);
   extractEnumTypeContent(args, enumTypes);
   extractUnionTypeContent(args, unionTypes);
@@ -631,12 +658,16 @@ function addSubgraphField({
   subgraph,
   isShareable,
   joinFieldArgs,
+  extractArgs,
+  directiveRenamings,
 }: {
   field: FieldDefinition<ObjectType | InterfaceType>,
   type: ObjectType | InterfaceType,
   subgraph: Subgraph,
   isShareable: boolean,
   joinFieldArgs?: JoinFieldDirectiveArguments,
+  extractArgs?: ExtractArguments,
+  directiveRenamings?: Record<string, Record<string, string>>,
 }): FieldDefinition<ObjectType | InterfaceType> {
   const copiedFieldType = joinFieldArgs?.type
     ? decodeType(joinFieldArgs.type, subgraph.schema, subgraph.name)
@@ -690,17 +721,20 @@ function addSubgraphField({
     subgraphField.applyDirective(subgraph.metadata().shareableDirective());
   }
 
-  const joinDirectives = field.appliedDirectivesOf('join__directive')
+  const joinDirectiveDefinition = extractArgs?.joinSpec.directiveDirective(extractArgs.supergraph);
+  const joinDirectives = joinDirectiveDefinition && field.appliedDirectivesOf(joinDirectiveDefinition)
     .filter((d) => d.arguments().graphs.includes(subgraph.sanitizedGraphQLName()));
   
-  const joinDirectiveForCost = joinDirectives.find((d) => d.arguments().name === 'cost');
+  const costDirectiveName = directiveRenamings?.[subgraph.sanitizedGraphQLName()]?.['cost'] ?? 'cost';
+  const joinDirectiveForCost = joinDirectives?.find((d) => d.arguments().name === costDirectiveName);
   if (joinDirectiveForCost) {
     subgraphField.applyDirective(subgraph.metadata().costDirective().name, {
       weight: joinDirectiveForCost.arguments().args?.weight
     });
   }
 
-  const joinDirectiveForListSize = joinDirectives.find((d) => d.arguments().name === 'listSize');
+  const listSizeDirectiveName = directiveRenamings?.[subgraph.sanitizedGraphQLName()]?.['listSize'] ?? 'listSize';
+  const joinDirectiveForListSize = joinDirectives?.find((d) => d.arguments().name === listSizeDirectiveName);
   if (joinDirectiveForListSize) {
     const { assumedSize, sizedFields, slicingArguments, requireOneSlicingArgument } = joinDirectiveForListSize.arguments().args ?? {};
       subgraphField.applyDirective(subgraph.metadata().listSizeDirective().name, {
