@@ -186,6 +186,7 @@ describe('demand control directive extraction', () => {
     subgraphWithCost,
     subgraphWithRenamedCost,
     subgraphWithCostFromFederationSpec,
+    subgraphWithRenamedCostFromFederationSpec
   ])('extracts @cost from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
@@ -209,6 +210,7 @@ describe('demand control directive extraction', () => {
     subgraphWithListSize,
     subgraphWithRenamedListSize,
     subgraphWithListSizeFromFederationSpec,
+    subgraphWithRenamedListSizeFromFederationSpec
   ])('extracts @listSize from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
@@ -328,47 +330,5 @@ describe('demand control directive extraction', () => {
         sharedWithListSize: [Int] @shareable @federation__listSize(assumedSize: 20)
       }
     `);
-  });
-
-  // These cases are not desired behavior, but they should be called out. This is caused
-  // by the extraction dropping the information of renamed federation imports.
-  describe('when the directives are renamed and imported from the federation spec', () => {
-    it('does not extract @cost from the supergraph', () => {
-      const result = composeServices([subgraphWithRenamedCostFromFederationSpec]);
-      assertCompositionSuccess(result);
-      expect(result.hints.length).toBe(0);
-
-      const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithCost.name);
-      expect(extracted?.toString()).toMatchString(`
-        schema
-          ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
-        {
-          query: Query
-        }
-  
-        type Query {
-          fieldWithCost: Int
-        }
-      `);
-    });
-
-    it('does not extract @listSize from the supergraph', () => {
-      const result = composeServices([subgraphWithRenamedListSizeFromFederationSpec]);
-      assertCompositionSuccess(result);
-      expect(result.hints.length).toBe(0);
-      const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithListSize.name);
-
-      expect(extracted?.toString()).toMatchString(`
-        schema
-          ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
-        {
-          query: Query
-        }
-
-        type Query {
-          fieldWithListSize: [String!]
-        }
-      `);
-    });
   });
 });

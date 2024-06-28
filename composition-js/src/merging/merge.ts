@@ -72,7 +72,6 @@ import {
   FEDERATION_VERSIONS,
   InaccessibleSpecDefinition,
   LinkDirectiveArgs,
-  sourceIdentity,
   FeatureUrl,
   isFederationDirectiveDefinedInSchema,
   parseContext,
@@ -81,7 +80,6 @@ import {
   StaticArgumentsTransform,
   isNullableType,
   isFieldDefinition,
-  demandControlIdentity,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -310,7 +308,6 @@ class Merger {
   private linkSpec: CoreSpecDefinition;
   private inaccessibleSpec: InaccessibleSpecDefinition;
   private latestFedVersionUsed: FeatureVersion;
-  private joinDirectiveIdentityURLs = new Set<string>();
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
   private fieldsWithFromContext: Set<string>;
 
@@ -345,12 +342,6 @@ class Merger {
 
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
     this.appliedDirectivesToMerge = [];
-
-    [ // Represent any applications of directives imported from these spec URLs
-      // using @join__directive in the merged supergraph.
-      demandControlIdentity,
-      sourceIdentity,
-    ].forEach(url => this.joinDirectiveIdentityURLs.add(url));
   }
 
   private getLatestFederationVersionUsed(): FeatureVersion {
@@ -2798,13 +2789,6 @@ class Merger {
     this.addJoinDirectiveDirectives(sources, dest);
   }
 
-  private shouldUseJoinDirectiveForURL(url: FeatureUrl | undefined): boolean {
-    return Boolean(
-      url &&
-      this.joinDirectiveIdentityURLs.has(url.identity)
-    );
-  }
-
   private computeMapFromImportNameToIdentityUrl(
     schema: Schema,
   ): Map<string, FeatureUrl> {
@@ -2855,22 +2839,21 @@ class Merger {
         let shouldIncludeAsJoinDirective = false;
 
         if (directive.name === 'link') {
-          const { url } = directive.arguments();
-          const parsedUrl = FeatureUrl.maybeParse(url);
-          if (typeof url === 'string' && parsedUrl) {
-            shouldIncludeAsJoinDirective =
-              this.shouldUseJoinDirectiveForURL(parsedUrl);
+          const imports = directive.arguments().import;
+          if (Array.isArray(imports) && imports.some((importedDirective) => {
+            if (typeof importedDirective.as !== 'string') {
+              return false;
+            }
+            const directiveDefinition = source.schema().directive(importedDirective.as.replace('@', ''));
+            return directiveDefinition?.usesJoinDirective;
+          })) {
+            shouldIncludeAsJoinDirective = true;
           }
         } else {
-          // To be consistent with other code accessing
-          // linkImportIdentityURLMap, we ensure directive names start with a
-          // leading @.
-          const nameWithAtSymbol =
-            directive.name.startsWith('@') ? directive.name : '@' + directive.name;
-          shouldIncludeAsJoinDirective = directive.definition?.usesJoinDirective || this.shouldUseJoinDirectiveForURL(
-            linkImportIdentityURLMap.get(nameWithAtSymbol),
-          );
+          shouldIncludeAsJoinDirective = !!directive.definition?.usesJoinDirective;
         }
+
+        // console.log(`${directive} -> ${shouldIncludeAsJoinDirective}`);
 
         if (shouldIncludeAsJoinDirective) {
           const existingJoins = (joinsByDirectiveName[directive.name] ??= []);
