@@ -230,6 +230,20 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
   const subgraphs = new Subgraphs();
   let errors: GraphQLError[] = [];
   const subgraphsUsingInterfaceObject = [];
+  
+  // build a data structure to help us do computation only once
+  const objectTypeMap = new Map<string, Map<string, [ObjectType, FederationMetadata]>>();
+  for (const subgraph of inputs.values()) {
+    for (const t of subgraph.schema.objectTypes()) {
+      let entry = objectTypeMap.get(t.name);
+      if (!entry) {
+        entry = new Map();
+        objectTypeMap.set(t.name, entry);
+      }
+      entry.set(subgraph.name, [t, subgraph.metadata()]);
+    }
+  }
+  
   for (const subgraph of inputs.values()) {
     if (subgraph.isFed2Subgraph()) {
       subgraphs.add(subgraph);
@@ -238,7 +252,7 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
       }
     } else {
       const otherSubgraphs = inputs.values().filter((s) => s.name !== subgraph.name);
-      const res = new SchemaUpgrader(subgraph, otherSubgraphs).upgrade();
+      const res = new SchemaUpgrader(subgraph, otherSubgraphs, objectTypeMap).upgrade();
       if (res.errors) {
         errors = errors.concat(res.errors);
       } else {
@@ -291,16 +305,6 @@ function isRootTypeExtension(type: NamedType): boolean {
     && (type.hasAppliedDirective(metadata.extendsDirective()) || (type.hasExtensionElements() && !type.hasNonExtensionElements()));
 }
 
-function resolvesField(subgraph: Subgraph, field: FieldDefinition<ObjectType>): boolean  {
-  const metadata = subgraph.metadata();
-  const t = subgraph.schema.type(field.parent.name);
-  if (!t || !isObjectType(t)) {
-    return false;
-  }
-  const f = t.field(field.name);
-  return !!f && (!metadata.isFieldExternal(f) || metadata.isFieldPartiallyExternal(f));
-}
-
 function getField(schema: Schema, typeName: string, fieldName: string): FieldDefinition<CompositeType> | undefined {
   const type = schema.type(typeName);
   return type && isCompositeType(type) ? type.field(fieldName) : undefined;
@@ -313,7 +317,7 @@ class SchemaUpgrader {
   private readonly metadata: FederationMetadata;
   private readonly errors: GraphQLError[] = [];
 
-  constructor(private readonly originalSubgraph: Subgraph, private readonly otherSubgraphs: Subgraph[]) {
+  constructor(private readonly originalSubgraph: Subgraph, private readonly otherSubgraphs: Subgraph[], private readonly objectTypeMap: Map<string, Map<string, [ObjectType, FederationMetadata]>>) {
     // Note that as we clone the original schema, the 'sourceAST' values in the elements of the new schema will be those of the original schema
     // and those won't be updated as we modify the schema to make it fed2-enabled. This is _important_ for us here as this is what ensures that
     // later merge errors "AST" nodes ends up pointing to the original schema, the one that make sense to the user.
@@ -380,12 +384,13 @@ class SchemaUpgrader {
     }
 
     const extensionAST = firstOf<Extension<any>>(type.extensions().values())?.sourceAST;
-    for (const subgraph of this.otherSubgraphs) {
-      const otherType = subgraph.schema.type(type.name);
+    const typeInOtherSubgraphs = Array.from(this.objectTypeMap.get(type.name)!.entries()).filter(([subgraphName, _]) => subgraphName !== this.subgraph.name);
+    typeInOtherSubgraphs.forEach(([_, v]) => {
+      const otherType = v[0];
       if (otherType && otherType.hasNonExtensionElements()) {
         return;
       }
-    }
+    });
 
     // We look at all the other subgraphs and didn't found a (non-extension) definition of that type
     this.addError(ERRORS.EXTENSION_WITH_NO_BASE.err(
@@ -710,17 +715,26 @@ class SchemaUpgrader {
           if (originalMetadata.isFieldShareable(field)) {
             continue;
           }
-          const otherResolvingSubgraphs = this.otherSubgraphs.filter((s) => resolvesField(s, field));
-          if (otherResolvingSubgraphs.length > 0 && !field.hasAppliedDirective(shareableDirective)) {
+          
+          const entries = Array.from(this.objectTypeMap.get(type.name)!.entries());
+          const typeInOtherSubgraphs = entries.filter(([subgraphName, v]) => {
+            if (subgraphName === this.subgraph.name) {
+              return false;
+            }
+            const f = v[0].field(field.name);
+            return !!f && (!v[1].isFieldExternal(f) || v[1].isFieldPartiallyExternal(f));
+          });
+          
+          if (typeInOtherSubgraphs.length > 0 && !field.hasAppliedDirective(shareableDirective)) {
             field.applyDirective(shareableDirective);
-            this.addChange(new ShareableFieldAddition(field.coordinate, otherResolvingSubgraphs.map((s) => s.name)));
+            this.addChange(new ShareableFieldAddition(field.coordinate, typeInOtherSubgraphs.map(([s]) => s)));
           }
         }
       } else {
-        const otherDeclaringSubgraphs = this.otherSubgraphs.filter((s) => s.schema.type(type.name));
-        if (otherDeclaringSubgraphs.length > 0 && !type.hasAppliedDirective(shareableDirective)) {
+        const typeInOtherSubgraphs = Array.from(this.objectTypeMap.get(type.name)!.entries()).filter(([subgraphName, _]) => subgraphName !== this.subgraph.name);
+        if (typeInOtherSubgraphs.length > 0 && !type.hasAppliedDirective(shareableDirective)) {
           type.applyDirective(shareableDirective);
-          this.addChange(new ShareableTypeAddition(type.coordinate, otherDeclaringSubgraphs.map((s) => s.name)));
+          this.addChange(new ShareableTypeAddition(type.coordinate, typeInOtherSubgraphs.map(([s]) => s)));
         }
       }
     }
