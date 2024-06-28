@@ -2123,7 +2123,7 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
     const unions: UnionType[] = [];
     this._referencers?.forEach((r) => {
       if (r instanceof BaseNamedType && isUnionType(r)) {
-	unions.push(r);
+        unions.push(r);
       }
     });
     return unions;
@@ -2138,7 +2138,7 @@ export class InterfaceType extends FieldBasedType<InterfaceType, InterfaceTypeRe
     const implementations: (ObjectType | InterfaceType)[] = [];
     this.referencers().forEach(ref => {
       if (ref.kind === 'ObjectType' || ref.kind === 'InterfaceType') {
-	implementations.push(ref);
+        implementations.push(ref);
       }
     });
     return implementations;
