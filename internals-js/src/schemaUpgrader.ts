@@ -385,12 +385,12 @@ class SchemaUpgrader {
 
     const extensionAST = firstOf<Extension<any>>(type.extensions().values())?.sourceAST;
     const typeInOtherSubgraphs = Array.from(this.objectTypeMap.get(type.name)!.entries()).filter(([subgraphName, _]) => subgraphName !== this.subgraph.name);
-    typeInOtherSubgraphs.forEach(([_, v]) => {
-      const otherType = v[0];
+    for (let i = 0; i < typeInOtherSubgraphs.length; i += 1) {
+      const otherType = typeInOtherSubgraphs[i][1][0];
       if (otherType && otherType.hasNonExtensionElements()) {
         return;
       }
-    });
+    }
 
     // We look at all the other subgraphs and didn't found a (non-extension) definition of that type
     this.addError(ERRORS.EXTENSION_WITH_NO_BASE.err(
