@@ -2894,6 +2894,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
 
   private _args?: MapWithCachedArrays<string, ArgumentDefinition<DirectiveDefinition>>;
   repeatable: boolean = false;
+  usesJoinDirective: boolean = false;
   private readonly _locations: DirectiveLocation[] = [];
   private _referencers?: Directive<SchemaElement<any, any>, TApplicationArgs>[];
 
