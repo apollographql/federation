@@ -1,13 +1,13 @@
 import { DocumentNode } from 'graphql';
 import gql from 'graphql-tag';
 import { Subgraph } from '..';
-import { buildSubgraph } from "../federation"
+import { buildSubgraph } from '../federation';
 import { defaultPrintOptions, printSchema } from '../print';
 import { buildForErrors } from './testUtils';
 
 describe('fieldset-based directives', () => {
   it('rejects field defined with arguments in @key', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -15,14 +15,17 @@ describe('fieldset-based directives', () => {
       type T @key(fields: "f") {
         f(x: Int): Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['KEY_FIELDS_HAS_ARGS', '[S] On type "T", for @key(fields: "f"): field T.f cannot be included because it has arguments (fields with argument are not allowed in @key)']
+      [
+        'KEY_FIELDS_HAS_ARGS',
+        '[S] On type "T", for @key(fields: "f"): field T.f cannot be included because it has arguments (fields with argument are not allowed in @key)',
+      ],
     ]);
   });
 
   it('rejects field defined with arguments in @provides', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T @provides(fields: "f")
       }
@@ -30,14 +33,17 @@ describe('fieldset-based directives', () => {
       type T {
         f(x: Int): Int @external
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['PROVIDES_FIELDS_HAS_ARGS', '[S] On field "Query.t", for @provides(fields: "f"): field T.f cannot be included because it has arguments (fields with argument are not allowed in @provides)']
+      [
+        'PROVIDES_FIELDS_HAS_ARGS',
+        '[S] On field "Query.t", for @provides(fields: "f"): field T.f cannot be included because it has arguments (fields with argument are not allowed in @provides)',
+      ],
     ]);
   });
 
   it('rejects @provides on non-external fields', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T @provides(fields: "f")
       }
@@ -45,14 +51,17 @@ describe('fieldset-based directives', () => {
       type T {
         f: Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['PROVIDES_FIELDS_MISSING_EXTERNAL', '[S] On field "Query.t", for @provides(fields: "f"): field "T.f" should not be part of a @provides since it is already provided by this subgraph (it is not marked @external)']
+      [
+        'PROVIDES_FIELDS_MISSING_EXTERNAL',
+        '[S] On field "Query.t", for @provides(fields: "f"): field "T.f" should not be part of a @provides since it is already provided by this subgraph (it is not marked @external)',
+      ],
     ]);
   });
 
   it('rejects @requires on non-external fields', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -61,14 +70,19 @@ describe('fieldset-based directives', () => {
         f: Int
         g: Int @requires(fields: "f")
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['REQUIRES_FIELDS_MISSING_EXTERNAL', '[S] On field "T.g", for @requires(fields: "f"): field "T.f" should not be part of a @requires since it is already provided by this subgraph (it is not marked @external)']
+      [
+        'REQUIRES_FIELDS_MISSING_EXTERNAL',
+        '[S] On field "T.g", for @requires(fields: "f"): field "T.f" should not be part of a @requires since it is already provided by this subgraph (it is not marked @external)',
+      ],
     ]);
   });
 
-  it.each(['2.0', '2.1', '2.2'])('rejects @key on interfaces _in the %p spec_', (version) => {
-    const subgraph =  gql`
+  it.each(['2.0', '2.1', '2.2'])(
+    'rejects @key on interfaces _in the %p spec_',
+    (version) => {
+      const subgraph = gql`
       extend schema
         @link(url: "https://specs.apollo.dev/federation/v${version}", import: ["@key"])
 
@@ -79,14 +93,18 @@ describe('fieldset-based directives', () => {
       interface T @key(fields: "f") {
         f: Int
       }
-    `
-    expect(buildForErrors(subgraph, { asFed2: false })).toStrictEqual([
-      ['KEY_UNSUPPORTED_ON_INTERFACE', '[S] Cannot use @key on interface "T": @key is not yet supported on interfaces'],
-    ]);
-  });
+    `;
+      expect(buildForErrors(subgraph, { asFed2: false })).toStrictEqual([
+        [
+          'KEY_UNSUPPORTED_ON_INTERFACE',
+          '[S] Cannot use @key on interface "T": @key is not yet supported on interfaces',
+        ],
+      ]);
+    },
+  );
 
   it('rejects @provides on interfaces', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -98,14 +116,17 @@ describe('fieldset-based directives', () => {
       type U {
         g: Int @external
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['PROVIDES_UNSUPPORTED_ON_INTERFACE', '[S] Cannot use @provides on field "T.f" of parent type "T": @provides is not yet supported within interfaces'],
+      [
+        'PROVIDES_UNSUPPORTED_ON_INTERFACE',
+        '[S] Cannot use @provides on field "T.f" of parent type "T": @provides is not yet supported within interfaces',
+      ],
     ]);
   });
 
   it('rejects @requires on interfaces', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -114,15 +135,21 @@ describe('fieldset-based directives', () => {
         f: Int @external
         g: Int @requires(fields: "f")
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['REQUIRES_UNSUPPORTED_ON_INTERFACE', '[S] Cannot use @requires on field "T.g" of parent type "T": @requires is not yet supported within interfaces' ],
-      ['EXTERNAL_ON_INTERFACE', '[S] Interface type field "T.f" is marked @external but @external is not allowed on interface fields (it is nonsensical).' ],
+      [
+        'REQUIRES_UNSUPPORTED_ON_INTERFACE',
+        '[S] Cannot use @requires on field "T.g" of parent type "T": @requires is not yet supported within interfaces',
+      ],
+      [
+        'EXTERNAL_ON_INTERFACE',
+        '[S] Interface type field "T.f" is marked @external but @external is not allowed on interface fields (it is nonsensical).',
+      ],
     ]);
   });
 
   it('rejects unused @external', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -130,14 +157,17 @@ describe('fieldset-based directives', () => {
       type T {
         f: Int @external
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['EXTERNAL_UNUSED', '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).'],
+      [
+        'EXTERNAL_UNUSED',
+        '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).',
+      ],
     ]);
   });
 
   it('rejects @provides on non-object fields', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: Int @provides(fields: "f")
       }
@@ -145,14 +175,17 @@ describe('fieldset-based directives', () => {
       type T {
         f: Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['PROVIDES_ON_NON_OBJECT_FIELD', '[S] Invalid @provides directive on field "Query.t": field has type "Int" which is not a Composite Type'],
+      [
+        'PROVIDES_ON_NON_OBJECT_FIELD',
+        '[S] Invalid @provides directive on field "Query.t": field has type "Int" which is not a Composite Type',
+      ],
     ]);
   });
 
   it('rejects a non-string argument to @key', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -160,14 +193,17 @@ describe('fieldset-based directives', () => {
       type T @key(fields: ["f"]) {
         f: Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['KEY_INVALID_FIELDS_TYPE', '[S] On type "T", for @key(fields: ["f"]): Invalid value for argument "fields": must be a string.'],
+      [
+        'KEY_INVALID_FIELDS_TYPE',
+        '[S] On type "T", for @key(fields: ["f"]): Invalid value for argument "fields": must be a string.',
+      ],
     ]);
   });
 
   it('rejects a non-string argument to @provides', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T @provides(fields: ["f"])
       }
@@ -175,18 +211,24 @@ describe('fieldset-based directives', () => {
       type T {
         f: Int @external
       }
-    `
+    `;
     // Note: since the error here is that we cannot parse the key `fields`, this also mean that @external on
     // `f` will appear unused and we get an error for it. It's kind of hard to avoid cleanly and hopefully
     // not a big deal (having errors dependencies is not exactly unheard of).
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['PROVIDES_INVALID_FIELDS_TYPE', '[S] On field "Query.t", for @provides(fields: ["f"]): Invalid value for argument "fields": must be a string.'],
-      ['EXTERNAL_UNUSED', '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).' ],
+      [
+        'PROVIDES_INVALID_FIELDS_TYPE',
+        '[S] On field "Query.t", for @provides(fields: ["f"]): Invalid value for argument "fields": must be a string.',
+      ],
+      [
+        'EXTERNAL_UNUSED',
+        '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).',
+      ],
     ]);
   });
 
   it('rejects a non-string argument to @requires', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -195,20 +237,26 @@ describe('fieldset-based directives', () => {
         f: Int @external
         g: Int @requires(fields: ["f"])
       }
-    `
+    `;
     // Note: since the error here is that we cannot parse the key `fields`, this also mean that @external on
     // `f` will appear unused and we get an error for it. It's kind of hard to avoid cleanly and hopefully
     // not a big deal (having errors dependencies is not exactly unheard of).
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['REQUIRES_INVALID_FIELDS_TYPE', '[S] On field "T.g", for @requires(fields: ["f"]): Invalid value for argument "fields": must be a string.'],
-      ['EXTERNAL_UNUSED', '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).' ],
+      [
+        'REQUIRES_INVALID_FIELDS_TYPE',
+        '[S] On field "T.g", for @requires(fields: ["f"]): Invalid value for argument "fields": must be a string.',
+      ],
+      [
+        'EXTERNAL_UNUSED',
+        '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).',
+      ],
     ]);
   });
 
   // Special case of non-string argument, specialized because it hits a different
   // code-path due to enum values being parsed as string and requiring special care.
   it('rejects an enum-like argument to @key', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -216,16 +264,19 @@ describe('fieldset-based directives', () => {
       type T @key(fields: f) {
         f: Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['KEY_INVALID_FIELDS_TYPE', '[S] On type "T", for @key(fields: f): Invalid value for argument "fields": must be a string.'],
+      [
+        'KEY_INVALID_FIELDS_TYPE',
+        '[S] On type "T", for @key(fields: f): Invalid value for argument "fields": must be a string.',
+      ],
     ]);
   });
 
   // Special case of non-string argument, specialized because it hits a different
   // code-path due to enum values being parsed as string and requiring special care.
   it('rejects an enum-lik argument to @provides', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T @provides(fields: f)
       }
@@ -233,20 +284,26 @@ describe('fieldset-based directives', () => {
       type T {
         f: Int @external
       }
-    `
+    `;
     // Note: since the error here is that we cannot parse the key `fields`, this also mean that @external on
     // `f` will appear unused and we get an error for it. It's kind of hard to avoid cleanly and hopefully
     // not a big deal (having errors dependencies is not exactly unheard of).
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['PROVIDES_INVALID_FIELDS_TYPE', '[S] On field "Query.t", for @provides(fields: f): Invalid value for argument "fields": must be a string.'],
-      ['EXTERNAL_UNUSED', '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).' ],
+      [
+        'PROVIDES_INVALID_FIELDS_TYPE',
+        '[S] On field "Query.t", for @provides(fields: f): Invalid value for argument "fields": must be a string.',
+      ],
+      [
+        'EXTERNAL_UNUSED',
+        '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).',
+      ],
     ]);
   });
 
   // Special case of non-string argument, specialized because it hits a different
   // code-path due to enum values being parsed as string and requiring special care.
   it('rejects an enum-like argument to @requires', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -255,18 +312,24 @@ describe('fieldset-based directives', () => {
         f: Int @external
         g: Int @requires(fields: f)
       }
-    `
+    `;
     // Note: since the error here is that we cannot parse the key `fields`, this also mean that @external on
     // `f` will appear unused and we get an error for it. It's kind of hard to avoid cleanly and hopefully
     // not a big deal (having errors dependencies is not exactly unheard of).
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['REQUIRES_INVALID_FIELDS_TYPE', '[S] On field "T.g", for @requires(fields: f): Invalid value for argument "fields": must be a string.'],
-      ['EXTERNAL_UNUSED', '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).' ],
+      [
+        'REQUIRES_INVALID_FIELDS_TYPE',
+        '[S] On field "T.g", for @requires(fields: f): Invalid value for argument "fields": must be a string.',
+      ],
+      [
+        'EXTERNAL_UNUSED',
+        '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).',
+      ],
     ]);
   });
 
   it('rejects an invalid `fields` argument to @key', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -274,14 +337,17 @@ describe('fieldset-based directives', () => {
       type T @key(fields: ":f") {
         f: Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['KEY_INVALID_FIELDS', '[S] On type "T", for @key(fields: ":f"): Syntax Error: Expected Name, found ":".'],
+      [
+        'KEY_INVALID_FIELDS',
+        '[S] On type "T", for @key(fields: ":f"): Syntax Error: Expected Name, found ":".',
+      ],
     ]);
   });
 
   it('rejects an invalid `fields` argument to @provides', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T @provides(fields: "{{f}}")
       }
@@ -289,15 +355,21 @@ describe('fieldset-based directives', () => {
       type T {
         f: Int @external
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['PROVIDES_INVALID_FIELDS', '[S] On field "Query.t", for @provides(fields: "{{f}}"): Syntax Error: Expected Name, found "{".'],
-      ['EXTERNAL_UNUSED', '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).' ],
+      [
+        'PROVIDES_INVALID_FIELDS',
+        '[S] On field "Query.t", for @provides(fields: "{{f}}"): Syntax Error: Expected Name, found "{".',
+      ],
+      [
+        'EXTERNAL_UNUSED',
+        '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).',
+      ],
     ]);
   });
 
   it('rejects an invalid `fields` argument to @requires', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -306,14 +378,17 @@ describe('fieldset-based directives', () => {
         f: Int @external
         g: Int @requires(fields: "f b")
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['REQUIRES_INVALID_FIELDS', '[S] On field "T.g", for @requires(fields: "f b"): Cannot query field "b" on type "T" (if the field is defined in another subgraph, you need to add it to this subgraph with @external).'],
+      [
+        'REQUIRES_INVALID_FIELDS',
+        '[S] On field "T.g", for @requires(fields: "f b"): Cannot query field "b" on type "T" (if the field is defined in another subgraph, you need to add it to this subgraph with @external).',
+      ],
     ]);
   });
 
   it('rejects @key on an interface field', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -325,14 +400,17 @@ describe('fieldset-based directives', () => {
       interface I {
         i: Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['KEY_FIELDS_SELECT_INVALID_TYPE', '[S] On type "T", for @key(fields: "f"): field "T.f" is a Interface type which is not allowed in @key'],
+      [
+        'KEY_FIELDS_SELECT_INVALID_TYPE',
+        '[S] On type "T", for @key(fields: "f"): field "T.f" is a Interface type which is not allowed in @key',
+      ],
     ]);
   });
 
   it('rejects @key on an union field', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -342,14 +420,17 @@ describe('fieldset-based directives', () => {
       }
 
       union U = Query | T
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['KEY_FIELDS_SELECT_INVALID_TYPE', '[S] On type "T", for @key(fields: "f"): field "T.f" is a Union type which is not allowed in @key'],
+      [
+        'KEY_FIELDS_SELECT_INVALID_TYPE',
+        '[S] On type "T", for @key(fields: "f"): field "T.f" is a Union type which is not allowed in @key',
+      ],
     ]);
   });
 
   it('rejects directive applications in @key', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -362,14 +443,17 @@ describe('fieldset-based directives', () => {
         x: Int
         y: Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['KEY_DIRECTIVE_IN_FIELDS_ARG', '[S] On type "T", for @key(fields: "v { x ... @include(if: false) { y }}"): cannot have directive applications in the @key(fields:) argument but found @include(if: false).'],
+      [
+        'KEY_DIRECTIVE_IN_FIELDS_ARG',
+        '[S] On type "T", for @key(fields: "v { x ... @include(if: false) { y }}"): cannot have directive applications in the @key(fields:) argument but found @include(if: false).',
+      ],
     ]);
   });
 
   it('rejects directive applications in @provides', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T @provides(fields: "v { ... on V @skip(if: true) { x y } }")
       }
@@ -383,14 +467,17 @@ describe('fieldset-based directives', () => {
         x: Int
         y: Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['PROVIDES_DIRECTIVE_IN_FIELDS_ARG', '[S] On field "Query.t", for @provides(fields: "v { ... on V @skip(if: true) { x y } }"): cannot have directive applications in the @provides(fields:) argument but found @skip(if: true).'],
+      [
+        'PROVIDES_DIRECTIVE_IN_FIELDS_ARG',
+        '[S] On field "Query.t", for @provides(fields: "v { ... on V @skip(if: true) { x y } }"): cannot have directive applications in the @provides(fields:) argument but found @skip(if: true).',
+      ],
     ]);
   });
 
   it('rejects directive applications in @requires', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -400,14 +487,17 @@ describe('fieldset-based directives', () => {
         a: Int @requires(fields: "... @skip(if: false) { b }")
         b: Int @external
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['REQUIRES_DIRECTIVE_IN_FIELDS_ARG', '[S] On field "T.a", for @requires(fields: "... @skip(if: false) { b }"): cannot have directive applications in the @requires(fields:) argument but found @skip(if: false).'],
+      [
+        'REQUIRES_DIRECTIVE_IN_FIELDS_ARG',
+        '[S] On field "T.a", for @requires(fields: "... @skip(if: false) { b }"): cannot have directive applications in the @requires(fields:) argument but found @skip(if: false).',
+      ],
     ]);
   });
 
   it('can collect multiple errors in a single `fields` argument', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T @provides(fields: "f(x: 3)")
       }
@@ -416,15 +506,21 @@ describe('fieldset-based directives', () => {
         id: ID
         f(x: Int): Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['PROVIDES_FIELDS_HAS_ARGS', '[S] On field "Query.t", for @provides(fields: "f(x: 3)"): field T.f cannot be included because it has arguments (fields with argument are not allowed in @provides)'],
-      ['PROVIDES_FIELDS_MISSING_EXTERNAL', '[S] On field "Query.t", for @provides(fields: "f(x: 3)"): field "T.f" should not be part of a @provides since it is already provided by this subgraph (it is not marked @external)'],
+      [
+        'PROVIDES_FIELDS_HAS_ARGS',
+        '[S] On field "Query.t", for @provides(fields: "f(x: 3)"): field T.f cannot be included because it has arguments (fields with argument are not allowed in @provides)',
+      ],
+      [
+        'PROVIDES_FIELDS_MISSING_EXTERNAL',
+        '[S] On field "Query.t", for @provides(fields: "f(x: 3)"): field "T.f" should not be part of a @provides since it is already provided by this subgraph (it is not marked @external)',
+      ],
     ]);
   });
 
   it('rejects aliases in @key', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -432,14 +528,17 @@ describe('fieldset-based directives', () => {
       type T @key(fields: "foo: id") {
         id: ID!
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      [ 'KEY_INVALID_FIELDS', '[S] On type "T", for @key(fields: "foo: id"): Cannot use alias "foo" in "foo: id": aliases are not currently supported in @key' ],
+      [
+        'KEY_INVALID_FIELDS',
+        '[S] On type "T", for @key(fields: "foo: id"): Cannot use alias "foo" in "foo: id": aliases are not currently supported in @key',
+      ],
     ]);
   });
 
   it('rejects aliases in @provides', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T @provides(fields: "bar: x")
       }
@@ -448,14 +547,17 @@ describe('fieldset-based directives', () => {
         id: ID!
         x: Int @external
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      [ 'PROVIDES_INVALID_FIELDS', '[S] On field "Query.t", for @provides(fields: "bar: x"): Cannot use alias "bar" in "bar: x": aliases are not currently supported in @provides' ],
+      [
+        'PROVIDES_INVALID_FIELDS',
+        '[S] On field "Query.t", for @provides(fields: "bar: x"): Cannot use alias "bar" in "bar: x": aliases are not currently supported in @provides',
+      ],
     ]);
   });
 
   it('rejects aliases in @requires', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       type Query {
         t: T
       }
@@ -471,17 +573,23 @@ describe('fieldset-based directives', () => {
         a: Int
         b: Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      [ 'REQUIRES_INVALID_FIELDS', '[S] On field "T.g", for @requires(fields: "foo: y"): Cannot use alias "foo" in "foo: y": aliases are not currently supported in @requires' ],
-      [ 'REQUIRES_INVALID_FIELDS', '[S] On field "T.h", for @requires(fields: "x { m: a n: b }"): Cannot use alias "m" in "m: a": aliases are not currently supported in @requires' ],
+      [
+        'REQUIRES_INVALID_FIELDS',
+        '[S] On field "T.g", for @requires(fields: "foo: y"): Cannot use alias "foo" in "foo: y": aliases are not currently supported in @requires',
+      ],
+      [
+        'REQUIRES_INVALID_FIELDS',
+        '[S] On field "T.h", for @requires(fields: "x { m: a n: b }"): Cannot use alias "m" in "m: a": aliases are not currently supported in @requires',
+      ],
     ]);
   });
 });
 
 describe('root types', () => {
   it('rejects using Query as type name if not the query root', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       schema {
         query: MyQuery
       }
@@ -493,14 +601,17 @@ describe('root types', () => {
       type Query {
         g: Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['ROOT_QUERY_USED', '[S] The schema has a type named "Query" but it is not set as the query root type ("MyQuery" is instead): this is not supported by federation. If a root type does not use its default name, there should be no other type with that default name.'],
+      [
+        'ROOT_QUERY_USED',
+        '[S] The schema has a type named "Query" but it is not set as the query root type ("MyQuery" is instead): this is not supported by federation. If a root type does not use its default name, there should be no other type with that default name.',
+      ],
     ]);
   });
 
   it('rejects using Mutation as type name if not the mutation root', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       schema {
         mutation: MyMutation
       }
@@ -512,14 +623,17 @@ describe('root types', () => {
       type Mutation {
         g: Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['ROOT_MUTATION_USED', '[S] The schema has a type named "Mutation" but it is not set as the mutation root type ("MyMutation" is instead): this is not supported by federation. If a root type does not use its default name, there should be no other type with that default name.'],
+      [
+        'ROOT_MUTATION_USED',
+        '[S] The schema has a type named "Mutation" but it is not set as the mutation root type ("MyMutation" is instead): this is not supported by federation. If a root type does not use its default name, there should be no other type with that default name.',
+      ],
     ]);
   });
 
   it('rejects using Subscription as type name if not the subscription root', () => {
-    const subgraph =  gql`
+    const subgraph = gql`
       schema {
         subscription: MySubscription
       }
@@ -531,32 +645,49 @@ describe('root types', () => {
       type Subscription {
         g: Int
       }
-    `
+    `;
     expect(buildForErrors(subgraph)).toStrictEqual([
-      ['ROOT_SUBSCRIPTION_USED', '[S] The schema has a type named "Subscription" but it is not set as the subscription root type ("MySubscription" is instead): this is not supported by federation. If a root type does not use its default name, there should be no other type with that default name.'],
+      [
+        'ROOT_SUBSCRIPTION_USED',
+        '[S] The schema has a type named "Subscription" but it is not set as the subscription root type ("MySubscription" is instead): this is not supported by federation. If a root type does not use its default name, there should be no other type with that default name.',
+      ],
     ]);
   });
 });
 
 describe('custom error message for misnamed directives', () => {
   it.each([
-    { name: 'fed1', extraMsg: ' If so, note that it is a federation 2 directive but this schema is a federation 1 one. To be a federation 2 schema, it needs to @link to the federation specifcation v2.' },
+    {
+      name: 'fed1',
+      extraMsg:
+        ' If so, note that it is a federation 2 directive but this schema is a federation 1 one. To be a federation 2 schema, it needs to @link to the federation specifcation v2.',
+    },
     { name: 'fed2', extraMsg: '' },
+  ])(
+    'has suggestions if a federation directive name is mispelled in $name',
+    ({ name, extraMsg }) => {
+      const subgraph = gql`
+        type T @keys(fields: "id") {
+          id: Int @foo
+          foo: String @sharable
+        }
+      `;
 
-  ])('has suggestions if a federation directive name is mispelled in $name', ({name, extraMsg}) => {
-    const subgraph = gql`
-      type T @keys(fields: "id") {
-        id: Int @foo
-        foo: String @sharable
-      }
-    `;
-
-    expect(buildForErrors(subgraph, { asFed2 : name === 'fed2' })).toStrictEqual([
-      ['INVALID_GRAPHQL', `[S] Unknown directive "@foo".`],
-      ['INVALID_GRAPHQL', `[S] Unknown directive "@sharable". Did you mean "@shareable"?${extraMsg}`],
-      ['INVALID_GRAPHQL', `[S] Unknown directive "@keys". Did you mean "@key"?`],
-    ]);
-  });
+      expect(
+        buildForErrors(subgraph, { asFed2: name === 'fed2' }),
+      ).toStrictEqual([
+        ['INVALID_GRAPHQL', `[S] Unknown directive "@foo".`],
+        [
+          'INVALID_GRAPHQL',
+          `[S] Unknown directive "@sharable". Did you mean "@shareable"?${extraMsg}`,
+        ],
+        [
+          'INVALID_GRAPHQL',
+          `[S] Unknown directive "@keys". Did you mean "@key"?`,
+        ],
+      ]);
+    },
+  );
 
   it('has suggestions if a fed2 directive is used in fed1', () => {
     const subgraph = gql`
@@ -566,16 +697,21 @@ describe('custom error message for misnamed directives', () => {
       }
     `;
 
-    expect(buildForErrors(subgraph, { asFed2 : false })).toStrictEqual([
-      ['INVALID_GRAPHQL', `[S] Unknown directive "@shareable". If you meant the \"@shareable\" federation 2 directive, note that this schema is a federation 1 schema. To be a federation 2 schema, it needs to @link to the federation specifcation v2.`],
+    expect(buildForErrors(subgraph, { asFed2: false })).toStrictEqual([
+      [
+        'INVALID_GRAPHQL',
+        `[S] Unknown directive "@shareable". If you meant the \"@shareable\" federation 2 directive, note that this schema is a federation 1 schema. To be a federation 2 schema, it needs to @link to the federation specifcation v2.`,
+      ],
     ]);
   });
 
   it('has suggestions if a fed2 directive is used under the wrong name (for the schema)', () => {
     const subgraph = gql`
       extend schema
-        @link(url: "https://specs.apollo.dev/federation/v2.0",
-              import: [ { name: "@key", as: "@myKey"} ])
+        @link(
+          url: "https://specs.apollo.dev/federation/v2.0"
+          import: [{ name: "@key", as: "@myKey" }]
+        )
 
       type T @key(fields: "id") {
         id: Int
@@ -584,9 +720,15 @@ describe('custom error message for misnamed directives', () => {
     `;
 
     // Note: it's a fed2 schema, but we manually add the @link, so we pass `asFed2: false` to avoid having added twice.
-    expect(buildForErrors(subgraph, { asFed2 : false })).toStrictEqual([
-      ['INVALID_GRAPHQL', `[S] Unknown directive "@shareable". If you meant the \"@shareable\" federation directive, you should use fully-qualified name "@federation__shareable" or add "@shareable" to the \`import\` argument of the @link to the federation specification.`],
-      ['INVALID_GRAPHQL', `[S] Unknown directive "@key". If you meant the "@key" federation directive, you should use "@myKey" as it is imported under that name in the @link to the federation specification of this schema.`],
+    expect(buildForErrors(subgraph, { asFed2: false })).toStrictEqual([
+      [
+        'INVALID_GRAPHQL',
+        `[S] Unknown directive "@shareable". If you meant the \"@shareable\" federation directive, you should use fully-qualified name "@federation__shareable" or add "@shareable" to the \`import\` argument of the @link to the federation specification.`,
+      ],
+      [
+        'INVALID_GRAPHQL',
+        `[S] Unknown directive "@key". If you meant the "@key" federation directive, you should use "@myKey" as it is imported under that name in the @link to the federation specification of this schema.`,
+      ],
     ]);
   });
 });
@@ -659,13 +801,18 @@ describe('@core/@link handling', () => {
       _entities(representations: [_Any!]!): [_Entity]!
       _service: _Service!
     }
-  `
+  `;
   const validateFullSchema = (subgraph: Subgraph) => {
     // Note: we merge types and extensions to avoid having to care whether the @link are on a schema definition or schema extension
     // as 1) this will vary (we add them to extensions in our test, but when auto-added, they are added to the schema definition)
     // and 2) it doesn't matter in practice, it's valid in all cases.
-    expect(printSchema(subgraph.schema, { ...defaultPrintOptions, mergeTypesAndExtensions: true})).toMatchString(expectedFullSchema);
-  }
+    expect(
+      printSchema(subgraph.schema, {
+        ...defaultPrintOptions,
+        mergeTypesAndExtensions: true,
+      }),
+    ).toMatchString(expectedFullSchema);
+  };
 
   it('expands everything if only the federation spec is linked', () => {
     const doc = gql`
@@ -703,13 +850,19 @@ describe('@core/@link handling', () => {
       gql`
         extend schema
           @link(url: "https://specs.apollo.dev/link/v1.0")
-          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key"]
+          )
 
         type T @key(fields: "k") {
           k: ID!
         }
 
-        directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+        directive @key(
+          fields: federation__FieldSet!
+          resolvable: Boolean = true
+        ) repeatable on OBJECT | INTERFACE
 
         scalar federation__FieldSet
 
@@ -718,7 +871,10 @@ describe('@core/@link handling', () => {
       gql`
         extend schema
           @link(url: "https://specs.apollo.dev/link/v1.0")
-          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key"]
+          )
 
         type T @key(fields: "k") {
           k: ID!
@@ -728,7 +884,10 @@ describe('@core/@link handling', () => {
       `,
       gql`
         extend schema
-          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key"]
+          )
 
         type T @key(fields: "k") {
           k: ID!
@@ -738,17 +897,21 @@ describe('@core/@link handling', () => {
       `,
       gql`
         extend schema
-          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key"]
+          )
 
         type T @key(fields: "k") {
           k: ID!
         }
 
-        directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION
+        directive @federation__external(
+          reason: String
+        ) on OBJECT | FIELD_DEFINITION
       `,
       gql`
-        extend schema
-          @link(url: "https://specs.apollo.dev/federation/v2.0")
+        extend schema @link(url: "https://specs.apollo.dev/federation/v2.0")
 
         type T {
           k: ID!
@@ -775,13 +938,18 @@ describe('@core/@link handling', () => {
       gql`
         extend schema
           @link(url: "https://specs.apollo.dev/link/v1.0")
-          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key"]
+          )
 
         type T @key(fields: "k") {
           k: ID!
         }
 
-        directive @key(fields: federation__FieldSet!) repeatable on OBJECT | INTERFACE
+        directive @key(
+          fields: federation__FieldSet!
+        ) repeatable on OBJECT | INTERFACE
 
         scalar federation__FieldSet
       `,
@@ -789,7 +957,10 @@ describe('@core/@link handling', () => {
       gql`
         extend schema
           @link(url: "https://specs.apollo.dev/link/v1.0")
-          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@inaccessible"])
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@inaccessible"]
+          )
 
         type T {
           k: ID! @inaccessible
@@ -800,26 +971,38 @@ describe('@core/@link handling', () => {
       // @key is repeatable, but you're welcome to restrict yourself to never repeating it.
       gql`
         extend schema
-          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key"]
+          )
 
         type T @key(fields: "k") {
           k: ID!
         }
 
-        directive @key(fields: federation__FieldSet!, resolvable: Boolean = true) on OBJECT | INTERFACE
+        directive @key(
+          fields: federation__FieldSet!
+          resolvable: Boolean = true
+        ) on OBJECT | INTERFACE
 
         scalar federation__FieldSet
       `,
       // @key `resolvable` argument is optional, but you're welcome to force users to always provide it.
       gql`
         extend schema
-          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key"]
+          )
 
         type T @key(fields: "k", resolvable: true) {
           k: ID!
         }
 
-        directive @key(fields: federation__FieldSet!, resolvable: Boolean!) repeatable on OBJECT | INTERFACE
+        directive @key(
+          fields: federation__FieldSet!
+          resolvable: Boolean!
+        ) repeatable on OBJECT | INTERFACE
 
         scalar federation__FieldSet
       `,
@@ -828,13 +1011,21 @@ describe('@core/@link handling', () => {
       gql`
         extend schema
           @link(url: "https://specs.apollo.dev/link/v1.0")
-          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.0"
+            import: ["@key"]
+          )
 
         type T @key(fields: "k") {
           k: ID!
         }
 
-        directive @link(url: String!, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+        directive @link(
+          url: String!
+          as: String
+          for: link__Purpose
+          import: [link__Import]
+        ) repeatable on SCHEMA
 
         scalar link__Import
         scalar link__Purpose
@@ -854,14 +1045,18 @@ describe('@core/@link handling', () => {
         k: ID!
       }
 
-      directive @federation__external(reason: String) on OBJECT | FIELD_DEFINITION | SCHEMA
+      directive @federation__external(
+        reason: String
+      ) on OBJECT | FIELD_DEFINITION | SCHEMA
     `;
 
     // @external is not allowed on 'schema' and likely never will.
-    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([
+      [
         'DIRECTIVE_DEFINITION_INVALID',
         '[S] Invalid definition for directive "@federation__external": "@federation__external" should have locations OBJECT, FIELD_DEFINITION, but found (non-subset) OBJECT, FIELD_DEFINITION, SCHEMA',
-    ]]);
+      ],
+    ]);
   });
 
   it('errors on invalid non-repeatable directive marked repeateable', () => {
@@ -877,10 +1072,12 @@ describe('@core/@link handling', () => {
     `;
 
     // @external is not repeatable (and has no reason to be since it has no arguments).
-    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
-      'DIRECTIVE_DEFINITION_INVALID',
-      '[S] Invalid definition for directive "@federation__external": "@federation__external" should not be repeatable',
-    ]]);
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([
+      [
+        'DIRECTIVE_DEFINITION_INVALID',
+        '[S] Invalid definition for directive "@federation__external": "@federation__external" should not be repeatable',
+      ],
+    ]);
   });
 
   it('errors on unknown argument of known directive', () => {
@@ -895,10 +1092,12 @@ describe('@core/@link handling', () => {
       directive @federation__external(foo: Int) on OBJECT | FIELD_DEFINITION
     `;
 
-    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
-      'DIRECTIVE_DEFINITION_INVALID',
-      '[S] Invalid definition for directive "@federation__external": unknown/unsupported argument "foo"',
-    ]]);
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([
+      [
+        'DIRECTIVE_DEFINITION_INVALID',
+        '[S] Invalid definition for directive "@federation__external": unknown/unsupported argument "foo"',
+      ],
+    ]);
   });
 
   it('errors on invalid type for a known argument', () => {
@@ -910,13 +1109,18 @@ describe('@core/@link handling', () => {
         k: ID!
       }
 
-      directive @key(fields: String!, resolvable: String) repeatable on OBJECT | INTERFACE
+      directive @key(
+        fields: String!
+        resolvable: String
+      ) repeatable on OBJECT | INTERFACE
     `;
 
-    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
-      'DIRECTIVE_DEFINITION_INVALID',
-      '[S] Invalid definition for directive "@key": argument "resolvable" should have type "Boolean" but found type "String"',
-    ]]);
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([
+      [
+        'DIRECTIVE_DEFINITION_INVALID',
+        '[S] Invalid definition for directive "@key": argument "resolvable" should have type "Boolean" but found type "String"',
+      ],
+    ]);
   });
 
   it('errors on a required argument defined as optional', () => {
@@ -928,21 +1132,25 @@ describe('@core/@link handling', () => {
         k: ID!
       }
 
-      directive @key(fields: federation__FieldSet, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+      directive @key(
+        fields: federation__FieldSet
+        resolvable: Boolean = true
+      ) repeatable on OBJECT | INTERFACE
 
       scalar federation__FieldSet
     `;
 
-    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
-      'DIRECTIVE_DEFINITION_INVALID',
-      '[S] Invalid definition for directive "@key": argument "fields" should have type "federation__FieldSet!" but found type "federation__FieldSet"',
-    ]]);
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([
+      [
+        'DIRECTIVE_DEFINITION_INVALID',
+        '[S] Invalid definition for directive "@key": argument "fields" should have type "federation__FieldSet!" but found type "federation__FieldSet"',
+      ],
+    ]);
   });
 
   it('errors on invalid definition for @link Purpose', () => {
     const doc = gql`
-      extend schema
-        @link(url: "https://specs.apollo.dev/federation/v2.0")
+      extend schema @link(url: "https://specs.apollo.dev/federation/v2.0")
 
       type T {
         k: ID!
@@ -954,10 +1162,12 @@ describe('@core/@link handling', () => {
       }
     `;
 
-    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
-      'TYPE_DEFINITION_INVALID',
-      '[S] Invalid definition for type "Purpose": expected values [EXECUTION, SECURITY] but found [EXECUTION, RANDOM].',
-    ]]);
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([
+      [
+        'TYPE_DEFINITION_INVALID',
+        '[S] Invalid definition for type "Purpose": expected values [EXECUTION, SECURITY] but found [EXECUTION, RANDOM].',
+      ],
+    ]);
   });
 
   it('allows any (non-scalar) type in redefinition when expected type is a scalar', () => {
@@ -970,7 +1180,10 @@ describe('@core/@link handling', () => {
       }
 
       # 'fields' should be of type 'federation_FieldSet!', but ensure we allow 'String!' alternatively.
-      directive @key(fields: String!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+      directive @key(
+        fields: String!
+        resolvable: Boolean = true
+      ) repeatable on OBJECT | INTERFACE
     `;
 
     // Just making sure this don't error out.
@@ -987,18 +1200,21 @@ describe('@core/@link handling', () => {
       directive @key(fields: String!) on OBJECT
     `;
 
-
     // Test for fed2 (with @key being @link-ed)
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_GRAPHQL',
-      '[S] The directive "@key" can only be used once at this location.',
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_GRAPHQL',
+        '[S] The directive "@key" can only be used once at this location.',
+      ],
+    ]);
 
     // Test for fed1
-    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
-      'INVALID_GRAPHQL',
-      '[S] The directive "@key" can only be used once at this location.',
-    ]]);
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([
+      [
+        'INVALID_GRAPHQL',
+        '[S] The directive "@key" can only be used once at this location.',
+      ],
+    ]);
   });
 });
 
@@ -1069,12 +1285,14 @@ describe('federation 1 schema', () => {
       directive @key(fields: _FieldSet!, unknown: Int) on OBJECT | INTERFACE
     `;
 
-    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([[
-      'DIRECTIVE_DEFINITION_INVALID',
-      '[S] Invalid definition for directive "@key": unknown/unsupported argument "unknown"'
-    ]]);
+    expect(buildForErrors(doc, { asFed2: false })).toStrictEqual([
+      [
+        'DIRECTIVE_DEFINITION_INVALID',
+        '[S] Invalid definition for directive "@key": unknown/unsupported argument "unknown"',
+      ],
+    ]);
   });
-})
+});
 
 describe('@shareable', () => {
   it('can only be applied to fields of object types', () => {
@@ -1084,10 +1302,12 @@ describe('@shareable', () => {
       }
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_SHAREABLE_USAGE',
-      '[S] Invalid use of @shareable on field "I.a": only object type fields can be marked with @shareable'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_SHAREABLE_USAGE',
+        '[S] Invalid use of @shareable on field "I.a": only object type fields can be marked with @shareable',
+      ],
+    ]);
   });
 
   it('rejects duplicate @shareable on the same definition declaration', () => {
@@ -1098,10 +1318,12 @@ describe('@shareable', () => {
       }
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_SHAREABLE_USAGE',
-      '[S] Invalid duplicate application of @shareable on the same type declaration of "E": @shareable is only repeatable on types so it can be used simultaneously on a type definition and its extensions, but it should not be duplicated on the same definition/extension declaration'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_SHAREABLE_USAGE',
+        '[S] Invalid duplicate application of @shareable on the same type declaration of "E": @shareable is only repeatable on types so it can be used simultaneously on a type definition and its extensions, but it should not be duplicated on the same definition/extension declaration',
+      ],
+    ]);
   });
 
   it('rejects duplicate @shareable on the same extension declaration', () => {
@@ -1115,10 +1337,12 @@ describe('@shareable', () => {
         b: Int
       }
     `;
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_SHAREABLE_USAGE',
-      '[S] Invalid duplicate application of @shareable on the same type declaration of "E": @shareable is only repeatable on types so it can be used simultaneously on a type definition and its extensions, but it should not be duplicated on the same definition/extension declaration'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_SHAREABLE_USAGE',
+        '[S] Invalid duplicate application of @shareable on the same type declaration of "E": @shareable is only repeatable on types so it can be used simultaneously on a type definition and its extensions, but it should not be duplicated on the same definition/extension declaration',
+      ],
+    ]);
   });
 
   it('rejects duplicate @shareable on a field', () => {
@@ -1128,10 +1352,12 @@ describe('@shareable', () => {
       }
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INVALID_SHAREABLE_USAGE',
-      '[S] Invalid duplicate application of @shareable on field "E.a": @shareable is only repeatable on types so it can be used simultaneously on a type definition and its extensions, but it should not be duplicated on the same definition/extension declaration'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_SHAREABLE_USAGE',
+        '[S] Invalid duplicate application of @shareable on field "E.a": @shareable is only repeatable on types so it can be used simultaneously on a type definition and its extensions, but it should not be duplicated on the same definition/extension declaration',
+      ],
+    ]);
   });
 });
 
@@ -1162,10 +1388,12 @@ describe('@interfaceObject/@key on interfaces validation', () => {
       }
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INTERFACE_KEY_NOT_ON_IMPLEMENTATION',
-      '[S] Key @key(fields: "id1") on interface type "I" is missing on implementation types "A" and "C".',
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INTERFACE_KEY_NOT_ON_IMPLEMENTATION',
+        '[S] Key @key(fields: "id1") on interface type "I" is missing on implementation types "A" and "C".',
+      ],
+    ]);
   });
 
   it('@key on interfaces with @key on some implementation non resolvable', () => {
@@ -1190,10 +1418,12 @@ describe('@interfaceObject/@key on interfaces validation', () => {
       }
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INTERFACE_KEY_NOT_ON_IMPLEMENTATION',
-      '[S] Key @key(fields: "id1") on interface type "I" should be resolvable on all implementation types, but is declared with argument "@key(resolvable:)" set to false in type "C".',
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INTERFACE_KEY_NOT_ON_IMPLEMENTATION',
+        '[S] Key @key(fields: "id1") on interface type "I" should be resolvable on all implementation types, but is declared with argument "@key(resolvable:)" set to false in type "C".',
+      ],
+    ]);
   });
 
   it('ensures order of fields in key does not matter', () => {
@@ -1246,9 +1476,11 @@ describe('@interfaceObject/@key on interfaces validation', () => {
       }
     `;
 
-    expect(buildForErrors(doc)).toStrictEqual([[
-      'INTERFACE_OBJECT_USAGE_ERROR',
-      '[S] The @interfaceObject directive can only be applied to entity types but type "B" has no @key in this subgraph.'
-    ]]);
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INTERFACE_OBJECT_USAGE_ERROR',
+        '[S] The @interfaceObject directive can only be applied to entity types but type "B" has no @key in this subgraph.',
+      ],
+    ]);
   });
 });

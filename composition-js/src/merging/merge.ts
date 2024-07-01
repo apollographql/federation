@@ -2836,21 +2836,19 @@ class Merger {
       if (!linkImportIdentityURLMap) continue;
 
       for (const directive of source.appliedDirectives) {
-        let shouldIncludeAsJoinDirective = false;
+        let shouldIncludeAsJoinDirective = !!directive.definition?.usesJoinDirective;
 
-        if (directive.name === 'link') {
+        // Links which import a directive that uses join__directive should also use join__directive
+        if (!shouldIncludeAsJoinDirective && directive.name === 'link') {
           const imports = directive.arguments().import;
-          if (Array.isArray(imports) && imports.some((importedDirective) => {
-            if (typeof importedDirective.as !== 'string') {
+          shouldIncludeAsJoinDirective = Array.isArray(imports) && imports.some((importedDirective) => {
+            const directiveName = importedDirective.as ?? importedDirective;
+            if (typeof directiveName !== 'string') {
               return false;
             }
-            const directiveDefinition = source.schema().directive(importedDirective.as.replace('@', ''));
+            const directiveDefinition = source.schema().directive(directiveName.replace('@', ''));
             return directiveDefinition?.usesJoinDirective;
-          })) {
-            shouldIncludeAsJoinDirective = true;
-          }
-        } else {
-          shouldIncludeAsJoinDirective = !!directive.definition?.usesJoinDirective;
+          });
         }
 
         // console.log(`${directive} -> ${shouldIncludeAsJoinDirective}`);

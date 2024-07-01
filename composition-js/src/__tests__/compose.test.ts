@@ -71,6 +71,7 @@ describe('composition', () => {
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
         @link(url: "https://specs.apollo.dev/join/v0.5", for: EXECUTION)
+        @join__directive(graphs: [SUBGRAPH1, SUBGRAPH2], name: "link", args: {url: "https://specs.apollo.dev/federation/v2.9", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy", "@sourceAPI", "@sourceType", "@sourceField", "@context", "@fromContext", "@cost", "@listSize"]})
       {
         query: Query
       }
@@ -232,6 +233,7 @@ describe('composition', () => {
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
         @link(url: "https://specs.apollo.dev/join/v0.5", for: EXECUTION)
+        @join__directive(graphs: [SUBGRAPH1, SUBGRAPH2], name: "link", args: {url: "https://specs.apollo.dev/federation/v2.9", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy", "@sourceAPI", "@sourceType", "@sourceField", "@context", "@fromContext", "@cost", "@listSize"]})
       {
         query: Query
       }
