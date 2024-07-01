@@ -27,6 +27,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
       // `@join__directive` mechanism, so they do not need to be composed in the
       // way passing `composes: true` here implies.
       composes: false,
+      usesJoinDirective: true,
     }));
 
     this.registerDirective(createDirectiveSpecification({
@@ -34,6 +35,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
       locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE],
       repeatable: true,
       composes: false,
+      usesJoinDirective: true,
     }));
 
     this.registerDirective(createDirectiveSpecification({
@@ -41,12 +43,14 @@ export class SourceSpecDefinition extends FeatureDefinition {
       locations: [DirectiveLocation.FIELD_DEFINITION],
       repeatable: true,
       composes: false,
+      usesJoinDirective: true,
     }));
   }
 
   addElementsToSchema(schema: Schema): GraphQLError[] {
     const sourceAPI = this.addDirective(schema, 'sourceAPI').addLocations(DirectiveLocation.SCHEMA);
     sourceAPI.repeatable = true;
+    sourceAPI.usesJoinDirective = true;
 
     sourceAPI.addArgument('name', new NonNullType(schema.stringType()));
 
@@ -72,6 +76,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
       // DirectiveLocation.UNION,
     );
     sourceType.repeatable = true;
+    sourceType.usesJoinDirective = true;
     sourceType.addArgument('api', new NonNullType(schema.stringType()));
 
     const URLPathTemplate = this.addScalarType(schema, 'URLPathTemplate');
@@ -101,6 +106,7 @@ export class SourceSpecDefinition extends FeatureDefinition {
       DirectiveLocation.FIELD_DEFINITION,
     );
     sourceField.repeatable = true;
+    sourceField.usesJoinDirective = true;
     sourceField.addArgument('api', new NonNullType(schema.stringType()));
     sourceField.addArgument('selection', JSONSelection);
     sourceField.addArgument('keyTypeMap', KeyTypeMap);

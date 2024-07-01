@@ -78,6 +78,7 @@ export function createDirectiveSpecification({
   repeatable = false,
   args = [],
   composes = false,
+  usesJoinDirective = false,
   supergraphSpecification = undefined,
   staticArgumentTransform = undefined,
 }: {
@@ -86,6 +87,7 @@ export function createDirectiveSpecification({
   repeatable?: boolean,
   args?: DirectiveArgumentSpecification[],
   composes?: boolean,
+  usesJoinDirective?: boolean,
   supergraphSpecification?: (fedVersion: FeatureVersion) => FeatureDefinition,
   staticArgumentTransform?: (subgraph: Subgraph, args: {[key: string]: any}) => {[key: string]: any},
 }): DirectiveSpecification {
@@ -164,6 +166,7 @@ export function createDirectiveSpecification({
       } else {
         const directive = schema.addDirectiveDefinition(new DirectiveDefinition(actualName, asBuiltIn));
         directive.repeatable = repeatable;
+        directive.usesJoinDirective = usesJoinDirective;
         directive.addLocations(...locations);
         for (const { name, type, defaultValue } of resolvedArgs) {
           directive.addArgument(name, type, defaultValue);
