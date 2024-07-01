@@ -71,13 +71,16 @@ export class ConnectSpecDefinition extends FeatureDefinition {
     /*
       input HTTPHeaderMapping {
         name: String!
-        as: String
+        as: String @deprecated(reason: "Use 'from' instead")
+        from: String
         value: String
       }
     */
     const HTTPHeaderMapping = schema.addType(new InputObjectType(this.typeNameInSchema(schema, HTTP_HEADER_MAPPING)!));
     HTTPHeaderMapping.addField(new InputFieldDefinition('name')).type =
       new NonNullType(schema.stringType());
+    HTTPHeaderMapping.addField(new InputFieldDefinition('from')).type =
+      schema.stringType();
     HTTPHeaderMapping.addField(new InputFieldDefinition('as')).type =
       schema.stringType();
     HTTPHeaderMapping.addField(new InputFieldDefinition('value')).type =
