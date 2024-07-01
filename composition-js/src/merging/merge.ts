@@ -2851,8 +2851,6 @@ class Merger {
           });
         }
 
-        // console.log(`${directive} -> ${shouldIncludeAsJoinDirective}`);
-
         if (shouldIncludeAsJoinDirective) {
           const existingJoins = (joinsByDirectiveName[directive.name] ??= []);
           let found = false;
