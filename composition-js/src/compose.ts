@@ -50,7 +50,7 @@ function validateCompositionOptions(options: CompositionOptions) {
 /**
  * Used to compose a supergraph from subgraphs
  * `options.runSatisfiability` will default to `true`
- * 
+ *
  * @param subgraphs Subgraphs
  * @param options CompositionOptions
  */
@@ -94,7 +94,7 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
 
 /**
  * Method to validate and compose services
- * 
+ *
  * @param services List of Service definitions
  * @param options CompositionOptions
  * @returns CompositionResult
@@ -118,9 +118,9 @@ type SatisfiabilityArgs = {
 
 /**
  * Run satisfiability check for a supergraph
- * 
+ *
  * Can pass either the supergraph's Schema or SDL to validate
- * @param args: SatisfiabilityArgs 
+ * @param args: SatisfiabilityArgs
  * @returns { errors? : GraphQLError[], hints? : CompositionHint[] }
  */
 export function validateSatisfiability({ supergraphSchema, supergraphSdl} : SatisfiabilityArgs) : {
@@ -140,8 +140,8 @@ type ValidateSubgraphsAndMergeResult = MergeResult | { errors: GraphQLError[] };
 
 /**
  * Upgrade subgraphs if necessary, then validates subgraphs before attempting to merge
- * 
- * @param subgraphs 
+ *
+ * @param subgraphs
  * @returns ValidateSubgraphsAndMergeResult
  */
 function validateSubgraphsAndMerge(subgraphs: Subgraphs) : ValidateSubgraphsAndMergeResult {

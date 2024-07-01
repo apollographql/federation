@@ -117,11 +117,6 @@ export abstract class FeatureDefinition {
       .concat(this.typeSpecs().map((spec) => spec.name));
   }
 
-  // No-op implementation that can be overridden by subclasses.
-  validateSubgraphSchema(_schema: Schema): GraphQLError[] {
-    return [];
-  }
-
   protected nameInSchema(schema: Schema): string | undefined {
     const feature = this.featureInSchema(schema);
     return feature?.nameInSchema;
