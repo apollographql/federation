@@ -975,18 +975,17 @@ class Merger {
     const isValueType = !isEntity && !dest.isRootType();
     const isSubscription = dest.isSubscriptionRootType();
 
-    this.addFieldsShallow(sources, dest);
-    if (!dest.hasFields()) {
+    const added = this.addFieldsShallow(sources, dest);
+    if (!added.size) {
       // This can happen for a type that existing in the subgraphs but had only non-merged fields
       // (currently, this can only be the 'Query' type, in the rare case where the federated schema
       // exposes no queries) .
       dest.remove();
     } else {
-      for (const destField of dest.fields()) {
+      added.forEach((subgraphFields, destField) => {
         if (isValueType) {
           this.hintOnInconsistentValueTypeField(sources, dest, destField);
         }
-        const subgraphFields = mapSources(sources, t => t?.field(destField.name));
         const mergeContext = this.validateOverride(subgraphFields, destField);
 
         if (isSubscription) {
@@ -999,7 +998,7 @@ class Merger {
           mergeContext,
         });
         this.validateFieldSharing(subgraphFields, destField, mergeContext);
-      }
+      });
     }
   }
 
@@ -1149,20 +1148,77 @@ class Merger {
     });
   }
 
-  private addFieldsShallow<T extends ObjectType | InterfaceType | InputObjectType>(sources: Sources<T>, dest: T) {
-    for (const source of sources.values()) {
-      if (!source) {
-        continue;
-      }
-      for (const field of source.fields()) {
-        if (!isMergedField(field)) {
-          continue;
-        }
-        if (!dest.field(field.name)) {
-          dest.addField(field.name);
-        }
-      }
+  private addFieldsShallow<T extends ObjectType | InterfaceType | InputObjectType>(
+    sources: Sources<T>,
+    dest: T,
+  ) {
+    type FieldDef = FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition;
+    const added = new Map<FieldDef, Sources<FieldDef>>();
+    const fieldsToAdd = new Map<number, Set<FieldDef | undefined>>();
+    function fieldSet(sourceIndex: number): Set<FieldDef | undefined> {
+      let set = fieldsToAdd.get(sourceIndex);
+      if (!set) fieldsToAdd.set(sourceIndex, set = new Set);
+      return set;
     }
+
+    const extraSources: Sources<FieldDef> = new Map;
+
+    sources.forEach((source, sourceIndex) => {
+      const schema = this.subgraphsSchema[sourceIndex];
+      const fields = fieldSet(sourceIndex);
+
+      // If a source is undefined, it may still have an @interfaceObject object
+      // for one of the interfaces implemented by the object in question.
+      if (isObjectType(dest) || isInterfaceType(dest)) {
+        for (const itf of dest.interfaces()) {
+          const itfType = schema.type(itf.name);
+          const subgraph = this.subgraphs.get(this.names[sourceIndex]);
+          if (
+            itfType &&
+            isObjectType(itfType) &&
+            subgraph?.metadata().isInterfaceObjectType(itfType)
+          ) {
+            // This marks the subgraph as having a relevant @interfaceObject,
+            // even though we do not actively add the itfType.fields().
+            extraSources.set(sourceIndex, undefined);
+          }
+        }
+      }
+
+      if (source) {
+        for (const field of source.fields()) {
+          fields.add(field);
+        }
+      }
+
+      if (schema.type(dest.name)) {
+        // Our needsJoinField logic adds @join__field if any subgraphs define
+        // the parent type containing the field but not the field itself. In
+        // those cases, for each field we add, we need to add undefined entries
+        // for each subgraph that defines the parent object/interface/input
+        // type. We do this by populating parentTypeOnlySources with undefined
+        // entries here, and then creating each new destSources map from that
+        // starting set.
+        extraSources.set(sourceIndex, undefined);
+      }
+    });
+
+    fieldsToAdd.forEach((fieldSet, sourceIndex) => {
+      fieldSet.forEach(field => {
+        if (field && isMergedField(field)) {
+          const destField = dest.field(field.name) || dest.addField(field.name);
+          let sources = added.get(destField)!;
+          if (!sources) {
+            sources = new Map(extraSources);
+            added.set(destField, sources);
+          }
+          sources.set(sourceIndex, field);
+        }
+      });
+    });
+
+    type FieldDefExact = T extends ObjectType | InterfaceType ? FieldDefinition<T> : InputFieldDefinition;
+    return added as Map<FieldDefExact, Sources<FieldDefExact>>;
   }
 
   private isExternal(sourceIdx: number, field: FieldDefinition<any> | InputFieldDefinition) {
@@ -2183,19 +2239,18 @@ class Merger {
     const hasKey = this.validateInterfaceKeys(sources, dest);
     this.validateInterfaceObjects(sources, dest);
 
-    this.addFieldsShallow(sources, dest);
-    for (const destField of dest.fields()) {
+    const added = this.addFieldsShallow(sources, dest);
+    added.forEach((subgraphFields, destField) => {
       if (!hasKey) {
         this.hintOnInconsistentValueTypeField(sources, dest, destField);
       }
-      const subgraphFields = mapSources(sources, t => t?.field(destField.name));
       const mergeContext = this.validateOverride(subgraphFields, destField);
       this.mergeField({
         sources: subgraphFields,
         dest: destField,
         mergeContext,
       });
-    }
+    });
   }
 
   // Returns whether the interface has a key (even a non-resolvable one) in any subgraph.
@@ -2480,42 +2535,41 @@ class Merger {
     }
   }
 
-  private mergeInput(sources: Sources<InputObjectType>, dest: InputObjectType) {
+  private mergeInput(inputSources: Sources<InputObjectType>, dest: InputObjectType) {
     const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(this.inaccessibleSpec.inaccessibleDirectiveSpec.name);
 
     // Like for other inputs, we add all the fields found in any subgraphs initially as a simple mean to have a complete list of
     // field to iterate over, but we will remove those that are not in all subgraphs.
-    this.addFieldsShallow(sources, dest);
-    for (const destField of dest.fields()) {
-      const name = destField.name
+    const added = this.addFieldsShallow(inputSources, dest);
+    added.forEach((subgraphFields, destField) => {
       // We merge the details of the field first, even if we may remove it afterwards because 1) this ensure we always checks type
       // compatibility between definitions and 2) we actually want to see if the result is marked inaccessible or not and it makes
       // that easier.
-      this.mergeInputField(mapSources(sources, t => t?.field(name)), destField);
+      this.mergeInputField(subgraphFields, destField);
       const isInaccessible = inaccessibleInSupergraph && destField.hasAppliedDirective(inaccessibleInSupergraph.definition);
       // Note that if the field is manually marked @inaccessible, we can always accept it to be inconsistent between subgraphs since
       // it won't be exposed in the API, and we don't hint about it because we're just doing what the user is explicitely asking.
-      if (!isInaccessible && someSources(sources, (source) => source && !source.field(name))) {
+      if (!isInaccessible && someSources(subgraphFields, field => !field)) {
         // One of the subgraph has the input type but not that field. If the field is optional, we remove it for the supergraph
         // and issue a hint. But if it is required, we have to error out.
         const nonOptionalSources = filterSources(
-          mapSources(sources, (s, i) => s && s.field(name)?.isRequired() ? this.names[i] : undefined),
+          mapSources(subgraphFields, (field, i) => field?.isRequired() ? this.names[i] : undefined),
         );
         if (nonOptionalSources.size > 0) {
           const nonOptionalSubgraphs = printSubgraphNames(Array.from(nonOptionalSources.values()).filter(isDefined));
           const missingSources = printSubgraphNames(Array.from(
-            mapSources(sources, (s, i) => s && !s.field(name) ? this.names[i] : undefined).values()
+            mapSources(subgraphFields, (field, i) => !field ? this.names[i] : undefined).values()
           ).filter(isDefined));
           this.errors.push(ERRORS.REQUIRED_INPUT_FIELD_MISSING_IN_SOME_SUBGRAPH.err(
             `Input object field "${destField.coordinate}" is required in some subgraphs but does not appear in all subgraphs: it is required in ${nonOptionalSubgraphs} but does not appear in ${missingSources}`,
-            { nodes: sourceASTs(...mapSources(sources, (s) => s?.field(name)).values()) },
+            { nodes: sourceASTs(...subgraphFields.values()) },
           ));
         } else {
           this.mismatchReporter.reportMismatchHint({
             code: HINTS.INCONSISTENT_INPUT_OBJECT_FIELD,
             message: `Input object field "${destField.name}" will not be added to "${dest}" in the supergraph as it does not appear in all subgraphs: `,
             supergraphElement: destField,
-            subgraphElements: mapSources(sources, (s) => s ? s.field(name) : undefined),
+            subgraphElements: subgraphFields,
             elementToString: _ => 'yes',
             // Note that the first callback is for element that are "like the supergraph" and we've pass `destField` which we havne't yet removed.
             supergraphElementPrinter: (_, subgraphs) => `it is defined in ${subgraphs}`,
@@ -2526,13 +2580,13 @@ class Merger {
         // Note that we remove the element after the hint/error because we access the parent in the hint message.
         destField.remove();
       }
-    }
+    });
 
     // We could be left with an input type with no fields, and that's invalid in graphQL
     if (!dest.hasFields()) {
       this.errors.push(ERRORS.EMPTY_MERGED_INPUT_TYPE.err(
         `None of the fields of input object type "${dest}" are consistently defined in all the subgraphs defining that type. As only fields common to all subgraphs are merged, this would result in an empty type.`,
-        { nodes: sourceASTs(...sources.values()) },
+        { nodes: sourceASTs(...inputSources.values()) },
       ));
     }
   }
