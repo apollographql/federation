@@ -15,6 +15,7 @@ import {
 import { GraphQLError } from 'graphql';
 import { CompositionHint, HINTS } from './hints';
 import { MismatchReporter } from './merging/reporter';
+import { sourcesFromArray } from './merging';
 
 /**
  * Return true if the directive from the same core feature has a different name in the subgraph
@@ -367,7 +368,7 @@ export class ComposeDirectiveManager {
         this.mismatchReporter.reportMismatchErrorWithoutSupergraph(
           ERRORS.DIRECTIVE_COMPOSITION_ERROR,
           'Composed directive is not named consistently in all subgraphs',
-          this.subgraphs.values()
+          sourcesFromArray(this.subgraphs.values()
             .map(sg => {
               const item = items.find(item => sg.name === item.sgName);
               return item ? {
@@ -384,7 +385,7 @@ export class ComposeDirectiveManager {
                 sourceAST,
                 item: val.item,
               } : undefined;
-            }),
+            })),
           (elt) => elt ? `"@${elt.item.directiveNameAs}"` : undefined
         );
       }
