@@ -1,8 +1,15 @@
-## Handling the N+1 problem
+---
+title: Handling the N+1 problem
+subtitle: Learn how to define compound keys, nested key fields, and more
+description: Learn how to define compound keys, nested key fields, and multiple keys for the same entity in a federated GraphQL architecture.
+---
 
-Most subgraph implementations use _reference resolvers_ (sometimes known as _entity resolvers_) to handle the `Query._entities` field ergonomically. A reference resolver is passed a single key and returns the entity object that corresponds to that key.
+Most subgraph implementations use _reference resolvers_ (sometimes known as _entity resolvers_) to handle the `Query._entities` field ergonomically.
+A reference resolver is passed a single key and returns the entity object that corresponds to that key.
 
-Although this pattern is straightforward, it can diminish performance when a client operation requests fields from many entities. To illustrate this, let's revisit an earlier example:
+Although this pattern is straightforward, it can diminish performance when a client operation requests fields from many entities.
+
+To illustrate this, suppose you have the following query:
 
 ```graphql {6}
 query GetReviewsWithProducts {
@@ -16,12 +23,13 @@ query GetReviewsWithProducts {
 }
 ```
 
-As mentioned in [The query plan](./entities#the-query-plan), the router executes two queries on its subgraphs to resolve the above operation:
+The router executes two queries on its subgraphs to resolve the above operation:
 
 1. It queries the Reviews subgraph to fetch all fields except `Product.price`.
 2. It queries the Products subgraph to fetch the `price` of each `Product` entity.
 
-In the Products subgraph, the reference resolver for `Product` doesn't take a list of keys, but rather a single key. Therefore, the subgraph library calls the reference resolver once for each key:
+In the Products subgraph, the reference resolver for `Product` doesn't take a list of keys, but rather a single key.
+Therefore, the subgraph library calls the reference resolver once for each key:
 
 ```js {4-6} title="resolvers.js"
 // Products subgraph
@@ -35,6 +43,14 @@ const resolvers = {
 }
 ```
 
-A basic implementation of the `fetchProductByID` function might make a database call each time it's called. If we need to resolve `Product.price` for `N` different products, this results in `N` database calls. These calls are made in addition to the call made by the Reviews subgraph to fetch the initial list of reviews (and the `id` of each product). This is where the "N+1" problem gets its name. If not prevented, this problem can cause performance problems or even enable denial-of-service attacks.
+A basic implementation of the `fetchProductByID` function might make a database call each time it's called.
+If you need to resolve `Product.price` for `N` different products, this results in `N` database calls.
+These calls are made in addition to the call made by the Reviews subgraph to fetch the initial list of reviews (and the `id` of each product).
+This is where the "N+1" problem gets its name. If not prevented, this problem can cause performance problems or even enable denial-of-service attacks.
 
-This problem is not limited to reference resolvers. In fact, it can occur with any resolver that fetches from a data store. To handle this problem, we strongly recommend using [the dataloader pattern](https://github.com/graphql/dataloader). Nearly every GraphQL server library provides a dataloader implementation, and you should use it in every resolver. This is true even for resolvers that aren't for entities and that don't return a list. These resolvers can still cause N+1 issues via [batched requests](/technotes/TN0021-graph-security/#batched-requests).
+This problem is not limited to reference resolvers.
+In fact, it can occur with any resolver that fetches from a data store.
+To handle this problem, Apollo strongly recommends using [the dataloader pattern](https://github.com/graphql/dataloader).
+Nearly every GraphQL server library provides a dataloader implementation, and you should use it in every resolver.
+This is true even for resolvers that aren't for entities and that don't return a list.
+These resolvers can still cause N+1 issues via [batched requests](/technotes/TN0021-graph-security/#batched-requests).

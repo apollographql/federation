@@ -1,8 +1,14 @@
-## Using advanced `@key`s
+---
+title: Define Advanced Keys
+subtitle: Learn how to define and use compound keys, nested key fields, and more
+description: Learn how to define compound keys, nested key fields, and multiple keys for the same entity in a federated GraphQL architecture.
+---
 
-Depending on your entities' fields and usage, you may need to use more advanced `@key`s. For example, you may need to define a [compound `@key`](#compound-keys) if multiple fields are required to uniquely identify an entity. If different subgraphs interact with different fields an entity, you may need to define [multiple](#multiple-keys)&mdash;and sometimes [differing](#differing-keys-across-subgraphs)&mdash;`@key`s for the entity.
+Depending on your entities' fields and usage, you may need to use more advanced `@key`s.
+For example, you may need to define a [compound `@key`](#compound-keys) if multiple fields are required to uniquely identify an entity.
+If different subgraphs interact with different fields an entity, you may need to define [multiple](#multiple-keys)&mdash;and sometimes [differing](#differing-keys-across-subgraphs)&mdash;`@key`s for the entity.
 
-### Compound `@key`s
+## Compound `@key`s
 
 A single `@key` can consist of multiple fields, the combination of which uniquely identifies an entity. This is called a _compound_ or _composite key_. In the following example, the combination of both `username` and `domain` fields is required to uniquely identify the `User` entity:
 
@@ -13,7 +19,7 @@ type User @key(fields: "username domain") {
 }
 ```
 
-#### Nested fields in compound `@key`s
+### Nested fields in compound `@key`s
 
 Nested fields are often used in compound keys.
 In the following example, the `User` entity's `@key` consists of both a user's `id` and the `id` of that user's associated `Organization`:
@@ -35,7 +41,7 @@ Though nested fields are most commonly used in compound keys, you can also use a
 
 </Note>
 
-### Multiple `@key`s
+## Multiple `@key`s
 
 When different subgraphs interact with different fields of an entity, you may need to define multiple `@key`s for the entity. For example, a Reviews subgraph might refer to products by their ID, whereas an Inventory subgraph might use SKUs.
 
@@ -63,7 +69,7 @@ That means either `id` or (`id` and `sku`) is enough to uniquely identify the en
 
 </Note>
 
-#### Referencing entities with multiple keys
+### Referencing entities with multiple keys
 
 A subgraph that [references an entity without contributing any fields](./entities/#referencing-an-entity-without-contributing-fields) can use any `@key` fields in its stub definition. For example, if the Products subgraph defines the `Product` entity like this:
 
@@ -108,7 +114,7 @@ const resolvers = {
 }
 ```
 
-### Differing `@key`s across subgraphs
+## Differing `@key`s across subgraphs
 
 Although an entity commonly uses the exact same `@key` field(s) across subgraphs, you can alternatively use different `@key`s with different fields. For example, you can define a `Product` entity shared between subgraphs, one with `sku` and `upc` as its `@key`s, and the other with only `upc` as the `@key` field:
 
@@ -151,7 +157,7 @@ type Product @key(fields: "upc") {
 
 </CodeColumns>
 
-#### Operations with differing `@key`s
+### Operations with differing `@key`s
 
 Differing keys across subgraphs affect which of the entity's fields can be resolved from each subgraph. Requests can resolve fields if there is a traversable path from the root query to the fields.
 
@@ -233,3 +239,7 @@ type Query {
   productsInStock: [Product!]!
 }
 ```
+
+## Next steps
+
+If you haven't already, learn how to [contribute entity fields](./contribute-fields) to the supergraph and [reference them](./contribute-fields#referencing-an-entity-without-contributing-fields) from subgraphs that don't contribute any fields.

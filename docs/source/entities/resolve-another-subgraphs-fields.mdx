@@ -1,19 +1,31 @@
-## Resolving another subgraph's field
+---
+title: Resolve another subgraph's field
+subtitle: Learn how to define compound keys, nested key fields, and more
+description: Learn how to define compound keys, nested key fields, and multiple keys for the same entity in a federated GraphQL architecture.
+---
 
-By default, exactly one subgraph is responsible for resolving each field in your supergraph schema (with important exceptions, like entity `@key` fields). But sometimes, multiple subgraphs are able to resolve a particular entity field, because all of those subgraphs have access to a particular data store. For example, an Inventory subgraph and a Products subgraph might both have access to the database that stores all product-related data.
+By default, exactly one subgraph resolves each field in your supergraph schema, with exceptions like entity `@key` fields.
+Sometimes, multiple subgraphs can resolve a specific entity field because they share access to a data store.
+For example, an Inventory subgraph and a Products subgraph might both have access to the same database that stores all product-related data.
 
-You can enable multiple subgraphs to resolve a particular entity field. This is a completely optional optimization. When the router plans a query's execution, it looks at which fields are available from each subgraph. It can then attempt to optimize performance by executing the query across the fewest subgraphs needed to access all required fields.
+This guide explains how you can enable different subgraphs to resolve the same field as a performance optimization.
 
-You achieve this with one of the following directives:
+## Enable subgraphs to resolve the same field
 
-- [`@shareable`](#using-shareable)
-- [`@provides`](#using-provides)
+You can optionally enable multiple subgraphs to resolve a particular entity field.
+Then, when the router plans a query's execution, it looks at which fields are available from each subgraph.
+The router can optimize performance by executing the query across the fewest subgraphs needed.
+
+To do this, use one of the following directives:
+
+- `@shareable`
+- `@provides`
 
 Which directive you use depends on the following logic:
 
 ```mermaid
 graph TB;
-  resolve("Can my subgraph always resolve this field,<br/>or only from certain query paths?");
+  resolve("Can my subgraph <em>always</em> resolve this field,<br/>or only from certain query paths?");
   resolve--Always-->shareable("@shareable");
   resolve--"Only certain query paths"-->provides("@provides");
   class shareable,provides tertiary;
@@ -23,9 +35,11 @@ If you aren't sure whether your subgraph can always resolve a field, see [Using 
 
 ### Ensure resolver consistency
 
-If multiple subgraphs can resolve a field, make sure each subgraph's resolver for that field behaves identically. Otherwise, queries might return inconsistent results to clients depending on which subgraph resolves the field.
+If multiple subgraphs can resolve a field, ensure each subgraph's resolver behaves identically for that field.
+Otherwise, queries might return inconsistent results to clients depending on which subgraph resolves the field.
 
-This is especially important to keep in mind when making changes to an existing resolver. If you don't make the resolver changes to each subgraph simultaneously, clients might observe inconsistent results.
+This consistency is especially important to enforce when changing an existing resolver.
+Clients might observe inconsistent results if you don't make the resolver changes to each subgraph simultaneously.
 
 Common inconsistent resolver behaviors to look out for include:
 
@@ -40,7 +54,8 @@ Before using `@shareable`, see [Ensure resolver consistency](#ensure-resolver-co
 
 </Note>
 
-The `@shareable` directive indicates that a particular field can be resolved by more than one subgraph:
+The `@shareable` directive indicates that more than one subgraph can resolve a particular field.
+You can use it like so:
 
 <CodeColumns>
 
@@ -62,7 +77,8 @@ type Product @key(fields: "id") {
 
 </CodeColumns>
 
-In this example, both the Products and Inventory subgraphs can resolve `Product.name`. This means that a query that includes `Product.name` might be resolvable by fetching from fewer total subgraphs.
+In this example, both the Products and Inventory subgraphs can resolve `Product.name`.
+That means queries including `Product.name` can sometimes be resolved with fewer subgraph fetches.
 
 <Note>
 
@@ -78,19 +94,9 @@ Before using `@provides`, see [Ensure resolver consistency](#ensure-resolver-con
 
 </Note>
 
-The `@provides` directive indicates that a particular field can be resolved by a subgraph at a particular query path. Let's look at an example.
-
-Here, our Products subgraph defines a `Product.name` field and marks it `@shareable` (this means other subgraphs are allowed to resolve it):
-
-```graphql {3} title="Products subgraph"
-type Product @key(fields: "id") {
-  id: ID!
-  name: String! @shareable
-  price: Int
-}
-```
-
-Meanwhile, our Inventory subgraph can also resolve a product's name, but only when that product is part of an `InStockCount`:
+The `@provides` directive indicates that a particular field can be resolved by a subgraph at a particular query path.
+For example, suppose the Inventory subgraph can resolve `Product.name`, but only when that product is part of an `InStockCount`.
+You can indicate this like so:
 
 ```graphql {2,8} title="Inventory subgraph"
 type InStockCount {
@@ -105,7 +111,7 @@ type Product @key(fields: "id") {
 }
 ```
 
-Here we're using two directives in combination: `@provides` and `@external`.
+Notice the Inventory subgraph uses two directives:
 
 - The `@provides` directive tells the router, "This subgraph can resolve the `name` of any `Product` object returned by `InStockCount.product`."
 - The `@external` directive tells the router, "This subgraph can't resolve the `name` of a `Product` object, except wherever indicated by `@provides`."

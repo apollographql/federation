@@ -26,13 +26,13 @@
       "Composition": "/federated-schemas/composition",
       "Entities": {
         "Introduction to Entities": "/entities/",
-        "Define Keys": "/entities/define-keys",
-        "Migrate Entity Fields": "/entities/migrate-entity-fields",
-        "Contribute Computed Fields": "/entities/contribute-computed-fields",
+        "Define Advanced Keys": "/entities/define-advanced-keys",
+        "Contribute and Reference Entity Fields": "/entities/contribute-fields",
         "Resolve Another Subgraph's Fields": "/entities/resolve-another-subgraphs-fields",
         "Use Contexts to Share Data": "/entities/use-contexts",
         "Entity Interfaces": "/entities/interfaces",
-        "Handling the N+1 Problem": "entities/handing-n-plus-one"
+        "Migrate Fields": "/entities/migrate-fields",
+        "Handling the N+1 Problem": "entities/handling-n-plus-one"
       },
       "Sharing Types (Value Types)": "/federated-schemas/sharing-types",
       "Federated Directives": "/federated-schemas/federated-directives",

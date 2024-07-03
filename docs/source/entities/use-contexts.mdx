@@ -1,14 +1,9 @@
 ---
-title: Advanced Topics on Federated Entities
-subtitle: Learn about advanced use cases for entities
+title: Use contexts to share data
+subtitle: Share data along type hierarchies without overloading @keys
 description: Explore advanced use cases for entities in a federated GraphQL architecture, including compound keys, migrating entity fields, and contributing computed fields.
+minVersion: 2.8
 ---
-
-<MinVersion version="2.8">
-
-## Using contexts to share data along type hierarchies
-
-</MinVersion>
 
 <EnterpriseFeature>
 
@@ -16,15 +11,13 @@ The `@context` and `@fromContext` directives are [Enterprise features](/router/e
 
 </EnterpriseFeature>
 
-Use the `@context` and `@fromContext` directives to set and get a _context_ to share data between types in a subgraph. Contexts provide a way for a subgraph to share data between types of a nested-type hierarchy without overloading entity keys with extraneous fields. Contexts also preserve the separation of concerns between different subgraphs.  
-
 In an entity, a nested object may have a dependency on an ancestor type and thus need access to that ancestor's field(s).
 
 To enable a descendant to access an ancestor's field, you could add it as a `@key` field to every entity along the chain of nested types, but that can become problematic. Deeply nested types can change the `@key` fields of many entities. The added field may be irrelevant to the entities it's added to. Most importantly, overloading `@key` fields often breaks the separation of concerns between different subgraphs.
 
-The `@context` and `@fromContext` directives enable a subgraph to share fields without overloading `@key` fields. You can use these directives to define one or more contexts in a subgraph.
+The `@context` and `@fromContext` directives enable a subgraph to share fields without overloading `@key` fields. You can use these directives to define one or more _contexts_ in a subgraph. Contexts provide a way for a subgraph to share data between types of a nested-type hierarchy without overloading entity keys with extraneous fields. Contexts also preserve the separation of concerns between different subgraphs.
 
-### Using one context
+## Using one context
 
 As an example of a single context, the subgraph below tracks the last financial transaction made per user. The `Transaction` type is a child of the `User` type. Each transaction depends on the associated user's currency to calculate the transaction amount in the user's currency. That dependency—the `currencyCode` argument of a `Transaction` depending on the `userCurrency { isoCode } ` of a `User`— is defined with a context. The `@context` directive on `User` sets the context, and `@fromContext` on `currencyCode` gets the contextual data.  
 
@@ -61,7 +54,7 @@ In the example above, the argument `currencyCode: CurrencyCode!` wouldn't appear
 
 </Note>
 
-### Using type conditions in @fromContext 
+## Using type conditions in @fromContext 
 
 In this example, note how the `@fromContext` directive uses a series of type condition to select the desired field when accessing `Child.prop1`. A type condition is not required if all possible contexts have a field present as is the case for `Child.prop2`.
 
@@ -114,7 +107,7 @@ Federation doesn't guarantee which context will be used if a field is reachable 
 
 </Note>
 
-### Disambiguating contexts
+## Disambiguating contexts
 
 When multiple ancestor entities in the type hierarchy could fulfill a set context, the nearest ancestor is chosen. For example, if both the parent and grandparent of a type can provide the value of a context, the parent is chosen because it's the closer ancestor.
 
@@ -147,7 +140,7 @@ type C @key(fields: "id") {
 
 In a more complex graph, a field could be reachable via multiple paths, and a different field could be used to resolve the `prop` depending on which path was used.
 
-### Referencing fields across subgraphs
+## Referencing fields across subgraphs
 
 The definition of context scopes can only exist in one subgraph schema. The `@fromContext` directive can't reference a `@context` defined in another subgraph. However, you can use contexts to share data across subgraphs using the `@external` reference.
 
