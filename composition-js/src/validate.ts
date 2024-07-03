@@ -705,7 +705,7 @@ class ValidationTraversal {
       conditionResolver: this.conditionResolver,
       overrideConditions: new Map(),
     })));
-    this.previousVisits = new QueryGraphState(supergraphAPI);
+    this.previousVisits = new QueryGraphState();
     this.context = new ValidationContext(
       supergraphSchema,
       subgraphNameToGraphEnumValue,
