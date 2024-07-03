@@ -29,7 +29,7 @@ import {
   removeInactiveProvidesAndRequires,
 } from "./federation";
 import { CoreSpecDefinition, FeatureVersion } from "./specs/coreSpec";
-import { JoinFieldDirectiveArguments, JoinSpecDefinition, JoinTypeDirectiveArguments } from "./specs/joinSpec";
+import { JoinDirectiveArguments, JoinFieldDirectiveArguments, JoinSpecDefinition, JoinTypeDirectiveArguments } from "./specs/joinSpec";
 import { FederationMetadata, Subgraph, Subgraphs } from "./federation";
 import { assert } from "./utils";
 import { validateSupergraph } from "./supergraphs";
@@ -40,7 +40,7 @@ import { parseSelectionSet } from "./operations";
 import fs from 'fs';
 import path from 'path';
 import { validateStringContainsBoolean } from "./utils";
-import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
+import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, FederationDirectiveName, errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
 
 function filteredTypes(
   supergraph: Schema,
@@ -460,6 +460,9 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
   const implementsDirective = args.joinSpec.implementsDirective(args.supergraph);
   assert(implementsDirective, '@join__implements should existing for a fed2 supergraph');
 
+  // join__directive was added in join 0.4, so we need usages to account for when it's missing
+  const joinDirective: DirectiveDefinition<JoinDirectiveArguments> | undefined = args.joinSpec.directiveDirective(args.supergraph);
+
   for (const { type, subgraphsInfo } of info) {
     const implementsApplications = type.appliedDirectivesOf(implementsDirective);
     for (const application of implementsApplications) {
@@ -476,7 +479,7 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
         // In fed2 subgraph, no @join__field means that the field is in all the subgraphs in which the type is.
         const isShareable = isObjectType(type) && subgraphsInfo.size > 1;
         for (const { type: subgraphType, subgraph } of subgraphsInfo.values()) {
-          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, extractArgs: args, originalDirectiveNames: originalDirectiveNames });
+          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, joinDirective, originalDirectiveNames });
         }
       } else {
         const isShareable = isObjectType(type)
@@ -494,7 +497,7 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
           }
 
           const { type: subgraphType, subgraph } = subgraphsInfo.get(joinFieldArgs.graph)!;
-          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, joinFieldArgs, extractArgs: args, originalDirectiveNames: originalDirectiveNames });
+          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, joinFieldArgs, joinDirective, originalDirectiveNames });
         }
       }
     }
@@ -658,7 +661,7 @@ function addSubgraphField({
   subgraph,
   isShareable,
   joinFieldArgs,
-  extractArgs,
+  joinDirective,
   originalDirectiveNames,
 }: {
   field: FieldDefinition<ObjectType | InterfaceType>,
@@ -666,7 +669,7 @@ function addSubgraphField({
   subgraph: Subgraph,
   isShareable: boolean,
   joinFieldArgs?: JoinFieldDirectiveArguments,
-  extractArgs?: ExtractArguments,
+  joinDirective?: DirectiveDefinition<JoinDirectiveArguments>,
   originalDirectiveNames?: Record<string, Record<string, string>>,
 }): FieldDefinition<ObjectType | InterfaceType> {
   const copiedFieldType = joinFieldArgs?.type
@@ -721,11 +724,10 @@ function addSubgraphField({
     subgraphField.applyDirective(subgraph.metadata().shareableDirective());
   }
 
-  const joinDirectiveDefinition = extractArgs?.joinSpec.directiveDirective(extractArgs.supergraph);
-  const joinDirectives = joinDirectiveDefinition && field.appliedDirectivesOf(joinDirectiveDefinition)
+  const joinDirectives = joinDirective && field.appliedDirectivesOf(joinDirective)
     .filter((d) => d.arguments().graphs.includes(subgraph.sanitizedGraphQLName()));
   
-  const costDirectiveName = originalDirectiveNames?.[subgraph.sanitizedGraphQLName()]?.['cost'] ?? 'cost';
+  const costDirectiveName = originalDirectiveNames?.[subgraph.sanitizedGraphQLName()]?.[FederationDirectiveName.COST] ?? FederationDirectiveName.COST;
   const joinDirectiveForCost = joinDirectives?.find((d) => d.arguments().name === costDirectiveName);
   if (joinDirectiveForCost) {
     subgraphField.applyDirective(subgraph.metadata().costDirective().name, {
@@ -733,7 +735,7 @@ function addSubgraphField({
     });
   }
 
-  const listSizeDirectiveName = originalDirectiveNames?.[subgraph.sanitizedGraphQLName()]?.['listSize'] ?? 'listSize';
+  const listSizeDirectiveName = originalDirectiveNames?.[subgraph.sanitizedGraphQLName()]?.[FederationDirectiveName.LIST_SIZE] ?? FederationDirectiveName.LIST_SIZE;
   const joinDirectiveForListSize = joinDirectives?.find((d) => d.arguments().name === listSizeDirectiveName);
   if (joinDirectiveForListSize) {
     const { assumedSize, sizedFields, slicingArguments, requireOneSlicingArgument } = joinDirectiveForListSize.arguments().args ?? {};
