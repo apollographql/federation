@@ -453,7 +453,7 @@ function getOriginalDirectiveNames(args: ExtractArguments): Record<string, Recor
   return originalDirectiveNamesPerSubgraph;
 }
 
-function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectType | InterfaceType>[], originalDirectiveNames: Record<string, Record<string, string>>) {
+function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectType | InterfaceType>[]) {
   const fieldDirective = args.joinSpec.fieldDirective(args.supergraph);
 
   // join_implements was added in join 0.2, and this method does not run for join 0.1, so it should be defined.
@@ -462,6 +462,8 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
 
   // join__directive was added in join 0.4, so we need usages to account for when it's missing
   const joinDirective: DirectiveDefinition<JoinDirectiveArguments> | undefined = args.joinSpec.directiveDirective(args.supergraph);
+
+  const originalDirectiveNames = getOriginalDirectiveNames(args);
 
   for (const { type, subgraphsInfo } of info) {
     const implementsApplications = type.appliedDirectivesOf(implementsDirective);
@@ -596,9 +598,7 @@ function extractSubgraphsFromFed2Supergraph(args: ExtractArguments) {
     enumTypes,
     unionTypes,
   } = addAllEmptySubgraphTypes(args);
-  const originalDirectiveNames = getOriginalDirectiveNames(args);
-
-  extractObjOrItfContent(args, objOrItfTypes, originalDirectiveNames);
+  extractObjOrItfContent(args, objOrItfTypes);
   extractInputObjContent(args, inputObjTypes);
   extractEnumTypeContent(args, enumTypes);
   extractUnionTypeContent(args, unionTypes);
