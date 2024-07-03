@@ -1,0 +1,68 @@
+## Contributing computed entity fields
+
+You can define fields of an entity that are computed based on the values of other entity fields that are resolved by a different subgraph.
+
+For example, this Shipping subgraph adds a `shippingEstimate` field to the `Product` entity. This field is calculated based on the product's `size` and `weight`, which are defined in the Products subgraph:
+
+```graphql {3-5} title="Shipping subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  size: Int @external
+  weight: Int @external
+  shippingEstimate: String @requires(fields: "size weight")
+}
+```
+
+As shown, you use the `@requires` directive to indicate which fields (and subfields) from other subgraphs are required. You also need to define the required fields and apply the `@external` directive to them. This directive tells the router, "This subgraph knows that these fields exist, but it can't resolve them itself."
+
+In the above example, if a query requests a product's `shippingEstimate`, the router does the following, in order:
+
+1. It queries the Products subgraph for the product's `size` and `weight`.
+2. It queries the Shipping subgraph for the product's `shippingEstimate`. The `size` and `weight` are included in the `Product` object passed to the resolver for `shippingEstimate`:
+
+```js {4}
+{
+  Product: {
+    shippingEstimate(product) {
+      return computeShippingEstimate(product.id, product.size, product.weight);
+    }
+  }
+}
+```
+
+### Using `@requires` with object subfields
+
+If a computed field `@requires` a field that returns an object type, you also specify which subfields of that object are required. You list those subfields with the following syntax:
+
+```graphql {3-4} title="Shipping subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  dimensions: ProductDimensions @external
+  shippingEstimate: String @requires(fields: "dimensions { size weight }")
+}
+```
+
+In this modification of the previous example, `size` and `weight` are now subfields of a `ProductDimensions` object. Note that the `ProductDimensions` type must be defined in both the Products and Shipping subgraphs for this to be valid.
+
+<MinVersion version="2.1.2">
+
+### Using `@requires` with fields that take arguments
+
+</MinVersion>
+
+Starting in Federation v2.1.2, the `@requires` directive can include fields that take arguments, like so:
+
+```graphql title="Shipping subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  weight(units: String): Int @external
+  #highlight-start
+  shippingEstimate: String @requires(fields: "weight(units:\"KILOGRAMS\")")
+  #highlight-end
+}
+```
+
+- The router provides the specified values in its query to whichever subgraph defines the required field.
+- Each specified argument value is static (i.e., the router always provides the same value).
+- You can omit values for nullable arguments. You must provide values for non-nullable arguments.
+- If you define your subgraph schema in an SDL file (instead of programmatically), you must escape quotes for string and enum values with backslashes (as shown above).
