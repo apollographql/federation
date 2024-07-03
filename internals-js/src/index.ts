@@ -25,4 +25,4 @@ export * from './specs/authenticatedSpec';
 export * from './specs/requiresScopesSpec';
 export * from './specs/policySpec';
 export * from './specs/sourceSpec';
-export * from './specs/demandControlSpec';
+export * from './specs/costSpec';

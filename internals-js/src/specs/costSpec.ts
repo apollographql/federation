@@ -4,11 +4,11 @@ import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } fro
 import { ListType, NonNullType } from '../definitions';
 import { registerKnownFeature } from '../knownCoreFeatures';
 
-export const demandControlIdentity = 'https://specs.apollo.dev/demandControl';
+export const costIdentity = 'https://specs.apollo.dev/cost';
 
-export class DemandControlSpecDefinition extends FeatureDefinition {
+export class CostSpecDefinition extends FeatureDefinition {
   constructor(version: FeatureVersion, readonly minimumFederationVersion: FeatureVersion) {
-    super(new FeatureUrl(demandControlIdentity, 'demandControl', version), minimumFederationVersion);
+    super(new FeatureUrl(costIdentity, 'cost', version), minimumFederationVersion);
 
     this.registerDirective(createDirectiveSpecification({
       name: 'cost',
@@ -24,7 +24,7 @@ export class DemandControlSpecDefinition extends FeatureDefinition {
       composes: false,
       repeatable: false,
       usesJoinDirective: true,
-      supergraphSpecification: (fedVersion) => DEMAND_CONTROL_VERSIONS.getMinimumRequiredVersion(fedVersion)
+      supergraphSpecification: (fedVersion) => COST_VERSIONS.getMinimumRequiredVersion(fedVersion)
     }));
 
     this.registerDirective(createDirectiveSpecification({
@@ -39,12 +39,23 @@ export class DemandControlSpecDefinition extends FeatureDefinition {
       composes: false,
       repeatable: false,
       usesJoinDirective: true,
-      supergraphSpecification: (fedVersion) => DEMAND_CONTROL_VERSIONS.getMinimumRequiredVersion(fedVersion)
+      supergraphSpecification: (fedVersion) => COST_VERSIONS.getMinimumRequiredVersion(fedVersion)
     }));
   }
 }
 
-export const DEMAND_CONTROL_VERSIONS = new FeatureDefinitions<DemandControlSpecDefinition>(demandControlIdentity)
-  .add(new DemandControlSpecDefinition(new FeatureVersion(0, 1), new FeatureVersion(2, 9)));
+export const COST_VERSIONS = new FeatureDefinitions<CostSpecDefinition>(costIdentity)
+  .add(new CostSpecDefinition(new FeatureVersion(0, 1), new FeatureVersion(2, 9)));
 
-registerKnownFeature(DEMAND_CONTROL_VERSIONS);
+registerKnownFeature(COST_VERSIONS);
+
+export interface CostDirectiveArguments {
+  weight: number;
+}
+
+export interface ListSizeDirectiveArguments {
+  assumedSize?: number;
+  slicingArguments?: string[];
+  sizedFields?: string[];
+  requireOneSlicingArgument?: boolean;
+}

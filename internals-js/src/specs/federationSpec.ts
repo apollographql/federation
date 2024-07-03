@@ -20,7 +20,7 @@ import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
 import { POLICY_VERSIONS } from './policySpec';
 import { SOURCE_VERSIONS } from './sourceSpec';
 import { CONTEXT_VERSIONS } from './contextSpec';
-import { DEMAND_CONTROL_VERSIONS } from "./demandControlSpec";
+import { COST_VERSIONS } from "./costSpec";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -187,7 +187,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
     }
 
     if (version.gte(new FeatureVersion(2, 9))) {
-      this.registerSubFeature(DEMAND_CONTROL_VERSIONS.find(new FeatureVersion(0, 1))!);
+      this.registerSubFeature(COST_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
   }
 }

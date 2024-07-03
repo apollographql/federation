@@ -100,6 +100,7 @@ import {
   SourceFieldDirectiveArgs,
   SourceTypeDirectiveArgs,
 } from "./specs/sourceSpec";
+import { CostDirectiveArguments, ListSizeDirectiveArguments } from "./specs/costSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -1275,13 +1276,11 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.CONTEXT);
   }
 
-  // TODO: Update arg parameter type
-  costDirective(): Post20FederationDirectiveDefinition<{ weight: string }> {
+  costDirective(): Post20FederationDirectiveDefinition<CostDirectiveArguments> {
     return this.getPost20FederationDirective(FederationDirectiveName.COST);
   }
 
-  // TODO: Update arg parameter type
-  listSizeDirective(): Post20FederationDirectiveDefinition<{ tbd: string }> {
+  listSizeDirective(): Post20FederationDirectiveDefinition<ListSizeDirectiveArguments> {
     return this.getPost20FederationDirective(FederationDirectiveName.LIST_SIZE);
   }
 
