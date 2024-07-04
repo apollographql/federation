@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.9.0-connectors.7
+
+### Patch Changes
+
+- generateQueryFragments() could generate fragments with naming collisions when nested ([#3043](https://github.com/apollographql/federation/pull/3043))
+
 ## 2.8.1
 
 ## 2.8.0
