@@ -51,13 +51,14 @@ import {
   Transition,
   QueryGraphState,
   Unadvanceables,
-  isUnadvanceable,
   Unadvanceable,
   noConditionsResolution,
   TransitionPathWithLazyIndirectPaths,
   RootVertex,
   simpleValidationConditionResolver,
   ConditionResolver,
+  UnadvanceableClosures,
+  isUnadvanceableClosures,
 } from "@apollo/query-graphs";
 import { CompositionHint, HINTS } from "./hints";
 import { ASTNode, GraphQLError, print } from "graphql";
@@ -486,7 +487,7 @@ export class ValidationState {
     const transition = supergraphEdge.transition;
     const targetType = supergraphEdge.tail.type;
     const newSubgraphPathInfos: SubgraphPathInfo[] = [];
-    const deadEnds: Unadvanceables[] = [];
+    const deadEnds: UnadvanceableClosures[] = [];
     // If the edge has an override condition, we should capture it in the state so
     // that we can ignore later edges that don't satisfy the condition.
     const newOverrideConditions = new Map([...this.selectedOverrideConditions]);
@@ -504,7 +505,7 @@ export class ValidationState {
         targetType,
         newOverrideConditions,
       );
-      if (isUnadvanceable(options)) {
+      if (isUnadvanceableClosures(options)) {
         deadEnds.push(options);
         continue;
       }
@@ -533,7 +534,7 @@ export class ValidationState {
     }
     const newPath = this.supergraphPath.add(transition, supergraphEdge, noConditionsResolution);
     if (newSubgraphPathInfos.length === 0) {
-      return { error: satisfiabilityError(newPath, this.subgraphPathInfos.map((p) => p.path.path), deadEnds) };
+      return { error: satisfiabilityError(newPath, this.subgraphPathInfos.map((p) => p.path.path), deadEnds.map((d) => d.toUnadvanceables())) };
     }
 
     const updatedState = new ValidationState(
