@@ -331,4 +331,71 @@ describe('demand control directive extraction', () => {
       }
     `);
   });
+
+  it('extracts @listSize with dynamic cost arguments', () => {
+    const subgraphA = {
+      name: 'subgraph-a',
+      typeDefs: asFed2SubgraphDocument(gql`
+        extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
+
+        type Query {
+          sizedList(first: Int!): HasInts @shareable @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
+        }
+
+        type HasInts {
+          ints: [Int!] @shareable
+        }
+      `)
+    };
+    const subgraphB = {
+      name: 'subgraph-b',
+      typeDefs: asFed2SubgraphDocument(gql`
+        extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
+
+        type Query {
+          sizedList(first: Int!): HasInts @shareable @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: false)
+        }
+
+        type HasInts {
+          ints: [Int!] @shareable
+        }
+      `)
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    assertCompositionSuccess(result);
+    expect(result.hints.length).toBe(0);
+    const supergraph = Supergraph.build(result.supergraphSdl);
+
+    expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(`
+      schema
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+      {
+        query: Query
+      }
+
+      type HasInts {
+        ints: [Int!] @shareable
+      }
+
+      type Query {
+        sizedList(first: Int!): HasInts @shareable @federation__listSize(sizedFields: ["ints"], slicingArguments: ["first"], requireOneSlicingArgument: true)
+      }
+    `);
+    expect(supergraph.subgraphs().get(subgraphB.name)?.toString()).toMatchString(`
+      schema
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+      {
+        query: Query
+      }
+
+      type HasInts {
+        ints: [Int!] @shareable
+      }
+
+      type Query {
+        sizedList(first: Int!): HasInts @shareable @federation__listSize(sizedFields: ["ints"], slicingArguments: ["first"], requireOneSlicingArgument: false)
+      }
+    `);
+  })
 });
