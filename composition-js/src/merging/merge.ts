@@ -93,8 +93,15 @@ import { inspect } from "util";
 import { collectCoreDirectivesToCompose, CoreDirectiveInSubgraphs } from "./coreDirectiveCollector";
 import { CompositionOptions } from "../compose";
 
+// A Sources<T> map represents the contributions from each subgraph of the given
+// element type T. The numeric keys correspond to the indexes of the subgraphs
+// in the original Subgraphs/names/subgraphsSchema arrays. When merging a
+// specific type or field, this Map will ideally contain far fewer entries than
+// the total number of subgraphs, though it will sometimes need to contain
+// explicitly undefined entries (hence T | undefined).
 export type Sources<T> = Map<number, T | undefined>;
 
+// Like Array.prototype.map, but for Sources<T> maps.
 function mapSources<T, R>(
   sources: Sources<T>,
   mapper: (source: T | undefined, index: number) => R,
@@ -106,6 +113,9 @@ function mapSources<T, R>(
   return result;
 }
 
+// Removes all undefined sources from a given Sources<T> map. In other words,
+// this is not the same as Array.prototype.filter, which takes an arbitrary
+// boolean predicate.
 function filterSources<T>(sources: Sources<T>): Sources<T> {
   const result: Sources<T> = new Map;
   sources.forEach((source, idx) => {
@@ -116,6 +126,7 @@ function filterSources<T>(sources: Sources<T>): Sources<T> {
   return result;
 }
 
+// Like Array.prototype.some, but for Sources<T> maps.
 function someSources<T>(sources: Sources<T>, predicate: (source: T | undefined, index: number) => boolean | undefined): boolean {
   for (const [idx, source] of sources.entries()) {
     if (predicate(source, idx)) {
@@ -125,6 +136,7 @@ function someSources<T>(sources: Sources<T>, predicate: (source: T | undefined, 
   return false;
 }
 
+// Converts an array of T | undefined into a dense Sources<T> map.
 export function sourcesFromArray<T>(array: (T | undefined)[]): Sources<T> {
   const sources: Sources<T> = new Map;
   array.forEach((source, idx) => {
@@ -1196,9 +1208,9 @@ class Merger {
         // the parent type containing the field but not the field itself. In
         // those cases, for each field we add, we need to add undefined entries
         // for each subgraph that defines the parent object/interface/input
-        // type. We do this by populating parentTypeOnlySources with undefined
-        // entries here, and then creating each new destSources map from that
-        // starting set.
+        // type. We do this by populating extraSources with undefined entries
+        // here, then create each new Sources map from that starting set (see
+        // `new Map(extraSources)` below).
         extraSources.set(sourceIndex, undefined);
       }
     });
@@ -1217,7 +1229,14 @@ class Merger {
       });
     });
 
-    type FieldDefExact = T extends ObjectType | InterfaceType ? FieldDefinition<T> : InputFieldDefinition;
+    // Although Map<FieldDef, Sources<FieldDef>> makes the work of this method
+    // easier, we return a more specific type that depends conditionally on T,
+    // so (for example) callers receive a Map<FieldDefinition<ObjectType>,
+    // Sources<FieldDefinition<ObjectType>> when T extends ObjectType, rather
+    // than the more generic Map<FieldDef, Source<FieldDef>>.
+    type FieldDefExact = T extends ObjectType | InterfaceType
+      ? FieldDefinition<T>
+      : T extends InputObjectType ? InputFieldDefinition : never;
     return added as Map<FieldDefExact, Sources<FieldDefExact>>;
   }
 
