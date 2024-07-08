@@ -100,7 +100,7 @@ function addToVizGraph(graph: QueryGraph, vizGraph: GraphBaseModel, noTerminal: 
     }
     return vizGraph;
   }
-  const state = new QueryGraphState<NodeModel, EdgeModel>(graph);
+  const state = new QueryGraphState<NodeModel, EdgeModel>();
   const onEdge = function (edge: Edge): boolean {
     const head = edge.head;
     const tail = edge.tail;

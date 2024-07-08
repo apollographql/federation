@@ -400,7 +400,6 @@ class QueryPlanningTraversal<RV extends Vertex> {
     this.isTopLevel = isRootVertex(root);
     this.optionsLimit = parameters.config.debug?.pathsLimit;
     this.conditionResolver = cachingConditionResolver(
-      federatedQueryGraph,
       (edge, context, excludedEdges, excludedConditions, extras) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions, extras),
     );
 
