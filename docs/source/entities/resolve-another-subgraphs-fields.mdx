@@ -1,7 +1,7 @@
 ---
-title: Resolve another subgraph's field
-subtitle: Learn how to define compound keys, nested key fields, and more
-description: Learn how to define compound keys, nested key fields, and multiple keys for the same entity in a federated GraphQL architecture.
+title: Resolve another subgraph's fields
+subtitle: Resolve the same entity field from different subgraphs
+description: Learn how different subgraphs can resolve the same field using @shareable and @provides directives in a federated GraphQL architecture.
 ---
 
 By default, exactly one subgraph resolves each field in your supergraph schema, with exceptions like entity `@key` fields.
@@ -118,8 +118,12 @@ Notice the Inventory subgraph uses two directives:
 
 #### Rules for using `@provides`
 
+<Note>
+
+Violating any of these rules causes composition to fail.
+
+</Note>
+
 - If a subgraph `@provides` a field that it can't always resolve, the subgraph must mark that field as `@external` and must not mark it as `@shareable`.
   - Remember, a `@shareable` field can always be resolved by a particular subgraph, which removes the need for `@provides`.
 - To include a field in a `@provides` directive, that field must be marked as `@shareable` or `@external` in every subgraph that defines it.
-
-Violating any of these rules causes composition to fail.

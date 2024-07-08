@@ -1,11 +1,13 @@
 ---
 title: Entities in Apollo Federation
-subtitle: Learn how to contribute fields to a federated type from across multiple subgraphs
-description: Learn to define, contribute to, and reference object types that resolve their fields across multiple subgraphs in a federated GraphQL architecture.
+subtitle: Learn how to define federated types across multiple subgraphs
+description: Learn to define and contribute to object types that resolve their fields across multiple services in a federated GraphQL architecture.
 ---
 
-In a supergraph, an _entity_ is an object type that can resolve its fields across multiple subgraphs.
+_Entities_ are a fundamental building block of Apollo Federation.
+In a supergraph, an entity is an object type that can resolve its fields across multiple subgraphs.
 Each subgraph can contribute different fields to the entity and is responsible for resolving only the fields that it contributes.
+This enables subgraphs to adhere to the separation of concerns principle.
 
 For example, this `Product` entity's fields are defined and resolved across two subgraphs:
 
@@ -34,13 +36,7 @@ Only object types can be entities.
 
 </Note>
 
-Entities are a fundamental building block of Apollo Federation that enable subgraphs to adhere to the separation of concerns principle.
-
-<Note>
-
-Some details of entity behavior have changed in Federation 2. For a summary of these changes, [see what's new in Federation 2](../federation-2/new-in-federation-2/).
-
-</Note>
+This guide goes over how to define entities in your subgraph schemas and code.
 
 ## Defining an entity
 
@@ -150,10 +146,10 @@ To learn more about `__resolveReference` in Apollo Server, see the [API docs](/a
 
 ## Next steps
 
-Contribute and reference entity fields
+Once you [publish your updated subgraph schemas](../quickstart#step-3-publish-your-subgraphs), GraphOS composes them into a supergraph schema.
+Clients querying your supergraph can interact with entity fields without needing to know the details of which subgraphs contribute which fields.
 
-You can use entities with many complex use cases, check out these guides to learn more:
+To learn about more advanced ways of using entities, check out these guides:
 
-- [Define `@keys` for complex use cases]()
-- [Define `@keys` for complex use cases]()
-- [Define `@keys` for complex use cases]()
+- [Define Advanced Keys](./define-advanced-keys), including compound and nested key fields
+- [Contribute and Reference Entity Fields](./contribute-fields), including computed fields
