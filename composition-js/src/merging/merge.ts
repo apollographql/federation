@@ -2213,10 +2213,8 @@ class Merger {
         }
       }
     }
-    
-    const sourcesWithEnum = sources.filter(s => s !== undefined).length;
     for (const value of dest.values) {
-      this.mergeEnumValue(sources, dest, value, usage, sourcesWithEnum);
+      this.mergeEnumValue(sources, dest, value, usage);
     }
 
     // We could be left with an enum type with no values, and that's invalid in graphQL
@@ -2233,7 +2231,6 @@ class Merger {
     dest: EnumType,
     value: EnumValue,
     { position, examples }: EnumTypeUsage,
-    sourcesWithEnum: number, // count of how many subgraphs have an enum. Allows us to skip join__EnumValue if all subgraphs who have the enum also have the value
   ) {
     // We merge directives (and description while at it) on the value even though we might remove it later in that function,
     // but we do so because:
@@ -2242,7 +2239,7 @@ class Merger {
     const valueSources = sources.map(s => s?.value(value.name));
     this.mergeDescription(valueSources, value);
     this.recordAppliedDirectivesToMerge(valueSources, value);
-    this.addJoinEnumValue(valueSources, value, sourcesWithEnum);
+    this.addJoinEnumValue(valueSources, value);
 
     const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(this.inaccessibleSpec.inaccessibleDirectiveSpec.name);
     const isInaccessible = inaccessibleInSupergraph && value.hasAppliedDirective(inaccessibleInSupergraph.definition);
@@ -2293,11 +2290,7 @@ class Merger {
     }
   }
 
-  private addJoinEnumValue(sources: (EnumValue | undefined)[], dest: EnumValue, sourcesWithEnumValue: number) {
-    // if all subgraphs who have the enum also have the value, don't bother with @join__enumValue 
-    if (sources.filter(s => s !== undefined).length === sourcesWithEnumValue) {
-      return;
-    }
+  private addJoinEnumValue(sources: (EnumValue | undefined)[], dest: EnumValue) {
     const joinEnumValueDirective = this.joinSpec.enumValueDirective(this.merged);
     // We should always be merging with the latest join spec, so this should exists, but well, in prior versions where
     // the directive didn't existed, we simply did had any replacement so ...
