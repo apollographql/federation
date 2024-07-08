@@ -3187,9 +3187,11 @@ export class QueryPlanner {
 
   private collectAllOverrideLabels() {
     // inspect every join__field directive application in the supergraph and collect all `overrideLabel` argument values
+    const applications = this.supergraph.schema.directives()
+      .find((d) => d.name === 'join__field')
+      ?.applications() ?? new Set();
     this._defaultOverrideConditions = new Map(
-      this.supergraph.schema.directives()
-        .find((d) => d.name === 'join__field')?.applications()
+      Array.from(applications)
         .map((application) => application.arguments().overrideLabel)
         .filter(Boolean)
         .map(label => [label, false])
