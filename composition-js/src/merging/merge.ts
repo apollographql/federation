@@ -1077,6 +1077,7 @@ class Merger {
           supergraphElementPrinter: (_, subgraphs) => `"${field.coordinate}" is defined in ${subgraphs}`,
           otherElementsPrinter: (_, subgraphs) => ` but not in ${subgraphs}`,
         });
+        break;
       }
     }
   }
