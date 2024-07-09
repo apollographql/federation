@@ -1,6 +1,5 @@
 import {
   asFed2SubgraphDocument,
-  costIdentity,
   FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS,
   ServiceDefinition,
   Supergraph
@@ -131,72 +130,6 @@ const subgraphWithRenamedListSizeFromFederationSpec = {
 
 describe('demand control directive composition', () => {
   it.each([
-    subgraphWithCost,
-    subgraphWithRenamedCost,
-    subgraphWithCostFromFederationSpec,
-    subgraphWithRenamedCostFromFederationSpec
-  ])('does not include @cost as a core feature', (subgraph: ServiceDefinition) => {
-    const result = composeServices([subgraph]);
-
-    assertCompositionSuccess(result);
-    expect(result.schema.coreFeatures?.getByIdentity(costIdentity)).toBeUndefined();
-  });
-
-  it.each([
-    subgraphWithListSize,
-    subgraphWithRenamedListSize,
-    subgraphWithListSizeFromFederationSpec,
-    subgraphWithRenamedListSizeFromFederationSpec
-  ])('does not include @listSize as a core feature', (subgraph: ServiceDefinition) => {
-    const result = composeServices([subgraph]);
-
-    assertCompositionSuccess(result);
-    expect(result.schema.coreFeatures?.getByIdentity(costIdentity)).toBeUndefined();
-  });
-
-  it.only('propagates @cost and @listSize to the supergraph using @join__directive', () => {
-    const result = composeServices([subgraphWithCost, subgraphWithListSize]);
-    assertCompositionSuccess(result);
-
-    const costDirectiveApplications = result
-      .schema
-      .schemaDefinition
-      .rootType('query')
-      ?.field('fieldWithCost')
-      ?.appliedDirectivesOf('join__directive')
-      .toString();
-    expect(costDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "cost", args: {weight: 5})`);
-
-    const inputCostDirectiveApplications = result
-      .schema
-      .schemaDefinition
-      .rootType('query')
-      ?.field('inputFieldWithCost')
-      ?.argument("input")
-      ?.appliedDirectivesOf('join__directive')
-      .toString();
-    expect(inputCostDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "cost", args: {weight: 10})`);
-
-    const enumCostDirectiveApplications = result
-      .schema
-      .schemaDefinition
-      .rootType('query')
-      ?.field('enumWithCost')
-      ?.appliedDirectivesOf('join__directive')
-      .toString();
-    expect(enumCostDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "cost", args: {weight: 15})`);
-
-    const listSizeDirectiveApplications = result
-      .schema
-      .schemaDefinition
-      .rootType('query')
-      ?.field('fieldWithListSize')
-      ?.appliedDirectivesOf('join__directive')
-      .toString();
-    expect(listSizeDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHLISTSIZE], name: "listSize", args: {assumedSize: 2000, requireOneSlicingArgument: false})`);
-  });
-
-  it.each([
     [subgraphWithCost, subgraphWithListSize],
     [subgraphWithCostFromFederationSpec, subgraphWithListSizeFromFederationSpec],
   ])('propagates @cost and @listSize to the supergraph using @join__directive', (costSubgraph: ServiceDefinition, listSizeSubgraph: ServiceDefinition) => {
@@ -208,9 +141,9 @@ describe('demand control directive composition', () => {
       .schemaDefinition
       .rootType('query')
       ?.field('fieldWithCost')
-      ?.appliedDirectivesOf('join__directive')
+      ?.appliedDirectivesOf('cost')
       .toString();
-    expect(costDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "cost", args: {weight: 5})`);
+    expect(costDirectiveApplications).toMatchString(`@cost(weight: 5)`);
 
     const inputCostDirectiveApplications = result
       .schema
@@ -218,27 +151,27 @@ describe('demand control directive composition', () => {
       .rootType('query')
       ?.field('inputFieldWithCost')
       ?.argument("input")
-      ?.appliedDirectivesOf('join__directive')
+      ?.appliedDirectivesOf('cost')
       .toString();
-    expect(inputCostDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "cost", args: {weight: 10})`);
+    expect(inputCostDirectiveApplications).toMatchString(`@cost(weight: 10)`);
 
     const enumCostDirectiveApplications = result
       .schema
       .schemaDefinition
       .rootType('query')
       ?.field('enumWithCost')
-      ?.appliedDirectivesOf('join__directive')
+      ?.appliedDirectivesOf('cost')
       .toString();
-    expect(enumCostDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "cost", args: {weight: 15})`);
+    expect(enumCostDirectiveApplications).toMatchString(`@cost(weight: 15)`);
 
     const listSizeDirectiveApplications = result
       .schema
       .schemaDefinition
       .rootType('query')
       ?.field('fieldWithListSize')
-      ?.appliedDirectivesOf('join__directive')
+      ?.appliedDirectivesOf('listSize')
       .toString();
-    expect(listSizeDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHLISTSIZE], name: "listSize", args: {assumedSize: 2000, requireOneSlicingArgument: false})`);
+    expect(listSizeDirectiveApplications).toMatchString(`@listSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
   });
 
   describe('when renamed', () => {
@@ -254,9 +187,9 @@ describe('demand control directive composition', () => {
         .schemaDefinition
         .rootType('query')
         ?.field('fieldWithCost')
-        ?.appliedDirectivesOf('join__directive')
+        ?.appliedDirectivesOf('renamedCost')
         .toString();
-      expect(costDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "renamedCost", args: {weight: 5})`);
+      expect(costDirectiveApplications).toMatchString(`@renamedCost(weight: 5)`);
 
       const inputCostDirectiveApplications = result
         .schema
@@ -264,27 +197,27 @@ describe('demand control directive composition', () => {
         .rootType('query')
         ?.field('inputFieldWithCost')
         ?.argument("input")
-        ?.appliedDirectivesOf('join__directive')
+        ?.appliedDirectivesOf('renamedCost')
         .toString();
-      expect(inputCostDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "renamedCost", args: {weight: 10})`);
+      expect(inputCostDirectiveApplications).toMatchString(`@renamedCost(weight: 10)`);
 
       const enumCostDirectiveApplications = result
         .schema
         .schemaDefinition
         .rootType('query')
         ?.field('enumWithCost')
-        ?.appliedDirectivesOf('join__directive')
+        ?.appliedDirectivesOf('renamedCost')
         .toString();
-      expect(enumCostDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHCOST], name: "renamedCost", args: {weight: 15})`);
+      expect(enumCostDirectiveApplications).toMatchString(`@renamedCost(weight: 15)`);
 
       const listSizeDirectiveApplications = result
         .schema
         .schemaDefinition
         .rootType('query')
         ?.field('fieldWithListSize')
-        ?.appliedDirectivesOf('join__directive')
+        ?.appliedDirectivesOf('renamedListSize')
         .toString();
-      expect(listSizeDirectiveApplications).toMatchString(`@join__directive(graphs: [SUBGRAPHWITHLISTSIZE], name: "renamedListSize", args: {assumedSize: 2000, requireOneSlicingArgument: false})`);
+      expect(listSizeDirectiveApplications).toMatchString(`@renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
     });
   });
 });
@@ -298,7 +231,7 @@ describe('demand control directive extraction', () => {
   ])('extracts @cost from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
-    expect(result.hints.length).toBe(0);
+    expect(result.hints).toEqual([]);
     const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithCost.name);
 
     expect(extracted?.toString()).toMatchString(`
@@ -329,7 +262,7 @@ describe('demand control directive extraction', () => {
   ])('extracts @listSize from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
-    expect(result.hints.length).toBe(0);
+    expect(result.hints).toEqual([]);
     const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithListSize.name);
 
     expect(extracted?.toString()).toMatchString(`
@@ -369,7 +302,7 @@ describe('demand control directive extraction', () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     assertCompositionSuccess(result);
-    expect(result.hints.length).toBe(0);
+    expect(result.hints).toEqual([]);
     const supergraph = Supergraph.build(result.supergraphSdl);
 
     expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(`
@@ -420,7 +353,7 @@ describe('demand control directive extraction', () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     assertCompositionSuccess(result);
-    expect(result.hints.length).toBe(0);
+    expect(result.hints).toEqual([]);
     const supergraph = Supergraph.build(result.supergraphSdl);
 
     expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(`
@@ -479,7 +412,7 @@ describe('demand control directive extraction', () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     assertCompositionSuccess(result);
-    expect(result.hints.length).toBe(0);
+    expect(result.hints).toEqual([]);
     const supergraph = Supergraph.build(result.supergraphSdl);
 
     expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(`
