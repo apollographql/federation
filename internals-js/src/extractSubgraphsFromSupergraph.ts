@@ -40,7 +40,7 @@ import { parseSelectionSet } from "./operations";
 import fs from 'fs';
 import path from 'path';
 import { validateStringContainsBoolean } from "./utils";
-import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
+import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, FederationDirectiveName, errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
 
 function filteredTypes(
   supergraph: Schema,
@@ -644,7 +644,17 @@ function addSubgraphField({
 
   const subgraphField = type.addField(field.name, copiedFieldType);
   for (const arg of field.arguments()) {
-    subgraphField.addArgument(arg.name, copyType(arg.type!, subgraph.schema, subgraph.name), arg.defaultValue);
+    const argDef = subgraphField.addArgument(arg.name, copyType(arg.type!, subgraph.schema, subgraph.name), arg.defaultValue);
+    
+    const costDirective = arg.appliedDirectivesOf(FederationDirectiveName.COST).pop();
+    if (costDirective) {
+      argDef.applyDirective(subgraph.metadata().costDirective().name, costDirective.arguments());
+    }
+
+    const listSizeDirective = arg.appliedDirectivesOf(FederationDirectiveName.LIST_SIZE).pop();
+    if (listSizeDirective) {
+      argDef.applyDirective(subgraph.metadata().listSizeDirective().name, listSizeDirective.arguments());
+    }
   }
   if (joinFieldArgs?.requires) {
     subgraphField.applyDirective(subgraph.metadata().requiresDirective(), {'fields': joinFieldArgs.requires});
@@ -689,6 +699,17 @@ function addSubgraphField({
   if (isShareable && !external && !usedOverridden) {
     subgraphField.applyDirective(subgraph.metadata().shareableDirective());
   }
+
+  const costDirective = field.appliedDirectivesOf(FederationDirectiveName.COST).pop();
+  if (costDirective) {
+    subgraphField.applyDirective(subgraph.metadata().costDirective().name, costDirective.arguments());
+  }
+
+  const listSizeDirective = field.appliedDirectivesOf(FederationDirectiveName.LIST_SIZE).pop();
+  if (listSizeDirective) {
+    subgraphField.applyDirective(subgraph.metadata().listSizeDirective().name, listSizeDirective.arguments());
+  }
+
   return subgraphField;
 }
 

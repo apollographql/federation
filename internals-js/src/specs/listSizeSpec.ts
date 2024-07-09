@@ -18,7 +18,7 @@ export class ListSizeSpecDefinition extends FeatureDefinition {
         { name: 'assumedSize', type: (schema) => schema.intType(), compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_MAX },
         { name: 'slicingArguments', type: (schema) => new ListType(new NonNullType(schema.stringType())), compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_UNION },
         { name: 'sizedFields', type: (schema) => new ListType(new NonNullType(schema.stringType())), compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_UNION },
-        { name: 'requireOneSlicingArgument', type: (schema) => schema.booleanType(), defaultValue: true, compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_OR },
+        { name: 'requireOneSlicingArgument', type: (schema) => schema.booleanType(), defaultValue: true, compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_AND },
       ],
       composes: true,
       repeatable: false,
