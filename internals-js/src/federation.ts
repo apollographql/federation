@@ -100,6 +100,8 @@ import {
   SourceFieldDirectiveArgs,
   SourceTypeDirectiveArgs,
 } from "./specs/sourceSpec";
+import { CostDirectiveArguments } from "./specs/costSpec";
+import { ListSizeDirectiveArguments } from "./specs/listSizeSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -1275,6 +1277,14 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.CONTEXT);
   }
 
+  costDirective(): Post20FederationDirectiveDefinition<CostDirectiveArguments> {
+    return this.getPost20FederationDirective(FederationDirectiveName.COST);
+  }
+
+  listSizeDirective(): Post20FederationDirectiveDefinition<ListSizeDirectiveArguments> {
+    return this.getPost20FederationDirective(FederationDirectiveName.LIST_SIZE);
+  }
+
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives: DirectiveDefinition[] = [
       this.keyDirective(),
@@ -1336,6 +1346,16 @@ export class FederationMetadata {
     const fromContextDirective = this.fromContextDirective();
     if (isFederationDirectiveDefinedInSchema(fromContextDirective)) {
       baseDirectives.push(fromContextDirective);
+    }
+
+    const costDirective = this.costDirective();
+    if (isFederationDirectiveDefinedInSchema(costDirective)) {
+      baseDirectives.push(costDirective);
+    }
+
+    const listSizeDirective = this.listSizeDirective();
+    if (isFederationDirectiveDefinedInSchema(listSizeDirective)) {
+      baseDirectives.push(listSizeDirective);
     }
 
     return baseDirectives;

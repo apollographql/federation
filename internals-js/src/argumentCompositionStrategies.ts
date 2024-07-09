@@ -59,4 +59,35 @@ export const ARGUMENT_COMPOSITION_STRATEGIES = {
         return acc.concat(newValues);
       }, []),
   },
+  NULLABLE_OR: {
+    name: 'NULLABLE_OR',
+    isTypeSupported: supportFixedTypes((schema: Schema) => [schema.booleanType()]),
+    mergeValues: (values: (boolean | null | undefined)[]) => values.reduce((acc, next) => {
+      if (acc === null || acc === undefined) {
+        return next;
+      } else if (next === null || next === undefined) {
+        return acc;
+      } else {
+        return acc || next;
+      }
+    }),
+  },
+  NULLABLE_MAX: {
+    name: 'NULLABLE_MAX',
+    isTypeSupported: supportFixedTypes((schema: Schema) => [schema.intType(), new NonNullType(schema.intType())]),
+    mergeValues: (values: any[]) => values.reduce((a: any, b: any) => a !== undefined && b !== undefined ? Math.max(a, b) : a ?? b, undefined),
+  },
+  NULLABLE_UNION: {
+    name: 'NULLABLE_UNION',
+    isTypeSupported: (_: Schema, type: InputType) => ({ valid: isListType(type) }),
+    mergeValues: (values: any[][]) => {
+      const combined = new Set();
+      for (const subgraphValues of values) {
+        for (const value of subgraphValues) {
+          combined.add(value);
+        }
+      }
+      return Array.from(combined);
+    }
+  }
 }
