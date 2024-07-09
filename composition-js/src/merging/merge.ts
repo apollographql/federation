@@ -80,6 +80,7 @@ import {
   StaticArgumentsTransform,
   isNullableType,
   isFieldDefinition,
+  Post20FederationDirectiveDefinition,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -368,6 +369,7 @@ class Merger {
   private joinDirectiveIdentityURLs = new Set<string>();
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
   private fieldsWithFromContext: Set<string>;
+  private fieldsWithOverride: Set<string>;
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.latestFedVersionUsed = this.getLatestFederationVersionUsed();
@@ -375,6 +377,7 @@ class Merger {
     this.linkSpec = LINK_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.inaccessibleSpec = INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.fieldsWithFromContext = this.getFieldsWithFromContextDirective();
+    this.fieldsWithOverride = this.getFieldsWithOverrideDirective();
     
     this.names = subgraphs.names();
     this.composeDirectiveManager = new ComposeDirectiveManager(
@@ -1346,6 +1349,9 @@ class Merger {
    */
   private validateOverride(sources: Sources<FieldDefinition<any>>, dest: FieldDefinition<any>): FieldMergeContext {
     const result = new FieldMergeContext(sources);
+    if (!this.fieldsWithOverride.has(dest.coordinate)) {
+      return result;
+    }
 
     // For any field, we can't have more than one @override directive
     type MappedValue = {
@@ -3437,20 +3443,44 @@ class Merger {
   }
   
   private getFieldsWithFromContextDirective(): Set<string> {
-    const fieldsWithFromContext = new Set<string>();
+    return this.getFieldsWithAppliedDirective(
+      (subgraph: Subgraph) => subgraph.metadata().fromContextDirective(),
+      (application: Directive<SchemaElement<any,any>>) => {
+        const field = application.parent.parent;
+        assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`); 
+        return field;
+      },
+    );
+  }
+  
+  private getFieldsWithOverrideDirective(): Set<string> {
+    return this.getFieldsWithAppliedDirective(
+      (subgraph: Subgraph) => subgraph.metadata().overrideDirective(),
+      (application: Directive<SchemaElement<any,any>>) => {
+        const field = application.parent;
+        assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`); 
+        return field;
+      }
+    );
+  }
+  
+  private getFieldsWithAppliedDirective(
+    getDirective: (subgraph: Subgraph) => Post20FederationDirectiveDefinition<any>,
+    getField: (application: Directive<SchemaElement<any, any>>) => FieldDefinition<any>,
+  ) {
+    const fields = new Set<string>();
     for (const subgraph of this.subgraphs) {
-      const fromContextDirective = subgraph.metadata().fromContextDirective();
-      if (isFederationDirectiveDefinedInSchema(fromContextDirective)) {
-        for (const application of fromContextDirective.applications()) {
-          const field = application.parent.parent;
-          assert(isFieldDefinition(field), () => `Expected ${application.parent.parent} to be a field`);
+      const directive = getDirective(subgraph);
+      if (isFederationDirectiveDefinedInSchema(directive)) {
+        for (const application of directive.applications()) {
+          const field = getField(application);
           const coordinate = field.coordinate;
-          if (!fieldsWithFromContext.has(coordinate)) {
-            fieldsWithFromContext.add(coordinate);
+          if (!fields.has(coordinate)) {
+            fields.add(coordinate);
           }
         }
       }
     }
-    return fieldsWithFromContext;
+    return fields;
   }
 }
