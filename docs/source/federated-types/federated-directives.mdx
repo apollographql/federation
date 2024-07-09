@@ -439,7 +439,7 @@ To learn more, see the [Incremental migration with `@override`](../entities-adva
 
 <EnterpriseFeature>
 
-This argument is available in Apollo Federation 2.7 and later. It is an [Enterprise feature](/router/enterprise-features) of the Apollo Router and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/). You can test it out by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+This argument is available in Apollo Federation 2.7 and later. It is an [Enterprise feature](/router/enterprise-features) of the GraphOS Router and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/). You can test it out by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
 
 </EnterpriseFeature>
 
@@ -472,7 +472,7 @@ directive @authenticated on
   | ENUM
 ```
 
-Indicates to composition that the target element is accessible only to the authenticated supergraph users. For more granular access control, see the [`@requiresScopes`](#requiresScopes) directive below. Refer to the [Apollo Router article](/router/configuration/authorization#authenticated) for additional details.
+Indicates to composition that the target element is accessible only to the authenticated supergraph users. For more granular access control, see the [`@requiresScopes`](#requiresScopes) directive below. Refer to the [router article](/router/configuration/authorization#authenticated) for additional details.
 
 <MinVersion version="2.5">
 
@@ -491,7 +491,7 @@ directive @requiresScopes(scopes: [[federation__Scope!]!]!) on
   | ENUM
 ```
 
-Indicates to composition that the target element is accessible only to the authenticated supergraph users with the appropriate JWT scopes. Refer to the [Apollo Router article](/router/configuration/authorization#requiresscopes) for additional details.
+Indicates to composition that the target element is accessible only to the authenticated supergraph users with the appropriate JWT scopes. Refer to the [router article](/router/configuration/authorization#requiresscopes) for additional details.
 
 #### Arguments
 
@@ -540,7 +540,7 @@ directive @policy(policies: [[federation__Policy!]!]!) on
   | ENUM
 ```
 
-Indicates to composition that the target element is restricted based on authorization policies that are evaluated in a Rhai script or coprocessor. Refer to the [Apollo Router article](/router/configuration/authorization#policy) for additional details.
+Indicates to composition that the target element is restricted based on authorization policies that are evaluated in a Rhai script or coprocessor. Refer to the [rotuer article](/router/configuration/authorization#policy) for additional details.
 
 #### Arguments
 
