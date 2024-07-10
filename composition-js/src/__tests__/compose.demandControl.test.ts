@@ -1,5 +1,6 @@
 import {
   asFed2SubgraphDocument,
+  EnumType,
   FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS,
   InputObjectType,
   ServiceDefinition,
@@ -14,7 +15,7 @@ const subgraphWithCost = {
   typeDefs: asFed2SubgraphDocument(gql`
     extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
 
-    enum AorB {
+    enum AorB @cost(weight: 15) {
       A
       B
     }
@@ -26,7 +27,7 @@ const subgraphWithCost = {
     type Query {
       fieldWithCost: Int @cost(weight: 5)
       argWithCost(arg: Int @cost(weight: 10)): Int
-      enumWithCost: AorB @cost(weight: 15)
+      enumWithCost: AorB
       inputWithCost(someInput: InputTypeWithCost): Int
     }
   `),
@@ -48,7 +49,7 @@ const subgraphWithRenamedCost = {
   typeDefs: asFed2SubgraphDocument(gql`
     extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: [{ name: "@cost", as: "@renamedCost" }])
 
-    enum AorB {
+    enum AorB @renamedCost(weight: 15) {
       A
       B
     }
@@ -60,7 +61,7 @@ const subgraphWithRenamedCost = {
     type Query {
       fieldWithCost: Int @renamedCost(weight: 5)
       argWithCost(arg: Int @renamedCost(weight: 10)): Int
-      enumWithCost: AorB @renamedCost(weight: 15)
+      enumWithCost: AorB
       inputWithCost(someInput: InputTypeWithCost): Int
     }
   `),
@@ -81,7 +82,7 @@ const subgraphWithCostFromFederationSpec = {
   name: 'subgraphWithCost',
   typeDefs: asFed2SubgraphDocument(
     gql`  
-      enum AorB {
+      enum AorB @cost(weight: 15) {
         A
         B
       }
@@ -93,7 +94,7 @@ const subgraphWithCostFromFederationSpec = {
       type Query {
         fieldWithCost: Int @cost(weight: 5)
         argWithCost(arg: Int @cost(weight: 10)): Int
-        enumWithCost: AorB @cost(weight: 15)
+        enumWithCost: AorB
         inputWithCost(someInput: InputTypeWithCost): Int
       }
     `,
@@ -119,7 +120,7 @@ const subgraphWithRenamedCostFromFederationSpec = {
     gql`
       extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: [{ name: "@cost", as: "@renamedCost" }])
 
-      enum AorB {
+      enum AorB @renamedCost(weight: 15) {
         A
         B
       }
@@ -131,7 +132,7 @@ const subgraphWithRenamedCostFromFederationSpec = {
       type Query {
         fieldWithCost: Int @renamedCost(weight: 5)
         argWithCost(arg: Int @renamedCost(weight: 10)): Int
-        enumWithCost: AorB @renamedCost(weight: 15)
+        enumWithCost: AorB
         inputWithCost(someInput: InputTypeWithCost): Int
       }
     `,
@@ -173,13 +174,13 @@ describe('demand control directive composition', () => {
       .toString();
     expect(argCostDirectiveApplications).toMatchString(`@cost(weight: 10)`);
 
-    const enumCostDirectiveApplications = result
+    const enumWithCost = result
       .schema
       .schemaDefinition
       .rootType('query')
       ?.field('enumWithCost')
-      ?.appliedDirectivesOf('cost')
-      .toString();
+      ?.type as EnumType;
+    const enumCostDirectiveApplications = enumWithCost.appliedDirectivesOf('cost').toString();
     expect(enumCostDirectiveApplications).toMatchString(`@cost(weight: 15)`);
 
     const inputWithCost = result
@@ -228,13 +229,13 @@ describe('demand control directive composition', () => {
       .toString();
     expect(argCostDirectiveApplications).toMatchString(`@cost(weight: 10)`);
 
-    const enumCostDirectiveApplications = result
+    const enumWithCost = result
       .schema
       .schemaDefinition
       .rootType('query')
       ?.field('enumWithCost')
-      ?.appliedDirectivesOf('cost')
-      .toString();
+      ?.type as EnumType;
+    const enumCostDirectiveApplications = enumWithCost.appliedDirectivesOf('cost').toString();
     expect(enumCostDirectiveApplications).toMatchString(`@cost(weight: 15)`);
 
     const inputWithCost = result
@@ -293,13 +294,13 @@ describe('demand control directive composition', () => {
         .toString();
       expect(argCostDirectiveApplications).toMatchString(`@renamedCost(weight: 10)`);
 
-      const enumCostDirectiveApplications = result
+      const enumWithCost = result
         .schema
         .schemaDefinition
         .rootType('query')
         ?.field('enumWithCost')
-        ?.appliedDirectivesOf('renamedCost')
-        .toString();
+        ?.type as EnumType;
+      const enumCostDirectiveApplications = enumWithCost.appliedDirectivesOf('renamedCost').toString();
       expect(enumCostDirectiveApplications).toMatchString(`@renamedCost(weight: 15)`);
 
       const listSizeDirectiveApplications = result
@@ -328,7 +329,9 @@ describe('demand control directive extraction', () => {
         query: Query
       }
 
-      enum AorB {
+      enum AorB
+        @federation__cost(weight: 15)
+      {
         A
         B
       }
@@ -340,7 +343,7 @@ describe('demand control directive extraction', () => {
       type Query {
         fieldWithCost: Int @federation__cost(weight: 5)
         argWithCost(arg: Int @federation__cost(weight: 10)): Int
-        enumWithCost: AorB @federation__cost(weight: 15)
+        enumWithCost: AorB
         inputWithCost(someInput: InputTypeWithCost): Int
       }
     `);
@@ -364,7 +367,9 @@ describe('demand control directive extraction', () => {
         query: Query
       }
 
-      enum AorB {
+      enum AorB
+        @federation__cost(weight: 15)
+      {
         A
         B
       }
@@ -376,7 +381,7 @@ describe('demand control directive extraction', () => {
       type Query {
         fieldWithCost: Int @federation__cost(weight: 5)
         argWithCost(arg: Int @federation__cost(weight: 10)): Int
-        enumWithCost: AorB @federation__cost(weight: 15)
+        enumWithCost: AorB
         inputWithCost(someInput: InputTypeWithCost): Int
       }
     `);

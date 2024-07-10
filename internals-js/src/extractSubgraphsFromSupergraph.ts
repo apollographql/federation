@@ -533,8 +533,23 @@ function extractInputObjContent(args: ExtractArguments, info: TypeInfo<InputObje
 function extractEnumTypeContent(args: ExtractArguments, info: TypeInfo<EnumType>[]) {
   // This was added in join 0.3, so it can genuinely be undefined.
   const enumValueDirective = args.joinSpec.enumValueDirective(args.supergraph);
+  const originalDirectiveNames = args.originalDirectiveNames;
 
   for (const { type, subgraphsInfo } of info) {
+    for (const { type: subgraphType, subgraph } of subgraphsInfo.values()) {
+      const costDirectiveName = originalDirectiveNames?.[FederationDirectiveName.COST] ?? FederationDirectiveName.COST;
+      const costDirective = type.appliedDirectivesOf(costDirectiveName).pop();
+      if (costDirective) {
+        subgraphType.applyDirective(subgraph.metadata().costDirective().name, costDirective.arguments());
+      }
+
+      const listSizeDirectiveName = originalDirectiveNames?.[FederationDirectiveName.LIST_SIZE] ?? FederationDirectiveName.LIST_SIZE;
+      const listSizeDirective = type.appliedDirectivesOf(listSizeDirectiveName).pop();
+      if (listSizeDirective) {
+        subgraphType.applyDirective(subgraph.metadata().listSizeDirective().name, listSizeDirective.arguments());
+      }
+    }
+    
     for (const value of type.values) {
       const enumValueApplications = enumValueDirective ? value.appliedDirectivesOf(enumValueDirective) : [];
       if (enumValueApplications.length === 0) {
