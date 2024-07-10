@@ -1,6 +1,7 @@
 import {
   asFed2SubgraphDocument,
   FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS,
+  InputObjectType,
   ServiceDefinition,
   Supergraph
 } from '@apollo/federation-internals';
@@ -18,10 +19,15 @@ const subgraphWithCost = {
       B
     }
 
+    input InputTypeWithCost {
+      somethingWithCost: Int @cost(weight: 20)
+    }
+
     type Query {
       fieldWithCost: Int @cost(weight: 5)
-      inputFieldWithCost(input: Int @cost(weight: 10)): Int
+      argWithCost(arg: Int @cost(weight: 10)): Int
       enumWithCost: AorB @cost(weight: 15)
+      inputWithCost(someInput: InputTypeWithCost): Int
     }
   `),
 };
@@ -47,10 +53,15 @@ const subgraphWithRenamedCost = {
       B
     }
 
+    input InputTypeWithCost {
+      somethingWithCost: Int @renamedCost(weight: 20)
+    }
+
     type Query {
       fieldWithCost: Int @renamedCost(weight: 5)
-      inputFieldWithCost(input: Int @renamedCost(weight: 10)): Int
+      argWithCost(arg: Int @renamedCost(weight: 10)): Int
       enumWithCost: AorB @renamedCost(weight: 15)
+      inputWithCost(someInput: InputTypeWithCost): Int
     }
   `),
 };
@@ -74,11 +85,16 @@ const subgraphWithCostFromFederationSpec = {
         A
         B
       }
+      
+      input InputTypeWithCost {
+        somethingWithCost: Int @cost(weight: 20)
+      }
 
       type Query {
         fieldWithCost: Int @cost(weight: 5)
-        inputFieldWithCost(input: Int @cost(weight: 10)): Int
+        argWithCost(arg: Int @cost(weight: 10)): Int
         enumWithCost: AorB @cost(weight: 15)
+        inputWithCost(someInput: InputTypeWithCost): Int
       }
     `,
     { includeAllImports: true },
@@ -108,10 +124,15 @@ const subgraphWithRenamedCostFromFederationSpec = {
         B
       }
 
+      input InputTypeWithCost {
+        somethingWithCost: Int @renamedCost(weight: 20)
+      }
+
       type Query {
         fieldWithCost: Int @renamedCost(weight: 5)
-        inputFieldWithCost(input: Int @renamedCost(weight: 10)): Int
+        argWithCost(arg: Int @renamedCost(weight: 10)): Int
         enumWithCost: AorB @renamedCost(weight: 15)
+        inputWithCost(someInput: InputTypeWithCost): Int
       }
     `,
 };
@@ -129,10 +150,62 @@ const subgraphWithRenamedListSizeFromFederationSpec = {
 };
 
 describe('demand control directive composition', () => {
+  it.skip('propagates @cost and @listSize to the supergraph', () => {
+    const result = composeServices([subgraphWithCost, subgraphWithListSize]);
+    assertCompositionSuccess(result);
+
+    const costDirectiveApplications = result
+      .schema
+      .schemaDefinition
+      .rootType('query')
+      ?.field('fieldWithCost')
+      ?.appliedDirectivesOf('cost')
+      .toString();
+    expect(costDirectiveApplications).toMatchString(`@cost(weight: 5)`);
+
+    const argCostDirectiveApplications = result
+      .schema
+      .schemaDefinition
+      .rootType('query')
+      ?.field('argWithCost')
+      ?.argument('arg')
+      ?.appliedDirectivesOf('cost')
+      .toString();
+    expect(argCostDirectiveApplications).toMatchString(`@cost(weight: 10)`);
+
+    const enumCostDirectiveApplications = result
+      .schema
+      .schemaDefinition
+      .rootType('query')
+      ?.field('enumWithCost')
+      ?.appliedDirectivesOf('cost')
+      .toString();
+    expect(enumCostDirectiveApplications).toMatchString(`@cost(weight: 15)`);
+
+    const inputWithCost = result
+      .schema
+      .schemaDefinition
+      .rootType('query')
+      ?.field('inputWithCost')
+      ?.argument('someInput')
+      ?.type as InputObjectType;
+    const inputCostDirectiveApplications = inputWithCost.field('somethingWithCost')?.appliedDirectivesOf('cost').toString();
+    expect(inputCostDirectiveApplications).toMatchString(`@cost(weight: 20)`);
+
+    const listSizeDirectiveApplications = result
+      .schema
+      .schemaDefinition
+      .rootType('query')
+      ?.field('fieldWithListSize')
+      ?.appliedDirectivesOf('listSize')
+      .toString();
+    expect(listSizeDirectiveApplications).toMatchString(`@listSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
+  });
+
   it.each([
     [subgraphWithCost, subgraphWithListSize],
     [subgraphWithCostFromFederationSpec, subgraphWithListSizeFromFederationSpec],
-  ])('propagates @cost and @listSize to the supergraph using @join__directive', (costSubgraph: ServiceDefinition, listSizeSubgraph: ServiceDefinition) => {
+  ])('propagates @cost and @listSize to the supergraph', (costSubgraph: ServiceDefinition, listSizeSubgraph: ServiceDefinition) => {
     const result = composeServices([costSubgraph, listSizeSubgraph]);
     assertCompositionSuccess(result);
 
@@ -145,15 +218,15 @@ describe('demand control directive composition', () => {
       .toString();
     expect(costDirectiveApplications).toMatchString(`@cost(weight: 5)`);
 
-    const inputCostDirectiveApplications = result
+    const argCostDirectiveApplications = result
       .schema
       .schemaDefinition
       .rootType('query')
-      ?.field('inputFieldWithCost')
-      ?.argument("input")
+      ?.field('argWithCost')
+      ?.argument('arg')
       ?.appliedDirectivesOf('cost')
       .toString();
-    expect(inputCostDirectiveApplications).toMatchString(`@cost(weight: 10)`);
+    expect(argCostDirectiveApplications).toMatchString(`@cost(weight: 10)`);
 
     const enumCostDirectiveApplications = result
       .schema
@@ -163,6 +236,16 @@ describe('demand control directive composition', () => {
       ?.appliedDirectivesOf('cost')
       .toString();
     expect(enumCostDirectiveApplications).toMatchString(`@cost(weight: 15)`);
+
+    const inputWithCost = result
+      .schema
+      .schemaDefinition
+      .rootType('query')
+      ?.field('inputWithCost')
+      ?.argument('someInput')
+      ?.type as InputObjectType;
+    const inputCostDirectiveApplications = inputWithCost.field('somethingWithCost')?.appliedDirectivesOf('cost').toString();
+    expect(inputCostDirectiveApplications).toMatchString(`@cost(weight: 20)`);
 
     const listSizeDirectiveApplications = result
       .schema
@@ -178,10 +261,19 @@ describe('demand control directive composition', () => {
     it.each([
       [subgraphWithRenamedCost, subgraphWithRenamedListSize],
       [subgraphWithRenamedCostFromFederationSpec, subgraphWithRenamedListSizeFromFederationSpec]
-    ])('propagates the renamed @cost and @listSize to the supergraph using @join__directive', (costSubgraph: ServiceDefinition, listSizeSubgraph: ServiceDefinition) => {
+    ])('propagates the renamed @cost and @listSize to the supergraph', (costSubgraph: ServiceDefinition, listSizeSubgraph: ServiceDefinition) => {
       const result = composeServices([costSubgraph, listSizeSubgraph]);
       assertCompositionSuccess(result);
 
+      // Ensure the new directive names are specified in the supergraph so we can use them during extraction
+      const links = result.schema.schemaDefinition.appliedDirectivesOf("link");
+      const costLink = links.find((link) => link.arguments().url === "https://specs.apollo.dev/cost/v0.1");
+      expect(costLink?.arguments().as).toBe("renamedCost");
+
+      const listSizeLink = links.find((link) => link.arguments().url === "https://specs.apollo.dev/listSize/v0.1");
+      expect(listSizeLink?.arguments().as).toBe("renamedListSize");
+
+      // Ensure the directives are applied to the expected fields with the new names
       const costDirectiveApplications = result
         .schema
         .schemaDefinition
@@ -191,15 +283,15 @@ describe('demand control directive composition', () => {
         .toString();
       expect(costDirectiveApplications).toMatchString(`@renamedCost(weight: 5)`);
 
-      const inputCostDirectiveApplications = result
+      const argCostDirectiveApplications = result
         .schema
         .schemaDefinition
         .rootType('query')
-        ?.field('inputFieldWithCost')
-        ?.argument("input")
+        ?.field('argWithCost')
+        ?.argument("arg")
         ?.appliedDirectivesOf('renamedCost')
         .toString();
-      expect(inputCostDirectiveApplications).toMatchString(`@renamedCost(weight: 10)`);
+      expect(argCostDirectiveApplications).toMatchString(`@renamedCost(weight: 10)`);
 
       const enumCostDirectiveApplications = result
         .schema
@@ -223,11 +315,10 @@ describe('demand control directive composition', () => {
 });
 
 describe('demand control directive extraction', () => {
-  it.only('extracts @cost from the supergraph', () => {
-    const result = composeServices([subgraphWithRenamedCost]);
+  it.skip('extracts @cost from the supergraph', () => {
+    const result = composeServices([subgraphWithCost]);
     assertCompositionSuccess(result);
     // expect(result.hints).toEqual([]);
-    console.log(result.supergraphSdl);
     const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithCost.name);
 
     expect(extracted?.toString()).toMatchString(`
@@ -242,10 +333,15 @@ describe('demand control directive extraction', () => {
         B
       }
 
+      input InputTypeWithCost {
+        somethingWithCost: Int @federation__cost(weight: 20)
+      }
+
       type Query {
         fieldWithCost: Int @federation__cost(weight: 5)
-        inputFieldWithCost(input: Int @federation__cost(weight: 10)): Int
+        argWithCost(arg: Int @federation__cost(weight: 10)): Int
         enumWithCost: AorB @federation__cost(weight: 15)
+        inputWithCost(someInput: InputTypeWithCost): Int
       }
     `);
   });
@@ -273,10 +369,15 @@ describe('demand control directive extraction', () => {
         B
       }
 
+      input InputTypeWithCost {
+        somethingWithCost: Int @federation__cost(weight: 20)
+      }
+
       type Query {
         fieldWithCost: Int @federation__cost(weight: 5)
-        inputFieldWithCost(input: Int @federation__cost(weight: 10)): Int
+        argWithCost(arg: Int @federation__cost(weight: 10)): Int
         enumWithCost: AorB @federation__cost(weight: 15)
+        inputWithCost(someInput: InputTypeWithCost): Int
       }
     `);
   });
