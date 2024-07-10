@@ -66,6 +66,8 @@ const DISALLOWED_IDENTITIES = [
   'https://specs.apollo.dev/requiresScopes',
   'https://specs.apollo.dev/source',
   'https://specs.apollo.dev/context',
+  'https://specs.apollo.dev/cost',
+  'https://specs.apollo.dev/listSize',
 ];
 
 export class ComposeDirectiveManager {
