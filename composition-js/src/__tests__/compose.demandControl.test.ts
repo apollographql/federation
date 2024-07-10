@@ -209,6 +209,7 @@ describe('demand control directive composition', () => {
   ])('propagates @cost and @listSize to the supergraph', (costSubgraph: ServiceDefinition, listSizeSubgraph: ServiceDefinition) => {
     const result = composeServices([costSubgraph, listSizeSubgraph]);
     assertCompositionSuccess(result);
+    expect(result.hints).toEqual([]);
 
     const costDirectiveApplications = fieldWithCost(result)?.appliedDirectivesOf('cost');
     expect(costDirectiveApplications?.toString()).toMatchString(`@cost(weight: 5)`);
@@ -233,6 +234,7 @@ describe('demand control directive composition', () => {
     ])('propagates the renamed @cost and @listSize to the supergraph', (costSubgraph: ServiceDefinition, listSizeSubgraph: ServiceDefinition) => {
       const result = composeServices([costSubgraph, listSizeSubgraph]);
       assertCompositionSuccess(result);
+      expect(result.hints).toEqual([]);
 
       // Ensure the new directive names are specified in the supergraph so we can use them during extraction
       const links = result.schema.schemaDefinition.appliedDirectivesOf("link");
@@ -256,6 +258,96 @@ describe('demand control directive composition', () => {
       expect(listSizeDirectiveApplications?.toString()).toMatchString(`@renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
     });
   });
+
+  describe('when used on @shareable fields', () => {
+    it('hints about merged @cost arguments', () => {
+      const subgraphA = {
+        name: 'subgraph-a',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
+  
+          type Query {
+            sharedWithCost: Int @shareable @cost(weight: 5)
+          }
+        `)
+      };
+      const subgraphB = {
+        name: 'subgraph-b',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
+  
+          type Query {
+            sharedWithCost: Int @shareable @cost(weight: 10)
+          }
+        `)
+      };
+  
+      const result = composeServices([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      expect(result.hints).toMatchInlineSnapshot(`
+        Array [
+          CompositionHint {
+            "coordinate": undefined,
+            "definition": Object {
+              "code": "MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS",
+              "description": "A non-repeatable directive has been applied to a schema element in different subgraphs with different arguments and the arguments values were merged using the directive configured strategies.",
+              "level": Object {
+                "name": "INFO",
+                "value": 40,
+              },
+            },
+            "element": undefined,
+            "message": "Directive @cost is applied to \\"Query.sharedWithCost\\" in multiple subgraphs with different arguments. Merging strategies used by arguments: { \\"weight\\": MAX }",
+            "nodes": undefined,
+          },
+        ]
+      `);
+    });
+  
+    it('hints about merged @listSize arguments', () => {
+      const subgraphA = {
+        name: 'subgraph-a',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+  
+          type Query {
+            sharedWithListSize: [Int] @shareable @listSize(assumedSize: 10)
+          }
+        `)
+      };
+      const subgraphB = {
+        name: 'subgraph-b',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+  
+          type Query {
+            sharedWithListSize: [Int] @shareable @listSize(assumedSize: 20)
+          }
+        `)
+      };
+  
+      const result = composeServices([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      expect(result.hints).toMatchInlineSnapshot(`
+        Array [
+          CompositionHint {
+            "coordinate": undefined,
+            "definition": Object {
+              "code": "MERGED_NON_REPEATABLE_DIRECTIVE_ARGUMENTS",
+              "description": "A non-repeatable directive has been applied to a schema element in different subgraphs with different arguments and the arguments values were merged using the directive configured strategies.",
+              "level": Object {
+                "name": "INFO",
+                "value": 40,
+              },
+            },
+            "element": undefined,
+            "message": "Directive @listSize is applied to \\"Query.sharedWithListSize\\" in multiple subgraphs with different arguments. Merging strategies used by arguments: { \\"assumedSize\\": NULLABLE_MAX, \\"slicingArguments\\": NULLABLE_UNION, \\"sizedFields\\": NULLABLE_UNION, \\"requireOneSlicingArgument\\": NULLABLE_AND }",
+            "nodes": undefined,
+          },
+        ]
+      `);
+    });
+  });
 });
 
 describe('demand control directive extraction', () => {
@@ -267,7 +359,6 @@ describe('demand control directive extraction', () => {
   ])('extracts @cost from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
-    // expect(result.hints).toEqual([]);
     const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithCost.name);
 
     expect(extracted?.toString()).toMatchString(`
@@ -305,7 +396,6 @@ describe('demand control directive extraction', () => {
   ])('extracts @listSize from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
-    // expect(result.hints).toEqual([]);
     const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithListSize.name);
 
     expect(extracted?.toString()).toMatchString(`
@@ -319,92 +409,6 @@ describe('demand control directive extraction', () => {
         fieldWithListSize: [String!] @federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)
       }
     `);
-  });
-
-  it('extracts the merged (max) @cost for different subgraphs with @shareable fields', () => {
-    const subgraphA = {
-      name: 'subgraph-a',
-      typeDefs: asFed2SubgraphDocument(gql`
-        extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
-
-        type Query {
-          sharedWithCost: Int @shareable @cost(weight: 5)
-        }
-      `)
-    };
-    const subgraphB = {
-      name: 'subgraph-b',
-      typeDefs: asFed2SubgraphDocument(gql`
-        extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
-
-        type Query {
-          sharedWithCost: Int @shareable @cost(weight: 10)
-        }
-      `)
-    };
-
-    const result = composeServices([subgraphA, subgraphB]);
-    assertCompositionSuccess(result);
-    // expect(result.hints).toEqual([]);
-    const supergraph = Supergraph.build(result.supergraphSdl);
-
-    const expectedSchema = `
-      schema
-        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
-      {
-        query: Query
-      }
-
-      type Query {
-        sharedWithCost: Int @shareable @federation__cost(weight: 10)
-      }
-    `;
-    // Even though different costs went in, the arguments are merged by taking the max weight.
-    // This means the extracted costs for the shared field have the same weight on the way out.
-    expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(expectedSchema);
-    expect(supergraph.subgraphs().get(subgraphB.name)?.toString()).toMatchString(expectedSchema);
-  });
-
-  it('extracts the merged @listSize for different subgraphs with @shareable fields', () => {
-    const subgraphA = {
-      name: 'subgraph-a',
-      typeDefs: asFed2SubgraphDocument(gql`
-        extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
-
-        type Query {
-          sharedWithListSize: [Int] @shareable @listSize(assumedSize: 10)
-        }
-      `)
-    };
-    const subgraphB = {
-      name: 'subgraph-b',
-      typeDefs: asFed2SubgraphDocument(gql`
-        extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
-
-        type Query {
-          sharedWithListSize: [Int] @shareable @listSize(assumedSize: 20)
-        }
-      `)
-    };
-
-    const result = composeServices([subgraphA, subgraphB]);
-    assertCompositionSuccess(result);
-    // expect(result.hints).toEqual([]);
-    const supergraph = Supergraph.build(result.supergraphSdl);
-
-    const expectedSubgraph = `
-      schema
-        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
-      {
-        query: Query
-      }
-
-      type Query {
-        sharedWithListSize: [Int] @shareable @federation__listSize(assumedSize: 20, requireOneSlicingArgument: true)
-      }
-    `;
-    expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(expectedSubgraph);
-    expect(supergraph.subgraphs().get(subgraphB.name)?.toString()).toMatchString(expectedSubgraph);
   });
 
   it('extracts @listSize with dynamic cost arguments', () => {
@@ -439,7 +443,6 @@ describe('demand control directive extraction', () => {
 
     const result = composeServices([subgraphA, subgraphB]);
     assertCompositionSuccess(result);
-    // expect(result.hints).toEqual([]);
     const supergraph = Supergraph.build(result.supergraphSdl);
 
     const expectedSubgraph = `
@@ -459,5 +462,91 @@ describe('demand control directive extraction', () => {
     `;
     expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(expectedSubgraph);
     expect(supergraph.subgraphs().get(subgraphB.name)?.toString()).toMatchString(expectedSubgraph);
+  });
+
+  describe('when used on @shareable fields', () => {
+    it('extracts @cost using the max weight across subgraphs', () => {
+      const subgraphA = {
+        name: 'subgraph-a',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
+  
+          type Query {
+            sharedWithCost: Int @shareable @cost(weight: 5)
+          }
+        `)
+      };
+      const subgraphB = {
+        name: 'subgraph-b',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
+  
+          type Query {
+            sharedWithCost: Int @shareable @cost(weight: 10)
+          }
+        `)
+      };
+  
+      const result = composeServices([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      const supergraph = Supergraph.build(result.supergraphSdl);
+  
+      const expectedSchema = `
+        schema
+          ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+        {
+          query: Query
+        }
+  
+        type Query {
+          sharedWithCost: Int @shareable @federation__cost(weight: 10)
+        }
+      `;
+      // Even though different costs went in, the arguments are merged by taking the max weight.
+      // This means the extracted costs for the shared field have the same weight on the way out.
+      expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(expectedSchema);
+      expect(supergraph.subgraphs().get(subgraphB.name)?.toString()).toMatchString(expectedSchema);
+    });
+  
+    it('extracts @listSize using the max assumed size across subgraphs', () => {
+      const subgraphA = {
+        name: 'subgraph-a',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+  
+          type Query {
+            sharedWithListSize: [Int] @shareable @listSize(assumedSize: 10)
+          }
+        `)
+      };
+      const subgraphB = {
+        name: 'subgraph-b',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+  
+          type Query {
+            sharedWithListSize: [Int] @shareable @listSize(assumedSize: 20)
+          }
+        `)
+      };
+  
+      const result = composeServices([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      const supergraph = Supergraph.build(result.supergraphSdl);
+  
+      const expectedSubgraph = `
+        schema
+          ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+        {
+          query: Query
+        }
+  
+        type Query {
+          sharedWithListSize: [Int] @shareable @federation__listSize(assumedSize: 20, requireOneSlicingArgument: true)
+        }
+      `;
+      expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(expectedSubgraph);
+      expect(supergraph.subgraphs().get(subgraphB.name)?.toString()).toMatchString(expectedSubgraph);
+    });
   });
 });
