@@ -256,7 +256,7 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
   for (const subgraph of inputs.values()) {
     if (subgraph.isFed2Subgraph()) {
       subgraphs.add(subgraph);
-      if (subgraph.metadata().interfaceObjectDirective().applications().length > 0) {
+      if (subgraph.metadata().interfaceObjectDirective().applications().size > 0) {
         subgraphsUsingInterfaceObject.push(subgraph.name);
       }
     } else {

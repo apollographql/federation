@@ -44,11 +44,6 @@ describe('composition', () => {
         }
 
         union U = S | T
-        
-        enum AnotherEnum {
-          E1
-          E2
-        }
       `
     }
 
@@ -65,12 +60,6 @@ describe('composition', () => {
         enum E {
           V1
           V2
-        }
-        
-        enum AnotherEnum {
-          E1
-          E2
-          E3
         }
       `
     }
@@ -102,20 +91,11 @@ describe('composition', () => {
 
       directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
-      enum AnotherEnum
-        @join__type(graph: SUBGRAPH1)
-        @join__type(graph: SUBGRAPH2)
-      {
-        E1
-        E2
-        E3 @join__enumValue(graph: SUBGRAPH2)
-      }
-
       enum E
         @join__type(graph: SUBGRAPH2)
       {
-        V1
-        V2
+        V1 @join__enumValue(graph: SUBGRAPH2)
+        V2 @join__enumValue(graph: SUBGRAPH2)
       }
 
       input join__ContextArgument {
@@ -181,12 +161,6 @@ describe('composition', () => {
 
     const [_, api] = schemas(result);
     expect(printSchema(api)).toMatchString(`
-      enum AnotherEnum {
-        E1
-        E2
-        E3
-      }
-
       enum E {
         V1
         V2
@@ -281,8 +255,8 @@ describe('composition', () => {
       enum E
         @join__type(graph: SUBGRAPH2)
       {
-        V1
-        V2
+        V1 @join__enumValue(graph: SUBGRAPH2)
+        V2 @join__enumValue(graph: SUBGRAPH2)
       }
 
       input join__ContextArgument {

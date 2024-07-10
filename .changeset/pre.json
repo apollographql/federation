@@ -1,0 +1,22 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "@apollo/composition": "2.8.2",
+    "apollo-federation-integration-testsuite": "2.8.2",
+    "@apollo/gateway": "2.8.2",
+    "@apollo/federation-internals": "2.8.2",
+    "@apollo/query-graphs": "2.8.2",
+    "@apollo/query-planner": "2.8.2",
+    "@apollo/subgraph": "2.8.2"
+  },
+  "changesets": [
+    "afraid-phones-reflect",
+    "friendly-tables-mix",
+    "good-shoes-chew",
+    "many-cats-prove",
+    "smooth-melons-study",
+    "violet-wasps-cry",
+    "wise-donkeys-deliver"
+  ]
+}
