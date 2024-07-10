@@ -11,6 +11,7 @@ import {
   Directive,
   Extension,
   FieldDefinition,
+  InterfaceType,
   isCompositeType,
   isInterfaceType,
   isObjectType,
@@ -232,9 +233,17 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
   const subgraphsUsingInterfaceObject = [];
   
   // build a data structure to help us do computation only once
-  const objectTypeMap = new Map<string, Map<string, [ObjectType, FederationMetadata]>>();
+  const objectTypeMap = new Map<string, Map<string, [ObjectType | InterfaceType, FederationMetadata]>>();
   for (const subgraph of inputs.values()) {
     for (const t of subgraph.schema.objectTypes()) {
+      let entry = objectTypeMap.get(t.name);
+      if (!entry) {
+        entry = new Map();
+        objectTypeMap.set(t.name, entry);
+      }
+      entry.set(subgraph.name, [t, subgraph.metadata()]);
+    }
+    for (const t of subgraph.schema.interfaceTypes()) {
       let entry = objectTypeMap.get(t.name);
       if (!entry) {
         entry = new Map();
@@ -251,8 +260,7 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
         subgraphsUsingInterfaceObject.push(subgraph.name);
       }
     } else {
-      const otherSubgraphs = inputs.values().filter((s) => s.name !== subgraph.name);
-      const res = new SchemaUpgrader(subgraph, otherSubgraphs, objectTypeMap).upgrade();
+      const res = new SchemaUpgrader(subgraph, inputs.values(), objectTypeMap).upgrade();
       if (res.errors) {
         errors = errors.concat(res.errors);
       } else {
@@ -317,7 +325,7 @@ class SchemaUpgrader {
   private readonly metadata: FederationMetadata;
   private readonly errors: GraphQLError[] = [];
 
-  constructor(private readonly originalSubgraph: Subgraph, private readonly otherSubgraphs: Subgraph[], private readonly objectTypeMap: Map<string, Map<string, [ObjectType, FederationMetadata]>>) {
+  constructor(private readonly originalSubgraph: Subgraph, private readonly allSubgraphs: readonly Subgraph[], private readonly objectTypeMap: Map<string, Map<string, [ObjectType | InterfaceType, FederationMetadata]>>) {
     // Note that as we clone the original schema, the 'sourceAST' values in the elements of the new schema will be those of the original schema
     // and those won't be updated as we modify the schema to make it fed2-enabled. This is _important_ for us here as this is what ensures that
     // later merge errors "AST" nodes ends up pointing to the original schema, the one that make sense to the user.
@@ -752,8 +760,8 @@ class SchemaUpgrader {
         continue;
       }
       if (this.external(element)) {
-        const tagIsUsedInOtherDefinition = this.otherSubgraphs
-          .map((s) => getField(s.schema, element.parent.name, element.name))
+        const tagIsUsedInOtherDefinition = this.allSubgraphs
+          .map((s) => s.name === this.originalSubgraph.name ? undefined : getField(s.schema, element.parent.name, element.name))
           .filter((f) => !(f && f.hasAppliedDirective('external')))
           .some((f) => f && f.appliedDirectivesOf('tag').some((d) => valueEquals(application.arguments(), d.arguments())));
 
