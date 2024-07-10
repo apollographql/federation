@@ -40,7 +40,7 @@ import { parseSelectionSet } from "./operations";
 import fs from 'fs';
 import path from 'path';
 import { validateStringContainsBoolean } from "./utils";
-import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, FeatureUrl, FederationDirectiveName, costIdentity, errorCauses, isFederationDirectiveDefinedInSchema, listSizeIdentity, printErrors } from ".";
+import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, FeatureUrl, FederationDirectiveName, SchemaElement, costIdentity, errorCauses, isFederationDirectiveDefinedInSchema, listSizeIdentity, printErrors } from ".";
 
 function filteredTypes(
   supergraph: Schema,
@@ -537,19 +537,9 @@ function extractEnumTypeContent(args: ExtractArguments, info: TypeInfo<EnumType>
 
   for (const { type, subgraphsInfo } of info) {
     for (const { type: subgraphType, subgraph } of subgraphsInfo.values()) {
-      const costDirectiveName = originalDirectiveNames?.[FederationDirectiveName.COST] ?? FederationDirectiveName.COST;
-      const costDirective = type.appliedDirectivesOf(costDirectiveName).pop();
-      if (costDirective) {
-        subgraphType.applyDirective(subgraph.metadata().costDirective().name, costDirective.arguments());
-      }
-
-      const listSizeDirectiveName = originalDirectiveNames?.[FederationDirectiveName.LIST_SIZE] ?? FederationDirectiveName.LIST_SIZE;
-      const listSizeDirective = type.appliedDirectivesOf(listSizeDirectiveName).pop();
-      if (listSizeDirective) {
-        subgraphType.applyDirective(subgraph.metadata().listSizeDirective().name, listSizeDirective.arguments());
-      }
+      propagateDemandControlDirectives(type, subgraphType, subgraph, originalDirectiveNames);
     }
-    
+
     for (const value of type.values) {
       const enumValueApplications = enumValueDirective ? value.appliedDirectivesOf(enumValueDirective) : [];
       if (enumValueApplications.length === 0) {
@@ -662,6 +652,20 @@ function maybeDumpSubgraphSchema(subgraph: Subgraph): string {
   }
 }
 
+function propagateDemandControlDirectives(source: SchemaElement<any, any>, dest: SchemaElement<any, any>, subgraph: Subgraph, originalDirectiveNames?: Record<string, string>) {
+  const costDirectiveName = originalDirectiveNames?.[FederationDirectiveName.COST] ?? FederationDirectiveName.COST;
+  const costDirective = source.appliedDirectivesOf(costDirectiveName).pop();
+  if (costDirective) {
+    dest.applyDirective(subgraph.metadata().costDirective().name, costDirective.arguments());
+  }
+
+  const listSizeDirectiveName = originalDirectiveNames?.[FederationDirectiveName.LIST_SIZE] ?? FederationDirectiveName.LIST_SIZE;
+  const listSizeDirective = source.appliedDirectivesOf(listSizeDirectiveName).pop();
+  if (listSizeDirective) {
+    dest.applyDirective(subgraph.metadata().listSizeDirective().name, listSizeDirective.arguments());
+  }
+}
+
 function errorToString(e: any,): string {
   const causes = errorCauses(e);
   return causes ? printErrors(causes) : String(e);
@@ -685,22 +689,11 @@ function addSubgraphField({
   const copiedFieldType = joinFieldArgs?.type
     ? decodeType(joinFieldArgs.type, subgraph.schema, subgraph.name)
     : copyType(field.type!, subgraph.schema, subgraph.name);
-  const costDirectiveName = originalDirectiveNames?.[FederationDirectiveName.COST] ?? FederationDirectiveName.COST;
-  const listSizeDirectiveName = originalDirectiveNames?.[FederationDirectiveName.LIST_SIZE] ?? FederationDirectiveName.LIST_SIZE;
 
   const subgraphField = type.addField(field.name, copiedFieldType);
   for (const arg of field.arguments()) {
     const argDef = subgraphField.addArgument(arg.name, copyType(arg.type!, subgraph.schema, subgraph.name), arg.defaultValue);
-    
-    const costDirective = arg.appliedDirectivesOf(costDirectiveName).pop();
-    if (costDirective) {
-      argDef.applyDirective(subgraph.metadata().costDirective().name, costDirective.arguments());
-    }
-
-    const listSizeDirective = arg.appliedDirectivesOf(listSizeDirectiveName).pop();
-    if (listSizeDirective) {
-      argDef.applyDirective(subgraph.metadata().listSizeDirective().name, listSizeDirective.arguments());
-    }
+    propagateDemandControlDirectives(arg, argDef, subgraph, originalDirectiveNames)
   }
   if (joinFieldArgs?.requires) {
     subgraphField.applyDirective(subgraph.metadata().requiresDirective(), {'fields': joinFieldArgs.requires});
@@ -746,16 +739,7 @@ function addSubgraphField({
     subgraphField.applyDirective(subgraph.metadata().shareableDirective());
   }
 
-  
-  const costDirective = field.appliedDirectivesOf(costDirectiveName).pop();
-  if (costDirective) {
-    subgraphField.applyDirective(subgraph.metadata().costDirective().name, costDirective.arguments());
-  }
-
-  const listSizeDirective = field.appliedDirectivesOf(listSizeDirectiveName).pop();
-  if (listSizeDirective) {
-    subgraphField.applyDirective(subgraph.metadata().listSizeDirective().name, listSizeDirective.arguments());
-  }
+  propagateDemandControlDirectives(field, subgraphField, subgraph, originalDirectiveNames);
 
   return subgraphField;
 }
@@ -780,17 +764,7 @@ function addSubgraphInputField({
   const inputField = type.addField(field.name, copiedType);
   inputField.defaultValue = field.defaultValue
 
-  const costDirectiveName = originalDirectiveNames?.[FederationDirectiveName.COST] ?? FederationDirectiveName.COST;
-  const costDirective = field.appliedDirectivesOf(costDirectiveName).pop();
-  if (costDirective) {
-    inputField.applyDirective(subgraph.metadata().costDirective().name, costDirective.arguments());
-  }
-
-  const listSizeDirectiveName = originalDirectiveNames?.[FederationDirectiveName.LIST_SIZE] ?? FederationDirectiveName.LIST_SIZE;
-  const listSizeDirective = field.appliedDirectivesOf(listSizeDirectiveName).pop();
-  if (listSizeDirective) {
-    inputField.applyDirective(subgraph.metadata().listSizeDirective().name, listSizeDirective.arguments());
-  }
+  propagateDemandControlDirectives(field, inputField, subgraph, originalDirectiveNames);
 
   return inputField;
 }
