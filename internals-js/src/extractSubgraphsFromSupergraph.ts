@@ -434,6 +434,9 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
   const implementsDirective = args.joinSpec.implementsDirective(args.supergraph);
   assert(implementsDirective, '@join__implements should existing for a fed2 supergraph');
 
+  const originalDirectiveNames = getOriginalDirectiveNames(args);
+  console.log(`Directive name mapping: ${JSON.stringify(originalDirectiveNames, undefined, 2)}`);
+
   for (const { type, subgraphsInfo } of info) {
     const implementsApplications = type.appliedDirectivesOf(implementsDirective);
     for (const application of implementsApplications) {
@@ -450,7 +453,7 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
         // In fed2 subgraph, no @join__field means that the field is in all the subgraphs in which the type is.
         const isShareable = isObjectType(type) && subgraphsInfo.size > 1;
         for (const { type: subgraphType, subgraph } of subgraphsInfo.values()) {
-          addSubgraphField({ field, type: subgraphType, subgraph, isShareable });
+          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, originalDirectiveNames });
         }
       } else {
         const isShareable = isObjectType(type)
@@ -468,11 +471,28 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
           }
 
           const { type: subgraphType, subgraph } = subgraphsInfo.get(joinFieldArgs.graph)!;
-          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, joinFieldArgs });
+          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, joinFieldArgs, originalDirectiveNames });
         }
       }
     }
   }
+}
+
+function getOriginalDirectiveNames(args: ExtractArguments): Record<string, string> {
+  const originalDirectiveNames: Record<string, string> = {};
+  for (const linkDirective of args.supergraph.schemaDefinition.appliedDirectivesOf("link")) { // TODO: Link spec?
+    if (linkDirective.arguments().as) {
+      const renamedFeature = args.supergraph.coreFeatures?.getByIdentity(linkDirective.arguments().url);
+      console.log(`Link ${linkDirective} has renamed ${renamedFeature}`);
+    }
+    for (const { name, as } of linkDirective.arguments().args?.import ?? []) {
+      if (name && as) {
+        originalDirectiveNames[name.replace('@', '')] = as.replace('@', '');
+      }
+    }
+  }
+
+  return originalDirectiveNames;
 }
 
 function extractInputObjContent(args: ExtractArguments, info: TypeInfo<InputObjectType>[]) {
@@ -631,12 +651,14 @@ function addSubgraphField({
   subgraph,
   isShareable,
   joinFieldArgs,
+  originalDirectiveNames,
 }: {
   field: FieldDefinition<ObjectType | InterfaceType>,
   type: ObjectType | InterfaceType,
   subgraph: Subgraph,
   isShareable: boolean,
   joinFieldArgs?: JoinFieldDirectiveArguments,
+  originalDirectiveNames?: Record<string, string>,
 }): FieldDefinition<ObjectType | InterfaceType> {
   const copiedFieldType = joinFieldArgs?.type
     ? decodeType(joinFieldArgs.type, subgraph.schema, subgraph.name)
@@ -700,12 +722,14 @@ function addSubgraphField({
     subgraphField.applyDirective(subgraph.metadata().shareableDirective());
   }
 
-  const costDirective = field.appliedDirectivesOf(FederationDirectiveName.COST).pop();
+  const costDirectiveName = originalDirectiveNames?.[FederationDirectiveName.COST] ?? FederationDirectiveName.COST;
+  const costDirective = field.appliedDirectivesOf(costDirectiveName).pop();
   if (costDirective) {
     subgraphField.applyDirective(subgraph.metadata().costDirective().name, costDirective.arguments());
   }
 
-  const listSizeDirective = field.appliedDirectivesOf(FederationDirectiveName.LIST_SIZE).pop();
+  const listSizeDirectiveName = originalDirectiveNames?.[FederationDirectiveName.LIST_SIZE] ?? FederationDirectiveName.LIST_SIZE;
+  const listSizeDirective = field.appliedDirectivesOf(listSizeDirectiveName).pop();
   if (listSizeDirective) {
     subgraphField.applyDirective(subgraph.metadata().listSizeDirective().name, listSizeDirective.arguments());
   }

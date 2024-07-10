@@ -223,6 +223,33 @@ describe('demand control directive composition', () => {
 });
 
 describe('demand control directive extraction', () => {
+  it.only('extracts @cost from the supergraph', () => {
+    const result = composeServices([subgraphWithRenamedCost]);
+    assertCompositionSuccess(result);
+    // expect(result.hints).toEqual([]);
+    console.log(result.supergraphSdl);
+    const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithCost.name);
+
+    expect(extracted?.toString()).toMatchString(`
+      schema
+        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+      {
+        query: Query
+      }
+
+      enum AorB {
+        A
+        B
+      }
+
+      type Query {
+        fieldWithCost: Int @federation__cost(weight: 5)
+        inputFieldWithCost(input: Int @federation__cost(weight: 10)): Int
+        enumWithCost: AorB @federation__cost(weight: 15)
+      }
+    `);
+  });
+
   it.each([
     subgraphWithCost,
     subgraphWithRenamedCost,
