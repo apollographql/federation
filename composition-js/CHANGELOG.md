@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.8.3-beta.1
+
+### Patch Changes
+
+- Fix logic to compute missing subgraphs when generating composition hints/errors ([#3076](https://github.com/apollographql/federation/pull/3076))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.3-beta.1
+  - @apollo/query-graphs@2.8.3-beta.1
+
 ## 2.8.3-beta.0
 
 ### Patch Changes
