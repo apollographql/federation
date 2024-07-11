@@ -796,7 +796,7 @@ describe('composing custom core directives', () => {
     expect(errors(result)).toStrictEqual([
       [
         'DIRECTIVE_COMPOSITION_ERROR',
-        'Could not find matching directive definition for argument to @composeDirective "@fooz" in subgraph "subgraphA". Did you mean "@foo"?',
+        'Could not find matching directive definition for argument to @composeDirective "@fooz" in subgraph "subgraphA". Did you mean "@foo" or "@cost"?',
       ]
     ]);
   });
