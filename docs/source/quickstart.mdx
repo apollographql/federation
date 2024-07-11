@@ -41,7 +41,14 @@ To complete this quickstart, you must have the following:
 - A [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content) account
 - A local version of Apollo's retail demo
   - Download or clone it from its [GitHub repository](https://github.com/apollosolutions/retail-supergraph)
-- The latest LTS version of [Node](https://nodejs.org/en)
+- The latest LTS version of [Node.js](https://nodejs.org/en)
+
+  <Note>
+
+  While the retail demo uses Node.js for all its services, Apollo Federation is compatible with [many GraphQL server libraries](./building-supergraphs/supported-subgraphs).
+  You can also federate services that use different programming languages and different server libraries.
+
+  </Note>
 
 If you haven't already, set these up before continuing.
 
@@ -585,5 +592,12 @@ Depending on your goals, you have several options for learning more about GraphO
 
 - Learn about the different [router types](/graphos/routing) to decide which type best fits your use case.
 - Learn more about Studio features, including [proposals](/graphos/delivery/schema-proposals), [linting](/graphos/delivery/schema-linter), and [checks](/graphos/delivery/schema-checks).
+  - If you'd like a visual tour of some of these features, check out the video below.
+
+    <ExpansionPanel title="Watch the video tour (~3min)">
+
+    <YouTube youTubeId="wb53myHnQvo" />
+
+    </ExpansionPanel>
 - Learn about GraphOS [metrics](/graphos/metrics) and [router telemetry](/router/configuration/telemetry/overview/).
-- Check out the [`rover template` command](/rover/commands/template) to quickly start a new GraphQL project or explore various subgraph implementations.
+- Check out the [`rover template` command](/rover/commands/template) to quickly start a new GraphQL project or explore implementations in different libraries and languages.
