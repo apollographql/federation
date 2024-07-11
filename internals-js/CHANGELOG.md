@@ -1,5 +1,7 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.8.3-beta.1
+
 ## 2.8.3-beta.0
 
 ### Patch Changes
