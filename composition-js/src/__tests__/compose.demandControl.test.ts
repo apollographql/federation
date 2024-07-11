@@ -11,7 +11,7 @@ import {
 } from '@apollo/federation-internals';
 import { composeServices, CompositionResult } from '../compose';
 import gql from 'graphql-tag';
-import { assertCompositionSuccess } from "./testHelper";
+import { assertCompositionSuccess, errors } from "./testHelper";
 
 const subgraphWithCost = {
   name: 'subgraphWithCost',
@@ -256,6 +256,39 @@ describe('demand control directive composition', () => {
 
       const listSizeDirectiveApplications = fieldWithListSize(result)?.appliedDirectivesOf('renamedListSize');
       expect(listSizeDirectiveApplications?.toString()).toMatchString(`@renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
+    });
+  });
+
+  describe('when renamed in one subgraph but not the other', () => {
+    it('does not compose', () => {
+      const subgraphWithDefaultName = {
+        name: 'subgraphWithDefaultName',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
+      
+          type Query {
+            field1: Int @cost(weight: 5)
+          }
+        `),
+      };
+      const subgraphWithDifferentName = {
+        name: 'subgraphWithDifferentName',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: [{ name: "@cost", as: "@renamedCost" }])
+      
+          type Query {
+            field2: Int @renamedCost(weight: 10)
+          }
+        `),
+      };
+
+      const result = composeServices([subgraphWithDefaultName, subgraphWithDifferentName]);
+      expect(errors(result)).toEqual([
+        [
+          "LINK_IMPORT_NAME_MISMATCH",
+          `The "@cost" directive (from https://specs.apollo.dev/cost/v0.1) is imported with mismatched name between subgraphs: it is imported as "@renamedCost" in subgraph "subgraphWithDifferentName" but "@cost" in subgraph "subgraphWithDefaultName"`
+        ]
+      ]);
     });
   });
 
