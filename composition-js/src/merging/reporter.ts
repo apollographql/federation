@@ -154,20 +154,31 @@ export class MismatchReporter {
   ) {
     const distributionMap = new MultiMap<string, string>();
     const astNodes: SubgraphASTNode[] = [];
-    for (const [i, subgraphElt] of subgraphElements.entries()) {
-      if (!subgraphElt) {
-        if (includeMissingSources) {
-          distributionMap.add('', this.names[i]);
-        }
-        continue;
-      }
+    const processSubgraphElt = (name: string, subgraphElt: TMismatched) => {
       if (ignorePredicate && ignorePredicate(subgraphElt)) {
-        continue;
+        return;
       }
       const elt = mismatchAccessor(subgraphElt, false);
-      distributionMap.add(elt ?? '', this.names[i]);
+      distributionMap.add(elt ?? '', name);
       if (subgraphElt.sourceAST) {
-        astNodes.push(addSubgraphToASTNode(subgraphElt.sourceAST, this.names[i]));
+        astNodes.push(addSubgraphToASTNode(subgraphElt.sourceAST, name));
+      }
+    }
+    if (includeMissingSources) {
+      for (const [i, name] of this.names.entries()) {
+        const subgraphElt = subgraphElements.get(i);
+        if (!subgraphElt) {
+          distributionMap.add('', name);
+          continue;
+        }
+        processSubgraphElt(name, subgraphElt);
+      }
+    } else {
+      for (const [i, subgraphElt] of subgraphElements.entries()) {
+        if (!subgraphElt) {
+          continue;
+        }
+        processSubgraphElt(this.names[i], subgraphElt);
       }
     }
     const supergraphMismatch = (supergraphElement && mismatchAccessor(supergraphElement, true)) ?? '';
