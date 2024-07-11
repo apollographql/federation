@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.8.3-beta.2
+
+### Patch Changes
+
+- dummy commit to force beta.2 ([#3078](https://github.com/apollographql/federation/pull/3078))
+
 ## 2.8.3-beta.1
 
 ## 2.8.3-beta.0
