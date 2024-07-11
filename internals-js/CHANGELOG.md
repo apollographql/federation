@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.8.3-beta.1
+
+## 2.8.3-beta.0
+
+### Patch Changes
+
+- For very large graphs cloning types with lots of join directives can be expensive. Since these directives will not be used in the Schema that is cloned for toAPISchema(), add the ability to optionally omit them ([#3053](https://github.com/apollographql/federation/pull/3053))
+
+- Use sets instead of arrays for tracking schema type/directive referencers. ([#3067](https://github.com/apollographql/federation/pull/3067))
+
 ## 2.8.2
 
 ### Patch Changes
