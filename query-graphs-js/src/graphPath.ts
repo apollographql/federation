@@ -1028,8 +1028,29 @@ export class Unadvanceables {
   }
 }
 
-export function isUnadvanceable(result: any[] | Unadvanceables): result is Unadvanceables {
-  return result instanceof Unadvanceables;
+export type UnadvanceableClosure = () => Unadvanceable | Unadvanceable[];
+
+export class UnadvanceableClosures {
+  private _unadvanceables: Unadvanceables | undefined;
+  readonly closures: UnadvanceableClosure[];
+  constructor(closures: UnadvanceableClosure | UnadvanceableClosure[]) {
+    if (Array.isArray(closures)) {
+      this.closures = closures;
+    } else {
+      this.closures = [closures];
+    }
+  }
+
+  toUnadvanceables(): Unadvanceables {
+    if (!this._unadvanceables) {
+      this._unadvanceables = new Unadvanceables(this.closures.map((c) => c()).flat());
+    }
+    return this._unadvanceables;
+  }
+}
+
+export function isUnadvanceableClosures(result: any[] | UnadvanceableClosures): result is UnadvanceableClosures {
+  return result instanceof UnadvanceableClosures;
 }
 
 function pathTransitionToEdge(graph: QueryGraph, vertex: Vertex, transition: Transition, overrideConditions: Map<string, boolean>): Edge | null | undefined {
@@ -1115,7 +1136,7 @@ export function advancePathWithTransition<V extends Vertex>(
   transition: Transition,
   targetType: NamedType,
   overrideConditions: Map<string, boolean>,
-) : TransitionPathWithLazyIndirectPaths<V>[] | Unadvanceables {
+) : TransitionPathWithLazyIndirectPaths<V>[] | UnadvanceableClosures {
   // The `transition` comes from the supergraph. Now, it is possible that a transition can be expressed on the supergraph, but correspond
   // to an 'unsatisfiable' condition on the subgraph. Let's consider:
   // - Subgraph A:
@@ -1198,11 +1219,11 @@ export function advancePathWithTransition<V extends Vertex>(
     overrideConditions,
   );
   let options: GraphPath<Transition, V>[];
-  const deadEnds: Unadvanceable[] = [];
-  if (isUnadvanceable(directOptions)) {
+  const deadEndClosures: UnadvanceableClosure[] = [];
+  if (isUnadvanceableClosures(directOptions)) {
     options = [];
     debug.groupEnd(() => 'No direct options');
-    deadEnds.push(...directOptions.reasons);
+    deadEndClosures.push(...directOptions.closures);
   } else {
     debug.groupEnd(() => advanceOptionsToString(directOptions));
     // If we can fulfill the transition directly (without taking an edge) and the target type is "terminal", then there is
@@ -1227,9 +1248,9 @@ export function advancePathWithTransition<V extends Vertex>(
         subgraphPath.conditionResolver,
         overrideConditions,
       );
-      if (isUnadvanceable(pathsWithTransition)) {
+      if (isUnadvanceableClosures(pathsWithTransition)) {
         debug.groupEnd(() => `Cannot be advanced with ${transition}`);
-        deadEnds.push(...pathsWithTransition.reasons);
+        deadEndClosures.push(...pathsWithTransition.closures);
       } else {
         debug.groupEnd(() => `Adding valid option: ${pathsWithTransition}`);
         options = options.concat(pathsWithTransition);
@@ -1244,58 +1265,62 @@ export function advancePathWithTransition<V extends Vertex>(
     return createLazyTransitionOptions(options, subgraphPath, overrideConditions);
   }
 
-  const allDeadEnds = deadEnds.concat(pathsWithNonCollecting.deadEnds.reasons);
-  if (transition.kind === 'FieldCollection') {
-    const typeName = transition.definition.parent.name;
-    const fieldName = transition.definition.name;
-    const subgraphsWithDeadEnd = new Set(allDeadEnds.map(e => e.destSubgraph));
-    for (const [subgraph, schema] of subgraphPath.path.graph.sources.entries()) {
-      if (subgraphsWithDeadEnd.has(subgraph)) {
-        continue;
-      }
-      const type = schema.type(typeName);
-      if (type && isCompositeType(type) && type.field(fieldName)) {
-        // That subgraph has the type we look for, but we have recorded no dead-ends. This means there is no edge to that type,
-        // and thus that either:
-        // - it has no keys.
-        // - the path to advance it an @interfaceObject type, the type we look for is an implementation of that interface, and
-        //   there no key on the interface.
-        const typenameOfTail = subgraphPath.path.tail.type.name;
-        const typeOfTailInSubgraph = schema.type(typenameOfTail);
-        if (!typeOfTailInSubgraph) {
-          // This means that 1) the type of the path we're trying to advance is different from the transition we're considering,
-          // and that should only happen if the path is on an @interfaceObject type, and 2) the subgraph we're looking at
-          // actually doesn't have that interface. To be able to jump to that subgraph, we would need the interface and it
-          // would need to have a resolvable key, but it has neither.
-          allDeadEnds.push({
-            sourceSubgraph: subgraphPath.path.tail.source,
-            destSubgraph: subgraph,
-            reason: UnadvanceableReason.UNREACHABLE_TYPE,
-            details: `cannot move to subgraph "${subgraph}", which has field "${transition.definition.coordinate}", because interface "${typenameOfTail}" is not defined in this subgraph (to jump to "${subgraph}", it would need to both define interface "${typenameOfTail}" and have a @key on it)`,
-          });
-        } else {
-          // `typeOfTailInSubgraph` exists, so it's either equal to `type`, or it's an interface of it. In any case, it's composite.
-          assert(isCompositeType(typeOfTailInSubgraph), () => `Type ${typeOfTailInSubgraph} in ${subgraph} should be composite`);
-          const metadata = federationMetadata(schema);
-          const keys: Directive<CompositeType, {fields: any, resolvable?: boolean}>[] = metadata ? typeOfTailInSubgraph.appliedDirectivesOf(metadata.keyDirective()) : [];
-          const allNonResolvable = keys.length > 0 && keys.every((k) => !(k.arguments().resolvable ?? true));
-          assert(keys.length === 0 || allNonResolvable, () => `After ${subgraphPath} and for transition ${transition}, expected type ${type} in ${subgraph} to have no resolvable keys`);
-          const kindOfType = typeOfTailInSubgraph === type ? 'type' : 'interface';
-          const explanation = keys.length === 0
-            ? `${kindOfType} "${typenameOfTail}" has no @key defined in subgraph "${subgraph}"`
-            : `none of the @key defined on ${kindOfType} "${typenameOfTail}" in subgraph "${subgraph}" are resolvable (they are all declared with their "resolvable" argument set to false)`;
-          allDeadEnds.push({
-            sourceSubgraph: subgraphPath.path.tail.source,
-            destSubgraph: subgraph,
-            reason: UnadvanceableReason.UNREACHABLE_TYPE,
-            details: `cannot move to subgraph "${subgraph}", which has field "${transition.definition.coordinate}", because ${explanation}`
-          });
+  const indirectDeadEndClosures = pathsWithNonCollecting.deadEnds.closures;
+  return new UnadvanceableClosures(() => {
+    const allDeadEnds = new UnadvanceableClosures(deadEndClosures.concat(indirectDeadEndClosures))
+      .toUnadvanceables().reasons;
+    if (transition.kind === 'FieldCollection') {
+      const typeName = transition.definition.parent.name;
+      const fieldName = transition.definition.name;
+      const subgraphsWithDeadEnd = new Set(allDeadEnds.map(e => e.destSubgraph));
+      for (const [subgraph, schema] of subgraphPath.path.graph.sources.entries()) {
+        if (subgraphsWithDeadEnd.has(subgraph)) {
+          continue;
+        }
+        const type = schema.type(typeName);
+        if (type && isCompositeType(type) && type.field(fieldName)) {
+          // That subgraph has the type we look for, but we have recorded no dead-ends. This means there is no edge to that type,
+          // and thus that either:
+          // - it has no keys.
+          // - the path to advance it an @interfaceObject type, the type we look for is an implementation of that interface, and
+          //   there no key on the interface.
+          const typenameOfTail = subgraphPath.path.tail.type.name;
+          const typeOfTailInSubgraph = schema.type(typenameOfTail);
+          if (!typeOfTailInSubgraph) {
+            // This means that 1) the type of the path we're trying to advance is different from the transition we're considering,
+            // and that should only happen if the path is on an @interfaceObject type, and 2) the subgraph we're looking at
+            // actually doesn't have that interface. To be able to jump to that subgraph, we would need the interface and it
+            // would need to have a resolvable key, but it has neither.
+            allDeadEnds.push({
+              sourceSubgraph: subgraphPath.path.tail.source,
+              destSubgraph: subgraph,
+              reason: UnadvanceableReason.UNREACHABLE_TYPE,
+              details: `cannot move to subgraph "${subgraph}", which has field "${transition.definition.coordinate}", because interface "${typenameOfTail}" is not defined in this subgraph (to jump to "${subgraph}", it would need to both define interface "${typenameOfTail}" and have a @key on it)`,
+            });
+          } else {
+            // `typeOfTailInSubgraph` exists, so it's either equal to `type`, or it's an interface of it. In any case, it's composite.
+            assert(isCompositeType(typeOfTailInSubgraph), () => `Type ${typeOfTailInSubgraph} in ${subgraph} should be composite`);
+            const metadata = federationMetadata(schema);
+            const keys: Directive<CompositeType, {fields: any, resolvable?: boolean}>[] = metadata ? typeOfTailInSubgraph.appliedDirectivesOf(metadata.keyDirective()) : [];
+            const allNonResolvable = keys.length > 0 && keys.every((k) => !(k.arguments().resolvable ?? true));
+            assert(keys.length === 0 || allNonResolvable, () => `After ${subgraphPath} and for transition ${transition}, expected type ${type} in ${subgraph} to have no resolvable keys`);
+            const kindOfType = typeOfTailInSubgraph === type ? 'type' : 'interface';
+            const explanation = keys.length === 0
+              ? `${kindOfType} "${typenameOfTail}" has no @key defined in subgraph "${subgraph}"`
+              : `none of the @key defined on ${kindOfType} "${typenameOfTail}" in subgraph "${subgraph}" are resolvable (they are all declared with their "resolvable" argument set to false)`;
+            allDeadEnds.push({
+              sourceSubgraph: subgraphPath.path.tail.source,
+              destSubgraph: subgraph,
+              reason: UnadvanceableReason.UNREACHABLE_TYPE,
+              details: `cannot move to subgraph "${subgraph}", which has field "${transition.definition.coordinate}", because ${explanation}`
+            });
+          }
         }
       }
     }
-  }
-
-  return new Unadvanceables(allDeadEnds);
+  
+    return allDeadEnds;
+  });
 }
 
 function createLazyTransitionOptions<V extends Vertex>(
@@ -1363,12 +1388,12 @@ function popMin<TTrigger, V extends Vertex, TNullEdge extends null | never = nev
   return min;
 }
 
-export type IndirectPaths<TTrigger, V extends Vertex = Vertex, TNullEdge extends null | never = never, TDeadEnds extends Unadvanceables | never = Unadvanceables> = {
+export type IndirectPaths<TTrigger, V extends Vertex = Vertex, TNullEdge extends null | never = never, TDeadEnds extends UnadvanceableClosures | never = UnadvanceableClosures> = {
   paths: GraphPath<TTrigger, V, TNullEdge>[],
   deadEnds: TDeadEnds
 }
 
-function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V extends Vertex, TNullEdge extends null | never = never, TDeadEnds extends Unadvanceables | never = Unadvanceables>(
+function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V extends Vertex, TNullEdge extends null | never = never, TDeadEnds extends UnadvanceableClosures | never = UnadvanceableClosures>(
   path: GraphPath<TTrigger, V, TNullEdge>,
   context: PathContext,
   conditionResolver: ConditionResolver,
@@ -1386,15 +1411,17 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   if (path.lastIsIntefaceObjectFakeDownCastAfterEnteringSubgraph()) {
     // Note: we need to register a dead-end for every subgraphs we "could" be going to, or the code calling this may try to infer a reason on its own
     // and we'll run into some assertion.
-    const reachableSubgraphs = new Set(path.nextEdges().filter((e) => !e.transition.collectOperationElements && e.tail.source !== path.tail.source).map((e) => e.tail.source));
     return {
       paths: [],
-      deadEnds: new Unadvanceables(Array.from(reachableSubgraphs).map((s) => ({
-        sourceSubgraph: path.tail.source,
-        destSubgraph: s,
-        reason: UnadvanceableReason.IGNORED_INDIRECT_PATH,
-        details: `ignoring moving from "${path.tail.source}" to "${s}" as a more direct option exists`,
-      }))) as TDeadEnds,
+      deadEnds: new UnadvanceableClosures(() => {
+        const reachableSubgraphs = new Set(path.nextEdges().filter((e) => !e.transition.collectOperationElements && e.tail.source !== path.tail.source).map((e) => e.tail.source));
+        return Array.from(reachableSubgraphs).map((s) => ({
+          sourceSubgraph: path.tail.source,
+          destSubgraph: s,
+          reason: UnadvanceableReason.IGNORED_INDIRECT_PATH,
+          details: `ignoring moving from "${path.tail.source}" to "${s}" as a more direct option exists`,
+        }))
+      }) as TDeadEnds,
     };
   }
 
@@ -1405,7 +1432,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   // decide that we should try going to that source (typically because we can prove that this create an
   // inefficient detour for which a more direct path exists and will be found).
   const bestPathBySource = new Map<string, [GraphPath<TTrigger, V, TNullEdge>, number] | null>();
-  const deadEnds: Unadvanceable[] = [];
+  const deadEndClosures: UnadvanceableClosure[] = [];
   const toTry: GraphPath<TTrigger, V, TNullEdge>[] = [ path ];
   while (toTry.length > 0) {
     // Note that through `excluded` we avoid taking the same edge from multiple options. But that means it's important we try
@@ -1422,16 +1449,20 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
       const outEdges = toAdvance.graph.outEdges(toAdvance.tail).filter(e => !e.transition.collectOperationElements);
       if (outEdges.length > 0) {
         debug.log(() => `Nothing to try for ${toAdvance}: it only has "trivial" non-collecting outbound edges`);
-        for (const edge of outEdges) {
-          if (edge.tail.source !== toAdvance.tail.source && edge.tail.source !== originalSource) {
-            deadEnds.push({
-              sourceSubgraph: toAdvance.tail.source,
-              destSubgraph: edge.tail.source,
-              reason: UnadvanceableReason.IGNORED_INDIRECT_PATH,
-              details: `ignoring moving to subgraph "${edge.tail.source}" using @key(fields: "${edge.conditions?.toString(true, false)}") of "${edge.head.type}" because there is a more direct path in ${edge.tail.source} that avoids ${toAdvance.tail.source} altogether`
-            });
+        deadEndClosures.push(() => {
+          const unadvanceables = [];
+          for (const edge of outEdges) {
+            if (edge.tail.source !== toAdvance.tail.source && edge.tail.source !== originalSource) {
+              unadvanceables.push({
+                sourceSubgraph: toAdvance.tail.source,
+                destSubgraph: edge.tail.source,
+                reason: UnadvanceableReason.IGNORED_INDIRECT_PATH,
+                details: `ignoring moving to subgraph "${edge.tail.source}" using @key(fields: "${edge.conditions?.toString(true, false)}") of "${edge.head.type}" because there is a more direct path in ${edge.tail.source} that avoids ${toAdvance.tail.source} altogether`
+              });
+            }
           }
-        }
+          return unadvanceables;
+        })
       } else {
         debug.log(() => `Nothing to try for ${toAdvance}: it has no non-collecting outbound edges`);
       }
@@ -1575,11 +1606,13 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
             // recorded no-dead ends would break an assertion in `advancePathWithTransition` that assumes that if
             // we have recorded no-dead end, that's because we have no key edges. But note that this 'dead end'
             // message shouldn't really ever reach users.
-            deadEnds.push({
-              sourceSubgraph: toAdvance.tail.source,
-              destSubgraph: edge.tail.source,
-              reason: UnadvanceableReason.IGNORED_INDIRECT_PATH,
-              details: `ignoring moving to subgraph "${edge.tail.source}" using @key(fields: "${edge.conditions?.toString(true, false)}") of "${edge.head.type}" because there is a more direct path in ${edge.tail.source} that avoids ${toAdvance.tail.source} altogether`
+            deadEndClosures.push(() => {
+              return {
+                sourceSubgraph: toAdvance.tail.source,
+                destSubgraph: edge.tail.source,
+                reason: UnadvanceableReason.IGNORED_INDIRECT_PATH,
+                details: `ignoring moving to subgraph "${edge.tail.source}" using @key(fields: "${edge.conditions?.toString(true, false)}") of "${edge.head.type}" because there is a more direct path in ${edge.tail.source} that avoids ${toAdvance.tail.source} altogether`
+              };
             });
             continue;
           }
@@ -1599,17 +1632,19 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         }
       } else {
         debug.groupEnd('Condition unsatisfiable');
-        const source = toAdvance.tail.source;
-        const dest = edge.tail.source;
-        const hasOverriddenField = conditionHasOverriddenFieldsInSource(path.graph.sources.get(toAdvance.tail.source)!, edge.conditions!);
-        const extraMsg = hasOverriddenField
-          ? ` (note that some of those key fields are overridden in "${source}")`
-          : "";
-        deadEnds.push({
-          sourceSubgraph: source,
-          destSubgraph: dest,
-          reason: UnadvanceableReason.UNSATISFIABLE_KEY_CONDITION,
-          details: `cannot move to subgraph "${dest}" using @key(fields: "${edge.conditions?.toString(true, false)}") of "${edge.head.type}", the key field(s) cannot be resolved from subgraph "${source}"${extraMsg}`
+        deadEndClosures.push(() => {
+          const source = toAdvance.tail.source;
+          const dest = edge.tail.source;
+          const hasOverriddenField = conditionHasOverriddenFieldsInSource(path.graph.sources.get(toAdvance.tail.source)!, edge.conditions!);
+          const extraMsg = hasOverriddenField
+            ? ` (note that some of those key fields are overridden in "${source}")`
+            : "";
+          return {
+            sourceSubgraph: source,
+            destSubgraph: dest,
+            reason: UnadvanceableReason.UNSATISFIABLE_KEY_CONDITION,
+            details: `cannot move to subgraph "${dest}" using @key(fields: "${edge.conditions?.toString(true, false)}") of "${edge.head.type}", the key field(s) cannot be resolved from subgraph "${source}"${extraMsg}`
+          };
         });
       }
       debug.groupEnd(); // End of edge
@@ -1618,7 +1653,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   }
   return {
     paths: mapValues(bestPathBySource).filter(p => p !== null).map(b => b![0]),
-    deadEnds: new Unadvanceables(deadEnds) as TDeadEnds
+    deadEnds: new UnadvanceableClosures(deadEndClosures) as TDeadEnds
   }
 }
 
@@ -1670,7 +1705,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
   transition: Transition,
   conditionResolver: ConditionResolver,
   overrideConditions: Map<string, boolean>,
-) : GraphPath<Transition, V>[] | Unadvanceables {
+) : GraphPath<Transition, V>[] | UnadvanceableClosures {
   assert(transition.collectOperationElements, "Supergraphs shouldn't have transitions that don't collect elements");
 
   if (
@@ -1693,7 +1728,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
     // The case we described above should be the only case we capture here, and so the current
     // subgraph must have the implementation type (it may not have the field we want, but it
     // must have the type) and so we should be able to advance to it.
-    assert(!isUnadvanceable(updatedPath), () => `Advancing ${path} for ${transition} gave ${updatedPath}`);
+    assert(!isUnadvanceableClosures(updatedPath), () => `Advancing ${path} for ${transition} gave ${updatedPath}`);
     // Also note that there is currently no case where we should have more that one option.
     assert(updatedPath.length === 1, () => `Expect one path, got ${updatedPath.length}`)
     path = updatedPath[0];
@@ -1701,7 +1736,7 @@ function advancePathWithDirectTransition<V extends Vertex>(
   }
 
   const options: GraphPath<Transition, V>[] = [];
-  const deadEnds: Unadvanceable[] = [];
+  const deadEndClosures: UnadvanceableClosure[] = [];
 
   for (const edge of path.nextEdges()) {
     // The edge must match the transition. If it doesn't, we cannot use it.
@@ -1713,11 +1748,14 @@ function advancePathWithDirectTransition<V extends Vertex>(
       edge.overrideCondition
       && !edge.satisfiesOverrideConditions(overrideConditions)
     ) {
-      deadEnds.push({
-        destSubgraph: edge.tail.source,
-        sourceSubgraph: edge.head.source,
-        reason: UnadvanceableReason.UNSATISFIABLE_OVERRIDE_CONDITION,
-        details: `Unable to take edge ${edge.toString()} because override condition "${edge.overrideCondition.label}" is ${overrideConditions.get(edge.overrideCondition.label)}`,
+      deadEndClosures.push(() => {
+        return {
+          destSubgraph: edge.tail.source,
+          sourceSubgraph: edge.head.source,
+          reason: UnadvanceableReason.UNSATISFIABLE_OVERRIDE_CONDITION,
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          details: `Unable to take edge ${edge.toString()} because override condition "${edge.overrideCondition!.label}" is ${overrideConditions.get(edge.overrideCondition!.label)}`,
+        };
       });
       continue;
     }
@@ -1727,101 +1765,107 @@ function advancePathWithDirectTransition<V extends Vertex>(
     if (conditionResolution.satisfied) {
       options.push(path.add(transition, edge, conditionResolution));
     } else {
-      switch (edge.transition.kind) {
-        case 'FieldCollection':
-          {
-            // Condition on a field means a @require
-            const field = edge.transition.definition;
-            const parentTypeInSubgraph = path.graph.sources.get(edge.head.source)!.type(field.parent.name)! as CompositeType;
-            const details = conditionResolution.unsatisfiedConditionReason === UnsatisfiedConditionReason.NO_POST_REQUIRE_KEY
-              ? `@require condition on field "${field.coordinate}" can be satisfied but missing usable key on "${parentTypeInSubgraph}" in subgraph "${edge.head.source}" to resume query`
-              : conditionResolution.unsatisfiedConditionReason === UnsatisfiedConditionReason.NO_CONTEXT_SET
-              ? `could not find a match for required context for field "${field.coordinate}"`
-              // TODO: This isn't necessarily just because an @requires
-              // condition was unsatisfied, but could also be because a
-              // @fromContext condition was unsatisfied.
-              : `cannot satisfy @require conditions on field "${field.coordinate}"${warnOnKeyFieldsMarkedExternal(parentTypeInSubgraph)}`;
-            deadEnds.push({
-              sourceSubgraph: edge.head.source,
-              destSubgraph: edge.head.source,
-              reason: UnadvanceableReason.UNSATISFIABLE_REQUIRES_CONDITION,
-              details
-            });
-          }
-          break;
-        case 'InterfaceObjectFakeDownCast':
-          {
-            // The condition on such edge is only __typename, so it essentially means that an @interfaceObject exists but there is no reachable subgraph
-            // with a @key on an interface to find out proper implementations.
-            const details = conditionResolution.unsatisfiedConditionReason === UnsatisfiedConditionReason.NO_POST_REQUIRE_KEY
-              ? `@interfaceObject type "${edge.transition.sourceType.coordinate}" misses a resolvable key to resume query once the implementation type has been resolved`
-              : `no subgraph can be reached to resolve the implementation type of @interfaceObject type "${edge.transition.sourceType.coordinate}"`;
-            deadEnds.push({
-              sourceSubgraph: edge.head.source,
-              destSubgraph: edge.head.source,
-              reason: UnadvanceableReason.UNRESOLVABLE_INTERFACE_OBJECT,
-              details
-            });
-          }
-          break;
-        default:
-          assert(false, () => `Shouldn't have conditions on direct transition ${transition}`);
-      }
+      deadEndClosures.push(() => {
+        switch (edge.transition.kind) {
+          case 'FieldCollection':
+            {
+              // Condition on a field means a @require
+              const field = edge.transition.definition;
+              const parentTypeInSubgraph = path.graph.sources.get(edge.head.source)!.type(field.parent.name)! as CompositeType;
+              const details = conditionResolution.unsatisfiedConditionReason === UnsatisfiedConditionReason.NO_POST_REQUIRE_KEY
+                ? `@require condition on field "${field.coordinate}" can be satisfied but missing usable key on "${parentTypeInSubgraph}" in subgraph "${edge.head.source}" to resume query`
+                : conditionResolution.unsatisfiedConditionReason === UnsatisfiedConditionReason.NO_CONTEXT_SET
+                ? `could not find a match for required context for field "${field.coordinate}"`
+                // TODO: This isn't necessarily just because an @requires
+                // condition was unsatisfied, but could also be because a
+                // @fromContext condition was unsatisfied.
+                : `cannot satisfy @require conditions on field "${field.coordinate}"${warnOnKeyFieldsMarkedExternal(parentTypeInSubgraph)}`;
+              return {
+                sourceSubgraph: edge.head.source,
+                destSubgraph: edge.head.source,
+                reason: UnadvanceableReason.UNSATISFIABLE_REQUIRES_CONDITION,
+                details
+              };
+            }
+          case 'InterfaceObjectFakeDownCast':
+            {
+              // The condition on such edge is only __typename, so it essentially means that an @interfaceObject exists but there is no reachable subgraph
+              // with a @key on an interface to find out proper implementations.
+              const details = conditionResolution.unsatisfiedConditionReason === UnsatisfiedConditionReason.NO_POST_REQUIRE_KEY
+                ? `@interfaceObject type "${edge.transition.sourceType.coordinate}" misses a resolvable key to resume query once the implementation type has been resolved`
+                : `no subgraph can be reached to resolve the implementation type of @interfaceObject type "${edge.transition.sourceType.coordinate}"`;
+              return {
+                sourceSubgraph: edge.head.source,
+                destSubgraph: edge.head.source,
+                reason: UnadvanceableReason.UNRESOLVABLE_INTERFACE_OBJECT,
+                details
+              };
+            }
+          default:
+            assert(false, () => `Shouldn't have conditions on direct transition ${transition}`);
+        }
+      });
     }
   }
   if (options.length > 0) {
     return options;
-  } else if (deadEnds.length > 0) {
-    return new Unadvanceables(deadEnds);
-  } else {
-    let details: string;
-    const subgraph = path.tail.source;
-    if (transition.kind === 'FieldCollection') {
-      const schema = path.graph.sources.get(subgraph)!;
-      const fieldTypeName = transition.definition.parent.name;
-      const typeInSubgraph = schema.type(fieldTypeName);
-      if (!typeInSubgraph && path.tail.type.name !== fieldTypeName) {
-        // This is due to us looking for an implementation field, but the subgraph not having that implementation because
-        // it uses @interfaceObject on an interface of that implementation.
-        details = `cannot find implementation type "${fieldTypeName}" (supergraph interface "${path.tail.type.name}" is declared with @interfaceObject in "${subgraph}")`;
-      } else {
-        const fieldInSubgraph = typeInSubgraph && isCompositeType(typeInSubgraph)
-          ? typeInSubgraph.field(transition.definition.name)
-          : undefined;
-
-        if (fieldInSubgraph) {
-          // the subgraph has the field but no corresponding edge. This should only happen if the field is external.
-          const externalDirective = fieldInSubgraph.appliedDirectivesOf(federationMetadata(fieldInSubgraph.schema())!.externalDirective()).pop();
-          assert(
-            externalDirective,
-            () => `${fieldInSubgraph.coordinate} in ${subgraph} is not external but there is no corresponding edge (edges from ${path} = [${path.nextEdges().join(', ')}])`
-          );
-          // but the field is external in the "subgraph-extracted-from-the-supergraph", but it might have been forced to an external
-          // due to being a used-overriden field, in which case we want to amend the message to avoid confusing the user.
-          // Note that the subgraph extraction marks such "forced external due to being overriden" by setting the "reason" to "[overridden]".
-          const overriddingSources = externalDirective.arguments().reason === '[overridden]'
-            ? findOverriddingSourcesIfOverridden(fieldInSubgraph, subgraph, path.graph.sources)
-            : [];
-          if (overriddingSources.length > 0) {
-            details = `field "${transition.definition.coordinate}" is not resolvable because it is overridden by ${printSubgraphNames(overriddingSources)}`;
-          } else {
-            details = `field "${transition.definition.coordinate}" is not resolvable because marked @external`;
-          }
-        } else {
-          details = `cannot find field "${transition.definition.coordinate}"`;
-        }
-      }
-    } else {
-      assert(transition.kind === 'DownCast', () => `Unhandled direct transition ${transition} of kind ${transition.kind}`);
-      details = `cannot find type "${transition.castedType}"`;
-    }
-    return new Unadvanceables([{
-      sourceSubgraph: subgraph,
-      destSubgraph: subgraph,
-      reason: UnadvanceableReason.NO_MATCHING_TRANSITION,
-      details
-    }]);
   }
+
+  return new UnadvanceableClosures(() => {
+    const deadEnds = new UnadvanceableClosures(deadEndClosures).toUnadvanceables().reasons;
+    if (deadEnds.length > 0) {
+      return deadEnds;
+    } else {
+      let details: string;
+      const subgraph = path.tail.source;
+      if (transition.kind === 'FieldCollection') {
+        const schema = path.graph.sources.get(subgraph)!;
+        const fieldTypeName = transition.definition.parent.name;
+        const typeInSubgraph = schema.type(fieldTypeName);
+        if (!typeInSubgraph && path.tail.type.name !== fieldTypeName) {
+          // This is due to us looking for an implementation field, but the subgraph not having that implementation because
+          // it uses @interfaceObject on an interface of that implementation.
+          details = `cannot find implementation type "${fieldTypeName}" (supergraph interface "${path.tail.type.name}" is declared with @interfaceObject in "${subgraph}")`;
+        } else {
+          const fieldInSubgraph = typeInSubgraph && isCompositeType(typeInSubgraph)
+            ? typeInSubgraph.field(transition.definition.name)
+            : undefined;
+  
+          if (fieldInSubgraph) {
+            // the subgraph has the field but no corresponding edge. This should only happen if the field is external.
+            const externalDirective = fieldInSubgraph.appliedDirectivesOf(federationMetadata(fieldInSubgraph.schema())!.externalDirective()).pop();
+            assert(
+              externalDirective,
+              () => `${fieldInSubgraph.coordinate} in ${subgraph} is not external but there is no corresponding edge (edges from ${path} = [${path.nextEdges().join(', ')}])`
+            );
+            // but the field is external in the "subgraph-extracted-from-the-supergraph", but it might have been forced to an external
+            // due to being a used-overriden field, in which case we want to amend the message to avoid confusing the user.
+            // Note that the subgraph extraction marks such "forced external due to being overriden" by setting the "reason" to "[overridden]".
+            const overriddingSources = externalDirective.arguments().reason === '[overridden]'
+              ? findOverriddingSourcesIfOverridden(fieldInSubgraph, subgraph, path.graph.sources)
+              : [];
+            if (overriddingSources.length > 0) {
+              details = `field "${transition.definition.coordinate}" is not resolvable because it is overridden by ${printSubgraphNames(overriddingSources)}`;
+            } else {
+              details = `field "${transition.definition.coordinate}" is not resolvable because marked @external`;
+            }
+          } else {
+            details = `cannot find field "${transition.definition.coordinate}"`;
+          }
+        }
+      } else {
+        assert(transition.kind === 'DownCast', () => `Unhandled direct transition ${transition} of kind ${transition.kind}`);
+        details = `cannot find type "${transition.castedType}"`;
+      }
+      return {
+        sourceSubgraph: subgraph,
+        destSubgraph: subgraph,
+        reason: UnadvanceableReason.NO_MATCHING_TRANSITION,
+        details
+      };
+    }
+  });
+
 }
 
 function findOverriddingSourcesIfOverridden(
