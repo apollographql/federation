@@ -40,7 +40,7 @@ import { parseSelectionSet } from "./operations";
 import fs from 'fs';
 import path from 'path';
 import { validateStringContainsBoolean } from "./utils";
-import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, FeatureUrl, FederationDirectiveName, SchemaElement, costIdentity, errorCauses, isFederationDirectiveDefinedInSchema, listSizeIdentity, printErrors } from ".";
+import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, FeatureUrl, FederationDirectiveName, SchemaElement, costIdentity, errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
 
 function filteredTypes(
   supergraph: Schema,
@@ -491,9 +491,11 @@ function getOriginalDirectiveNames(supergraph: Schema): Record<string, string> {
         case costIdentity:
           originalDirectiveNames[FederationDirectiveName.COST] = linkDirective.arguments().as;
           break;
+        /* TODO: How do we know which it is?
         case listSizeIdentity:
           originalDirectiveNames[FederationDirectiveName.LIST_SIZE] = linkDirective.arguments().as;
           break;
+        */
       }
     }
   }

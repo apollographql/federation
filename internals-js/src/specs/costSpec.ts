@@ -1,7 +1,7 @@
 import { DirectiveLocation } from 'graphql';
 import { createDirectiveSpecification } from '../directiveAndTypeSpecification';
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from './coreSpec';
-import { NonNullType } from '../definitions';
+import { ListType, NonNullType } from '../definitions';
 import { registerKnownFeature } from '../knownCoreFeatures';
 import { ARGUMENT_COMPOSITION_STRATEGIES } from '../argumentCompositionStrategies';
 
@@ -26,6 +26,20 @@ export class CostSpecDefinition extends FeatureDefinition {
       repeatable: false,
       supergraphSpecification: (fedVersion) => COST_VERSIONS.getMinimumRequiredVersion(fedVersion),
     }));
+
+    this.registerDirective(createDirectiveSpecification({
+      name: 'listSize',
+      locations: [DirectiveLocation.FIELD_DEFINITION],
+      args: [
+        { name: 'assumedSize', type: (schema) => schema.intType(), compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_MAX },
+        { name: 'slicingArguments', type: (schema) => new ListType(new NonNullType(schema.stringType())), compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_UNION },
+        { name: 'sizedFields', type: (schema) => new ListType(new NonNullType(schema.stringType())), compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_UNION },
+        { name: 'requireOneSlicingArgument', type: (schema) => schema.booleanType(), defaultValue: true, compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_AND },
+      ],
+      composes: true,
+      repeatable: false,
+      supergraphSpecification: (fedVersion) => COST_VERSIONS.getMinimumRequiredVersion(fedVersion)
+    }));
   }
 }
 
@@ -36,4 +50,11 @@ registerKnownFeature(COST_VERSIONS);
 
 export interface CostDirectiveArguments {
   weight: number;
+}
+
+export interface ListSizeDirectiveArguments {
+  assumedSize?: number;
+  slicingArguments?: string[];
+  sizedFields?: string[];
+  requireOneSlicingArgument?: boolean;
 }

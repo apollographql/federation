@@ -39,7 +39,7 @@ const subgraphWithCost = {
 const subgraphWithListSize = {
   name: 'subgraphWithListSize',
   typeDefs: asFed2SubgraphDocument(gql`
-    extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+    extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
 
     type Query {
       fieldWithListSize: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
@@ -73,7 +73,7 @@ const subgraphWithRenamedCost = {
 const subgraphWithRenamedListSize = {
   name: 'subgraphWithListSize',
   typeDefs: asFed2SubgraphDocument(gql`
-    extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: [{ name: "@listSize", as: "@renamedListSize" }])
+    extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: [{ name: "@listSize", as: "@renamedListSize" }])
 
     type Query {
       fieldWithListSize: [String!] @renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)
@@ -241,7 +241,7 @@ describe('demand control directive composition', () => {
       const costLink = links.find((link) => link.arguments().url === "https://specs.apollo.dev/cost/v0.1");
       expect(costLink?.arguments().as).toBe("renamedCost");
 
-      const listSizeLink = links.find((link) => link.arguments().url === "https://specs.apollo.dev/listSize/v0.1");
+      const listSizeLink = links.find((link) => link.arguments().url === "https://specs.apollo.dev/cost/v0.1");
       expect(listSizeLink?.arguments().as).toBe("renamedListSize");
 
       // Ensure the directives are applied to the expected fields with the new names
@@ -341,7 +341,7 @@ describe('demand control directive composition', () => {
       const subgraphA = {
         name: 'subgraph-a',
         typeDefs: asFed2SubgraphDocument(gql`
-          extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+          extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
   
           type Query {
             sharedWithListSize: [Int] @shareable @listSize(assumedSize: 10)
@@ -351,7 +351,7 @@ describe('demand control directive composition', () => {
       const subgraphB = {
         name: 'subgraph-b',
         typeDefs: asFed2SubgraphDocument(gql`
-          extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+          extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
   
           type Query {
             sharedWithListSize: [Int] @shareable @listSize(assumedSize: 20)
@@ -448,7 +448,7 @@ describe('demand control directive extraction', () => {
     const subgraphA = {
       name: 'subgraph-a',
       typeDefs: asFed2SubgraphDocument(gql`
-        extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+        extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
 
         type Query {
           sizedList(first: Int!): HasInts @shareable @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
@@ -462,7 +462,7 @@ describe('demand control directive extraction', () => {
     const subgraphB = {
       name: 'subgraph-b',
       typeDefs: asFed2SubgraphDocument(gql`
-        extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+        extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
 
         type Query {
           sizedList(first: Int!): HasInts @shareable @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: false)
@@ -545,7 +545,7 @@ describe('demand control directive extraction', () => {
       const subgraphA = {
         name: 'subgraph-a',
         typeDefs: asFed2SubgraphDocument(gql`
-          extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+          extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
   
           type Query {
             sharedWithListSize: [Int] @shareable @listSize(assumedSize: 10)
@@ -555,7 +555,7 @@ describe('demand control directive extraction', () => {
       const subgraphB = {
         name: 'subgraph-b',
         typeDefs: asFed2SubgraphDocument(gql`
-          extend schema @link(url: "https://specs.apollo.dev/listSize/v0.1", import: ["@listSize"])
+          extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
   
           type Query {
             sharedWithListSize: [Int] @shareable @listSize(assumedSize: 20)
