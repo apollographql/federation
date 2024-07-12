@@ -59,6 +59,8 @@ import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
 const validationErrorCode = 'GraphQLValidationFailed';
 const DEFAULT_VALIDATION_ERROR_MESSAGE = 'The schema is not a valid GraphQL schema.';
 
+const EMPTY_SET = new Set<never>();
+
 export const ErrGraphQLValidationFailed = (causes: GraphQLError[], message: string = DEFAULT_VALIDATION_ERROR_MESSAGE) =>
   aggregateError(validationErrorCode, message, causes);
 
@@ -660,7 +662,7 @@ export abstract class NamedSchemaElement<TOwnType extends NamedSchemaElement<TOw
 }
 
 abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSchemaElement<TOwnType, Schema, TReferencer>> extends NamedSchemaElement<TOwnType, Schema, TReferencer> {
-  protected _referencers?: TReferencer[];
+  protected _referencers?: Set<TReferencer>;
   protected _extensions?: Extension<TOwnType>[];
   public preserveEmptyDefinition: boolean = false;
 
@@ -669,19 +671,12 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
   }
 
   private addReferencer(referencer: TReferencer) {
-    if (this._referencers) {
-      if (!this._referencers.includes(referencer)) {
-        this._referencers.push(referencer);
-      }
-    } else {
-      this._referencers = [ referencer ];
-    }
+    this._referencers ??= new Set();
+    this._referencers.add(referencer);
   }
 
   private removeReferencer(referencer: TReferencer) {
-    if (this._referencers) {
-      removeArrayElement(referencer, this._referencers);
-    }
+    this._referencers?.delete(referencer)
   }
 
   get coordinate(): string {
@@ -789,10 +784,11 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
     this.removeAppliedDirectives();
     this.removeInnerElements();
     // Remove this type's references.
-    const toReturn = this._referencers?.map(r => {
+    const toReturn: TReferencer[] = [];
+    this._referencers?.forEach(r => {
       SchemaElement.prototype['removeTypeReferenceInternal'].call(r, this);
-      return r;
-    }) ?? [];
+      toReturn.push(r);
+    });
     this._referencers = undefined;
     // Remove this type from its parent schema.
     Schema.prototype['removeTypeInternal'].call(this._parent, this);
@@ -820,8 +816,8 @@ abstract class BaseNamedType<TReferencer, TOwnType extends NamedType & NamedSche
 
   protected abstract removeReferenceRecursive(ref: TReferencer): void;
 
-  referencers(): readonly TReferencer[] {
-    return this._referencers ?? [];
+  referencers(): ReadonlySet<TReferencer> {
+    return this._referencers ?? EMPTY_SET;
   }
 
   isReferenced(): boolean {
@@ -1261,7 +1257,7 @@ export class Schema {
     if (!this.apiSchema) {
       this.validate();
 
-      const apiSchema = this.clone();
+      const apiSchema = this.clone(undefined, false);
 
       // As we compute the API schema of a supergraph, we want to ignore explicit definitions of `@defer` and `@stream` because
       // those correspond to the merging of potential definitions from the subgraphs, but whether the supergraph API schema
@@ -1611,9 +1607,9 @@ export class Schema {
     this.isValidated = true;
   }
 
-  clone(builtIns?: SchemaBlueprint): Schema {
+  clone(builtIns?: SchemaBlueprint, cloneJoinDirectives: boolean = true): Schema {
     const cloned = new Schema(builtIns ?? this.blueprint);
-    copy(this, cloned);
+    copy(this, cloned, cloneJoinDirectives);
     if (this.isValidated) {
       cloned.assumeValid();
     }
@@ -2124,7 +2120,13 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
   }
 
   unionsWhereMember(): readonly UnionType[] {
-    return this._referencers?.filter<UnionType>((r): r is UnionType => r instanceof BaseNamedType && isUnionType(r)) ?? [];
+    const unions: UnionType[] = [];
+    this._referencers?.forEach((r) => {
+      if (r instanceof BaseNamedType && isUnionType(r)) {
+        unions.push(r);
+      }
+    });
+    return unions;
   }
 }
 
@@ -2133,7 +2135,13 @@ export class InterfaceType extends FieldBasedType<InterfaceType, InterfaceTypeRe
   readonly astDefinitionKind = Kind.INTERFACE_TYPE_DEFINITION;
 
   allImplementations(): (ObjectType | InterfaceType)[] {
-    return this.referencers().filter(ref => ref.kind === 'ObjectType' || ref.kind === 'InterfaceType') as (ObjectType | InterfaceType)[];
+    const implementations: (ObjectType | InterfaceType)[] = [];
+    this.referencers().forEach(ref => {
+      if (ref.kind === 'ObjectType' || ref.kind === 'InterfaceType') {
+        implementations.push(ref);
+      }
+    });
+    return implementations;
   }
 
   possibleRuntimeTypes(): readonly ObjectType[] {
@@ -2895,7 +2903,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
   private _args?: MapWithCachedArrays<string, ArgumentDefinition<DirectiveDefinition>>;
   repeatable: boolean = false;
   private readonly _locations: DirectiveLocation[] = [];
-  private _referencers?: Directive<SchemaElement<any, any>, TApplicationArgs>[];
+  private _referencers?: Set<Directive<SchemaElement<any, any>, TApplicationArgs>>;
 
   constructor(name: string, readonly isBuiltIn: boolean = false) {
     super(name);
@@ -2999,25 +3007,19 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     return this.locations.some((loc) => isTypeSystemDirectiveLocation(loc));
   }
 
-  applications(): readonly Directive<SchemaElement<any, any>, TApplicationArgs>[] {
-    return this._referencers ?? [];
+  applications(): ReadonlySet<Directive<SchemaElement<any, any>, TApplicationArgs>> {
+    this._referencers ??= new Set();
+    return this._referencers;
   }
 
   private addReferencer(referencer: Directive<SchemaElement<any, any>, TApplicationArgs>) {
     assert(referencer, 'Referencer should exists');
-    if (this._referencers) {
-      if (!this._referencers.includes(referencer)) {
-        this._referencers.push(referencer);
-      }
-    } else {
-      this._referencers = [ referencer ];
-    }
+    this._referencers ??= new Set();
+    this._referencers.add(referencer);
   }
 
   private removeReferencer(referencer: Directive<SchemaElement<any, any>, TApplicationArgs>) {
-    if (this._referencers) {
-      removeArrayElement(referencer, this._referencers);
-    }
+    this._referencers?.delete(referencer);
   }
 
   protected removeTypeReference(type: NamedType) {
@@ -3048,7 +3050,7 @@ export class DirectiveDefinition<TApplicationArgs extends {[key: string]: any} =
     // doesn't store a link to that definition. Instead, we fetch the definition
     // from the schema when requested. So we don't have to do anything on the
     // referencers other than clear them (and return the pre-cleared set).
-    const toReturn = this._referencers ?? [];
+    const toReturn = Array.from(this._referencers ?? []);
     this._referencers = undefined;
     // Remove this directive definition from its parent schema.
     Schema.prototype['removeDirectiveInternal'].call(this._parent, this);
@@ -3598,7 +3600,7 @@ export function copyDirectiveDefinitionToSchema({
   );
 }
 
-function copy(source: Schema, dest: Schema) {
+function copy(source: Schema, dest: Schema, cloneJoinDirectives: boolean) {
   // We shallow copy types first so any future reference to any of them can be dereferenced.
   for (const type of typesToCopy(source, dest)) {
     dest.addType(newNamedType(type.kind, type.name));
@@ -3615,7 +3617,7 @@ function copy(source: Schema, dest: Schema) {
 
   copySchemaDefinitionInner(source.schemaDefinition, dest.schemaDefinition);
   for (const type of typesToCopy(source, dest)) {
-    copyNamedTypeInner(type, dest.type(type.name)!);
+    copyNamedTypeInner(type, dest.type(type.name)!, cloneJoinDirectives);
   }
 }
 
@@ -3655,7 +3657,7 @@ function copySchemaDefinitionInner(source: SchemaDefinition, dest: SchemaDefinit
   dest.sourceAST = source.sourceAST;
 }
 
-function copyNamedTypeInner(source: NamedType, dest: NamedType) {
+function copyNamedTypeInner(source: NamedType, dest: NamedType, cloneJoinDirectives: boolean) {
   dest.preserveEmptyDefinition = source.preserveEmptyDefinition;
   const extensionsMap = copyExtensions(source, dest);
   // Same as copyAppliedDirectives, but as the directive applies to the type, we need to remember if the application
@@ -3672,7 +3674,7 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
       for (const sourceField of source.fields()) {
         const destField = destFieldBasedType.addField(new FieldDefinition(sourceField.name));
         copyOfExtension(extensionsMap, sourceField, destField);
-        copyFieldDefinitionInner(sourceField, destField);
+        copyFieldDefinitionInner(sourceField, destField, cloneJoinDirectives);
       }
       for (const sourceImpl of source.interfaceImplementations()) {
         const destImpl = destFieldBasedType.addImplementedInterface(sourceImpl.interface.name);
@@ -3692,7 +3694,7 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
         const destValue = destEnumType.addValue(sourceValue.name);
         destValue.description = sourceValue.description;
         copyOfExtension(extensionsMap, sourceValue, destValue);
-        copyAppliedDirectives(sourceValue, destValue);
+        copyAppliedDirectives(sourceValue, destValue, cloneJoinDirectives);
       }
       break
     case 'InputObjectType':
@@ -3700,13 +3702,13 @@ function copyNamedTypeInner(source: NamedType, dest: NamedType) {
       for (const sourceField of source.fields()) {
         const destField = destInputType.addField(new InputFieldDefinition(sourceField.name));
         copyOfExtension(extensionsMap, sourceField, destField);
-        copyInputFieldDefinitionInner(sourceField, destField);
+        copyInputFieldDefinitionInner(sourceField, destField, cloneJoinDirectives);
       }
   }
 }
 
-function copyAppliedDirectives(source: SchemaElement<any, any>, dest: SchemaElement<any, any>) {
-  source.appliedDirectives.forEach((d) => copyAppliedDirective(d, dest));
+function copyAppliedDirectives(source: SchemaElement<any, any>, dest: SchemaElement<any, any>, cloneJoinDirectives: boolean) {
+  source.appliedDirectives.filter(d => cloneJoinDirectives || !d.name.startsWith('join__')).forEach((d) => copyAppliedDirective(d, dest));
 }
 
 function copyAppliedDirective(source: Directive<any, any>, dest: SchemaElement<any, any>): Directive<any, any> {
@@ -3715,23 +3717,27 @@ function copyAppliedDirective(source: Directive<any, any>, dest: SchemaElement<a
   return res;
 }
 
-function copyFieldDefinitionInner<P extends ObjectType | InterfaceType>(source: FieldDefinition<P>, dest: FieldDefinition<P>) {
+function copyFieldDefinitionInner<P extends ObjectType | InterfaceType>(source: FieldDefinition<P>, dest: FieldDefinition<P>, cloneJoinDirectives: boolean) {
   const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()) as OutputType;
   dest.type = type;
   for (const arg of source.arguments()) {
     const argType = copyWrapperTypeOrTypeRef(arg.type, dest.schema());
-    copyArgumentDefinitionInner(arg, dest.addArgument(arg.name, argType as InputType));
+    copyArgumentDefinitionInner({
+      source: arg, 
+      dest: dest.addArgument(arg.name, argType as InputType),
+      cloneJoinDirectives,
+    });
   }
-  copyAppliedDirectives(source, dest);
+  copyAppliedDirectives(source, dest, cloneJoinDirectives);
   dest.description = source.description;
   dest.sourceAST = source.sourceAST;
 }
 
-function copyInputFieldDefinitionInner(source: InputFieldDefinition, dest: InputFieldDefinition) {
+function copyInputFieldDefinitionInner(source: InputFieldDefinition, dest: InputFieldDefinition, cloneJoinDirectives: boolean) {
   const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()) as InputType;
   dest.type = type;
   dest.defaultValue = source.defaultValue;
-  copyAppliedDirectives(source, dest);
+  copyAppliedDirectives(source, dest, cloneJoinDirectives);
   dest.description = source.description;
   dest.sourceAST = source.sourceAST;
 }
@@ -3750,16 +3756,22 @@ function copyWrapperTypeOrTypeRef(source: Type | undefined, destParent: Schema):
   }
 }
 
-function copyArgumentDefinitionInner<P extends FieldDefinition<any> | DirectiveDefinition>(
+function copyArgumentDefinitionInner<P extends FieldDefinition<any> | DirectiveDefinition>({
+  source,
+  dest,
+  copyDirectiveApplications = true,
+  cloneJoinDirectives,
+}: {
   source: ArgumentDefinition<P>,
   dest: ArgumentDefinition<P>,
-  copyDirectiveApplications: boolean = true,
-) {
+  copyDirectiveApplications?: boolean,
+  cloneJoinDirectives: boolean,
+}) {
   const type = copyWrapperTypeOrTypeRef(source.type, dest.schema()) as InputType;
   dest.type = type;
   dest.defaultValue = source.defaultValue;
   if (copyDirectiveApplications) {
-    copyAppliedDirectives(source, dest);
+    copyAppliedDirectives(source, dest, cloneJoinDirectives);
   }
   dest.description = source.description;
   dest.sourceAST = source.sourceAST;
@@ -3781,7 +3793,12 @@ function copyDirectiveDefinitionInner(
 
   for (const arg of source.arguments()) {
     const type = copyWrapperTypeOrTypeRef(arg.type, dest.schema());
-    copyArgumentDefinitionInner(arg, dest.addArgument(arg.name, type as InputType), copyDirectiveApplicationsInArguments);
+    copyArgumentDefinitionInner({
+      source: arg,
+      dest: dest.addArgument(arg.name, type as InputType),
+      copyDirectiveApplications: copyDirectiveApplicationsInArguments,
+      cloneJoinDirectives: true,
+    });
   }
   dest.repeatable = source.repeatable;
   dest.addLocations(...locations);

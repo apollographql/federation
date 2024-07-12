@@ -1,5 +1,43 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.8.3-beta.2
+
+### Patch Changes
+
+- Updated dependencies [[`50d648ccffb05591878de75dc5522914ed48698f`](https://github.com/apollographql/federation/commit/50d648ccffb05591878de75dc5522914ed48698f)]:
+  - @apollo/federation-internals@2.8.3-beta.2
+  - @apollo/query-graphs@2.8.3-beta.2
+
+## 2.8.3-beta.1
+
+### Patch Changes
+
+- Fix logic to compute missing subgraphs when generating composition hints/errors ([#3076](https://github.com/apollographql/federation/pull/3076))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.3-beta.1
+  - @apollo/query-graphs@2.8.3-beta.1
+
+## 2.8.3-beta.0
+
+### Patch Changes
+
+- Error messages are now lazily evaluated for satisfiability validations. ([#3068](https://github.com/apollographql/federation/pull/3068))
+
+- Query graph caches now use maps instead of sparsely-populated arrays for per-subgraph data. ([#3066](https://github.com/apollographql/federation/pull/3066))
+
+- Add a fast path to skip override validation for fields without any subgraph `@override`s. ([#3070](https://github.com/apollographql/federation/pull/3070))
+
+- Type merging now uses maps instead of sparsely-populated arrays for per-subgraph data. ([#3069](https://github.com/apollographql/federation/pull/3069))
+
+- Stop duplicating hints for inconsistent value type fields per subgraph. ([#3071](https://github.com/apollographql/federation/pull/3071))
+
+- Use sets instead of arrays for tracking schema type/directive referencers. ([#3067](https://github.com/apollographql/federation/pull/3067))
+
+- Updated dependencies [[`38debcf2f9af1a719bd1c8acbd9335efa8427ddb`](https://github.com/apollographql/federation/commit/38debcf2f9af1a719bd1c8acbd9335efa8427ddb), [`860aace9904e787f9bf05aad94be5b5920f10543`](https://github.com/apollographql/federation/commit/860aace9904e787f9bf05aad94be5b5920f10543), [`f753d55e9a49d11389ee4f8d7976533447e95ede`](https://github.com/apollographql/federation/commit/f753d55e9a49d11389ee4f8d7976533447e95ede), [`3af790517d662f3bec9064c0bf243014c579e9cd`](https://github.com/apollographql/federation/commit/3af790517d662f3bec9064c0bf243014c579e9cd)]:
+  - @apollo/query-graphs@2.8.3-beta.0
+  - @apollo/federation-internals@2.8.3-beta.0
+
 ## 2.8.2
 
 ### Patch Changes

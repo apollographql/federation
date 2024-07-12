@@ -1,9 +1,9 @@
 import { SelectionSet, assert } from "@apollo/federation-internals";
 import { ConditionResolution, ConditionResolver, ExcludedConditions, ExcludedDestinations, sameExcludedDestinations } from "./graphPath";
 import { PathContext } from "./pathContext";
-import { Edge, QueryGraph, QueryGraphState } from "./querygraph";
+import { Edge, QueryGraphState } from "./querygraph";
 
-export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionResolver): ConditionResolver {
+export function cachingConditionResolver(resolver: ConditionResolver): ConditionResolver {
   // For every edge having a condition, we cache the resolution its conditions when possible.
   // We save resolution with the set of excluded edges that were used to compute it: the reason we do this is
   // that excluded edges impact the resolution, so we should only used a cached value if we know the excluded
@@ -13,7 +13,7 @@ export function cachingConditionResolver(graph: QueryGraph, resolver: ConditionR
   // when we have no excluded edges, we'd only ever use the cache for the first key of every type. However,
   // as the algorithm always try keys in the same order (the order of the edges in the query graph), including
   // the excluded edges we see on the first ever call is actually the proper thing to do.
-  const cache = new QueryGraphState<undefined, [ConditionResolution, ExcludedDestinations]>(graph);
+  const cache = new QueryGraphState<undefined, [ConditionResolution, ExcludedDestinations]>();
   return (edge: Edge, context: PathContext, excludedDestinations: ExcludedDestinations, excludedConditions: ExcludedConditions, extraConditions?: SelectionSet) => {
     assert(edge.conditions || extraConditions, 'Should not have been called for edge without conditions');
 
