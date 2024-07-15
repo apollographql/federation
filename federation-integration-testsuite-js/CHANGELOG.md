@@ -1,5 +1,9 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.8.3
+
+## 2.8.3-beta.2
+
 ## 2.8.3-beta.1
 
 ## 2.8.3-beta.0
