@@ -238,11 +238,9 @@ describe('demand control directive composition', () => {
 
       // Ensure the new directive names are specified in the supergraph so we can use them during extraction
       const links = result.schema.schemaDefinition.appliedDirectivesOf("link");
-      const costLink = links.find((link) => link.arguments().url === "https://specs.apollo.dev/cost/v0.1");
-      expect(costLink?.arguments().as).toBe("renamedCost");
-
-      const listSizeLink = links.find((link) => link.arguments().url === "https://specs.apollo.dev/cost/v0.1");
-      expect(listSizeLink?.arguments().as).toBe("renamedListSize");
+      const costLinks = links.filter((link) => link.arguments().url === "https://specs.apollo.dev/cost/v0.1");
+      expect(costLinks.length).toBe(1);
+      expect(costLinks[0].toString()).toEqual(`@link(url: "https://specs.apollo.dev/cost/v0.1", import: [{name: "@cost", as: "@renamedCost"}, {name: "@listSize", as: "@renamedListSize"}])`);
 
       // Ensure the directives are applied to the expected fields with the new names
       const costDirectiveApplications = fieldWithCost(result)?.appliedDirectivesOf('renamedCost');

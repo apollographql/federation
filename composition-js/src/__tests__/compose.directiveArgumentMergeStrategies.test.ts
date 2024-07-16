@@ -219,7 +219,7 @@ describe('composition of directive with non-trivial argument strategies', () => 
     const s = result.schema;
 
     expect(directiveStrings(s.schemaDefinition, name)).toStrictEqual([
-      `@link(url: "https://specs.apollo.dev/${name}/v0.1")`
+      `@link(url: "https://specs.apollo.dev/${name}/v0.1", import: ["@${name}"])`
     ]);
 
     const t = s.type('T') as ObjectType;

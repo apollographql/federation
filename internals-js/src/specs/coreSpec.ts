@@ -552,6 +552,26 @@ export class CoreSpecDefinition extends FeatureDefinition {
     return feature.addElementsToSchema(schema);
   }
 
+  applyFeatureAsLink(schema: Schema, feature: FeatureDefinition, purpose?: CorePurpose, imports?: CoreImport[]): GraphQLError[] {
+    const existing = schema.schemaDefinition.appliedDirectivesOf("link").find((link) => link.arguments().url === feature.toString());
+    if (existing) {
+      existing.remove();
+    }
+
+    const coreDirective = this.coreDirective(schema);
+    const args = {
+      url: feature.toString(),
+      import: (existing?.arguments().import ?? []).concat(imports?.map((i) => i.as ? { name: `@${i.name}`, as: `@${i.as}` } : `@${i.name}`)),
+    } as LinkDirectiveArgs;
+
+    if (this.supportPurposes() && purpose) {
+      args.for = purpose;
+    }
+
+    schema.schemaDefinition.applyDirective(coreDirective, args);
+    return feature.addElementsToSchema(schema);
+  }
+
   extractFeatureUrl(args: CoreOrLinkDirectiveArgs): FeatureUrl {
     return FeatureUrl.parse(args[this.urlArgName()]!);
   }
