@@ -40,6 +40,6 @@ overrides:
       - "\\]\\([^)]+\\)"
       - "youTubeID=.+/>"
   # Ignore user and repo names in GitHub links to supported subgraph libraries.
-  - filename: '**/supported-subgraphs.md'
+  - filename: '**/compatible-subgraphs.md'
     ignoreRegExpList:
       - "Github: <a .+</a>"

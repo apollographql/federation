@@ -135,7 +135,7 @@ type Product @key(fields: "upc") @key(fields: "sku") {
 
 <Note>
 
-To check whether your subgraph library supports repeatable directives, see the `repeatable @key` item in [Federation-compatible subgraph implementations](../building-supergraphs/supported-subgraphs/).
+To check whether your subgraph library supports repeatable directives, see the `repeatable @key` item in [Federation-compatible subgraph implementations](../building-supergraphs/compatible-subgraphs/).
 
 </Note>
 
@@ -439,7 +439,7 @@ To learn more, see the [Incremental migration with `@override`](../entities/migr
 
 <EnterpriseFeature>
 
-This argument is available in Apollo Federation 2.7 and later. It is an [Enterprise feature](/router/enterprise-features) of the Apollo Router and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/). You can test it out by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+This argument is available in Apollo Federation 2.7 and later. It is an [Enterprise feature](/router/enterprise-features) of the GraphOS Router and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/). You can test it out by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
 
 </EnterpriseFeature>
 
@@ -472,7 +472,7 @@ directive @authenticated on
   | ENUM
 ```
 
-Indicates to composition that the target element is accessible only to the authenticated supergraph users. For more granular access control, see the [`@requiresScopes`](#requiresScopes) directive below. Refer to the [Apollo Router article](/router/configuration/authorization#authenticated) for additional details.
+Indicates to composition that the target element is accessible only to the authenticated supergraph users. For more granular access control, see the [`@requiresScopes`](#requiresScopes) directive below. Refer to the [router article](/router/configuration/authorization#authenticated) for additional details.
 
 <MinVersion version="2.5">
 
@@ -491,7 +491,7 @@ directive @requiresScopes(scopes: [[federation__Scope!]!]!) on
   | ENUM
 ```
 
-Indicates to composition that the target element is accessible only to the authenticated supergraph users with the appropriate JWT scopes. Refer to the [Apollo Router article](/router/configuration/authorization#requiresscopes) for additional details.
+Indicates to composition that the target element is accessible only to the authenticated supergraph users with the appropriate JWT scopes. Refer to the [router article](/router/configuration/authorization#requiresscopes) for additional details.
 
 #### Arguments
 
@@ -540,7 +540,7 @@ directive @policy(policies: [[federation__Policy!]!]!) on
   | ENUM
 ```
 
-Indicates to composition that the target element is restricted based on authorization policies that are evaluated in a Rhai script or coprocessor. Refer to the [Apollo Router article](/router/configuration/authorization#policy) for additional details.
+Indicates to composition that the target element is restricted based on authorization policies that are evaluated in a Rhai script or coprocessor. Refer to the [router article](/router/configuration/authorization#policy) for additional details.
 
 #### Arguments
 
@@ -874,7 +874,7 @@ directive @hello on FIELD_DEFINITION
 
 This directive has the following requirements:
 
-  - Ensure your [subgraph library](../building-supergraphs/supported-subgraphs) supports `@composeDirective` or try manually adding the `@composeDirective` definition to your subgraph schema.
+  - Ensure your [subgraph library](../building-supergraphs/compatible-subgraphs) supports `@composeDirective` or try manually adding the `@composeDirective` definition to your subgraph schema.
   - The directive to preserve must be defined and imported from a core specification via the `@link` directive.
   - The specified directive `name` must match the name used for the directive in this subgraph.
       - If you use the `as` argument in your `@link` definition to modify the directive's name from its spec's default, provide the modified name, not the default name.

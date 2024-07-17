@@ -1,5 +1,41 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.8.3
+
+### Patch Changes
+
+- Error messages are now lazily evaluated for satisfiability validations. ([#3068](https://github.com/apollographql/federation/pull/3068))
+
+- Query graph caches now use maps instead of sparsely-populated arrays for per-subgraph data. ([#3066](https://github.com/apollographql/federation/pull/3066))
+
+- Updated dependencies [[`50d648ccffb05591878de75dc5522914ed48698f`](https://github.com/apollographql/federation/commit/50d648ccffb05591878de75dc5522914ed48698f), [`f753d55e9a49d11389ee4f8d7976533447e95ede`](https://github.com/apollographql/federation/commit/f753d55e9a49d11389ee4f8d7976533447e95ede), [`3af790517d662f3bec9064c0bf243014c579e9cd`](https://github.com/apollographql/federation/commit/3af790517d662f3bec9064c0bf243014c579e9cd)]:
+  - @apollo/federation-internals@2.8.3
+
+## 2.8.3-beta.2
+
+### Patch Changes
+
+- Updated dependencies [[`50d648ccffb05591878de75dc5522914ed48698f`](https://github.com/apollographql/federation/commit/50d648ccffb05591878de75dc5522914ed48698f)]:
+  - @apollo/federation-internals@2.8.3-beta.2
+
+## 2.8.3-beta.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.3-beta.1
+
+## 2.8.3-beta.0
+
+### Patch Changes
+
+- Error messages are now lazily evaluated for satisfiability validations. ([#3068](https://github.com/apollographql/federation/pull/3068))
+
+- Query graph caches now use maps instead of sparsely-populated arrays for per-subgraph data. ([#3066](https://github.com/apollographql/federation/pull/3066))
+
+- Updated dependencies [[`f753d55e9a49d11389ee4f8d7976533447e95ede`](https://github.com/apollographql/federation/commit/f753d55e9a49d11389ee4f8d7976533447e95ede), [`3af790517d662f3bec9064c0bf243014c579e9cd`](https://github.com/apollographql/federation/commit/3af790517d662f3bec9064c0bf243014c579e9cd)]:
+  - @apollo/federation-internals@2.8.3-beta.0
+
 ## 2.8.2
 
 ### Patch Changes

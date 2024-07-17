@@ -1,5 +1,41 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.8.3
+
+### Patch Changes
+
+- Updated dependencies [[`38debcf2f9af1a719bd1c8acbd9335efa8427ddb`](https://github.com/apollographql/federation/commit/38debcf2f9af1a719bd1c8acbd9335efa8427ddb), [`50d648ccffb05591878de75dc5522914ed48698f`](https://github.com/apollographql/federation/commit/50d648ccffb05591878de75dc5522914ed48698f), [`860aace9904e787f9bf05aad94be5b5920f10543`](https://github.com/apollographql/federation/commit/860aace9904e787f9bf05aad94be5b5920f10543), [`67b70c6e68b1cdbf8f03dacafd636e27ed9b7814`](https://github.com/apollographql/federation/commit/67b70c6e68b1cdbf8f03dacafd636e27ed9b7814), [`f753d55e9a49d11389ee4f8d7976533447e95ede`](https://github.com/apollographql/federation/commit/f753d55e9a49d11389ee4f8d7976533447e95ede), [`f5f6a799d6b3675eecb0eaec7a816d746cd136b2`](https://github.com/apollographql/federation/commit/f5f6a799d6b3675eecb0eaec7a816d746cd136b2), [`42bd27af6a23bcfdd36951dbfa3fb9f7ba833f3a`](https://github.com/apollographql/federation/commit/42bd27af6a23bcfdd36951dbfa3fb9f7ba833f3a), [`f376447a820e3c0ae41d16d1fd3b681d2f1e8c14`](https://github.com/apollographql/federation/commit/f376447a820e3c0ae41d16d1fd3b681d2f1e8c14), [`3af790517d662f3bec9064c0bf243014c579e9cd`](https://github.com/apollographql/federation/commit/3af790517d662f3bec9064c0bf243014c579e9cd)]:
+  - @apollo/composition@2.8.3
+  - @apollo/federation-internals@2.8.3
+  - @apollo/query-planner@2.8.3
+
+## 2.8.3-beta.2
+
+### Patch Changes
+
+- Updated dependencies [[`50d648ccffb05591878de75dc5522914ed48698f`](https://github.com/apollographql/federation/commit/50d648ccffb05591878de75dc5522914ed48698f)]:
+  - @apollo/federation-internals@2.8.3-beta.2
+  - @apollo/composition@2.8.3-beta.2
+  - @apollo/query-planner@2.8.3-beta.2
+
+## 2.8.3-beta.1
+
+### Patch Changes
+
+- Updated dependencies [[`f376447a820e3c0ae41d16d1fd3b681d2f1e8c14`](https://github.com/apollographql/federation/commit/f376447a820e3c0ae41d16d1fd3b681d2f1e8c14)]:
+  - @apollo/composition@2.8.3-beta.1
+  - @apollo/federation-internals@2.8.3-beta.1
+  - @apollo/query-planner@2.8.3-beta.1
+
+## 2.8.3-beta.0
+
+### Patch Changes
+
+- Updated dependencies [[`38debcf2f9af1a719bd1c8acbd9335efa8427ddb`](https://github.com/apollographql/federation/commit/38debcf2f9af1a719bd1c8acbd9335efa8427ddb), [`860aace9904e787f9bf05aad94be5b5920f10543`](https://github.com/apollographql/federation/commit/860aace9904e787f9bf05aad94be5b5920f10543), [`67b70c6e68b1cdbf8f03dacafd636e27ed9b7814`](https://github.com/apollographql/federation/commit/67b70c6e68b1cdbf8f03dacafd636e27ed9b7814), [`f753d55e9a49d11389ee4f8d7976533447e95ede`](https://github.com/apollographql/federation/commit/f753d55e9a49d11389ee4f8d7976533447e95ede), [`f5f6a799d6b3675eecb0eaec7a816d746cd136b2`](https://github.com/apollographql/federation/commit/f5f6a799d6b3675eecb0eaec7a816d746cd136b2), [`42bd27af6a23bcfdd36951dbfa3fb9f7ba833f3a`](https://github.com/apollographql/federation/commit/42bd27af6a23bcfdd36951dbfa3fb9f7ba833f3a), [`3af790517d662f3bec9064c0bf243014c579e9cd`](https://github.com/apollographql/federation/commit/3af790517d662f3bec9064c0bf243014c579e9cd)]:
+  - @apollo/composition@2.8.3-beta.0
+  - @apollo/query-planner@2.8.3-beta.0
+  - @apollo/federation-internals@2.8.3-beta.0
+
 ## 2.8.2
 
 ### Patch Changes

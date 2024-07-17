@@ -400,7 +400,6 @@ class QueryPlanningTraversal<RV extends Vertex> {
     this.isTopLevel = isRootVertex(root);
     this.optionsLimit = parameters.config.debug?.pathsLimit;
     this.conditionResolver = cachingConditionResolver(
-      federatedQueryGraph,
       (edge, context, excludedEdges, excludedConditions, extras) => this.resolveConditionPlan(edge, context, excludedEdges, excludedConditions, extras),
     );
 
@@ -3187,9 +3186,11 @@ export class QueryPlanner {
 
   private collectAllOverrideLabels() {
     // inspect every join__field directive application in the supergraph and collect all `overrideLabel` argument values
+    const applications = this.supergraph.schema.directives()
+      .find((d) => d.name === 'join__field')
+      ?.applications() ?? new Set();
     this._defaultOverrideConditions = new Map(
-      this.supergraph.schema.directives()
-        .find((d) => d.name === 'join__field')?.applications()
+      Array.from(applications)
         .map((application) => application.arguments().overrideLabel)
         .filter(Boolean)
         .map(label => [label, false])
