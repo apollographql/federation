@@ -184,7 +184,7 @@ To use new Federation 2 features and their associated directives, it's helpful t
     npm install @apollo/subgraph
     ```
 
-- If your subgraph uses another server library, check the [compatibility table](../building-supergraphs/supported-subgraphs/) to see whether it supports Federation 2 directives yet. If it does, consult that library's documentation to determine which version you need to update to.
+- If your subgraph uses another server library, check the [compatibility table](../building-supergraphs/compatible-subgraphs/) to see whether it supports Federation 2 directives yet. If it does, consult that library's documentation to determine which version you need to update to.
     - If your library doesn't support Federation 2 directives yet, you can still use that library with Federation 2 if the library lets you add custom directive definitions to your schema!
 
 ### Opt in to Federation 2
@@ -209,7 +209,7 @@ Depending on your schema, you might need to add other federated directives to th
 
 ### Add directive definitions if needed
 
-Currently, not all [subgraph libraries](../building-supergraphs/supported-subgraphs/) provide built-in support for Federation 2 directives (such as `@shareable`). If your library doesn't provide this support, you need to add the following directive definitions to your subgraph schema:
+Currently, not all [subgraph libraries](../building-supergraphs/compatible-subgraphs/) provide built-in support for Federation 2 directives (such as `@shareable`). If your library doesn't provide this support, you need to add the following directive definitions to your subgraph schema:
 
 <ExpansionPanel title="Click to expand">
 
