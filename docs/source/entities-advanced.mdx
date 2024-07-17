@@ -244,6 +244,18 @@ type Query {
 }
 ```
 
+### Using `__typename` as `@key`
+
+The `@key` directive supports the `__typename` [meta field](https://graphql.org/learn/queries/#meta-fields) to declare an entity as a [singleton](https://en.wikipedia.org/wiki/Singleton_pattern).
+
+In the following example, the `Meta` entity can be uniquely identified by its `__typename` (because there is only ever one instance):
+
+```graphql title="Meta singleton"
+type Meta @key(fields: "__typename") {
+    version: String!
+}
+```
+
 ## Migrating entity fields and root fields
 
 As your supergraph grows, you might want to move parts of one subgraph to another subgraph. This section describes how to migrate entity and root fields safely.
