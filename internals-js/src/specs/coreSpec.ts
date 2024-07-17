@@ -553,16 +553,17 @@ export class CoreSpecDefinition extends FeatureDefinition {
   }
 
   applyFeatureAsLink(schema: Schema, feature: FeatureDefinition, purpose?: CorePurpose, imports?: CoreImport[]): GraphQLError[] {
-    const existing = schema.schemaDefinition.appliedDirectivesOf("link").find((link) => link.arguments().url === feature.toString());
+    const existing = schema.schemaDefinition.appliedDirectivesOf(linkDirectiveDefaultName).find((link) => link.arguments().url === feature.toString());
     if (existing) {
       existing.remove();
     }
 
     const coreDirective = this.coreDirective(schema);
-    const args = {
+    const args: LinkDirectiveArgs = {
       url: feature.toString(),
       import: (existing?.arguments().import ?? []).concat(imports?.map((i) => i.as ? { name: `@${i.name}`, as: `@${i.as}` } : `@${i.name}`)),
-    } as LinkDirectiveArgs;
+      feature: undefined,
+    };
 
     if (this.supportPurposes() && purpose) {
       args.for = purpose;
