@@ -135,7 +135,7 @@ type Product @key(fields: "upc") @key(fields: "sku") {
 
 <Note>
 
-To check whether your subgraph library supports repeatable directives, see the `repeatable @key` item in [Federation-compatible subgraph implementations](../building-supergraphs/supported-subgraphs/).
+To check whether your subgraph library supports repeatable directives, see the `repeatable @key` item in [Federation-compatible subgraph implementations](../building-supergraphs/compatible-subgraphs/).
 
 </Note>
 
@@ -874,7 +874,7 @@ directive @hello on FIELD_DEFINITION
 
 This directive has the following requirements:
 
-  - Ensure your [subgraph library](../building-supergraphs/supported-subgraphs) supports `@composeDirective` or try manually adding the `@composeDirective` definition to your subgraph schema.
+  - Ensure your [subgraph library](../building-supergraphs/compatible-subgraphs) supports `@composeDirective` or try manually adding the `@composeDirective` definition to your subgraph schema.
   - The directive to preserve must be defined and imported from a core specification via the `@link` directive.
   - The specified directive `name` must match the name used for the directive in this subgraph.
       - If you use the `as` argument in your `@link` definition to modify the directive's name from its spec's default, provide the modified name, not the default name.

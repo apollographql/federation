@@ -2,6 +2,7 @@
 /gateway/ /docs/federation/building-supergraphs/router/
 /router/ /docs/federation/building-supergraphs/router/
 /supported-subgraphs/ /docs/federation/building-supergraphs/compatible-subgraphs/
+/building-supergraphs/supported-subgraphs/ /docs/federation/building-supergraphs/compatible-subgraphs/
 /other-servers/ /docs/federation/building-supergraphs/compatible-subgraphs/
 /federation-spec/ /docs/federation/subgraph-spec/
 /building-supergraphs/subgraphs-apollo-server/ /docs/apollo-server/using-federation/apollo-subgraph-setup/
