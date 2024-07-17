@@ -4,8 +4,8 @@ subtitle: Enhance subgraph performance with the dataloader pattern
 description: Learn how to optimize subgraph performance in GraphQL by efficiently handling reference resolvers to avoid the N+1 problem.
 ---
 
-GraphQL developers can quickly encounter the infamous "N+1 query problem" with operations that return a list.
-For example, take this `TopReviews` query:
+GraphQL developers often encounter the "N+1 query problem" with operations that return a list.
+Consider this `TopReviews` query:
 
 ```graphql disableCopy showLineNumbers=false
 query TopReviews {
@@ -23,13 +23,13 @@ query TopReviews {
 In a monolithic GraphQL server, the execution engine takes these steps:
 
 1. Resolve the `Query.topReviews` field, which returns a list of `Review`s.
-2. For each `Review` in the list, resolve the `Review.product` field.
+2. For each `Review`, resolve the `Review.product` field.
 
-If the `Query.topReviews` field returns ten reviews, then the executor resolves `Review.product` field ten times.
+If `Query.topReviews` returns ten reviews, then the executor resolves `Review.product` field ten times.
 If the `Reviews.product` field makes a database or REST query for a single `Product`, then there are ten unique calls to the data source.
 This is suboptimal for the following reasons:
 
-- Fetching the ten products in a single query is more efficient—for example, `SELECT * FROM products WHERE id IN (<product ids>)`.
+- Fetching all products in a single query is more efficient—for example, `SELECT * FROM products WHERE id IN (<product ids>)`.
 - If any reviews refer to the same product, then resources are wasted fetching data that was already retrieved.
 
 ## The N+1 problem in a federated graph
@@ -65,9 +65,7 @@ type Product @key(fields: "id") {
 </CodeColumns>
 
 
-Most subgraph implementations use _reference resolvers_ (sometimes known as _entity resolvers_) to handle the `Query._entities` field ergonomically.
-A [reference resolver](./#2-define-a-reference-resolver) is passed a single key and returns the entity object corresponding to that key.
-
+Most subgraph implementations use _reference resolvers_ to returns the entity object corresponding to akey.
 Although this pattern is straightforward, it can diminish performance when a client operation requests fields from many entities.
 Recall the `topReviews` query, now in the context of a federated graph:
 
@@ -84,10 +82,11 @@ query TopReviews {
 }
 ```
 
-The router executes two queries on its subgraphs to resolve the above operation:
+The router executes two queries:
 
-1. It queries the Reviews subgraph to fetch all fields except `Product.name` and `Product.imageURL`.
-2. It queries the Products subgraph to fetch each product's `name` and `image.URL`.
+1. Fetch all fields except `Product.name` and `Product.imageURL` from the Reviews subgraph.
+2. Fetch each product's `name` and `imageURL` from the Products subgraph.
+
 
 In the Products subgraph, the reference resolver for `Product` doesn't take a list of keys but rather a single key.
 Therefore, the subgraph library calls the reference resolver once for each key:
@@ -104,10 +103,10 @@ const resolvers = {
 }
 ```
 
-A basic implementation of the `fetchProductByID` function might make a database call each time it's called.
+A basic `fetchProductByID` function might make a database call each time it's called.
 If you need to resolve `Product.name` for `N` different products, this results in `N` database calls.
 These calls are made in addition to the call made by the Reviews subgraph to fetch the initial list of reviews and the `id` of each product.
-This problem can cause performance problems or even enable denial-of-service attacks if not prevented.
+This problem can cause performance problems or even enable denial-of-service attacks.
 
 ## How query planning handles N+1 queries
 
@@ -163,9 +162,7 @@ QueryPlan {
 
 </ExpansionPanel>
 
-## Writing efficient entity resolvers
-
-Most subgraph implementations (including [`@apollo/subgraph`](/apollo-server/using-federation/api/apollo-subgraph/)) don't write the `Query._entities` resolver directly.
+Most subgraph implementations (including [`@apollo/subgraph`](/apollo-server/using-federation/api/apollo-subgraph/)) don't write the [`Query._entities` resolver](./building-supergraphs/subgraphs-overview/#query_entities) directly.
 Instead, they use the [reference resolver API](./#2-define-a-reference-resolver) for resolving an individual entity reference:
 
 ```js
@@ -185,8 +182,10 @@ To avoid this issue, most subgraph libraries handle entity order for you.
 
 Because order matters, it reintroduces the N+1 query problem: in the example above, `fetchProductByID` gets called once for each entity reference.
 
-The solution—whether for federated or monolithic graphs—is the [dataloader](https://github.com/graphql/dataloader) pattern.
-For example, in an Apollo Server implementation, this could look like the following:
+## The dataloader pattern solution
+
+The solution for the N+1 problem—whether for federated or monolithic graphs—is the [dataloader](https://github.com/graphql/dataloader) pattern.
+For example, in an Apollo Server implementation, using dataloaders could look like this:
 
 ```js
 const resolvers = {
