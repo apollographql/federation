@@ -580,6 +580,9 @@ export class ValidationState {
         for (const { path } of newSubgraphPathInfos) {
           const subgraph = path.path.tail.source;
           const typeNames = possibleRuntimeTypeNamesSorted(path.path);
+          if (typeNames.length === 1 && !allRuntimeTypes.includes(typeNames[0])) {
+            continue;
+          }
           runtimeTypesPerSubgraphs.set(subgraph, typeNames);
           // Note: we're formatting the elements in `runtimeTYpesToSubgraphs` because we're going to use it if we display an error. This doesn't
           // impact our set equality though since the formatting is consistent betweeen elements and type names syntax is sufficiently restricted
