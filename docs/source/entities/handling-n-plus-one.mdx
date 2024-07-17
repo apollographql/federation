@@ -108,7 +108,7 @@ If you need to resolve `Product.name` for `N` different products, this results i
 These calls are made in addition to the call made by the Reviews subgraph to fetch the initial list of reviews and the `id` of each product.
 This problem can cause performance problems or even enable denial-of-service attacks.
 
-## How query planning handles N+1 queries
+### Query planning to handle N+1 queries
 
 By default, the router's query planner handles N+1 queries for entities like the `Product` type.
 The query plan for the `TopReviews` operation works like this:
