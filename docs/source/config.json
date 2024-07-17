@@ -22,13 +22,20 @@
       "JetBrains IDE Support": "/building-supergraphs/jetbrains-ide-support"
     },
     "Federated Schemas": {
-      "Overview": "/federated-types/overview",
-      "Composition": "/federated-types/composition",
-      "Federated Directives": "/federated-types/federated-directives",
-      "Sharing Types (Value Types)": "/federated-types/sharing-types",
-      "Introduction to Entities": "/entities",
-      "Advanced Entities": "/entities-advanced",
-      "Entity Interfaces": "/federated-types/interfaces",
+      "Overview": "/federated-schemas/",
+      "Composition": "/federated-schemas/composition",
+      "Entities": {
+        "Introduction to Entities": "/entities/",
+        "Define Advanced Keys": "/entities/define-advanced-keys",
+        "Contribute and Reference Entity Fields": "/entities/contribute-fields",
+        "Resolve Another Subgraph's Fields": "/entities/resolve-another-subgraphs-fields",
+        "Use Contexts to Share Data": "/entities/use-contexts",
+        "Entity Interfaces": "/entities/interfaces",
+        "Migrate Fields": "/entities/migrate-fields",
+        "Handling the N+1 Problem": "entities/handling-n-plus-one"
+      },
+      "Sharing Types (Value Types)": "/federated-schemas/sharing-types",
+      "Federated Directives": "/federated-schemas/federated-directives",
       "Migrating from Schema Stitching": "/migrating-from-stitching"
     },
     "Managed Federation": {

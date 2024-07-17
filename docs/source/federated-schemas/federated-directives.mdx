@@ -118,8 +118,8 @@ type Product @key(fields: "id") {
 
 To learn best practices and advanced use cases for `@key`, refer to the following guides:
 
-- [Introduction to entities](../entities#1-define-a-key)
-- [Advanced entities](../entities-advanced)
+- [Introduction to entities](../entities)
+- [Define advanced keys](../entities/define-advanced-keys)
 
 </Tip>
 
@@ -171,7 +171,7 @@ Examples:
 * `"username region"`
 * `"name organization { id }"`
 
-See also [Advanced `@key`s](../entities-advanced/#using-advanced-keys).
+See also [Advanced `@key`s](../../entities/define-advanced-keys).
 
 </td>
 </tr>
@@ -287,7 +287,7 @@ If a Federation 2 supergraph includes a Federation 1 subgraph, all value types i
 
 If a field is included in an entity's [`@key` directive](#key), that field is automatically considered `@shareable` and the directive is not required in the corresponding subgraph(s).
 
-See also [Value types in Apollo Federation](./sharing-types/) and [Resolving another subgraph's field](../entities-advanced/#resolving-another-subgraphs-field).
+See also [Value types in Apollo Federation](./sharing-types/) and [Resolving another subgraph's field](../entities/resolve-another-subgraphs-fields).
 
 The `@shareable` directive is about indicating when an object field can be resolved by multiple subgraphs. As interface fields are not directly resolved (their implementation is), `@shareable` is not meaningful on an interface field and is not allowed (at least since federation 2.2; earlier versions of federation 2 mistakenly ignored `@shareable` on interface fields).
 
@@ -382,7 +382,7 @@ You can apply `@override` to a [`@shareable`](#shareable) field. If you do, only
 
 Only one subgraph can `@override` any given field. If multiple subgraphs attempt to `@override` the same field, a composition error occurs.
 
-For more information, see [Migrating entities and fields](../entities-advanced/#migrating-entities-and-fields).
+For more information, see [Migrating entity and root fields](../entities/migrating-fields).
 
 <MinVersion version="2.7">
 
@@ -396,7 +396,7 @@ Rolling out any change to a production subgraph, including field migration, risk
 
 The _progressive `@override`_ feature enables the gradual, progressive deployment of a subgraph with an `@override` field. As a subgraph developer, you can customize the percentage of traffic that the overriding and overridden subgraphs each resolve for a field. You apply a label to an `@override` field to set the percentage of traffic for the field that should be resolved by the overriding subgraph, with the remaining percentage resolved by the overridden subgraph. You can then monitor the performance of the subgraphs in Studio, resolve any issues, and iteratively and progressively increase the percentage until all traffic is resolved by the overriding subgraph.
 
-To learn more, see the [Incremental migration with `@override`](../entities-advanced/#incremental-migration-with-override) guide.
+To learn more, see the [Incremental migration with `@override`](../entities/migrate-fields#incremental-migration-with-progressive-override) guide.
 
 #### Arguments
 
@@ -444,7 +444,7 @@ This argument is available in Apollo Federation 2.7 and later. It is an [Enterpr
 </EnterpriseFeature>
 
 **Optional.** A string of arbitrary arguments. Supported in this release:
-- `percent(<percent-value>)` - The percentage of traffic for the field that's resolved by this subgraph. The remaining percentage is resolved by the other ([from](#from)) subgraph. To learn more, see [Incremental migration with `@override`](../entities-advanced/#incremental-migration-with-override).
+- `percent(<percent-value>)` - The percentage of traffic for the field that's resolved by this subgraph. The remaining percentage is resolved by the other ([from](#from)) subgraph. To learn more, see [Incremental migration with `@override`](../entities/migrate-fields#incremental-migration-with-progressive-override).
 
 </td>
 </tr>
@@ -655,7 +655,7 @@ Otherwise, a composition error occurs.
 
 </Note>
 
-For more information, see [Using `@provides`](/federation/entities-advanced#using-provides).
+For more information, see [Using `@provides`](../entities/resolve-another-subgraphs-fields#using-provides).
 
 #### Arguments
 
@@ -722,7 +722,7 @@ If a subgraph `@requires` an entity field, the subgraph must define that field a
 
 </Note>
 
-See also [Contributing computed entity fields](../entities-advanced/#contributing-computed-entity-fields).
+See also [Contributing computed entity fields](../entities/contribute-fields#contributing-computed-entity-fields).
 
 #### Arguments
 
@@ -976,9 +976,9 @@ The selection syntax for `@fromContext` used in its `ContextFieldValue` is simil
 - The `@skip` and `@include` directives must not be used.
 - The second element must be a selection set that resolves to a single field.
 - Top-level type conditions must not overlap with one another, so that the field can be resolved to a single value.
-- All fields referenced in the `ContextFieldValue` must be expressed within the current subgraph. If the fields are referenced across multiple subgraphs, they must be annotated with [`@external`](../entities-advanced/#referencing-fields-across-subgraphs) .
+- All fields referenced in the `ContextFieldValue` must be expressed within the current subgraph. If the fields are referenced across multiple subgraphs, they must be annotated with [`@external`](../entities/use-contexts#referencing-fields-across-subgraphs) .
 - The argument must be nullable. Because validation is done at the subgraph level, the referenced field may become nullable when merging subgraphs, such as when the field is nullable in one subgraph but not in another.
 
 When the same contextual value is set in multiple places, the `ContextFieldValue` must resolve all types from each place into a single value that matches the parameter type.
 
-For examples using `@context` and `@fromContext`, see [Using contexts to share data along type hierarchies](../entities-advanced/#using-contexts-to-share-data-along-type-hierarchies).
+For examples using `@context` and `@fromContext`, see [Using contexts to share data along type hierarchies](../entities/use-contexts).

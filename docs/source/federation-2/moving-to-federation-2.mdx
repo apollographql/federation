@@ -346,7 +346,7 @@ Note the following in the Federation 2 subgraphs above:
 
 - The Inventory subgraph no longer `extend`s the `Product` entity.
 - The Inventory subgraph no longer marks the `Product.id` field as `@external`.
-    - The `@external` directive is no longer required for `@key` fields, but it is still required for [`@requires`](../entities-advanced/#contributing-computed-entity-fields) and [`@provides`](../entities-advanced/#using-provides).
+    - The `@external` directive is no longer required for `@key` fields, but it is still required for [`@requires`](../entities/contribute-fields#contributing-computed-entity-fields) and [`@provides`](../entities/resolve-another-subgraphs-fields#using-provides).
 - Both subgraphs can resolve `Product.id`, even though it isn't marked as `@shareable`!
     - Unlike most fields, `@key` fields such as `Product.id` are `@shareable` by default. This is necessary for `@key` fields, because the gateway uses them to associate data from different subgraphs with the same object.
 

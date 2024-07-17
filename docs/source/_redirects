@@ -26,3 +26,10 @@
 
 /managed-federation/monitoring/ /docs/federation/performance/monitoring
 /api/apollo-federation/ /docs/federation/api/apollo-subgraph/
+
+/entities-advanced /docs/federation/entities/define-advanced-keys
+/federated-types/overview /docs/federation/federated-schemas/
+/federated-types/composition /docs/federation/federated-schemas/composition
+/federated-types/federated-directives /docs/federation/federated-schemas/federated-directives
+/federated-types/sharing-types /docs/federation/federated-schemas/sharing-types
+/federated-types/interfaces /docs/federation/entities/interfaces
