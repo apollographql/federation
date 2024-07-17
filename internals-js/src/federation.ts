@@ -100,8 +100,7 @@ import {
   SourceFieldDirectiveArgs,
   SourceTypeDirectiveArgs,
 } from "./specs/sourceSpec";
-import { CostDirectiveArguments } from "./specs/costSpec";
-import { ListSizeDirectiveArguments } from "./specs/listSizeSpec";
+import { CostDirectiveArguments, ListSizeDirectiveArguments } from "./specs/costSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();

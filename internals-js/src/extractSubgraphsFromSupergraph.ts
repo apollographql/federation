@@ -40,7 +40,7 @@ import { parseSelectionSet } from "./operations";
 import fs from 'fs';
 import path from 'path';
 import { validateStringContainsBoolean } from "./utils";
-import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, FeatureUrl, FederationDirectiveName, SchemaElement, costIdentity, errorCauses, isFederationDirectiveDefinedInSchema, listSizeIdentity, printErrors } from ".";
+import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, FederationDirectiveName, SchemaElement, errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
 
 function filteredTypes(
   supergraph: Schema,
@@ -483,17 +483,11 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
 function getOriginalDirectiveNames(supergraph: Schema): Record<string, string> {
   const originalDirectiveNames: Record<string, string> = {};
   for (const linkDirective of supergraph.schemaDefinition.appliedDirectivesOf("link")) {
-    if (linkDirective.arguments().url && linkDirective.arguments().as) {
-      const parsedUrl = FeatureUrl.maybeParse(linkDirective.arguments().url);
-      // Ideally, there's a map somewhere that can do this lookup instead of enumerating all the directives we care about,
-      // but it seems the original names are being stripped from the supergraph schema.
-      switch (parsedUrl?.identity) {
-        case costIdentity:
-          originalDirectiveNames[FederationDirectiveName.COST] = linkDirective.arguments().as;
-          break;
-        case listSizeIdentity:
-          originalDirectiveNames[FederationDirectiveName.LIST_SIZE] = linkDirective.arguments().as;
-          break;
+    if (linkDirective.arguments().url && linkDirective.arguments().import) {
+      for (const importedDirective of linkDirective.arguments().import) {
+        if (importedDirective.name && importedDirective.as) {
+          originalDirectiveNames[importedDirective.name.replace('@', '')] = importedDirective.as.replace('@', '');
+        }
       }
     }
   }

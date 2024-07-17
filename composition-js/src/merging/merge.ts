@@ -449,7 +449,7 @@ class Merger {
     // don't bother adding the spec to the supergraph.
     if (nameInSupergraph) {
       const specInSupergraph = compositionSpec.supergraphSpecification(this.latestFedVersionUsed);
-      const errors = this.linkSpec.applyFeatureToSchema(this.merged, specInSupergraph, nameInSupergraph === specInSupergraph.url.name ? undefined : nameInSupergraph, specInSupergraph.defaultCorePurpose);
+      const errors = this.linkSpec.applyFeatureAsLink(this.merged, specInSupergraph, specInSupergraph.defaultCorePurpose, [{ name, as: name === nameInSupergraph ? undefined : nameInSupergraph }], );
       assert(errors.length === 0, "We shouldn't have errors adding the join spec to the (still empty) supergraph schema");
       const feature = this.merged?.coreFeatures?.getByIdentity(specInSupergraph.url.identity);
       assert(feature, 'Should have found the feature we just added');
@@ -459,7 +459,7 @@ class Merger {
         throw argumentsMerger;
       }
       this.mergedFederationDirectiveNames.add(nameInSupergraph);
-      this.mergedFederationDirectiveInSupergraph.set(specInSupergraph.url.name, {
+      this.mergedFederationDirectiveInSupergraph.set(name, {
         definition: this.merged.directive(nameInSupergraph)!,
         argumentsMerger,
         staticArgumentTransform: compositionSpec.staticArgumentTransform,

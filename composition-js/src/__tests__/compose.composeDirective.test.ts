@@ -926,8 +926,8 @@ describe('composing custom core directives', () => {
     expectCoreFeature(schema, 'https://custom.dev/tag', '1.0', [{ name: '@tag' }]);
     const feature = schema.coreFeatures?.getByIdentity('https://specs.apollo.dev/tag');
     expect(feature?.url.toString()).toBe('https://specs.apollo.dev/tag/v0.3');
-    expect(feature?.imports).toEqual([]);
-    expect(feature?.nameInSchema).toEqual('mytag');
+    expect(feature?.imports).toEqual([{ name: '@tag', as: '@mytag' }]);
+    expect(feature?.nameInSchema).toEqual('tag');
     expect(printSchema(schema)).toMatchSnapshot();
   });
 
