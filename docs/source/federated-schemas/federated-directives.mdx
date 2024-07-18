@@ -139,7 +139,7 @@ To check whether your subgraph library supports repeatable directives, see the `
 
 </Note>
 
-In Apollo Federation 2.3 and later, you can also apply `@key` to `interface` definitions to create [entity interfaces](./interfaces/). If you apply `@key` to an `interface` in earlier versions of Federation 2, a composition error occurs.
+In Apollo Federation 2.3 and later, you can also apply `@key` to `interface` definitions to create [entity interfaces](./entities/interfaces/). If you apply `@key` to an `interface` in earlier versions of Federation 2, a composition error occurs.
 
 #### Arguments
 
@@ -211,7 +211,7 @@ Indicates that an object definition serves as an abstraction of another subgraph
 
 During composition, the fields of every `@interfaceObject` are added both to their corresponding `interface` definition and to all entity types that implement that interface.
 
-[Learn more about entity interfaces.](./interfaces/)
+[Learn more about entity interfaces.](./entities/interfaces/)
 
 <MinVersion version="1.0">
 

@@ -33,3 +33,4 @@
 /federated-types/federated-directives /docs/federation/federated-schemas/federated-directives
 /federated-types/sharing-types /docs/federation/federated-schemas/sharing-types
 /federated-types/interfaces /docs/federation/entities/interfaces
+/federated-schemas/interfaces /docs/federation/entities/interfaces
