@@ -19,7 +19,7 @@ The `@context` and `@fromContext` directives enable a subgraph to share fields w
 
 ## Using one context
 
-As an example of a single context, the subgraph below tracks the last financial transaction made per user. The `Transaction` type is a child of the `User` type. Each transaction depends on the associated user's currency to calculate the transaction amount in the user's currency. That dependency—the `currencyCode` argument of a `Transaction` depending on the `userCurrency { isoCode } ` of a `User`— is defined with a context. The `@context` directive on `User` sets the context, and `@fromContext` on `currencyCode` gets the contextual data.  
+As an example of a single context, the subgraph below tracks the last financial transaction made per user. The `Transaction` type is a child of the `User` type. Each transaction depends on the associated user's currency to calculate the transaction amount in the user's currency. That dependency—the `currencyCode` argument of a `Transaction` depending on the `userCurrency { isoCode } ` of a `User`— is defined with a context. The `@context` directive on `User` sets the context, and `@fromContext` on `currencyCode` gets the contextual data.  
 
 ```graphql title="Example: using @context and @fromContext"
 scalar CurrencyCode;
@@ -48,9 +48,10 @@ type Transaction @key(fields: "id") {
 
 <Note>
 
-An argument of `@fromContext` doesn't appear in the API schema. Instead, it's populated automatically by the router.
-
-In the example above, the argument `currencyCode: CurrencyCode!` wouldn't appear in the API schema.
+- Context names cannot include underscores.
+  - In the example above, `userContext` is a valid context name, but `user_context` wouldn't be.
+- An argument of `@fromContext` doesn't appear in the API schema. Instead, it's populated automatically by the router.
+  - In the example above, the argument `currencyCode: CurrencyCode!` wouldn't appear in the API schema.
 
 </Note>
 
