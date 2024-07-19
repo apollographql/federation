@@ -19,7 +19,7 @@ The `@context` and `@fromContext` directives enable a subgraph to share fields w
 
 ## Using one context
 
-As an example of a single context, the subgraph below tracks the last financial transaction made per user. The `Transaction` type is a child of the `User` type. Each transaction depends on the associated user's currency to calculate the transaction amount in the user's currency. That dependency—the `currencyCode` argument of a `Transaction` depending on the `userCurrency { isoCode } ` of a `User`— is defined with a context. The `@context` directive on `User` sets the context, and `@fromContext` on `currencyCode` gets the contextual data.  
+As an example of a single context, the subgraph below tracks the last financial transaction made per user. The `Transaction` type is a child of the `User` type. Each transaction depends on the associated user's currency to calculate the transaction amount in the user's currency. That dependency—the `currencyCode` argument of a `Transaction` depending on the `userCurrency { isoCode } ` of a `User`— is defined with a context. The `@context` directive on `User` sets the context, and `@fromContext` on `currencyCode` gets the contextual data.  
 
 ```graphql title="Example: using @context and @fromContext"
 scalar CurrencyCode;
@@ -48,9 +48,10 @@ type Transaction @key(fields: "id") {
 
 <Note>
 
-An argument of `@fromContext` doesn't appear in the API schema. Instead, it's populated automatically by the router.
-
-In the example above, the argument `currencyCode: CurrencyCode!` wouldn't appear in the API schema.
+- Context names cannot include underscores.
+  - In the example above, `userContext` is a valid context name, but `user_context` wouldn't be.
+- An argument of `@fromContext` doesn't appear in the API schema. Instead, it's populated automatically by the router.
+  - In the example above, the argument `currencyCode: CurrencyCode!` wouldn't appear in the API schema.
 
 </Note>
 
@@ -65,21 +66,21 @@ type Query {
   c: C!
 }
 
-type A @key(fields: "id") @context(name: "context_1"){
+type A @key(fields: "id") @context(name: "context1"){
   id: ID!
   field: String!
   someField: String!
   child: Child!
 } 
 
-type B @key(fields: "id") @context(name: "context_1"){
+type B @key(fields: "id") @context(name: "context1"){
   id: ID!
   field: String!
   someField: String!
   child: Child!
 } 
 
-type C @key(fields: "id") @context(name: "context_1") {
+type C @key(fields: "id") @context(name: "context1") {
   id: ID!
   field: String!
   someOtherField: String!
@@ -90,11 +91,11 @@ type Child @key(fields: "id") {
   id: ID!
   prop1(
     arg: String! 
-        @fromContext(field: "$context_1 ... on A { someField } ... on B { someField } ... on C { someOtherField }")
+        @fromContext(field: "$context1 ... on A { someField } ... on B { someField } ... on C { someOtherField }")
   ): Int!
   prop2(
     arg: String! 
-        @fromContext(field: "$context_1 { field }")
+        @fromContext(field: "$context1 { field }")
   ): Int!
 }
 ```
@@ -118,13 +119,13 @@ type Query {
   a: A!
 }
 
-type A @key(fields: "id") @context(name: "context_1") {
+type A @key(fields: "id") @context(name: "context1") {
   id: ID!
   field: String!
   b: B!
 } 
 
-type B @key(fields: "id") @context(name: "context_1") {
+type B @key(fields: "id") @context(name: "context1") {
   id: ID!
   field: String!
   c: C!
@@ -133,7 +134,7 @@ type B @key(fields: "id") @context(name: "context_1") {
 type C @key(fields: "id") {
   id: ID!
   prop(
-    arg: String! @fromContext(field: "$context_1 { field }")
+    arg: String! @fromContext(field: "$context1 { field }")
   ): Int!
 } 
 ```
