@@ -130,7 +130,7 @@ export function validateSatisfiability({ supergraphSchema, supergraphSdl} : Sati
   // We pass `null` for the `supportedFeatures` to disable the feature support validation. Validating feature support
   // is useful when executing/handling a supergraph, but here we're just validating the supergraph we've just created,
   // and there is no reason to error due to an unsupported feature.
-  const supergraph = supergraphSchema ? new Supergraph(supergraphSchema, null) : Supergraph.build(supergraphSdl);
+  const supergraph = supergraphSchema ? new Supergraph(supergraphSchema, null) : Supergraph.build(supergraphSdl, { supportedFeatures: null });
   const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
   const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
   return validateGraphComposition(supergraph.schema, supergraph.subgraphNameToGraphEnumValue(), supergraphQueryGraph, federatedQueryGraph);

@@ -127,7 +127,7 @@ export class Supergraph {
     this.containedSubgraphs = extractSubgraphsNamesAndUrlsFromSupergraph(schema);
   }
 
-  static build(supergraphSdl: string | DocumentNode, options?: { supportedFeatures?: Set<string>, validateSupergraph?: boolean }) {
+  static build(supergraphSdl: string | DocumentNode, options?: { supportedFeatures?: Set<string> | null, validateSupergraph?: boolean }) {
     // We delay validation because `checkFeatureSupport` in the constructor gives slightly more useful errors if, say, 'for' is used with core v0.1.
     const schema = typeof supergraphSdl === 'string'
       ? buildSchema(supergraphSdl, { validate: false })
