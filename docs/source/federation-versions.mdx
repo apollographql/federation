@@ -24,7 +24,7 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 
     </Note>
 
-- If you maintain a [subgraph-compatible library](./building-supergraphs/supported-subgraphs/), consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](./subgraph-spec/#subgraph-schema-additions).
+- If you maintain a [subgraph-compatible library](./building-supergraphs/compatible-subgraphs/), consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](./subgraph-spec/#subgraph-schema-additions).
 
 ## v2.8
 
@@ -507,7 +507,7 @@ Minimum router version
 </td>
 <td>
 
-Introduced. [Learn more.](./federated-types/interfaces)
+Introduced. [Learn more.](./entities/interfaces)
 
 ```graphql
 directive @interfaceObject on OBJECT
@@ -524,7 +524,7 @@ directive @interfaceObject on OBJECT
 </td>
 <td>
 
-Can now be applied to interface definitions to support [entity interfaces](./federated-types/interfaces/).
+Can now be applied to interface definitions to support [entity interfaces](./entities/interfaces/).
 
 (Previous versions of composition threw an error if `@key` was applied to an interface definition.)
 
@@ -671,7 +671,7 @@ directive @composeDirective(name: String!) repeatable on SCHEMA
 </td>
 <td>
 
-The `fields` argument can now include fields that themselves take arguments. [Learn more.](./entities-advanced/#using-requires-with-fields-that-take-arguments)
+The `fields` argument can now include fields that themselves take arguments. [Learn more.](./entities/contribute-fields/#using-requires-with-fields-that-take-arguments)
 
 (Functionality added in v2.1.2)
 
