@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.9.0-connectors.9
+
+### Patch Changes
+
+- fix: skip feature check on satisfiability validation
+
+- Updated dependencies []:
+  - @apollo/query-graphs@2.9.0-connectors.9
+  - @apollo/federation-internals@2.9.0-connectors.9
+
 ## 2.8.3-beta.1
 
 ### Patch Changes

@@ -2,13 +2,13 @@
   "mode": "pre",
   "tag": "connectors",
   "initialVersions": {
-    "@apollo/composition": "2.8.0",
-    "apollo-federation-integration-testsuite": "2.8.0",
-    "@apollo/gateway": "2.8.0",
-    "@apollo/federation-internals": "2.8.0",
-    "@apollo/query-graphs": "2.8.0",
-    "@apollo/query-planner": "2.8.0",
-    "@apollo/subgraph": "2.8.0"
+    "@apollo/composition": "2.9.0-connectors.8",
+    "apollo-federation-integration-testsuite": "2.9.0-connectors.8",
+    "@apollo/gateway": "2.9.0-connectors.8",
+    "@apollo/federation-internals": "2.9.0-connectors.8",
+    "@apollo/query-graphs": "2.9.0-connectors.8",
+    "@apollo/query-planner": "2.9.0-connectors.8",
+    "@apollo/subgraph": "2.9.0-connectors.8"
   },
   "changesets": [
     "afraid-phones-reflect",
@@ -16,6 +16,7 @@
     "good-shoes-chew",
     "many-cats-prove",
     "smooth-melons-study",
+    "thin-needles-tap",
     "violet-wasps-cry",
     "wild-guests-notice",
     "wise-donkeys-deliver"

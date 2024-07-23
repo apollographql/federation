@@ -1,5 +1,14 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.9.0-connectors.9
+
+### Patch Changes
+
+- fix: skip feature check on satisfiability validation
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.9.0-connectors.9
+
 ## 2.8.3-beta.1
 
 ### Patch Changes
