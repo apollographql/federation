@@ -361,4 +361,7 @@ test("don't add @shareable to subscriptions", () => {
 
   expect(printSchema(result.subgraphs!.get("subgraph1")!.schema!)).not.toContain('update: String! @shareable');
   expect(printSchema(result.subgraphs!.get("subgraph2")!.schema!)).not.toContain('update: String! @shareable');
+  
+  expect(result.subgraphs!.get("subgraph1")!.schema.type('Subscription')?.appliedDirectivesOf('@shareable').length).toBe(0);
+  expect(result.subgraphs!.get("subgraph2")!.schema.type('Subscription')?.appliedDirectivesOf('@shareable').length).toBe(0);
 });
