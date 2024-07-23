@@ -714,7 +714,10 @@ class SchemaUpgrader {
     // - to every "value type" (in the fed1 sense of non-root type and non-entity) if it is used in any other subgraphs
     // - to any (non-external) field of an entity/root-type that is not a key field and if another subgraphs resolve it (fully or partially through @provides)
     for (const type of this.schema.objectTypes()) {
-      if (type.hasAppliedDirective(keyDirective) || (type.isRootType() && !type.isSubscriptionRootType())) {
+      if(type.isSubscriptionRootType()) {
+        continue;
+      }
+      if (type.hasAppliedDirective(keyDirective) || (type.isRootType())) {
         for (const field of type.fields()) {
           // To know if the field is a "key" field which doesn't need shareable, we rely on whether the field is shareable in the original
           // schema (the fed1 version), because as fed1 schema will have no @shareable, the key fields will effectively be the only field
