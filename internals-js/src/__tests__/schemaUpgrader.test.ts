@@ -325,3 +325,43 @@ test("fully upgrades a schema with no @link directive", () => {
 }`
   );
 });
+
+test("don't add @shareable to subscriptions", () => {
+  const subgraph1 = buildSubgraph(
+    "subgraph1",
+    "",
+    `#graphql
+    type Query {
+      hello: String
+    }
+    
+    type Subscription { 
+      update: String!
+    }
+  `
+  );
+  
+  const subgraph2 = buildSubgraph(
+    "subgraph2",
+    "",
+    `#graphql
+    type Query {
+      hello: String
+    }
+    
+    type Subscription { 
+      update: String!
+    }
+  `
+  );
+  const subgraphs = new Subgraphs();
+  subgraphs.add(subgraph1);
+  subgraphs.add(subgraph2);
+  const result = upgradeSubgraphsIfNecessary(subgraphs);
+
+  expect(printSchema(result.subgraphs!.get("subgraph1")!.schema!)).not.toContain('update: String! @shareable');
+  expect(printSchema(result.subgraphs!.get("subgraph2")!.schema!)).not.toContain('update: String! @shareable');
+  
+  expect(result.subgraphs!.get("subgraph1")!.schema.type('Subscription')?.appliedDirectivesOf('@shareable').length).toBe(0);
+  expect(result.subgraphs!.get("subgraph2")!.schema.type('Subscription')?.appliedDirectivesOf('@shareable').length).toBe(0);
+});
