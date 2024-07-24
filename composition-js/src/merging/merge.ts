@@ -1595,7 +1595,9 @@ class Merger {
         if (!sameType(destArg.type!, arg.type!) && !this.isStrictSubtype(arg.type!, destArg.type!)) {
           invalidArgsTypes.add(name);
         }
-        if (destArg.defaultValue !== arg.defaultValue) {
+        const defaultIsArray = Array.isArray(destArg.defaultValue) && Array.isArray(arg.defaultValue);
+        const defaultArgumentsAreEqual = defaultIsArray ? arrayEquals(destArg.defaultValue, arg.defaultValue) : destArg.defaultValue === arg.defaultValue;
+        if (!defaultArgumentsAreEqual) {
           invalidArgsDefaults.add(name);
         }
       }

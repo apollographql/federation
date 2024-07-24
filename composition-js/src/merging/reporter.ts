@@ -1,4 +1,4 @@
-import { addSubgraphToASTNode, assert, ErrorCodeDefinition, joinStrings, MultiMap, NamedSchemaElement, printSubgraphNames, SubgraphASTNode } from '@apollo/federation-internals';
+import { addSubgraphToASTNode, ErrorCodeDefinition, joinStrings, MultiMap, NamedSchemaElement, printSubgraphNames, SubgraphASTNode } from '@apollo/federation-internals';
 import { ASTNode, GraphQLError } from 'graphql';
 import { CompositionHint, HintCodeDefinition } from '../hints';
 
@@ -170,7 +170,6 @@ export class MismatchReporter {
       }
     }
     const supergraphMismatch = (supergraphElement && mismatchAccessor(supergraphElement, true)) ?? '';
-    assert(distributionMap.size > 1, () => `Should not have been called for ${supergraphElement}`);
     const distribution = [];
     // We always add the "supergraph" first (proper formatting of hints rely on this in particular).
     const subgraphsLikeSupergraph = distributionMap.get(supergraphMismatch);
