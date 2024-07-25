@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.8.4
+
+### Patch Changes
+
+- When doing interface type intersection detection, allow @interfaceObject to stand in for any type ([#3087](https://github.com/apollographql/federation/pull/3087))
+
+- Updated dependencies [[`5f4bb160d024678d6facd471c43c8ec61c86e701`](https://github.com/apollographql/federation/commit/5f4bb160d024678d6facd471c43c8ec61c86e701), [`672aca7cbeb0a6a38586357a4e154f2dd91caa0c`](https://github.com/apollographql/federation/commit/672aca7cbeb0a6a38586357a4e154f2dd91caa0c)]:
+  - @apollo/federation-internals@2.8.4
+  - @apollo/query-graphs@2.8.4
+
 ## 2.8.3
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.8.4
+
+### Patch Changes
+
+- Add descriptions for federation directives ([#3095](https://github.com/apollographql/federation/pull/3095))
+
+- Updated dependencies [[`5f4bb160d024678d6facd471c43c8ec61c86e701`](https://github.com/apollographql/federation/commit/5f4bb160d024678d6facd471c43c8ec61c86e701), [`672aca7cbeb0a6a38586357a4e154f2dd91caa0c`](https://github.com/apollographql/federation/commit/672aca7cbeb0a6a38586357a4e154f2dd91caa0c)]:
+  - @apollo/federation-internals@2.8.4
+
 ## 2.8.3
 
 ### Patch Changes
