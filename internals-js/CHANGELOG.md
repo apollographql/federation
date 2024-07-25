@@ -1,5 +1,13 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.8.4
+
+### Patch Changes
+
+- When auto-upgrading schemas from fed1, never add @shareable on subscription fields. ([#3094](https://github.com/apollographql/federation/pull/3094))
+
+- Save time in SchemaUpgrader by pre-computing which subgraphs contain each type ([#3057](https://github.com/apollographql/federation/pull/3057))
+
 ## 2.8.3
 
 ### Patch Changes
