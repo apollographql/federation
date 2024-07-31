@@ -191,3 +191,28 @@ type Transaction @key(fields: "id") {
   ): Int!
 }
 ``` 
+
+## A note on resolvers
+Fields that can be used contextually must be resolvable via a reference resolver. Since a query plan to fetch a contextual field is doing so based on the entity on which the `@context` directive is set, we need to make sure that all subgraphs that resolve that entity support can look up their fields based on entity keys. In the above example, if the first subgraph had a single query to retrieve the logged in user:
+
+```graphql
+type Query {
+  me: User!
+} 
+```
+A resolver that did the following would not correctly support contextual variables:
+```typescript
+Query: {
+  me: () => ({
+    id: 1, userCurrency: { id: 431, currencyCode: 'USD'}
+  })
+}
+```
+This is because the fetch set to subgraph 1 to retrieve the `isoCode` would be done on the entity. Therefore a section to resolve a User by keys would need to be added:
+```typescript
+User: () => {
+  __resolveReference(partialUser) {
+    return fetchUserById(partialUser.id);
+  }
+}
+```
