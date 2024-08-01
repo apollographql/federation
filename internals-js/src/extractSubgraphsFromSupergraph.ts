@@ -351,7 +351,8 @@ function addAllEmptySubgraphTypes(args: ExtractArguments): TypesInfo {
         for (const application of typeApplications) {
           const subgraph = getSubgraph(application);
           assert(subgraph, () => `Should have found the subgraph for ${application}`);
-          subgraph.schema.addType(newNamedType(type.kind, type.name));
+          const subgraphType = subgraph.schema.addType(newNamedType(type.kind, type.name));
+          propagateDemandControlDirectives(type, subgraphType, subgraph, args.originalDirectiveNames);
         }
         break;
     }

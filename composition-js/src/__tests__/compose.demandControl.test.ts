@@ -6,6 +6,7 @@ import {
   FieldDefinition,
   InputObjectType,
   ObjectType,
+  ScalarType,
   ServiceDefinition,
   Supergraph
 } from '@apollo/federation-internals';
@@ -27,11 +28,14 @@ const subgraphWithCost = {
       somethingWithCost: Int @cost(weight: 20)
     }
 
+    scalar ExpensiveInt @cost(weight: 30)
+
     type Query {
       fieldWithCost: Int @cost(weight: 5)
       argWithCost(arg: Int @cost(weight: 10)): Int
       enumWithCost: AorB
       inputWithCost(someInput: InputTypeWithCost): Int
+      scalarWithCost: ExpensiveInt
     }
   `),
 };
@@ -61,11 +65,14 @@ const subgraphWithRenamedCost = {
       somethingWithCost: Int @renamedCost(weight: 20)
     }
 
+    scalar ExpensiveInt @renamedCost(weight: 30)
+
     type Query {
       fieldWithCost: Int @renamedCost(weight: 5)
       argWithCost(arg: Int @renamedCost(weight: 10)): Int
       enumWithCost: AorB
       inputWithCost(someInput: InputTypeWithCost): Int
+      scalarWithCost: ExpensiveInt
     }
   `),
 };
@@ -94,11 +101,14 @@ const subgraphWithCostFromFederationSpec = {
         somethingWithCost: Int @cost(weight: 20)
       }
 
+      scalar ExpensiveInt @cost(weight: 30)
+
       type Query {
         fieldWithCost: Int @cost(weight: 5)
         argWithCost(arg: Int @cost(weight: 10)): Int
         enumWithCost: AorB
         inputWithCost(someInput: InputTypeWithCost): Int
+        scalarWithCost: ExpensiveInt
       }
     `,
     { includeAllImports: true },
@@ -132,11 +142,14 @@ const subgraphWithRenamedCostFromFederationSpec = {
         somethingWithCost: Int @renamedCost(weight: 20)
       }
 
+      scalar ExpensiveInt @renamedCost(weight: 30)
+
       type Query {
         fieldWithCost: Int @renamedCost(weight: 5)
         argWithCost(arg: Int @renamedCost(weight: 10)): Int
         enumWithCost: AorB
         inputWithCost(someInput: InputTypeWithCost): Int
+        scalarWithCost: ExpensiveInt
       }
     `,
 };
@@ -193,6 +206,16 @@ function inputWithCost(result: CompositionResult): InputObjectType | undefined {
     ?.type as InputObjectType;
 }
 
+// Used to test @cost applications on SCALAR
+function scalarWithCost(result: CompositionResult): ScalarType | undefined {
+  return result
+    .schema
+    ?.schemaDefinition
+    .rootType('query')
+    ?.field('scalarWithCost')
+    ?.type as ScalarType
+}
+
 // Used to test @listSize applications on FIELD_DEFINITION
 function fieldWithListSize(result: CompositionResult): FieldDefinition<ObjectType> | undefined  {
   return result
@@ -223,6 +246,9 @@ describe('demand control directive composition', () => {
     const inputCostDirectiveApplications = inputWithCost(result)?.field('somethingWithCost')?.appliedDirectivesOf('cost');
     expect(inputCostDirectiveApplications?.toString()).toMatchString(`@cost(weight: 20)`);
 
+    const scalarCostDirectiveApplications = scalarWithCost(result)?.appliedDirectivesOf('cost');
+    expect(scalarCostDirectiveApplications?.toString()).toMatchString(`@cost(weight: 30)`);
+
     const listSizeDirectiveApplications = fieldWithListSize(result)?.appliedDirectivesOf('listSize');
     expect(listSizeDirectiveApplications?.toString()).toMatchString(`@listSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
   });
@@ -251,6 +277,12 @@ describe('demand control directive composition', () => {
 
       const enumCostDirectiveApplications = enumWithCost(result)?.appliedDirectivesOf('renamedCost');
       expect(enumCostDirectiveApplications?.toString()).toMatchString(`@renamedCost(weight: 15)`);
+
+      const inputCostDirectiveApplications = inputWithCost(result)?.field('somethingWithCost')?.appliedDirectivesOf('renamedCost');
+      expect(inputCostDirectiveApplications?.toString()).toMatchString(`@renamedCost(weight: 20)`);
+
+      const scalarCostDirectiveApplications = scalarWithCost(result)?.appliedDirectivesOf('renamedCost');
+      expect(scalarCostDirectiveApplications?.toString()).toMatchString(`@renamedCost(weight: 30)`);
 
       const listSizeDirectiveApplications = fieldWithListSize(result)?.appliedDirectivesOf('renamedListSize');
       expect(listSizeDirectiveApplications?.toString()).toMatchString(`@renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
@@ -406,6 +438,9 @@ describe('demand control directive extraction', () => {
         B
       }
 
+      scalar ExpensiveInt
+        @federation__cost(weight: 30)
+
       input InputTypeWithCost {
         somethingWithCost: Int @federation__cost(weight: 20)
       }
@@ -415,6 +450,7 @@ describe('demand control directive extraction', () => {
         argWithCost(arg: Int @federation__cost(weight: 10)): Int
         enumWithCost: AorB
         inputWithCost(someInput: InputTypeWithCost): Int
+        scalarWithCost: ExpensiveInt
       }
     `);
   });
