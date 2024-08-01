@@ -1473,5 +1473,39 @@ Federation Library: <a href="https://www.npmjs.com/package/@apollo/subgraph">Apo
         </table>
       </td>
     </tr>
+		<tr>
+			<th colspan="3"><big><a href="https://hasura.io">Hasura</a></big></th>
+		</tr>
+		<tr>
+			<td>Hasura lets you effortlessly connect all your databases, services, and code into a unified data graph, and expose it via one powerful supergraph API with unparalleled composability and speed.<br/>
+<br/>
+      GitHub: <a href="https://github.com/hasura/graphql-engine">hasura/graphql-engine</a><br/>
+      Stars: 31k ⭐<br/>
+<br/>
+      </td>
+      <td>
+        <table>
+          <tr><th><code>_service</code></th><td>🟢</td></tr>
+          <tr><th><code>@key (single)</code></th><td>🟢</td></tr>
+          <tr><th><code>@key (multi)</code></th><td>🟢</td></tr>
+          <tr><th><code>@key (composite)</code></th><td>🔲</td></tr>
+          <tr><th><code>repeatable @key</code></th><td>🔲</td></tr>
+          <tr><th><code>@requires</code></th><td>🔲</td></tr>
+          <tr><th><code>@provides</code></th><td>🔲</td></tr>
+          <tr><th><code>federated tracing</code></th><td>🔲</td></tr>
+        </table>
+      </td>
+      <td>
+        <table>
+          <tr><th><code>@link</code></th><td>🟢</td></tr>
+          <tr><th><code>@shareable</code></th><td>🔲</td></tr>
+          <tr><th><code>@tag</code></th><td>🔲</td></tr>
+          <tr><th><code>@override</code></th><td>🔲</td></tr>
+          <tr><th><code>@inaccessible</code></th><td>🔲</td></tr>
+          <tr><th><code>@composeDirective</code></th><td>🔲</td></tr>
+          <tr><th><code>@interfaceObject</code></th><td>🔲</td></tr>
+        </table>
+      </td>
+    </tr>
   </tbody>
 </table>
