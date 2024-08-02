@@ -56,7 +56,7 @@ const subgraphWithListSize = {
 
     type Query {
       fieldWithListSize: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
-      fieldWithDynamicListSize: HasInts @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
+      fieldWithDynamicListSize(first: Int!): HasInts @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
     }
   `),
 };
@@ -103,7 +103,7 @@ const subgraphWithRenamedListSize = {
 
     type Query {
       fieldWithListSize: [String!] @renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)
-      fieldWithDynamicListSize: HasInts @renamedListSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
+      fieldWithDynamicListSize(first: Int!): HasInts @renamedListSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
     }
   `),
 };
@@ -150,7 +150,7 @@ const subgraphWithListSizeFromFederationSpec = {
 
       type Query {
         fieldWithListSize: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
-        fieldWithDynamicListSize: HasInts @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
+        fieldWithDynamicListSize(first: Int!): HasInts @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
       }
     `,
     { includeAllImports: true },
@@ -201,7 +201,7 @@ const subgraphWithRenamedListSizeFromFederationSpec = {
 
       type Query {
         fieldWithListSize: [String!] @renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)
-        fieldWithDynamicListSize: HasInts @renamedListSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
+        fieldWithDynamicListSize(first: Int!): HasInts @renamedListSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
       }
     `,
 };
@@ -556,7 +556,7 @@ describe('demand control directive extraction', () => {
 
       type Query {
         fieldWithListSize: [String!] @federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)
-        fieldWithDynamicListSize: HasInts @federation__listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
+        fieldWithDynamicListSize(first: Int!): HasInts @federation__listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
       }
     `);
   });
