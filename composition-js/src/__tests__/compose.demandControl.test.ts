@@ -50,8 +50,13 @@ const subgraphWithListSize = {
   typeDefs: asFed2SubgraphDocument(gql`
     extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
 
+    type HasInts {
+      ints: [Int!]
+    }
+
     type Query {
       fieldWithListSize: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+      fieldWithDynamicListSize: HasInts @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
     }
   `),
 };
@@ -92,8 +97,13 @@ const subgraphWithRenamedListSize = {
   typeDefs: asFed2SubgraphDocument(gql`
     extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: [{ name: "@listSize", as: "@renamedListSize" }])
 
+    type HasInts {
+      ints: [Int!] @shareable
+    }
+
     type Query {
       fieldWithListSize: [String!] @renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)
+      fieldWithDynamicListSize: HasInts @renamedListSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
     }
   `),
 };
@@ -134,8 +144,13 @@ const subgraphWithListSizeFromFederationSpec = {
   name: 'subgraphWithListSize',
   typeDefs: asFed2SubgraphDocument(
     gql`
+      type HasInts {
+        ints: [Int!]
+      }
+
       type Query {
         fieldWithListSize: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+        fieldWithDynamicListSize: HasInts @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
       }
     `,
     { includeAllImports: true },
@@ -180,8 +195,13 @@ const subgraphWithRenamedListSizeFromFederationSpec = {
     gql`
       extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: [{ name: "@listSize", as: "@renamedListSize" }])
 
+      type HasInts {
+        ints: [Int!]
+      }
+
       type Query {
         fieldWithListSize: [String!] @renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)
+        fieldWithDynamicListSize: HasInts @renamedListSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
       }
     `,
 };
@@ -246,13 +266,22 @@ function objectWithCost(result: CompositionResult): ObjectType | undefined {
     ?.type as ObjectType
 }
 
-// Used to test @listSize applications on FIELD_DEFINITION
+// Used to test @listSize applications on FIELD_DEFINITION with a statically assumed size
 function fieldWithListSize(result: CompositionResult): FieldDefinition<ObjectType> | undefined  {
   return result
     .schema
     ?.schemaDefinition
     .rootType('query')
     ?.field('fieldWithListSize');
+}
+
+// Used to test @listSize applications on FIELD_DEFINITION with dynamic size arguments
+function fieldWithDynamicListSize(result: CompositionResult): FieldDefinition<ObjectType> | undefined  {
+  return result
+    .schema
+    ?.schemaDefinition
+    .rootType('query')
+    ?.field('fieldWithDynamicListSize');
 }
 
 describe('demand control directive composition', () => {
@@ -284,6 +313,9 @@ describe('demand control directive composition', () => {
 
     const listSizeDirectiveApplications = fieldWithListSize(result)?.appliedDirectivesOf('listSize');
     expect(listSizeDirectiveApplications?.toString()).toMatchString(`@listSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
+
+    const dynamicListSizeDirectiveApplications = fieldWithDynamicListSize(result)?.appliedDirectivesOf('listSize');
+    expect(dynamicListSizeDirectiveApplications?.toString()).toMatchString(`@listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)`);
   });
 
   describe('when renamed', () => {
@@ -322,6 +354,9 @@ describe('demand control directive composition', () => {
 
       const listSizeDirectiveApplications = fieldWithListSize(result)?.appliedDirectivesOf('renamedListSize');
       expect(listSizeDirectiveApplications?.toString()).toMatchString(`@renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
+
+      const dynamicListSizeDirectiveApplications = fieldWithDynamicListSize(result)?.appliedDirectivesOf('renamedListSize');
+      expect(dynamicListSizeDirectiveApplications?.toString()).toMatchString(`@renamedListSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)`);
     });
   });
 
@@ -515,63 +550,15 @@ describe('demand control directive extraction', () => {
         query: Query
       }
 
+      type HasInts {
+        ints: [Int!]
+      }
+
       type Query {
         fieldWithListSize: [String!] @federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+        fieldWithDynamicListSize: HasInts @federation__listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
       }
     `);
-  });
-
-  it('extracts @listSize with dynamic cost arguments', () => {
-    const subgraphA = {
-      name: 'subgraph-a',
-      typeDefs: asFed2SubgraphDocument(gql`
-        extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
-
-        type Query {
-          sizedList(first: Int!): HasInts @shareable @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
-        }
-
-        type HasInts {
-          ints: [Int!] @shareable
-        }
-      `)
-    };
-    const subgraphB = {
-      name: 'subgraph-b',
-      typeDefs: asFed2SubgraphDocument(gql`
-        extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
-
-        type Query {
-          sizedList(first: Int!): HasInts @shareable @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: false)
-        }
-
-        type HasInts {
-          ints: [Int!] @shareable
-        }
-      `)
-    };
-
-    const result = composeServices([subgraphA, subgraphB]);
-    assertCompositionSuccess(result);
-    const supergraph = Supergraph.build(result.supergraphSdl);
-
-    const expectedSubgraph = `
-      schema
-        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
-      {
-        query: Query
-      }
-
-      type HasInts {
-        ints: [Int!] @shareable
-      }
-
-      type Query {
-        sizedList(first: Int!): HasInts @shareable @federation__listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: false)
-      }
-    `;
-    expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(expectedSubgraph);
-    expect(supergraph.subgraphs().get(subgraphB.name)?.toString()).toMatchString(expectedSubgraph);
   });
 
   describe('when used on @shareable fields', () => {
