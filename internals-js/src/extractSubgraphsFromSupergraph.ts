@@ -450,6 +450,10 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
       subgraphInfo.type.addImplementedInterface(args.interface);
     }
 
+    for (const { type: subgraphType, subgraph } of subgraphsInfo.values()) {
+      propagateDemandControlDirectives(type, subgraphType, subgraph, args.originalDirectiveNames);
+    }
+
     for (const field of type.fields()) {
       const fieldApplications = field.appliedDirectivesOf(fieldDirective);
       if (fieldApplications.length === 0) {
