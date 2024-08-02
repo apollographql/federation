@@ -55,7 +55,7 @@ type Book {
 
 In Federation 2, this "identical definition" constraint is removed. Value types and their fields can be shared across subgraphs, even if certain details differ between definitions.
 
-For details, see the sections below, along with [Value types](../federated-types/sharing-types/).
+For details, see the sections below, along with [Value types](../federated-schemas/sharing-types/).
 
 ### Objects
 
@@ -82,7 +82,7 @@ type Book @shareable {
 
 </CodeColumns>
 
-The two `Book` type definitions above differ in terms of the fields they include and the nullability of those fields. Notice also the new [`@shareable`](../federated-types/sharing-types/#using-shareable) directive, which is required to indicate that a field can be resolved by multiple subgraphs.
+The two `Book` type definitions above differ in terms of the fields they include and the nullability of those fields. Notice also the new [`@shareable`](../federated-schemas/sharing-types/#using-shareable) directive, which is required to indicate that a field can be resolved by multiple subgraphs.
 
 <Note>
 
@@ -95,13 +95,13 @@ This flexibility is especially helpful when an organization has multiple standal
 #### Valid shared field differences between subgraphs
 
 * The return type of a shared field can vary in nullability (`String` / `String!`).
-* Types can omit fields that are included in other subgraphs, as long as every field in your supergraph is always resolvable. (For details, see [Rules of composition](../federated-types/composition/#rules-of-composition).)
+* Types can omit fields that are included in other subgraphs, as long as every field in your supergraph is always resolvable. (For details, see [Rules of composition](../federated-schemas/composition/#rules-of-composition).)
 
-For details on how these field differences are handled, see [Differing shared fields](../federated-types/sharing-types/#differing-shared-fields).
+For details on how these field differences are handled, see [Differing shared fields](../federated-schemas/sharing-types/#differing-shared-fields).
 
 ### Enums, unions, and interfaces
 
-In Federation 2, `enum`, `union`, and `interface` definitions can differ between subgraphs. For details, see [Merging types from multiple subgraphs](../federated-types/composition/#merging-types-from-multiple-subgraphs).
+In Federation 2, `enum`, `union`, and `interface` definitions can differ between subgraphs. For details, see [Merging types from multiple subgraphs](../federated-schemas/composition/#merging-types-from-multiple-subgraphs).
 
 ## Entities
 
@@ -222,7 +222,7 @@ For more information, see [Referencing an entity without contributing fields](..
 
 ### Migrating fields
 
-Federation 2 introduces the [`@override` directive](../federated-types/federated-directives/#override), which helps you safely migrate entity and root-level fields between subgraphs with managed federation:
+Federation 2 introduces the [`@override` directive](../federated-schemas/federated-directives/#override), which helps you safely migrate entity and root-level fields between subgraphs with managed federation:
 
 <CodeColumns>
 
