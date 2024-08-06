@@ -71,7 +71,7 @@ import {
   FEDERATION_VERSIONS,
   InaccessibleSpecDefinition,
   LinkDirectiveArgs,
-  sourceIdentity,
+  connectIdentity,
   FeatureUrl,
   isFederationDirectiveDefinedInSchema,
   parseContext,
@@ -81,6 +81,8 @@ import {
   isNullableType,
   isFieldDefinition,
   Post20FederationDirectiveDefinition,
+  coreFeatureDefinitionIfKnown,
+  FeatureDefinition,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -378,7 +380,7 @@ class Merger {
     this.inaccessibleSpec = INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.fieldsWithFromContext = this.getFieldsWithFromContextDirective();
     this.fieldsWithOverride = this.getFieldsWithOverrideDirective();
-    
+
     this.names = subgraphs.names();
     this.composeDirectiveManager = new ComposeDirectiveManager(
       this.subgraphs,
@@ -406,7 +408,7 @@ class Merger {
 
     [ // Represent any applications of directives imported from these spec URLs
       // using @join__directive in the merged supergraph.
-      sourceIdentity,
+      connectIdentity,
     ].forEach(url => this.joinDirectiveIdentityURLs.add(url));
   }
 
@@ -655,6 +657,10 @@ class Merger {
     // copy things from interface in the merged schema into their implementation in that same schema so
     // we want to make sure everything is ready.
     this.addMissingInterfaceObjectFieldsToImplementations();
+
+    // After converting some `@link`ed definitions to use `@join__directive`,
+    // we might have some imported scalars and input types to remove from the schema.
+    this.removeTypesAfterJoinDirectiveSerialization(this.merged);
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
     // are only an artifact of that incompleteness as it's confusing.
@@ -2906,13 +2912,13 @@ class Merger {
     }
 
     const directiveInSupergraph = this.mergedFederationDirectiveInSupergraph.get(name);
-    
+
     if (dest.schema().directive(name)?.repeatable) {
       // For repeatable directives, we simply include each application found but with exact duplicates removed
       while (perSource.length > 0) {
         const directive = perSource[0].directives[0];
         const subgraphIndex = perSource[0].subgraphIndex;
-        
+
         const transformedArgs = directiveInSupergraph && directiveInSupergraph.staticArgumentTransform && directiveInSupergraph.staticArgumentTransform(this.subgraphs.values()[subgraphIndex], directive.arguments(false));
         dest.applyDirective(directive.name, transformedArgs ?? directive.arguments(false));
         // We remove every instances of this particular application. That is we remove any other applicaiton with
@@ -3130,6 +3136,40 @@ class Merger {
         });
       });
     });
+  }
+
+  // After merging, if we added any join__directive directives, we want to
+  // remove types imported from the original `@link` directive to avoid
+  // orphaned types. When extractSubgraphsFromSupergraph is called, it will
+  // add the types back to the subgraph.
+  private removeTypesAfterJoinDirectiveSerialization(schema: Schema) {
+    const joinDirectiveLinks = schema.directives()
+      .filter(d => d.name === 'join__directive')
+      .flatMap(d => Array.from(d.applications()))
+      .filter(a => a.arguments().name === 'link');
+
+    // We can't use `.nameInSchema()` because the `@link` directive isn't
+    // directly in the schema, it's obscured by the `@join__directive` directive
+    const joinDirectiveFieldsWithNamespaces = Object.fromEntries(joinDirectiveLinks.flatMap(link => {
+      const url = link.arguments().args.url;
+      const parsed = FeatureUrl.parse(url);
+      if (parsed) {
+        const featureDefinition = coreFeatureDefinitionIfKnown(parsed);
+        if (featureDefinition) {
+          const nameInSchema = link.arguments().args.as ?? featureDefinition.url.name;
+          return [[nameInSchema, featureDefinition]] as [string, FeatureDefinition][];
+        }
+      }
+
+      // TODO: error if we can't parse URLs or find core feature definitions?
+      return [] as [string, FeatureDefinition][];
+    }));
+
+    for (const [namespace, featureDefinition] of Object.entries(joinDirectiveFieldsWithNamespaces)) {
+      featureDefinition.allElementNames().forEach(name => {
+        schema.type(`${namespace}__${name}`)?.removeRecursive()
+      });
+    }
   }
 
   private filterSubgraphs(predicate: (schema: Schema) => boolean): string[] {
@@ -3442,29 +3482,29 @@ class Merger {
       ));
     }
   }
-  
+
   private getFieldsWithFromContextDirective(): Set<string> {
     return this.getFieldsWithAppliedDirective(
       (subgraph: Subgraph) => subgraph.metadata().fromContextDirective(),
       (application: Directive<SchemaElement<any,any>>) => {
         const field = application.parent.parent;
-        assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`); 
+        assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`);
         return field;
       },
     );
   }
-  
+
   private getFieldsWithOverrideDirective(): Set<string> {
     return this.getFieldsWithAppliedDirective(
       (subgraph: Subgraph) => subgraph.metadata().overrideDirective(),
       (application: Directive<SchemaElement<any,any>>) => {
         const field = application.parent;
-        assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`); 
+        assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`);
         return field;
       }
     );
   }
-  
+
   private getFieldsWithAppliedDirective(
     getDirective: (subgraph: Subgraph) => Post20FederationDirectiveDefinition<any>,
     getField: (application: Directive<SchemaElement<any, any>>) => FieldDefinition<any>,

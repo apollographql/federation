@@ -310,14 +310,14 @@ test('handles the addition of @shareable when an @external is used on a type', (
   // 1. the @external on type `T` in s2 should be removed, as @external on types were no-ops in fed1 (but not in fed2 anymore, hence the removal)
   // 2. field `T.x` in s1 must be marked @shareable since it is resolved by s2 (since again, it's @external annotation is ignored).
 
-  const s2Upgraded = res.subgraphs?.get('s2')!;
-  expect(s2Upgraded.schema.type('T')?.hasAppliedDirective('external')).toBe(
+  const s2Upgraded = res.subgraphs?.get('s2');
+  expect(s2Upgraded?.schema.type('T')?.hasAppliedDirective('external')).toBe(
     false,
   );
 
-  const s1Upgraded = res.subgraphs?.get('s1')!;
+  const s1Upgraded = res.subgraphs?.get('s1');
   expect(
-    (s1Upgraded.schema.type('T') as ObjectType)
+    (s1Upgraded?.schema.type('T') as ObjectType)
       .field('x')
       ?.hasAppliedDirective('shareable'),
   ).toBe(true);
@@ -366,40 +366,54 @@ test('fully upgrades a schema with no @link directive', () => {
 
 test("don't add @shareable to subscriptions", () => {
   const subgraph1 = buildSubgraph(
-    "subgraph1",
-    "",
+    'subgraph1',
+    '',
     `#graphql
     type Query {
       hello: String
     }
-    
-    type Subscription { 
+
+    type Subscription {
       update: String!
     }
-  `
+  `,
   );
-  
+
   const subgraph2 = buildSubgraph(
-    "subgraph2",
-    "",
+    'subgraph2',
+    '',
     `#graphql
     type Query {
       hello: String
     }
-    
-    type Subscription { 
+
+    type Subscription {
       update: String!
     }
-  `
+  `,
   );
   const subgraphs = new Subgraphs();
   subgraphs.add(subgraph1);
   subgraphs.add(subgraph2);
   const result = upgradeSubgraphsIfNecessary(subgraphs);
 
-  expect(printSchema(result.subgraphs!.get("subgraph1")!.schema!)).not.toContain('update: String! @shareable');
-  expect(printSchema(result.subgraphs!.get("subgraph2")!.schema!)).not.toContain('update: String! @shareable');
-  
-  expect(result.subgraphs!.get("subgraph1")!.schema.type('Subscription')?.appliedDirectivesOf('@shareable').length).toBe(0);
-  expect(result.subgraphs!.get("subgraph2")!.schema.type('Subscription')?.appliedDirectivesOf('@shareable').length).toBe(0);
+  expect(
+    printSchema(result.subgraphs!.get('subgraph1')!.schema!),
+  ).not.toContain('update: String! @shareable');
+  expect(
+    printSchema(result.subgraphs!.get('subgraph2')!.schema!),
+  ).not.toContain('update: String! @shareable');
+
+  expect(
+    result
+      .subgraphs!.get('subgraph1')!
+      .schema.type('Subscription')
+      ?.appliedDirectivesOf('@shareable').length,
+  ).toBe(0);
+  expect(
+    result
+      .subgraphs!.get('subgraph2')!
+      .schema.type('Subscription')
+      ?.appliedDirectivesOf('@shareable').length,
+  ).toBe(0);
 });
