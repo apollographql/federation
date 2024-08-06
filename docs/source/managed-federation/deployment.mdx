@@ -128,7 +128,7 @@ Two types of advanced deployment workflows:
 
 * **Blue-green deployment workflow**. For deployments that require progressive rollout, such as blue-green deployments, you can configure your environments to refer to a single [graph variant](/graphos/graphs/#variants) by pinning each environment's supergraph schema to your routers at deployment time. Using a single variant between different production environments enables GraphOS Studio to get usage reports and analyze the combined production traffic of all environments, as well as providing a consistent changelog of your schema over time.
 
-* **Graph variant workflow**. Changes at the router level might involve a variety of different updates, such as [migrating entities](../entities/migrate-fields) from one subgraph to another. If your infrastructure requires a more advanced deployment process to handle the different router updates, you can use [graph variants](/graphos/graphs/#variants) to manage router fleets running with different configurations. 
+* **Graph variant workflow**. Changes at the router level might involve a variety of different updates, such as [migrating entities](../entities-advanced/#migrating-entities-and-fields) from one subgraph to another. If your infrastructure requires a more advanced deployment process to handle the different router updates, you can use [graph variants](/graphos/graphs/#variants) to manage router fleets running with different configurations. 
 
   A common use for graph variants is [contracts](/graphos/delivery/contracts/), for example, to create separate contract variants for the public and private APIs of a supergraph schema.
 

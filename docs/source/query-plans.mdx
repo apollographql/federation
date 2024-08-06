@@ -445,7 +445,7 @@ A `Defer` node corresponds to one or more `@defer`s at the same level of nesting
 
 The node contains a _primary block_ and an array of _deferred blocks_. The primary block represents the part of the query that isn't deferred. Each deferred block corresponds to the one deferred part of the query.
 
-Read more about how `@defer` works in the [router support for @defer article](/router/executing-operations/defer-support/).
+Read more about how `@defer` works in the [Apollo Router support for @defer article](/router/executing-operations/defer-support/).
 
 ```graphql
 QueryPlan {
@@ -502,7 +502,7 @@ You can view the query plan for a particular operation in any of the following w
 
 ### Outputting query plans with headers
 
-With [the Apollo Router Core](/router/) v0.16.0+ and [`@apollo/gateway`](/apollo-server/using-federation/api/apollo-gateway/) v2.5.4+, you can pass the following headers to return the query plans in the GraphQL response extensions:
+With [the Apollo Router](/router/) v0.16.0+ and [`@apollo/gateway`](/apollo-server/using-federation/api/apollo-gateway/) v2.5.4+, you can pass the following headers to return the query plans in the GraphQL response extensions:
 
 - Including the `Apollo-Query-Plan-Experimental` header returns the query plan in the response extensions
 - Additionally including the `Apollo-Query-Plan-Experimental-Format` header with one of the supported options changes the output format:
