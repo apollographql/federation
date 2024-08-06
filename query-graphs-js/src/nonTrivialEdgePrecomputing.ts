@@ -2,7 +2,7 @@ import { assert } from "@apollo/federation-internals";
 import { Edge, QueryGraph, QueryGraphState, simpleTraversal } from "./querygraph";
 
 export function preComputeNonTrivialFollowupEdges(graph: QueryGraph): (previousEdge: Edge) => readonly Edge[] {
-  const state = new QueryGraphState<undefined, readonly Edge[]>(graph);
+  const state = new QueryGraphState<undefined, readonly Edge[]>();
   simpleTraversal(graph, () => {}, (edge) => {
     const followupEdges = graph.outEdges(edge.tail);
     state.setEdgeState(edge, computeNonTrivialFollowups(edge, followupEdges));
