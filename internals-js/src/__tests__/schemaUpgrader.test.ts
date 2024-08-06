@@ -274,7 +274,7 @@ test('reject @interfaceObject usage if not all subgraphs are fed2', () => {
   const res = upgradeSubgraphsIfNecessary(subgraphs);
   expect(res.errors?.map((e) => e.message)).toStrictEqual([
     'The @interfaceObject directive can only be used if all subgraphs have federation 2 subgraph schema (schema with a `@link` to "https://specs.apollo.dev/federation" version 2.0 or newer): ' +
-    '@interfaceObject is used in subgraph "s1" but subgraph "s2" is not a federation 2 subgraph schema.',
+      '@interfaceObject is used in subgraph "s1" but subgraph "s2" is not a federation 2 subgraph schema.',
   ]);
 });
 
@@ -366,8 +366,8 @@ test('fully upgrades a schema with no @link directive', () => {
 
 test("don't add @shareable to subscriptions", () => {
   const subgraph1 = buildSubgraph(
-    "subgraph1",
-    "",
+    'subgraph1',
+    '',
     `#graphql
     type Query {
       hello: String
@@ -376,12 +376,12 @@ test("don't add @shareable to subscriptions", () => {
     type Subscription {
       update: String!
     }
-  `
+  `,
   );
 
   const subgraph2 = buildSubgraph(
-    "subgraph2",
-    "",
+    'subgraph2',
+    '',
     `#graphql
     type Query {
       hello: String
@@ -390,16 +390,30 @@ test("don't add @shareable to subscriptions", () => {
     type Subscription {
       update: String!
     }
-  `
+  `,
   );
   const subgraphs = new Subgraphs();
   subgraphs.add(subgraph1);
   subgraphs.add(subgraph2);
   const result = upgradeSubgraphsIfNecessary(subgraphs);
 
-  expect(printSchema(result.subgraphs!.get("subgraph1")!.schema!)).not.toContain('update: String! @shareable');
-  expect(printSchema(result.subgraphs!.get("subgraph2")!.schema!)).not.toContain('update: String! @shareable');
+  expect(
+    printSchema(result.subgraphs!.get('subgraph1')!.schema!),
+  ).not.toContain('update: String! @shareable');
+  expect(
+    printSchema(result.subgraphs!.get('subgraph2')!.schema!),
+  ).not.toContain('update: String! @shareable');
 
-  expect(result.subgraphs!.get("subgraph1")!.schema.type('Subscription')?.appliedDirectivesOf('@shareable').length).toBe(0);
-  expect(result.subgraphs!.get("subgraph2")!.schema.type('Subscription')?.appliedDirectivesOf('@shareable').length).toBe(0);
+  expect(
+    result
+      .subgraphs!.get('subgraph1')!
+      .schema.type('Subscription')
+      ?.appliedDirectivesOf('@shareable').length,
+  ).toBe(0);
+  expect(
+    result
+      .subgraphs!.get('subgraph2')!
+      .schema.type('Subscription')
+      ?.appliedDirectivesOf('@shareable').length,
+  ).toBe(0);
 });
