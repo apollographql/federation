@@ -274,7 +274,7 @@ test('reject @interfaceObject usage if not all subgraphs are fed2', () => {
   const res = upgradeSubgraphsIfNecessary(subgraphs);
   expect(res.errors?.map((e) => e.message)).toStrictEqual([
     'The @interfaceObject directive can only be used if all subgraphs have federation 2 subgraph schema (schema with a `@link` to "https://specs.apollo.dev/federation" version 2.0 or newer): ' +
-      '@interfaceObject is used in subgraph "s1" but subgraph "s2" is not a federation 2 subgraph schema.',
+    '@interfaceObject is used in subgraph "s1" but subgraph "s2" is not a federation 2 subgraph schema.',
   ]);
 });
 
@@ -310,14 +310,14 @@ test('handles the addition of @shareable when an @external is used on a type', (
   // 1. the @external on type `T` in s2 should be removed, as @external on types were no-ops in fed1 (but not in fed2 anymore, hence the removal)
   // 2. field `T.x` in s1 must be marked @shareable since it is resolved by s2 (since again, it's @external annotation is ignored).
 
-  const s2Upgraded = res.subgraphs?.get('s2')!;
-  expect(s2Upgraded.schema.type('T')?.hasAppliedDirective('external')).toBe(
+  const s2Upgraded = res.subgraphs?.get('s2');
+  expect(s2Upgraded?.schema.type('T')?.hasAppliedDirective('external')).toBe(
     false,
   );
 
-  const s1Upgraded = res.subgraphs?.get('s1')!;
+  const s1Upgraded = res.subgraphs?.get('s1');
   expect(
-    (s1Upgraded.schema.type('T') as ObjectType)
+    (s1Upgraded?.schema.type('T') as ObjectType)
       .field('x')
       ?.hasAppliedDirective('shareable'),
   ).toBe(true);
@@ -372,13 +372,13 @@ test("don't add @shareable to subscriptions", () => {
     type Query {
       hello: String
     }
-    
-    type Subscription { 
+
+    type Subscription {
       update: String!
     }
   `
   );
-  
+
   const subgraph2 = buildSubgraph(
     "subgraph2",
     "",
@@ -386,8 +386,8 @@ test("don't add @shareable to subscriptions", () => {
     type Query {
       hello: String
     }
-    
-    type Subscription { 
+
+    type Subscription {
       update: String!
     }
   `
@@ -399,7 +399,7 @@ test("don't add @shareable to subscriptions", () => {
 
   expect(printSchema(result.subgraphs!.get("subgraph1")!.schema!)).not.toContain('update: String! @shareable');
   expect(printSchema(result.subgraphs!.get("subgraph2")!.schema!)).not.toContain('update: String! @shareable');
-  
+
   expect(result.subgraphs!.get("subgraph1")!.schema.type('Subscription')?.appliedDirectivesOf('@shareable').length).toBe(0);
   expect(result.subgraphs!.get("subgraph2")!.schema.type('Subscription')?.appliedDirectivesOf('@shareable').length).toBe(0);
 });
