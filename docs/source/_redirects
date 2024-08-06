@@ -1,8 +1,9 @@
 /subgraphs/ /docs/apollo-server/using-federation/apollo-subgraph-setup/
 /gateway/ /docs/federation/building-supergraphs/router/
 /router/ /docs/federation/building-supergraphs/router/
-/supported-subgraphs/ /docs/federation/building-supergraphs/supported-subgraphs/
-/other-servers/ /docs/federation/building-supergraphs/supported-subgraphs/
+/supported-subgraphs/ /docs/federation/building-supergraphs/compatible-subgraphs/
+/building-supergraphs/supported-subgraphs/ /docs/federation/building-supergraphs/compatible-subgraphs/
+/other-servers/ /docs/federation/building-supergraphs/compatible-subgraphs/
 /federation-spec/ /docs/federation/subgraph-spec/
 /building-supergraphs/subgraphs-apollo-server/ /docs/apollo-server/using-federation/apollo-subgraph-setup/
 /api/apollo-subgraph /docs/apollo-server/using-federation/api/apollo-subgraph/
@@ -15,10 +16,21 @@
 /value-types/ /docs/federation/v2/federated-types/sharing-types/
 /federated-types/value-types/  /docs/federation/v2/federated-types/sharing-types/
 
-/quickstart/ /docs/federation/v2/quickstart/setup/
-/quickstart-pt-2/ /docs/federation/v2/quickstart/studio-composition/
-/quickstart-pt-3/ /docs/federation/v2/quickstart/local-composition/
-/quickstart-pt-4/ /docs/federation/v2/quickstart/local-subgraphs/
+/quickstart-pt-2/ /docs/federation/quickstart/
+/quickstart-pt-3/ /docs/federation/quickstart/
+/quickstart-pt-4/ /docs/federation/quickstart/
+/quickstart/setup/ /docs/federation/quickstart/
+/quickstart/studio-composition/ /docs/federation/quickstart/
+/quickstart/local-composition/ /docs/federation/quickstart/
+/quickstart/local-subgraphs/ /docs/federation/quickstart/
 
 /managed-federation/monitoring/ /docs/federation/performance/monitoring
 /api/apollo-federation/ /docs/federation/api/apollo-subgraph/
+
+/entities-advanced /docs/federation/entities/define-advanced-keys
+/federated-types/overview /docs/federation/federated-schemas/
+/federated-types/composition /docs/federation/federated-schemas/composition
+/federated-types/federated-directives /docs/federation/federated-schemas/federated-directives
+/federated-types/sharing-types /docs/federation/federated-schemas/sharing-types
+/federated-types/interfaces /docs/federation/entities/interfaces
+/federated-schemas/interfaces /docs/federation/entities/interfaces

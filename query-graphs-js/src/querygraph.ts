@@ -476,16 +476,8 @@ export class QueryGraph {
  */
 export class QueryGraphState<VertexState, EdgeState = undefined> {
   // Store some "user" state for each vertex (accessed by index)
-  private readonly verticesStates: (VertexState | undefined)[];
-  private readonly adjacenciesStates: (EdgeState | undefined)[][];
-
-  /**
-   * Creates a new `QueryGraphState` to associate state to the vertices and/or edges of `graph`.
-   */
-  constructor(readonly graph: QueryGraph) {
-    this.verticesStates = new Array(graph.verticesCount());
-    this.adjacenciesStates = new Array(graph.verticesCount());
-  }
+  private readonly verticesStates: Map<number, VertexState> = new Map();
+  private readonly adjacenciesStates: Map<number, Map<number, EdgeState>> = new Map();
 
   /**
    * Associates the provided state to the provided vertex.
@@ -496,7 +488,7 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
    * @param state - the state/value to associate to `vertex`.
    */
   setVertexState(vertex: Vertex, state: VertexState) {
-    this.verticesStates[vertex.index] = state;
+    this.verticesStates.set(vertex.index, state);
   }
 
   /**
@@ -507,7 +499,7 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
    *    `QueryGraphState` was created (and its behavior is undefined if it isn't).
    */
   removeVertexState(vertex: Vertex) {
-    this.verticesStates[vertex.index] = undefined;
+    this.verticesStates.delete(vertex.index);
   }
 
   /**
@@ -519,7 +511,7 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
    * @return the state associated to `vertex`, if any.
    */
   getVertexState(vertex: Vertex): VertexState | undefined {
-    return this.verticesStates[vertex.index];
+    return this.verticesStates.get(vertex.index);
   }
 
   /**
@@ -531,10 +523,12 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
    * @param state - the state/value to associate to `edge`.
    */
   setEdgeState(edge: Edge, state: EdgeState) {
-    if (!this.adjacenciesStates[edge.head.index]) {
-      this.adjacenciesStates[edge.head.index] = new Array(this.graph.outEdgesCount(edge.head));
+    let edgeMap = this.adjacenciesStates.get(edge.head.index)
+    if (!edgeMap) {
+      edgeMap = new Map();
+      this.adjacenciesStates.set(edge.head.index, edgeMap);
     }
-    this.adjacenciesStates[edge.head.index][edge.index] = state;
+    edgeMap.set(edge.index, state);
   }
 
   /**
@@ -545,7 +539,13 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
    *    `QueryGraphState` was created (and its behavior is undefined if it isn't).
    */
   removeEdgeState(edge: Edge) {
-    this.adjacenciesStates[edge.head.index][edge.index] = undefined;
+    const edgeMap = this.adjacenciesStates.get(edge.head.index);
+    if (edgeMap) {
+      edgeMap.delete(edge.index);
+      if (edgeMap.size === 0) {
+        this.adjacenciesStates.delete(edge.head.index);
+      }
+    }
   }
 
   /**
@@ -557,16 +557,21 @@ export class QueryGraphState<VertexState, EdgeState = undefined> {
    * @return the state associated to `edge`, if any.
    */
   getEdgeState(edge: Edge): EdgeState | undefined {
-    const forEdge = this.adjacenciesStates[edge.head.index];
-    return forEdge ? forEdge[edge.index] : undefined;
+    return this.adjacenciesStates.get(edge.head.index)?.get(edge.index);
   }
 
   toDebugString(
     vertexMapper: (s: VertexState) => string,
     edgeMapper: (e: EdgeState) => string
   ): string {
-    const vs = this.verticesStates.map((state, idx) => ` ${idx}: ${!state ? "<null>" : vertexMapper(state)}`).join("\n");
-    const es = this.adjacenciesStates.map((adj, vIdx) => adj.map((state, eIdx) => ` ${vIdx}[${eIdx}]: ${!state ? "<null>" : edgeMapper(state)}`).join("\n")).join("\n");
+    const vs = Array.from(this.verticesStates.entries()).sort(([a], [b]) => a - b).map(([idx, state]) =>
+      ` ${idx}: ${!state ? "<null>" : vertexMapper(state)}`
+    ).join("\n");
+    const es = Array.from(this.adjacenciesStates.entries()).sort(([a], [b]) => a - b).map(([vIdx, adj]) =>
+      Array.from(adj.entries()).sort(([a], [b]) => a - b).map(([eIdx, state]) =>
+        ` ${vIdx}[${eIdx}]: ${!state ? "<null>" : edgeMapper(state)}`
+      ).join("\n")
+    ).join("\n");
     return `vertices = {${vs}\n}, edges = {${es}\n}`;
   }
 }
