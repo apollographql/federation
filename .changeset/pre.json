@@ -10,15 +10,5 @@
     "@apollo/query-planner": "2.9.0-connectors.8",
     "@apollo/subgraph": "2.9.0-connectors.8"
   },
-  "changesets": [
-    "afraid-phones-reflect",
-    "friendly-tables-mix",
-    "good-shoes-chew",
-    "many-cats-prove",
-    "smooth-melons-study",
-    "thin-needles-tap",
-    "violet-wasps-cry",
-    "wild-guests-notice",
-    "wise-donkeys-deliver"
-  ]
+  "changesets": []
 }

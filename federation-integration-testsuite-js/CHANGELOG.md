@@ -1,10 +1,10 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
-## 2.9.0-connectors.9
+## 2.8.4
 
-### Patch Changes
+## 2.8.3
 
-- fix: skip feature check on satisfiability validation
+## 2.8.3-beta.2
 
 ## 2.8.3-beta.1
 

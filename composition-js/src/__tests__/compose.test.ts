@@ -4655,4 +4655,73 @@ describe('composition', () => {
     const authenticatedDirectiveExists = schema.directives().find(d => d.name === 'authenticated');
     expect(authenticatedDirectiveExists).toBeUndefined();
   });
+
+    it('fed-354 repro @interfaceObject failure', () => {
+        const subgraph1 = {
+            name: 'Subgraph1',
+            url: 'https://Subgraph1',
+            typeDefs: gql`
+                type Query {
+                    error_query: TicketField!
+                }
+
+                type User @interfaceObject @key(fields: "id") {
+                    id: ID!
+                }
+
+                interface TicketField {
+                    id: ID!
+                    createdBy: User
+                }
+
+                type TextTicketField implements TicketField @key(fields: "id") @shareable {
+                    id: ID!
+                    createdBy: User
+                }
+            `
+        };
+
+        const subgraph2 = {
+            name: 'Subgraph2',
+            url: 'https://Subgraph2',
+            typeDefs: gql`
+                interface Ticket @key(fields : "id", resolvable : true) {
+                    id: ID!
+                }
+
+                interface User @key(fields : "id", resolvable : true) {
+                    id: ID!
+                    requestedTickets: [Ticket!]!
+                }
+
+                interface TicketField {
+                    createdBy: User
+                    id: ID!
+                }
+
+                type TextTicketField implements TicketField @shareable {
+                    createdBy: User
+                    id: ID!
+                }
+
+                type Customer implements User @key(fields : "id", resolvable : true) @shareable {
+                    id: ID!
+                    requestedTickets: [Ticket!]!
+                }
+
+                type Agent implements User @key(fields : "id", resolvable : true) @shareable {
+                    id: ID!
+                    requestedTickets: [Ticket!]!
+                }
+
+                type Question implements Ticket @key(fields : "id", resolvable : true) {
+                    fields: [TicketField!]!
+                    id: ID!
+                }
+            `
+        };
+
+        const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+        assertCompositionSuccess(result);
+    });
 });

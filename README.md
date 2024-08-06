@@ -2,6 +2,13 @@
 
 [![CircleCI](https://circleci.com/gh/apollographql/federation/tree/main.svg?style=shield)](https://circleci.com/gh/apollographql/federation/tree/main) [![Netlify Status](https://api.netlify.com/api/v1/badges/3a012f93-2d02-41f7-bb2b-848cf005b831/deploy-status)](https://app.netlify.com/sites/apollo-federation-docs/deploys)
 
+---
+
+**Announcement:**   
+Join 1000+ engineers at GraphQL Summit for talks, workshops, and office hours, Oct 8-10 in NYC. [Get your pass here ->](https://summit.graphql.com/?utm_campaign=github_federation_readme)
+
+---
+
 # Apollo Federation
 
 Apollo Federation is an architecture for declaratively composing APIs into a unified graph. Each team can own their slice of the graph independently, empowering them to deliver autonomously and incrementally.

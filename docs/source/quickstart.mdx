@@ -1,10 +1,10 @@
 ---
-title: Apollo Federation Quickstart
-subtitle: Build a federated GraphQL API with Apollo Federation
-description: Build a federated GraphQL API with Apollo Federation
+title: Apollo GraphOS Quickstart
+subtitle: Build a federated GraphQL API with Apollo Federation and GraphOS
+description: Build a federated GraphQL API with Apollo Federation and GraphOS
 ---
 
-Apollo Federation combines microservices into a single GraphQL API, providing real-time access to all your data sources for all your client applications.
+Apollo Federation combines microservices into a single GraphQL API, providing real-time access to all your data sources for all your client applications. Apollo GraphOS is the platform for building, testing, and deploying a federated GraphQL API—also known as a supergraph.
 
 ```mermaid
 graph LR;
@@ -26,7 +26,7 @@ graph LR;
   class iot secondary;
 ```
 
-By the end of this quickstart, you'll have set up a federated GraphQL API—also known as a _supergraph_—that integrates data from products, users, and inventory services.
+By the end of this quickstart, you'll have set up a supergraph that integrates data from products, users, and inventory services.
 Along the way, you'll learn about tools like the Rover CLI and GraphOS Studio.
 
 To learn more about Apollo Federation and the benefits of using it with GraphOS, check out these resources:
@@ -38,14 +38,13 @@ To learn more about Apollo Federation and the benefits of using it with GraphOS,
 
 To complete this quickstart, you must have the following:
 
-- A [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content) account
 - A local version of Apollo's retail demo
   - Download or clone it from its [GitHub repository](https://github.com/apollosolutions/retail-supergraph)
 - The latest LTS version of [Node.js](https://nodejs.org/en)
 
   <Note>
 
-  While the retail demo uses Node.js for all its services, Apollo Federation is compatible with [many GraphQL server libraries](./building-supergraphs/supported-subgraphs).
+  While the retail demo uses Node.js for all its services, Apollo Federation is compatible with [many GraphQL server libraries](./building-supergraphs/compatible-subgraphs).
   You can also federate services that use different programming languages and different server libraries.
 
   </Note>
@@ -441,9 +440,10 @@ In this step, you'll create an empty supergraph in GraphOS Studio and then publi
 
 #### Create supergraph
 
-1. Go to [studio.apollographql.com](https://studio.apollographql.com/?referrer=docs-content) and click **+ Create New Graph**.
-2. Enter a **Graph title**, for example `Federation Quickstart`. Leave the **Graph Architecture** as `Supergraph (Default)` and **Visible to Team Members** as `On`. Click **Next**.
-3. A **Publish your schema using Federation** dialog appears. Copy the entire example code block to a local text file using the copy button.
+1. If you don't yet have a [GraphOS Studio](https://studio.apollographql.com/?referrer=docs-content) account, create one now.
+2. If you're starting from a new Studio account, click **Connect a GraphQL API** when prompted. If working from an existing Studio account, click **+ Create New Graph** on the top right of the page.
+3. Enter a **Graph title**, for example `Federation Quickstart`. Leave the **Graph Architecture** as `Supergraph (Default)` and **Visible to Team Members** as `On`. Click **Next**.
+4. A **Publish your schema using Federation** dialog appears. Copy the entire example code block to a local text file using the copy button.
 
     <img
       src="./images/quickstart/publish-your-schema.jpg"
@@ -472,7 +472,7 @@ In this step, you'll create an empty supergraph in GraphOS Studio and then publi
 
     </Caution>
 
-4. Leave the dialog open; you'll complete setup with Rover.
+5. Leave the dialog open; you'll complete setup with Rover.
 
 #### Publish subgraph schemas
 
