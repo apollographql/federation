@@ -52,7 +52,8 @@ import {
   SchemaDefinitionNode,
   OperationTypeNode,
   OperationTypeDefinitionNode,
-  ConstDirectiveNode, parse,
+  ConstDirectiveNode,
+  parse,
 } from "graphql";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchemaFromAST } from "./buildSchema";
@@ -1251,11 +1252,11 @@ export class FederationMetadata {
   }
 
   fromContextDirective(): Post20FederationDirectiveDefinition<{ field: string }> {
-      return this.getPost20FederationDirective(FederationDirectiveName.FROM_CONTEXT);
+    return this.getPost20FederationDirective(FederationDirectiveName.FROM_CONTEXT);
   }
 
   contextDirective(): Post20FederationDirectiveDefinition<{ name: string }> {
-      return this.getPost20FederationDirective(FederationDirectiveName.CONTEXT);
+    return this.getPost20FederationDirective(FederationDirectiveName.CONTEXT);
   }
 
   costDirective(): Post20FederationDirectiveDefinition<CostDirectiveArguments> {
@@ -1308,12 +1309,12 @@ export class FederationMetadata {
 
     const contextDirective = this.contextDirective();
     if (isFederationDirectiveDefinedInSchema(contextDirective)) {
-        baseDirectives.push(contextDirective);
+      baseDirectives.push(contextDirective);
     }
 
     const fromContextDirective = this.fromContextDirective();
     if (isFederationDirectiveDefinedInSchema(fromContextDirective)) {
-        baseDirectives.push(fromContextDirective);
+      baseDirectives.push(fromContextDirective);
     }
 
     const costDirective = this.costDirective();

@@ -379,7 +379,7 @@ class Merger {
     this.linkSpec = LINK_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.inaccessibleSpec = INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.fieldsWithFromContext = this.getFieldsWithFromContextDirective();
-this.fieldsWithOverride = this.getFieldsWithOverrideDirective();
+    this.fieldsWithOverride = this.getFieldsWithOverrideDirective();
 
     this.names = subgraphs.names();
     this.composeDirectiveManager = new ComposeDirectiveManager(
@@ -1877,7 +1877,7 @@ this.fieldsWithOverride = this.getFieldsWithOverrideDirective();
       return true;
     }
 
-for (const source of sources.values()) {
+    for (const source of sources.values()) {
       const coordinate = source?.coordinate;
       if (coordinate && this.fieldsWithFromContext.has(coordinate)) {
         return true;
