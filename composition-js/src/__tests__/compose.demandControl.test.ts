@@ -153,6 +153,36 @@ const subgraphWithRenamedListSizeFromFederationSpec = {
     `,
 };
 
+const subgraphWithUnimportedCost = {
+  name: 'subgraphWithCost',
+  typeDefs: asFed2SubgraphDocument(gql`
+    enum AorB @federation__cost(weight: 15) {
+      A
+      B
+    }
+
+    input InputTypeWithCost {
+      somethingWithCost: Int @federation__cost(weight: 20)
+    }
+
+    type Query {
+      fieldWithCost: Int @federation__cost(weight: 5)
+      argWithCost(arg: Int @federation__cost(weight: 10)): Int
+      enumWithCost: AorB
+      inputWithCost(someInput: InputTypeWithCost): Int
+    }
+  `),
+};
+
+const subgraphWithUnimportedListSize = {
+  name: 'subgraphWithListSize',
+  typeDefs: asFed2SubgraphDocument(gql`
+    type Query {
+      fieldWithListSize: [String!] @federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+    }
+  `),
+};
+
 // Used to test @cost applications on FIELD_DEFINITION
 function fieldWithCost(result: CompositionResult): FieldDefinition<ObjectType> | undefined {
   return result
@@ -379,6 +409,29 @@ describe('demand control directive composition', () => {
       `);
     });
   });
+
+  describe('when using fully qualified names instead of importing', () => {
+    it('propagates @federation__cost and @federation__listSize to the supergraph', () => {
+      const result = composeServices([subgraphWithUnimportedCost, subgraphWithUnimportedListSize]);
+      assertCompositionSuccess(result);
+      expect(result.hints).toEqual([]);
+  
+      const costDirectiveApplications = fieldWithCost(result)?.appliedDirectivesOf('federation__cost');
+      expect(costDirectiveApplications?.toString()).toMatchString(`@federation__cost(weight: 5)`);
+  
+      const argCostDirectiveApplications = argumentWithCost(result)?.appliedDirectivesOf('federation__cost');
+      expect(argCostDirectiveApplications?.toString()).toMatchString(`@federation__cost(weight: 10)`);
+  
+      const enumCostDirectiveApplications = enumWithCost(result)?.appliedDirectivesOf('federation__cost');
+      expect(enumCostDirectiveApplications?.toString()).toMatchString(`@federation__cost(weight: 15)`);
+  
+      const inputCostDirectiveApplications = inputWithCost(result)?.field('somethingWithCost')?.appliedDirectivesOf('federation__cost');
+      expect(inputCostDirectiveApplications?.toString()).toMatchString(`@federation__cost(weight: 20)`);
+  
+      const listSizeDirectiveApplications = fieldWithListSize(result)?.appliedDirectivesOf('federation__listSize');
+      expect(listSizeDirectiveApplications?.toString()).toMatchString(`@federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
+    });
+  })
 });
 
 describe('demand control directive extraction', () => {
@@ -386,11 +439,12 @@ describe('demand control directive extraction', () => {
     subgraphWithCost,
     subgraphWithRenamedCost,
     subgraphWithCostFromFederationSpec,
-    subgraphWithRenamedCostFromFederationSpec
+    subgraphWithRenamedCostFromFederationSpec,
+    subgraphWithUnimportedCost,
   ])('extracts @cost from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
-    const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithCost.name);
+    const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraph.name);
 
     expect(extracted?.toString()).toMatchString(`
       schema
@@ -423,11 +477,12 @@ describe('demand control directive extraction', () => {
     subgraphWithListSize,
     subgraphWithRenamedListSize,
     subgraphWithListSizeFromFederationSpec,
-    subgraphWithRenamedListSizeFromFederationSpec
+    subgraphWithRenamedListSizeFromFederationSpec,
+    subgraphWithUnimportedListSize,
   ])('extracts @listSize from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
-    const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithListSize.name);
+    const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraph.name);
 
     expect(extracted?.toString()).toMatchString(`
       schema
