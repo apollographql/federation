@@ -580,4 +580,64 @@ describe('demand control directive extraction', () => {
       expect(supergraph.subgraphs().get(subgraphB.name)?.toString()).toMatchString(expectedSubgraph);
     });
   });
+
+  describe('when the supergraph uses custom directives with the same name', () => {
+    it('does not attempt to extract them to the subgraphs', () => {
+      const subgraphA = {
+        name: 'subgraph-a',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema
+            @link(url: "https://example.com/myCustomDirective/v1.0", import: ["@cost"])
+            @composeDirective(name: "@cost")
+
+          directive @cost(name: String!) on FIELD_DEFINITION
+
+          type Query {
+            a: Int @cost(name: "cost")
+          }
+        `)
+      };
+      const subgraphB = {
+        name: 'subgraph-b',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema
+            @link(url: "https://example.com/myOtherCustomDirective/v1.0", import: ["@listSize"])
+            @composeDirective(name: "@listSize")
+          
+          directive @listSize(name: String!) on FIELD_DEFINITION
+
+          type Query {
+            b: [Int] @listSize(name: "listSize")
+          }
+        `)
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      const supergraph = Supergraph.build(result.supergraphSdl);
+
+      expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(`
+        schema
+          ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+        {
+          query: Query
+        }
+
+        type Query {
+          a: Int
+        }  
+      `);
+      expect(supergraph.subgraphs().get(subgraphB.name)?.toString()).toMatchString(`
+        schema
+          ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+        {
+          query: Query
+        }
+
+        type Query {
+          b: [Int]
+        }  
+      `);
+    });
+  });
 });
