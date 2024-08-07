@@ -25,7 +25,7 @@ class ConditionValidationState {
   ) {}
 
   advance(supergraph: Schema): ConditionValidationState[] | null {
-    let newOptions: SimultaneousPathsWithLazyIndirectPaths[] = [];
+    const newOptions: SimultaneousPathsWithLazyIndirectPaths[] = [];
     for (const paths of this.subgraphOptions) {
       const pathsOptions = advanceSimultaneousPathsWithOperation(
         supergraph,
@@ -40,7 +40,7 @@ class ConditionValidationState {
       if (!pathsOptions) {
         continue;
       }
-      newOptions = newOptions.concat(pathsOptions);
+      newOptions.push(...pathsOptions);
     }
 
     // If we got no options, it means that particular selection of the conditions cannot be satisfied, so the
