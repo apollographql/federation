@@ -4655,6 +4655,39 @@ describe('composition', () => {
     const authenticatedDirectiveExists = schema.directives().find(d => d.name === 'authenticated');
     expect(authenticatedDirectiveExists).toBeUndefined();
   });
+
+  describe('uses minimum required spec versions', () => {
+    function subgraphWithFederationSpecVersion(version: string) {
+      const schemaString = `
+        extend schema @link(url: "https://specs.apollo.dev/federation/v${version}", import: ["@key"])
+
+        type Query {
+          a: A
+        }
+
+        type A @key(fields: "id") {
+          id: ID!
+        }
+        `;
+      return {
+        typeDefs: gql`${schemaString}`,
+        name: 'subgraphA',
+      };
+    }
+
+    it.each([
+      { subgraphFedVersion: "2.4", expectedJoinVersion: "0.3"},
+      { subgraphFedVersion: "2.5", expectedJoinVersion: "0.3"},
+      { subgraphFedVersion: "2.6", expectedJoinVersion: "0.3"},
+      { subgraphFedVersion: "2.7", expectedJoinVersion: "0.4"},
+      { subgraphFedVersion: "2.8", expectedJoinVersion: "0.5" },
+    ])("federation -> join versions", ({ subgraphFedVersion, expectedJoinVersion }) => {
+      const subgraph = subgraphWithFederationSpecVersion(subgraphFedVersion);
+      const result = composeServices([subgraph]);
+      assertCompositionSuccess(result);
+      expect(result.supergraphSdl).toContain(`join/v${expectedJoinVersion}`);
+    });
+  });
 });
 
 describe('@source* directives', () => {
