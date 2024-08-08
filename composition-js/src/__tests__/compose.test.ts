@@ -4676,10 +4676,14 @@ describe('composition', () => {
     }
 
     it.each([
-      { subgraphFedVersion: "2.4", expectedJoinVersion: "0.3"},
-      { subgraphFedVersion: "2.5", expectedJoinVersion: "0.3"},
-      { subgraphFedVersion: "2.6", expectedJoinVersion: "0.3"},
-      { subgraphFedVersion: "2.7", expectedJoinVersion: "0.4"},
+      { subgraphFedVersion: "2.0", expectedJoinVersion: "0.3" },
+      { subgraphFedVersion: "2.1", expectedJoinVersion: "0.3" },
+      { subgraphFedVersion: "2.2", expectedJoinVersion: "0.3" },
+      { subgraphFedVersion: "2.3", expectedJoinVersion: "0.3" },
+      { subgraphFedVersion: "2.4", expectedJoinVersion: "0.3" },
+      { subgraphFedVersion: "2.5", expectedJoinVersion: "0.3" },
+      { subgraphFedVersion: "2.6", expectedJoinVersion: "0.3" },
+      { subgraphFedVersion: "2.7", expectedJoinVersion: "0.4" },
       { subgraphFedVersion: "2.8", expectedJoinVersion: "0.5" },
     ])("federation -> join versions", ({ subgraphFedVersion, expectedJoinVersion }) => {
       const subgraph = subgraphWithFederationSpecVersion(subgraphFedVersion);
