@@ -4,20 +4,8 @@ subtitle: Learn how your router orchestrates operations across subgraphs
 description: Learn how your router orchestrates operations across subgraphs, ensuring seamless data retrieval for complex GraphQL operations in a federated architecture.
 ---
 
-Learn about query plans to help you debug advanced use cases of Apollo Federation.
-
-Whenever your router receives an incoming GraphQL operation, it needs to figure out how to use your subgraphs to populate data for each of that operation's fields. To do this, the router generates a _query plan_:
-
-```mermaid
-flowchart TB;
-  parallel(Parallel);
-  parallel --> fetchReviews("Fetch (reviews)");
-  parallel --> fetchUsers("Fetch (users)");
-  fetchReviews --> subFetchHotels("Fetch (hotels)");
-  subFetchHotels --> flatten("Flatten (latestReviews,[],hotel)")
-```
-
-A query plan is a blueprint for dividing a single incoming operation into one or more operations that are each resolvable by a single subgraph. Some of these operations depend on the results of other operations, so the query plan also defines any required ordering for their execution.
+Learn more about query plans to help you optimize and debug advanced use cases of Apollo Federation.
+If you haven't already, see the [Query Plan overview](/graphos/get-started/concepts/query-plans) article.
 
 ## Example graph
 
