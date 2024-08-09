@@ -121,5 +121,5 @@ export function simpleValidationConditionResolver({
     // condition is validated. Note that we use a cost of 1 for all conditions as we don't care about efficiency.
     return { satisfied: true, cost: 1 };
   };
-  return withCaching ? cachingConditionResolver(queryGraph, resolver) : resolver;
+  return withCaching ? cachingConditionResolver(resolver) : resolver;
 }

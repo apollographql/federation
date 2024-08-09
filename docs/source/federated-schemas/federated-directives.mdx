@@ -118,8 +118,8 @@ type Product @key(fields: "id") {
 
 To learn best practices and advanced use cases for `@key`, refer to the following guides:
 
-- [Introduction to entities](../entities#1-define-a-key)
-- [Advanced entities](../entities-advanced)
+- [Introduction to entities](../entities)
+- [Define advanced keys](../entities/define-advanced-keys)
 
 </Tip>
 
@@ -135,11 +135,11 @@ type Product @key(fields: "upc") @key(fields: "sku") {
 
 <Note>
 
-To check whether your subgraph library supports repeatable directives, see the `repeatable @key` item in [Federation-compatible subgraph implementations](../building-supergraphs/supported-subgraphs/).
+To check whether your subgraph library supports repeatable directives, see the `repeatable @key` item in [Federation-compatible subgraph implementations](../building-supergraphs/compatible-subgraphs/).
 
 </Note>
 
-In Apollo Federation 2.3 and later, you can also apply `@key` to `interface` definitions to create [entity interfaces](./interfaces/). If you apply `@key` to an `interface` in earlier versions of Federation 2, a composition error occurs.
+In Apollo Federation 2.3 and later, you can also apply `@key` to `interface` definitions to create [entity interfaces](../entities/interfaces/). If you apply `@key` to an `interface` in earlier versions of Federation 2, a composition error occurs.
 
 #### Arguments
 
@@ -171,7 +171,7 @@ Examples:
 * `"username region"`
 * `"name organization { id }"`
 
-See also [Advanced `@key`s](../entities-advanced/#using-advanced-keys).
+See also [Advanced `@key`s](../../entities/define-advanced-keys).
 
 </td>
 </tr>
@@ -211,7 +211,7 @@ Indicates that an object definition serves as an abstraction of another subgraph
 
 During composition, the fields of every `@interfaceObject` are added both to their corresponding `interface` definition and to all entity types that implement that interface.
 
-[Learn more about entity interfaces.](./interfaces/)
+[Learn more about entity interfaces.](../entities/interfaces/)
 
 <MinVersion version="1.0">
 
@@ -287,7 +287,7 @@ If a Federation 2 supergraph includes a Federation 1 subgraph, all value types i
 
 If a field is included in an entity's [`@key` directive](#key), that field is automatically considered `@shareable` and the directive is not required in the corresponding subgraph(s).
 
-See also [Value types in Apollo Federation](./sharing-types/) and [Resolving another subgraph's field](../entities-advanced/#resolving-another-subgraphs-field).
+See also [Value types in Apollo Federation](./sharing-types/) and [Resolving another subgraph's field](../entities/resolve-another-subgraphs-fields).
 
 The `@shareable` directive is about indicating when an object field can be resolved by multiple subgraphs. As interface fields are not directly resolved (their implementation is), `@shareable` is not meaningful on an interface field and is not allowed (at least since federation 2.2; earlier versions of federation 2 mistakenly ignored `@shareable` on interface fields).
 
@@ -382,7 +382,7 @@ You can apply `@override` to a [`@shareable`](#shareable) field. If you do, only
 
 Only one subgraph can `@override` any given field. If multiple subgraphs attempt to `@override` the same field, a composition error occurs.
 
-For more information, see [Migrating entities and fields](../entities-advanced/#migrating-entities-and-fields).
+For more information, see [Migrating entity and root fields](../entities/migrate-fields).
 
 <MinVersion version="2.7">
 
@@ -396,7 +396,7 @@ Rolling out any change to a production subgraph, including field migration, risk
 
 The _progressive `@override`_ feature enables the gradual, progressive deployment of a subgraph with an `@override` field. As a subgraph developer, you can customize the percentage of traffic that the overriding and overridden subgraphs each resolve for a field. You apply a label to an `@override` field to set the percentage of traffic for the field that should be resolved by the overriding subgraph, with the remaining percentage resolved by the overridden subgraph. You can then monitor the performance of the subgraphs in Studio, resolve any issues, and iteratively and progressively increase the percentage until all traffic is resolved by the overriding subgraph.
 
-To learn more, see the [Incremental migration with `@override`](../entities-advanced/#incremental-migration-with-override) guide.
+To learn more, see the [Incremental migration with `@override`](../entities/migrate-fields#incremental-migration-with-progressive-override) guide.
 
 #### Arguments
 
@@ -439,12 +439,12 @@ To learn more, see the [Incremental migration with `@override`](../entities-adva
 
 <EnterpriseFeature>
 
-This argument is available in Apollo Federation 2.7 and later. It is an [Enterprise feature](/router/enterprise-features) of the Apollo Router and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/). You can test it out by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+This argument is available in Apollo Federation 2.7 and later. It is an [Enterprise feature](/router/enterprise-features) of the GraphOS Router and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/). You can test it out by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
 
 </EnterpriseFeature>
 
 **Optional.** A string of arbitrary arguments. Supported in this release:
-- `percent(<percent-value>)` - The percentage of traffic for the field that's resolved by this subgraph. The remaining percentage is resolved by the other ([from](#from)) subgraph. To learn more, see [Incremental migration with `@override`](../entities-advanced/#incremental-migration-with-override).
+- `percent(<percent-value>)` - The percentage of traffic for the field that's resolved by this subgraph. The remaining percentage is resolved by the other ([from](#from)) subgraph. To learn more, see [Incremental migration with `@override`](../entities/migrate-fields#incremental-migration-with-progressive-override).
 
 </td>
 </tr>
@@ -472,7 +472,7 @@ directive @authenticated on
   | ENUM
 ```
 
-Indicates to composition that the target element is accessible only to the authenticated supergraph users. For more granular access control, see the [`@requiresScopes`](#requiresScopes) directive below. Refer to the [Apollo Router article](/router/configuration/authorization#authenticated) for additional details.
+Indicates to composition that the target element is accessible only to the authenticated supergraph users. For more granular access control, see the [`@requiresScopes`](#requiresScopes) directive below. Refer to the [router article](/router/configuration/authorization#authenticated) for additional details.
 
 <MinVersion version="2.5">
 
@@ -491,7 +491,7 @@ directive @requiresScopes(scopes: [[federation__Scope!]!]!) on
   | ENUM
 ```
 
-Indicates to composition that the target element is accessible only to the authenticated supergraph users with the appropriate JWT scopes. Refer to the [Apollo Router article](/router/configuration/authorization#requiresscopes) for additional details.
+Indicates to composition that the target element is accessible only to the authenticated supergraph users with the appropriate JWT scopes. Refer to the [router article](/router/configuration/authorization#requiresscopes) for additional details.
 
 #### Arguments
 
@@ -540,7 +540,7 @@ directive @policy(policies: [[federation__Policy!]!]!) on
   | ENUM
 ```
 
-Indicates to composition that the target element is restricted based on authorization policies that are evaluated in a Rhai script or coprocessor. Refer to the [Apollo Router article](/router/configuration/authorization#policy) for additional details.
+Indicates to composition that the target element is restricted based on authorization policies that are evaluated in a Rhai script or coprocessor. Refer to the [router article](/router/configuration/authorization#policy) for additional details.
 
 #### Arguments
 
@@ -655,7 +655,7 @@ Otherwise, a composition error occurs.
 
 </Note>
 
-For more information, see [Using `@provides`](/federation/entities-advanced#using-provides).
+For more information, see [Using `@provides`](../entities/resolve-another-subgraphs-fields#using-provides).
 
 #### Arguments
 
@@ -722,7 +722,7 @@ If a subgraph `@requires` an entity field, the subgraph must define that field a
 
 </Note>
 
-See also [Contributing computed entity fields](../entities-advanced/#contributing-computed-entity-fields).
+See also [Contributing computed entity fields](../entities/contribute-fields#contributing-computed-entity-fields).
 
 #### Arguments
 
@@ -874,7 +874,7 @@ directive @hello on FIELD_DEFINITION
 
 This directive has the following requirements:
 
-  - Ensure your [subgraph library](../building-supergraphs/supported-subgraphs) supports `@composeDirective` or try manually adding the `@composeDirective` definition to your subgraph schema.
+  - Ensure your [subgraph library](../building-supergraphs/compatible-subgraphs) supports `@composeDirective` or try manually adding the `@composeDirective` definition to your subgraph schema.
   - The directive to preserve must be defined and imported from a core specification via the `@link` directive.
   - The specified directive `name` must match the name used for the directive in this subgraph.
       - If you use the `as` argument in your `@link` definition to modify the directive's name from its spec's default, provide the modified name, not the default name.
@@ -976,12 +976,12 @@ The selection syntax for `@fromContext` used in its `ContextFieldValue` is simil
 - The `@skip` and `@include` directives must not be used.
 - The second element must be a selection set that resolves to a single field.
 - Top-level type conditions must not overlap with one another, so that the field can be resolved to a single value.
-- All fields referenced in the `ContextFieldValue` must be expressed within the current subgraph. If the fields are referenced across multiple subgraphs, they must be annotated with [`@external`](../entities-advanced/#referencing-fields-across-subgraphs) .
+- All fields referenced in the `ContextFieldValue` must be expressed within the current subgraph. If the fields are referenced across multiple subgraphs, they must be annotated with [`@external`](../entities/use-contexts#referencing-fields-across-subgraphs) .
 - The argument must be nullable. Because validation is done at the subgraph level, the referenced field may become nullable when merging subgraphs, such as when the field is nullable in one subgraph but not in another.
 
 When the same contextual value is set in multiple places, the `ContextFieldValue` must resolve all types from each place into a single value that matches the parameter type.
 
-For examples using `@context` and `@fromContext`, see [Using contexts to share data along type hierarchies](../entities-advanced/#using-contexts-to-share-data-along-type-hierarchies).
+For examples using `@context` and `@fromContext`, see [Using contexts to share data along type hierarchies](../entities/use-contexts).
 
 ## Customizing demand controls
 

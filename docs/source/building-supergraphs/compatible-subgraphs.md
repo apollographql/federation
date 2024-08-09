@@ -128,7 +128,7 @@ Type: Code first | SDL first<br/>
 Stars: 4.9k ⭐<br/>
 Last Release: 2024-04-22<br/>
 <br/>
-Federation Library: <a href="https://github.com/apollographql/federation-hotchocolate">apollographql/federation-hotchocolate&nbsp;&nbsp;<img style="display:inline-block; height:1em; width:auto;" alt="Maintained by Apollo" src="https://raw.githubusercontent.com/apollographql/apollo-federation-subgraph-compatibility/d7829ef89441c337749bf6538711a642cfa2689c/docs/assets/horizon_logo.png"/></a>
+Federation Library: <a href="https://github.com/apollographql/federation-hotchocolate">apollographql/federation-hotchocolate</a>
       </td>
       <td>
         <table>

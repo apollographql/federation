@@ -51,13 +51,14 @@ import {
   Transition,
   QueryGraphState,
   Unadvanceables,
-  isUnadvanceable,
   Unadvanceable,
   noConditionsResolution,
   TransitionPathWithLazyIndirectPaths,
   RootVertex,
   simpleValidationConditionResolver,
   ConditionResolver,
+  UnadvanceableClosures,
+  isUnadvanceableClosures,
 } from "@apollo/query-graphs";
 import { CompositionHint, HINTS } from "./hints";
 import { ASTNode, GraphQLError, print } from "graphql";
@@ -486,7 +487,7 @@ export class ValidationState {
     const transition = supergraphEdge.transition;
     const targetType = supergraphEdge.tail.type;
     const newSubgraphPathInfos: SubgraphPathInfo[] = [];
-    const deadEnds: Unadvanceables[] = [];
+    const deadEnds: UnadvanceableClosures[] = [];
     // If the edge has an override condition, we should capture it in the state so
     // that we can ignore later edges that don't satisfy the condition.
     const newOverrideConditions = new Map([...this.selectedOverrideConditions]);
@@ -504,7 +505,7 @@ export class ValidationState {
         targetType,
         newOverrideConditions,
       );
-      if (isUnadvanceable(options)) {
+      if (isUnadvanceableClosures(options)) {
         deadEnds.push(options);
         continue;
       }
@@ -533,7 +534,7 @@ export class ValidationState {
     }
     const newPath = this.supergraphPath.add(transition, supergraphEdge, noConditionsResolution);
     if (newSubgraphPathInfos.length === 0) {
-      return { error: satisfiabilityError(newPath, this.subgraphPathInfos.map((p) => p.path.path), deadEnds) };
+      return { error: satisfiabilityError(newPath, this.subgraphPathInfos.map((p) => p.path.path), deadEnds.map((d) => d.toUnadvanceables())) };
     }
 
     const updatedState = new ValidationState(
@@ -579,6 +580,14 @@ export class ValidationState {
         for (const { path } of newSubgraphPathInfos) {
           const subgraph = path.path.tail.source;
           const typeNames = possibleRuntimeTypeNamesSorted(path.path);
+          
+          // if we see a type here that is not included in the list of all
+          // runtime types, it is safe to assume that it is an interface
+          // behaving like a runtime type (i.e. an @interfaceObject) and 
+          // we should allow it to stand in for any runtime type          
+          if (typeNames.length === 1 && !allRuntimeTypes.includes(typeNames[0])) {
+            continue;
+          }
           runtimeTypesPerSubgraphs.set(subgraph, typeNames);
           // Note: we're formatting the elements in `runtimeTYpesToSubgraphs` because we're going to use it if we display an error. This doesn't
           // impact our set equality though since the formatting is consistent betweeen elements and type names syntax is sufficiently restricted
@@ -705,7 +714,7 @@ class ValidationTraversal {
       conditionResolver: this.conditionResolver,
       overrideConditions: new Map(),
     })));
-    this.previousVisits = new QueryGraphState(supergraphAPI);
+    this.previousVisits = new QueryGraphState();
     this.context = new ValidationContext(
       supergraphSchema,
       subgraphNameToGraphEnumValue,
