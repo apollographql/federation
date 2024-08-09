@@ -1611,12 +1611,6 @@ class GraphBuilderFromSchema extends GraphBuilder {
       for (let j = i; j < abstractTypesWithTheirRuntimeTypes.length; j++) {
         const t2 = abstractTypesWithTheirRuntimeTypes[j];
 
-        // We ignore the pair if both are interfaces and one implements the other. We'll already have appropriate
-        // edges if that's the case.
-        if (isInterfaceType(t1.type) && isInterfaceType(t2.type) && (t1.type.implementsInterface(t2.type) || t2.type.implementsInterface(t1.type))) {
-          continue;
-        }
-
         let addT1ToT2 = false;
         let addT2ToT1 = false;
         if (t1.type === t2.type) {
