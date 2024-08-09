@@ -293,7 +293,7 @@ The router provides an interface for coprocessors and rhai scripts to resolve ar
 This lets you dial up or disable a label's rollout status without requiring a subgraph publish.
 A coprocessor or Rhai script that implements this should take the following steps:
 
-1. Implement the [`SupergraphService`](/router/customizations/rhai/#supergraphservice)
+1. Implement the [`SupergraphService`](/graphos/router-configuration/customization/rhai/#supergraphservice)
 2. Inspect the `apollo_override::unresolved_labels` context key to determine which labels exist in the schema that haven't been resolved by the router.
 3. Resolve the labels using your feature flag service (or any other mechanism).
 4. Add the resolved labels to the `apollo_override::labels_to_override` context key.

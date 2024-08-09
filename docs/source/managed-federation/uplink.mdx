@@ -24,7 +24,7 @@ graph LR;
   class uplink secondary;
 ```
 
-If you're using [Enterprise features](/router/enterprise-features/), Uplink also serves your router's [license](/router/enterprise-features/#the-enterprise-license).
+If you're using [Enterprise features](https://www.apollographql.com/pricing), Uplink also serves your router's license.
 
 To maximize uptime, Uplink is hosted simultaneously at two endpoints, one in GCP and one in AWS:
 
@@ -68,7 +68,7 @@ You can configure the following aspects of your router's Uplink polling behavior
 
 You configure Uplink polling for the GraphOS Router by providing certain command-line options when running the router executable. These options all start with `--apollo-uplink`.
 
-[See the GraphOS Router docs](/router/configuration/overview#--apollo-uplink-endpoints).
+[See the GraphOS Router docs](/graphos/reference/router/configuration#--apollo-uplink-endpoints).
 
 ### `@apollo/gateway`
 
@@ -167,6 +167,6 @@ For this scenario, you can follow a workflow that, instead of retrieving supergr
     * The Platform API triggers a launch (and possible downstream launches for contracts) and returns the launch ID (and downstream launch IDs, if necessary).
 1. Poll for the launch status, until the launch (and all downstream launches) has completed successfully.
 1. Retrieve the supergraph schema of the successful launch by calling the Platform API with the launch ID.
-1. Set or "pin" the supergraph schema to your routers by deploying them with the [`--supergraph` or `-s` option](/router/configuration/overview/#-s----supergraph).
+1. Set or "pin" the supergraph schema to your routers by deploying them with the [`--supergraph` or `-s` option](/graphos/reference/router/configuration#-s----supergraph).
 
-For an example with operations calling the Platform API, see a [blue-green deployment example](/federation/managed-federation/deployment/#example-blue-green-deployment).
+For an example with operations calling the Platform API, see a [blue-green deployment example](/graphos/deployment/production-readiness/best-practices#example-blue-green-deployment).
