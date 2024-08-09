@@ -4,7 +4,7 @@ subtitle: Understand changes between Apollo Federation versions
 description: Understand changes between Apollo Federation major and minor versions.
 ---
 
-This article describes notable changes and additions introduced in each minor version release of Apollo Federation. Most of these changes involve additions or modifications to [federation-specific directives](./federated-types/federated-directives/).
+This article describes notable changes and additions introduced in each minor version release of Apollo Federation. Most of these changes involve additions or modifications to [federation-specific directives](/graphos/reference/federation/directives/).
 
 For a comprehensive changelog for Apollo Federation and its associated libraries, see [GitHub](https://github.com/apollographql/federation/blob/main/CHANGELOG.md).
 
@@ -24,7 +24,7 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 
     </Note>
 
-- If you maintain a [subgraph-compatible library](./building-supergraphs/compatible-subgraphs/), consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](./subgraph-spec/#subgraph-schema-additions).
+- If you maintain a [subgraph-compatible library](/graphos/reference/federation/compatible-subgraphs), consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](/graphos/reference/federation/subgraph-spec/#subgraph-schema-additions).
 
 ## v2.8
 
@@ -79,7 +79,7 @@ Minimum router version
 </td>
 <td>
 
-Introduced. [Learn more](./federated-types/federated-directives/#context).
+Introduced. [Learn more](/graphos/reference/federation/directives/#context).
 
 ```graphql
 directive @context(name: String!) on OBJECT | INTERFACE | UNION;
@@ -96,7 +96,7 @@ directive @context(name: String!) on OBJECT | INTERFACE | UNION;
 </td>
 <td>
 
-Introduced. [Learn more](./federated-types/federated-directives/#fromcontext).
+Introduced. [Learn more](/graphos/reference/federation/directives/#fromcontext).
 
 ```graphql
 scalar ContextFieldValue;
@@ -163,7 +163,7 @@ Minimum router version
 </td>
 <td>
 
-Added progressive `@override`. [Learn more.](./federated-types/federated-directives/#progressive-override)
+Added progressive `@override`. [Learn more.](/graphos/reference/federation/directives/#progressive-override)
 
 ```graphql
 directive @override(from: String!, label: String) on FIELD_DEFINITION
@@ -654,7 +654,7 @@ Minimum router version
 </td>
 <td>
 
-Introduced. [Learn more.](./federated-types/federated-directives#composedirective)
+Introduced. [Learn more.](/graphos/reference/federation/directives#composedirective)
 
 ```graphql
 directive @composeDirective(name: String!) repeatable on SCHEMA
@@ -737,7 +737,7 @@ extend schema
 
 The `import` list of this definition must include each federation-specific directive that the subgraph schema uses. In the example above, the schema uses `@key` and `@shareable`.
 
-For details on these directives as defined in Federation 2, see [Federation-specific GraphQL directives](./federated-types/federated-directives/).
+For details on these directives as defined in Federation 2, see [Federation-specific GraphQL directives](/graphos/reference/federation/directives/).
 
 <table>
   <thead>
@@ -904,7 +904,7 @@ Value types
 <td>
 
 * To define a value type with shared fields across multiple subgraphs, those shared fields must be marked as `@shareable` in every subgraph that defines them.
-* Value type fields can differ across subgraphs (in certain ways). For details, see [Differing shared fields](./federated-types/sharing-types#differing-shared-fields).
+* Value type fields can differ across subgraphs (in certain ways). For details, see [Differing shared fields](/graphos/schema-development/federated-schemas/sharing-types#differing-shared-fields).
 
 </td>
 </tr>

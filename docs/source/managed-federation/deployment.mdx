@@ -4,7 +4,7 @@ subtitle: Best practices and workflows for deploying with managed federation
 description: Best practices and workflows for deploying a federated GraphQL API with Apollo Federation and GraphOS.
 ---
 
-When rolling out changes to a [subgraph](../building-supergraphs/subgraphs-overview/), we recommend the following workflow:
+When rolling out changes to a subgraph, we recommend the following workflow:
 
 1. Confirm the backward compatibility of each change by [running `rover subgraph check`](/rover/commands/subgraphs/#validating-subgraph-schema-changes) in your CI pipeline.
 2. Merge backward compatible changes that successfully pass schema checks.
@@ -122,7 +122,7 @@ The next time it starts up or polls, your router obtains an updated configuratio
 
 ## Advanced deployment workflows
 
-With managed federation, you can control which version of your schema your router fleet uses. In most cases, rolling over all of your router instances to a new schema version is safe, assuming you've used [schema checks](./federated-schema-checks/) to confirm that your changes are backward compatible. Your deployment model, however, may require an advanced workflow to deploy a specific version of a schema.
+With managed federation, you can control which version of your schema your router fleet uses. In most cases, rolling over all of your router instances to a new schema version is safe, assuming you've used [schema checks](/graphos/schema-development/pipeline/checks/) to confirm that your changes are backward compatible. Your deployment model, however, may require an advanced workflow to deploy a specific version of a schema.
 
 Two types of advanced deployment workflows:
 

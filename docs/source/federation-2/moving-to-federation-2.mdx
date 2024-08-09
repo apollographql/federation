@@ -4,7 +4,7 @@ subtitle: Upgrade from Apollo Federation 1 to Federation 2
 description: Upgrade from Apollo Federation 1 to Federation 2 to benefit from improved composition logic and schema flexibility. 
 ---
 
-> 📣 If you haven't yet, [see what's new in Federation 2.](./new-in-federation-2/)
+> 📣 If you haven't yet, [see what's new in Federation 2.](/graphos/reference/federation/versions#v20)
 
 You can (and should!) move your Apollo Federation 1 supergraph to Federation 2 incrementally, one component at a time. Your supergraph will work as expected after each step in the process, even while some of your subgraphs continue using Federation 1 schemas.
 
@@ -74,14 +74,14 @@ Apollo Server 3.x supports these updated library versions, however Apollo Server
 
 Federation 2 uses a completely new method to compose supergraph schemas. This method is backward compatible with Federation 1 subgraph schemas, and it provides the following benefits even for Federation 1 subgraphs:
 
-- Helpful [composition hints](../hints/) when schema definitions are inconsistent between your subgraphs
+- Helpful [composition hints](/graphos/reference/federation/hints) when schema definitions are inconsistent between your subgraphs
 - Support for interfaces implementing other interfaces (which Federation 1 composition doesn't support)
 
 Follow the instructions below to configure whichever composition method(s) you currently use:
 
 <ExpansionPanel title="Managed federation with GraphOS">
 
-If you're using [managed federation](../managed-federation/overview/), you move individual variants of your graph to Federation 2 via the GraphOS Studio UI.
+If you use GraphOS to manage supergraph composition and deployment, you move individual variants of your graph to Federation 2 via the GraphOS Studio UI.
 
 Open the Settings page for the variant you want to move to Federation 2, then select the **This Variant** tab:
 
@@ -154,7 +154,7 @@ Your Federation 1 subgraphs are now composed using Federation 2 composition. The
 
 <Note>
 
-If your supergraph is not successfully composing with Federation 2, see [Breaking changes](./backward-compatibility/#breaking-changes) for the most common causes.
+If your supergraph is not successfully composing with Federation 2, see [Breaking changes](/graphos/reference/migration/backward-compatibility#breaking-changes) for the most common causes.
 
 </Note>
 
@@ -168,9 +168,9 @@ You can update your subgraphs one at a time. The steps below describe how to mod
 
 Federation 2 provides powerful new features that require making some changes to your subgraphs. These features include:
 
-- Selectively sharing types and fields across subgraphs with [`@shareable`](../federated-types/federated-directives#shareable)
-- Safely migrating fields from one subgraph to another with [`@override`](../federated-types/federated-directives#override)
-- Hiding internal routing fields from graph consumers with [`@inaccessible`](../federated-types/federated-directives#inaccessible)
+- Selectively sharing types and fields across subgraphs with [`@shareable`](/graphos/reference/federation/directives#shareable)
+- Safely migrating fields from one subgraph to another with [`@override`](/graphos/reference/federation/directives#override)
+- Hiding internal routing fields from graph consumers with [`@inaccessible`](/graphos/reference/federation/directives#inaccessible)
 
 The schema changes you make are backward incompatible with Federation 1, which means you won't be able to use Federation 1 composition anymore unless you revert those changes.
 
@@ -184,7 +184,7 @@ To use new Federation 2 features and their associated directives, it's helpful t
     npm install @apollo/subgraph
     ```
 
-- If your subgraph uses another server library, check the [compatibility table](../building-supergraphs/compatible-subgraphs/) to see whether it supports Federation 2 directives yet. If it does, consult that library's documentation to determine which version you need to update to.
+- If your subgraph uses another server library, check the [compatibility table](/graphos/reference/federation/compatible-subgraphs) to see whether it supports Federation 2 directives yet. If it does, consult that library's documentation to determine which version you need to update to.
     - If your library doesn't support Federation 2 directives yet, you can still use that library with Federation 2 if the library lets you add custom directive definitions to your schema!
 
 ### Opt in to Federation 2
@@ -203,13 +203,13 @@ This definition identifies a schema as a Federation 2 schema, and it `import`s a
 
 Depending on your schema, you might need to add other federated directives to the `import` array, such as `@external` or `@provides`.
 
-[See all Federation-specific directives.](../federated-types/federated-directives/)
+[See all Federation-specific directives.](/graphos/reference/federation/directives/)
 
 </Note>
 
 ### Add directive definitions if needed
 
-Currently, not all [subgraph libraries](../building-supergraphs/compatible-subgraphs/) provide built-in support for Federation 2 directives (such as `@shareable`). If your library doesn't provide this support, you need to add the following directive definitions to your subgraph schema:
+Currently, not all [subgraph libraries](/graphos/reference/federation/compatible-subgraphs) provide built-in support for Federation 2 directives (such as `@shareable`). If your library doesn't provide this support, you need to add the following directive definitions to your subgraph schema:
 
 <ExpansionPanel title="Click to expand">
 
@@ -234,7 +234,7 @@ Some subgraph libraries are "code-first" (they dynamically generate their schema
 
 </Note>
 
-Definitions for all Federation 2 directives are available in [this article](../federated-types/federated-directives/). We work with library maintainers to help automatically add these schema definitions in as many subgraph libraries as possible.
+Definitions for all Federation 2 directives are available in [this article](/graphos/reference/federation/directives/). We work with library maintainers to help automatically add these schema definitions in as many subgraph libraries as possible.
 
 ### Mark all value types as `@shareable`
 
@@ -288,7 +288,7 @@ You can also apply `@shareable` directly to a type definition (such as `Position
 
 </Note>
 
-For more details, see [Value types](../federated-types/sharing-types/).
+For more details, see [Value types](/graphos/schema-development/federated-schemas/sharing-types/).
 
 ### Update entity definitions
 
@@ -346,7 +346,7 @@ Note the following in the Federation 2 subgraphs above:
 
 - The Inventory subgraph no longer `extend`s the `Product` entity.
 - The Inventory subgraph no longer marks the `Product.id` field as `@external`.
-    - The `@external` directive is no longer required for `@key` fields, but it is still required for [`@requires`](/graphos/schema-development/federated-schemas/entities/contribute-fields#contributing-computed-entity-fields) and [`@provides`](../entities/resolve-another-subgraphs-fields#using-provides).
+    - The `@external` directive is no longer required for `@key` fields, but it is still required for [`@requires`](/graphos/schema-development/federated-schemas/entities/contribute-fields#contributing-computed-entity-fields) and [`@provides`](/graphos/schema-development/federated-schemas/entities/resolve-another-subgraphs-fields#using-provides).
 - Both subgraphs can resolve `Product.id`, even though it isn't marked as `@shareable`!
     - Unlike most fields, `@key` fields such as `Product.id` are `@shareable` by default. This is necessary for `@key` fields, because the gateway uses them to associate data from different subgraphs with the same object.
 

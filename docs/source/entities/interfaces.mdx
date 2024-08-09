@@ -64,7 +64,7 @@ This example is short, but there's a lot to it. Let's break it down:
     - Subgraph B defines the new `Media.reviews` field.
     - Subgraph B will also be responsible for resolving the `reviews` field. To learn how, see [Resolving an `@interfaceObject`](#resolving-an-interfaceobject).
 
-When [composition](./composition/) runs for the above subgraph schemas, it identifies Subgraph B's `@interfaceObject`. It adds the new `reviews` field to the supergraph schema's `Media` interface, and it also adds that field to the implementing `Book` entity (along with any others):
+When composition runs for the above subgraph schemas, it identifies Subgraph B's `@interfaceObject`. It adds the new `reviews` field to the supergraph schema's `Media` interface, and it also adds that field to the implementing `Book` entity (along with any others):
 
 ```graphql title="Supergraph schema (simplified)"
 interface Media @key(fields: "id") {
@@ -94,7 +94,7 @@ To use entity interfaces and `@interfaceObject`, your supergraph must adhere to 
 
 ### Enabling support
 
-- If they don't already, all of your subgraph schemas must use the [`@link` directive](./federated-directives/#importing-directives) to enable Federation 2 features.
+- If they don't already, all of your subgraph schemas must use the [`@link` directive](/graphos/reference/federation/directives/#importing-directives) to enable Federation 2 features.
 - Any subgraph schema that uses the `@interfaceObject` directive or applies `@key` to an `interface` must target v2.3 or later of the Apollo Federation specfication:
 
     ```graphql
@@ -107,7 +107,7 @@ To use entity interfaces and `@interfaceObject`, your supergraph must adhere to 
       )
     ```
 
-    Additionally, schemas that use `@interfaceObject` must include it in the [`@link` directive's](./federated-directives/#importing-directives) `import` array as shown above.
+    Additionally, schemas that use `@interfaceObject` must include it in the [`@link` directive's](/graphos/reference/federation/directives/#importing-directives) `import` array as shown above.
 
 ### Usage rules
 
@@ -187,7 +187,7 @@ As it does with any [standard entity](/graphos/get-started/guides/federate-schem
 
 <Note>
 
-The method for defining a reference resolver depends on which [subgraph library](../building-supergraphs/compatible-subgraphs/) you use. Some subgraph libraries might use a different term for this functionality. Consult your library's documentation for details.
+The method for defining a reference resolver depends on which [subgraph library](/graphos/reference/federation/compatible-subgraphs) you use. Some subgraph libraries might use a different term for this functionality. Consult your library's documentation for details.
 
 </Note>
 

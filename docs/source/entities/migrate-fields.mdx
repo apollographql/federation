@@ -322,7 +322,7 @@ For most use cases, Apollo recommends using the [`@override` method above](#incr
 </Caution>
 
 Using `@override` to migrate entity fields enables us to migrate fields incrementally with zero downtime. However, doing so requires three separate schema publishes.
-If you're using [manual composition](./federated-types/composition#manually-with-the-rover-cli), each schema change requires redeploying your router.
+If you're using [manual composition](/graphos/schema-development/federated-schemas/composition#manually-with-the-rover-cli), each schema change requires redeploying your router.
 With careful coordination, you can perform the same migration with only a single router redeploy.
 
 1. In the Billing subgraph, define the `Bill` entity, along with its corresponding resolvers. These new resolvers should behave identically to the Payment subgraph resolvers they're replacing.
