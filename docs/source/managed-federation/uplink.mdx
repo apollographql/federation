@@ -4,7 +4,7 @@ subtitle: Fetch your managed router's configuration
 description: Learn how to configure Apollo Uplink for managed GraphQL federation, including polling behavior and Uplink URLs.
 ---
 
-When using [managed federation](./overview/), your supergraph's router by default regularly polls an endpoint called _Apollo Uplink_ for its latest supergraph schema and other configuration:
+When using [managed federation](/federation/managed-federation/overview/), your supergraph's router by default regularly polls an endpoint called _Apollo Uplink_ for its latest supergraph schema and other configuration:
 
 ```mermaid
 graph LR;
@@ -169,4 +169,4 @@ For this scenario, you can follow a workflow that, instead of retrieving supergr
 1. Retrieve the supergraph schema of the successful launch by calling the Platform API with the launch ID.
 1. Set or "pin" the supergraph schema to your routers by deploying them with the [`--supergraph` or `-s` option](/router/configuration/overview/#-s----supergraph).
 
-For an example with operations calling the Platform API, see a [blue-green deployment example](./deployment/#example-blue-green-deployment).
+For an example with operations calling the Platform API, see a [blue-green deployment example](/federation/managed-federation/deployment/#example-blue-green-deployment).
