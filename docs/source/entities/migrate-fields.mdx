@@ -84,7 +84,7 @@ type Bill @key(fields: "id") {
 ```
   -  Applying the `@override` directive tells the router to resolve the `amount` field in the Billing subgraph instead of the Payments subgraph.
 
-3. Publish the Billing subgraph's updated schema to GraphOS with [`rover subgraph publish`](/graphos/delivery/#subgraph-schemas).
+3. Publish the Billing subgraph's updated schema to GraphOS with [`rover subgraph publish`](/graphos/schema-development/pipeline/delivery/publish/#subgraph-schemas).
 
   When the router receives its updated supergraph schema, it immediately starts resolving the `Bill.amount` field from the Billing subgraph while continuing to resolve `Bill.payment` from the Payments subgraph.
 
@@ -189,7 +189,7 @@ type Bill @key(fields: "id") {
 
   - Adding a `label` argument to the `@override` directive sets the percentage of traffic to direct to the Billing subgraph. Start with a small percentage. Setting `label: "percent(1)"` means that 1 percent of the requests for `amount` are resolved by the Billing subgraph, while the remaining 99 percent are resolved by the Payments subgraph. 
 
-3. Publish the Billing subgraph's updated schema to GraphOS with [`rover subgraph publish`](/graphos/delivery/#subgraph-schemas).
+3. Publish the Billing subgraph's updated schema to GraphOS with [`rover subgraph publish`](/graphos/schema-development/pipeline/delivery/publish/#subgraph-schemas).
 
   When the router receives its updated supergraph schema, it starts resolving the `Bill.amount` field from the Billing subgraph approximately 1% of the time, while continuing to resolve it from the Payments subgraph the other 99%.
 

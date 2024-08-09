@@ -439,7 +439,7 @@ To learn more, see the [Incremental migration with `@override`](/graphos/schema-
 
 <EnterpriseFeature>
 
-This argument is available in Apollo Federation 2.7 and later. It is an [Enterprise feature](/router/enterprise-features) of the GraphOS Router and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/). You can test it out by signing up for a free [Enterprise trial](/graphos/org/plans/#enterprise-trials).
+This argument is available in Apollo Federation 2.7 and later. It is an [Enterprise feature](/router/enterprise-features) of the GraphOS Router and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/). You can test it out by signing up for a free [Enterprise trial](https://studio.apollographql.com/signup?referrer=docs).
 
 </EnterpriseFeature>
 
@@ -772,7 +772,7 @@ Examples:
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
 ```
 
-Applies arbitrary string metadata to a schema location. Custom tooling can use this metadata during any step of the schema delivery flow, including composition, static analysis, and documentation. The GraphOS Enterprise [contracts feature](/graphos/delivery/contracts/) uses `@tag` with its inclusion and exclusion filters.
+Applies arbitrary string metadata to a schema location. Custom tooling can use this metadata during any step of the schema delivery flow, including composition, static analysis, and documentation. The GraphOS Enterprise [contracts feature](/graphos/schema-development/pipeline/delivery/contracts/overview) uses `@tag` with its inclusion and exclusion filters.
 
 <Note>
 
