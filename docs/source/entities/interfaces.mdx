@@ -5,7 +5,7 @@ description: Discover how to efficiently add polymorphic fields to GraphQL inter
 minVersion: 2.3
 ---
 
-Apollo Federation provides powerful extensions to GraphQL interfaces, specifically for use with your supergraph's [entities](../entities/):
+Apollo Federation provides powerful extensions to GraphQL interfaces, specifically for use with your supergraph's [entities](/graphos/get-started/guides/federate-schemas#entity-overview):
 
 1. Apply the `@key` directive to an `interface` definition to make it an _entity interface_.
 2. In other subgraphs, use the `@interfaceObject` directive to automatically add fields to every entity that implements your entity interface.
@@ -84,7 +84,7 @@ type Review {
 }
 ```
 
-Subgraph B could have added `Book.reviews` by [contributing the field](../entities#contributing-entity-fields) directly to the entity as usual. However, what if we wanted to add `reviews` to a hundred different entity implementations of `Media`?
+Subgraph B could have added `Book.reviews` by [contributing the field](/graphos/schema-development/federated-schemas/entities/contribute-fields) directly to the entity as usual. However, what if we wanted to add `reviews` to a hundred different entity implementations of `Media`?
 
 By instead adding entity fields via `@interfaceObject`, we can avoid redefining a hundred entities in Subgraph B (not to mention adding more definitions whenever a new implementing entity is created). [Learn more.](#why-is-interfaceobject-necessary)
 
@@ -183,7 +183,7 @@ interface Media @key(fields: "id") {
 }
 ```
 
-As it does with any [standard entity](../entities/#1-define-a-key), `@key` indicates "this subgraph can resolve any instance of this type if provided its `@key` fields." This means Subgraph A needs to define a reference resolver for `Media`, just as it would for any other entity.
+As it does with any [standard entity](/graphos/get-started/guides/federate-schemas/#1-define-a-key), `@key` indicates "this subgraph can resolve any instance of this type if provided its `@key` fields." This means Subgraph A needs to define a reference resolver for `Media`, just as it would for any other entity.
 
 <Note>
 

@@ -105,7 +105,7 @@ In Federation 2, `enum`, `union`, and `interface` definitions can differ between
 
 ## Entities
 
-Federation 2 introduces subtle but powerful changes to [entities](../entities/).
+Federation 2 introduces subtle but powerful changes to [entities](/graphos/get-started/guides/federate-schemas#entity-overview).
 
 ### Originating subgraphs
 
@@ -155,7 +155,7 @@ type Product @key(fields: "id") {
 
 </CodeColumns>
 
-For details, see [Contributing entity fields](../entities/#contributing-entity-fields).
+For details, see [Contributing entity fields](/graphos/schema-development/federated-schemas/entities/contribute-fields).
 
 ### Shared entity fields
 
@@ -187,7 +187,7 @@ For more information, see [Resolving another subgraph's field](../entities/resol
 
 ### Changes to `@key`
 
-Federation 2 adds a new optional argument to the `@key` directive: `resolvable`. You can set this argument to `false` to indicate that a particular subgraph doesn't define a [reference resolver](../entities/#2-define-a-reference-resolver) for that entity.
+Federation 2 adds a new optional argument to the `@key` directive: `resolvable`. You can set this argument to `false` to indicate that a particular subgraph doesn't define a [reference resolver](/graphos/get-started/guides/federate-schemas#2-define-a-reference-resolver) for that entity.
 
 For example:
 
@@ -218,7 +218,7 @@ type Review {
 
 In this case, the Reviews subgraph references the `Product` entity by using it as the return type for `Review.product`. However, the subgraph doesn't contribute any unique fields to `Product`, so it doesn't need to define a reference resolver for it. Therefore, the "stub" definition of `Product` in the Reviews subgraph can include `resolvable: false`.
 
-For more information, see [Referencing an entity without contributing fields](../entities/#referencing-an-entity-without-contributing-fields).
+For more information, see [Referencing an entity without contributing fields](/graphos/schema-development/federated-schemas/entities/contribute-fields#contributing-computed-entity-fields).
 
 ### Migrating fields
 
@@ -246,7 +246,7 @@ type Bill @key(fields: "id") {
 
 </CodeColumns>
 
-For details, see [Entity migration](../entities/migrate-fields).
+For details, see [Entity migration](/graphos/schema-development/federated-schemas/entities/migrate-fields).
 
 ## Interfaces implementing interfaces
 

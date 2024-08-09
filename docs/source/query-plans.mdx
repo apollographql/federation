@@ -255,7 +255,7 @@ Sequence {
 }
 ```
 
-This node appears in query plans whenever one subgraph's response depends on data that first must be returned by another subgraph. This occurs most commonly when a query requests fields of an [entity](./entities/) that are defined across multiple subgraphs.
+This node appears in query plans whenever one subgraph's response depends on data that first must be returned by another subgraph. This occurs most commonly when a query requests fields of an [entity](/graphos/get-started/guides/federate-schemas#entity-overview) that are defined across multiple subgraphs.
 
 As an example, we can return to the `GetHotels` query from our [example graph](#example-graph):
 
@@ -420,7 +420,7 @@ Flatten(path: "hotels.@") {
 
 Instead of containing a GraphQL operation, this `Fetch` node contains two GraphQL fragments, separated by `=>`.
 
-- The first fragment is a representation of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](./entities/#2-define-a-reference-resolver).
+- The first fragment is a representation of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](/graphos/get-started/guides/federate-schemas/#2-define-a-reference-resolver).
 - The second fragment contains the entity fields and subfields that the router needs the subgraph to resolve (in this case, `Hotel.reviews` and `Review.rating`).
 
 When the router sees this special `Fetch` syntax, it knows to query a subgraph's [`Query._entities` field](./building-supergraphs/subgraphs-overview/#query_entities). This field is what enables a subgraph to provide direct access to any available fields of an entity.
