@@ -1,5 +1,49 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.8.4
+
+### Patch Changes
+
+- Add descriptions for federation directives ([#3095](https://github.com/apollographql/federation/pull/3095))
+
+- Updated dependencies [[`5f4bb160d024678d6facd471c43c8ec61c86e701`](https://github.com/apollographql/federation/commit/5f4bb160d024678d6facd471c43c8ec61c86e701), [`672aca7cbeb0a6a38586357a4e154f2dd91caa0c`](https://github.com/apollographql/federation/commit/672aca7cbeb0a6a38586357a4e154f2dd91caa0c)]:
+  - @apollo/federation-internals@2.8.4
+
+## 2.8.3
+
+### Patch Changes
+
+- Updated dependencies [[`50d648ccffb05591878de75dc5522914ed48698f`](https://github.com/apollographql/federation/commit/50d648ccffb05591878de75dc5522914ed48698f), [`f753d55e9a49d11389ee4f8d7976533447e95ede`](https://github.com/apollographql/federation/commit/f753d55e9a49d11389ee4f8d7976533447e95ede), [`3af790517d662f3bec9064c0bf243014c579e9cd`](https://github.com/apollographql/federation/commit/3af790517d662f3bec9064c0bf243014c579e9cd)]:
+  - @apollo/federation-internals@2.8.3
+
+## 2.8.3-beta.2
+
+### Patch Changes
+
+- Updated dependencies [[`50d648ccffb05591878de75dc5522914ed48698f`](https://github.com/apollographql/federation/commit/50d648ccffb05591878de75dc5522914ed48698f)]:
+  - @apollo/federation-internals@2.8.3-beta.2
+
+## 2.8.3-beta.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.3-beta.1
+
+## 2.8.3-beta.0
+
+### Patch Changes
+
+- Updated dependencies [[`f753d55e9a49d11389ee4f8d7976533447e95ede`](https://github.com/apollographql/federation/commit/f753d55e9a49d11389ee4f8d7976533447e95ede), [`3af790517d662f3bec9064c0bf243014c579e9cd`](https://github.com/apollographql/federation/commit/3af790517d662f3bec9064c0bf243014c579e9cd)]:
+  - @apollo/federation-internals@2.8.3-beta.0
+
+## 2.8.2
+
+### Patch Changes
+
+- Updated dependencies [[`b2e5ab66f84688ec304cfcf2c6f749c86aded549`](https://github.com/apollographql/federation/commit/b2e5ab66f84688ec304cfcf2c6f749c86aded549)]:
+  - @apollo/federation-internals@2.8.2
+
 ## 2.8.1
 
 ### Patch Changes

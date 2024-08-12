@@ -1,6 +1,7 @@
 import { addSubgraphToASTNode, ErrorCodeDefinition, joinStrings, MultiMap, NamedSchemaElement, printSubgraphNames, SubgraphASTNode } from '@apollo/federation-internals';
 import { ASTNode, GraphQLError } from 'graphql';
 import { CompositionHint, HintCodeDefinition } from '../hints';
+import { Sources } from './merge';
 
 export class MismatchReporter {
   pushError: (error: GraphQLError) => void;
@@ -15,7 +16,7 @@ export class MismatchReporter {
     code: ErrorCodeDefinition,
     message: string,
     mismatchedElement:TMismatched,
-    subgraphElements: (TMismatched | undefined)[],
+    subgraphElements: Sources<TMismatched>,
     mismatchAccessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined
   ) {
     this.reportMismatch(
@@ -37,7 +38,7 @@ export class MismatchReporter {
   reportMismatchErrorWithoutSupergraph<TMismatched extends { sourceAST?: ASTNode }>(
     code: ErrorCodeDefinition,
     message: string,
-    subgraphElements: (TMismatched | undefined)[],
+    subgraphElements: Sources<TMismatched>,
     mismatchAccessor: (elt: TMismatched, isSupergraph: boolean) => string | undefined
   ) {
     this.reportMismatch(
@@ -71,7 +72,7 @@ export class MismatchReporter {
     code: ErrorCodeDefinition,
     message: string,
     mismatchedElement: TMismatched,
-    subgraphElements: (TMismatched | undefined)[],
+    subgraphElements: Sources<TMismatched>,
     mismatchAccessor: (elt: TMismatched | undefined, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string, subgraphs: string) => string,
@@ -112,7 +113,7 @@ export class MismatchReporter {
     code: HintCodeDefinition,
     message: string,
     supergraphElement: TMismatched,
-    subgraphElements: (TMismatched | undefined)[],
+    subgraphElements: Sources<TMismatched>,
     targetedElement?: NamedSchemaElement<any, any, any>
     elementToString: (elt: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
@@ -143,7 +144,7 @@ export class MismatchReporter {
   // Not meant to be used directly: use `reportMismatchError` or `reportMismatchHint` instead.
   private reportMismatch<TMismatched extends { sourceAST?: ASTNode }>(
     supergraphElement:TMismatched | undefined,
-    subgraphElements: (TMismatched | undefined)[],
+    subgraphElements: Sources<TMismatched>,
     mismatchAccessor: (element: TMismatched, isSupergraph: boolean) => string | undefined,
     supergraphElementPrinter: (elt: string, subgraphs: string | undefined) => string,
     otherElementsPrinter: (elt: string, subgraphs: string) => string,
@@ -153,20 +154,31 @@ export class MismatchReporter {
   ) {
     const distributionMap = new MultiMap<string, string>();
     const astNodes: SubgraphASTNode[] = [];
-    for (const [i, subgraphElt] of subgraphElements.entries()) {
-      if (!subgraphElt) {
-        if (includeMissingSources) {
-          distributionMap.add('', this.names[i]);
-        }
-        continue;
-      }
+    const processSubgraphElt = (name: string, subgraphElt: TMismatched) => {
       if (ignorePredicate && ignorePredicate(subgraphElt)) {
-        continue;
+        return;
       }
       const elt = mismatchAccessor(subgraphElt, false);
-      distributionMap.add(elt ?? '', this.names[i]);
+      distributionMap.add(elt ?? '', name);
       if (subgraphElt.sourceAST) {
-        astNodes.push(addSubgraphToASTNode(subgraphElt.sourceAST, this.names[i]));
+        astNodes.push(addSubgraphToASTNode(subgraphElt.sourceAST, name));
+      }
+    }
+    if (includeMissingSources) {
+      for (const [i, name] of this.names.entries()) {
+        const subgraphElt = subgraphElements.get(i);
+        if (!subgraphElt) {
+          distributionMap.add('', name);
+          continue;
+        }
+        processSubgraphElt(name, subgraphElt);
+      }
+    } else {
+      for (const [i, subgraphElt] of subgraphElements.entries()) {
+        if (!subgraphElt) {
+          continue;
+        }
+        processSubgraphElt(this.names[i], subgraphElt);
       }
     }
     const supergraphMismatch = (supergraphElement && mismatchAccessor(supergraphElement, true)) ?? '';
