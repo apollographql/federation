@@ -48,15 +48,15 @@ import {
   KnownTypeNamesRule,
   PossibleTypeExtensionsRule,
   print as printAST,
+  Source,
   GraphQLErrorOptions,
   SchemaDefinitionNode,
   OperationTypeNode,
   OperationTypeDefinitionNode,
   ConstDirectiveNode,
-  parse,
 } from "graphql";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
-import { buildSchemaFromAST } from "./buildSchema";
+import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { FragmentSelection, hasSelectionWithPredicate, parseOperationAST, parseSelectionSet, Selection, SelectionSet } from './operations';
 import { TAG_VERSIONS } from "./specs/tagSpec";
 import {
@@ -1951,12 +1951,13 @@ export function buildSubgraph(
   };
   let subgraph: Subgraph;
   try {
-    const parsed = typeof source === 'string' ? parse(source) : source;
-    const schema =  buildSchemaFromAST(parsed, buildOptions)
+    const schema = typeof source === 'string'
+        ? buildSchema(new Source(source, name), buildOptions)
+        : buildSchemaFromAST(source, buildOptions)
     subgraph = new Subgraph(name, url, schema);
   } catch (e) {
     if (e instanceof GraphQLError && name !== FEDERATION_UNNAMED_SUBGRAPH_NAME) {
-      throw addSubgraphToError(e, name);
+      throw addSubgraphToError(e, name, ERRORS.INVALID_GRAPHQL);
     } else {
       throw e;
     }
