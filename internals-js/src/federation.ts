@@ -1952,8 +1952,8 @@ export function buildSubgraph(
   let subgraph: Subgraph;
   try {
     const schema = typeof source === 'string'
-        ? buildSchema(new Source(source, name), buildOptions)
-        : buildSchemaFromAST(source, buildOptions)
+      ? buildSchema(new Source(source, name), buildOptions)
+      : buildSchemaFromAST(source, buildOptions)
     subgraph = new Subgraph(name, url, schema);
   } catch (e) {
     if (e instanceof GraphQLError && name !== FEDERATION_UNNAMED_SUBGRAPH_NAME) {
