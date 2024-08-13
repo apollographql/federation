@@ -1003,7 +1003,7 @@ If `@cost` is not specified for a field, a default value is used:
 - Scalars and enums have default cost of 0
 - Composite input and output types have default cost of 1
 
-Regardless of whether `@cost` is specified on a field, the type cost for that field also accounts for its arguments and selections.
+Regardless of whether `@cost` is specified on a field, the field cost for that field also accounts for its arguments and selections.
 
 #### Arguments
 
@@ -1154,7 +1154,7 @@ Indicates that the annotated list field will return at most this many items.
 
 Indicates that the annotated list field returns as many items as are requested by a paging argument. If multiple arguments are passed, the maximum value of the arguments is used.
 
-If both this and `assumedSize` are specified, `assumedSize` will take precedence.
+If both this and `assumedSize` are specified, the value from `slicingArguments` will take precedence.
 
 </td>
 </tr>
