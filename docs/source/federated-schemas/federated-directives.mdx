@@ -997,9 +997,11 @@ For examples using `@context` and `@fromContext`, see [Using contexts to share d
 directive @cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
 ```
 
-The `@cost` directive defines a custom weight for a schema location. This customizes the operation cost calculation of the Enterprise Router [demand control feature](/router/executing-operations/demand-control/).
+The `@cost` directive defines a custom weight for a schema location. For GraphOS Router, it customizes the operation cost calculation of the [demand control feature](/router/executing-operations/demand-control/).
 
-If `@cost` is not specified for a field, the default value is used. Scalars and enums default to a cost of 0, while composite input and output types default to a cost of 1.
+If `@cost` is not specified for a field, a default value is used:
+- Scalars and enums have default cost of 0
+- Composite input and output types have default cost of 1
 
 Regardless of whether `@cost` is specified on a field, the type cost for that field also accounts for its arguments and selections.
 
@@ -1044,9 +1046,9 @@ Regardless of whether `@cost` is specified on a field, the type cost for that fi
 directive @listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
 ```
 
-The `@listSize` directive is used to customize the cost calculation of the Enterprise Router [demand control feature](/router/executing-operations/demand-control/).
+The `@listSize` directive is used to customize the cost calculation of the [demand control feature](/router/executing-operations/demand-control/) of GraphOS Router.
 
-In the static analysis phase, the cost calculator does not know how many entities will be returned by each list field in a given query. By configuring a field with `@listSize`, the cost calculator can more accurately estimate the cost during static analysis.
+In the static analysis phase, the cost calculator does not know how many entities will be returned by each list field in a given query. By providing an estimated list size for a field with `@listSize`, the cost calculator can produce a more accurate estimate the cost during static analysis.
 
 #### Configuring static list sizes
 
@@ -1062,7 +1064,7 @@ type Item @key(fields: "id") {
 }
 ```
 
-In this case, all queries for `items` are expected to receive at most 10 items in the list.
+In this case, all queries for `items` are expected to receive at most ten items in the list.
 
 #### Configuring dynamic list sizes
 
@@ -1074,7 +1076,7 @@ type Query {
 }
 ```
 
-In this example, the `items` field can be requested with paging parameters. If the client sends a query with multiple slicing arguments, the scoring algorithm will use the maximum value of all specified slicing arguments. The following query is assumed to return 10 items in the scoring algorithm.
+In this example, the `items` field can be requested with paging parameters. If the client sends a query with multiple slicing arguments, the scoring algorithm will use the maximum value of all specified slicing arguments. The following query is assumed to return ten items in the scoring algorithm.
 
 ```graphql
 query MultipleSlicingArgumentsQuery {
@@ -1090,7 +1092,7 @@ type Query {
 }
 ```
 
-Sending the the above `MultipleSlicingArgumentsQuery` to a graph with this updated schema would result in an error, as would sending a query with no slicing arguments.
+With this updated schema, sending the the above `MultipleSlicingArgumentsQuery` with its two slicing arguments to a graph would result in an error, as would sending a query with no slicing arguments.
 
 #### Cursor support
 
