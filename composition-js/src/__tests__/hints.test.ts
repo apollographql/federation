@@ -1298,7 +1298,7 @@ describe('when a directive causes an implicit federation version upgrade', () =>
     assertCompositionSuccess(result);
     expect(result).toRaiseHint(
       HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
-      'Subgraph upgraded has been implicitly upgraded from federation v2.5 to v2.9',
+      'Subgraph upgraded has been implicitly upgraded from federation v2.5 to v2.10',
       '@link'
     );
   });
@@ -1318,12 +1318,12 @@ describe('when a directive causes an implicit federation version upgrade', () =>
     assertCompositionSuccess(result);
     expect(result).toRaiseHint(
       HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
-      'Subgraph upgraded-1 has been implicitly upgraded from federation v2.5 to v2.9',
+      'Subgraph upgraded-1 has been implicitly upgraded from federation v2.5 to v2.10',
       '@link'
     );
     expect(result).toRaiseHint(
       HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
-      'Subgraph upgraded-2 has been implicitly upgraded from federation v2.5 to v2.9',
+      'Subgraph upgraded-2 has been implicitly upgraded from federation v2.5 to v2.10',
       '@link'
     );
   });
