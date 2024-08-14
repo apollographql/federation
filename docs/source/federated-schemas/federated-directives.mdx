@@ -982,3 +982,214 @@ The selection syntax for `@fromContext` used in its `ContextFieldValue` is simil
 When the same contextual value is set in multiple places, the `ContextFieldValue` must resolve all types from each place into a single value that matches the parameter type.
 
 For examples using `@context` and `@fromContext`, see [Using contexts to share data along type hierarchies](../entities/use-contexts).
+
+## Customizing demand controls
+
+<MinVersion version="2.9">
+
+### `@cost`
+
+</MinVersion>
+
+<EnterpriseFeature />
+
+```graphql
+directive @cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
+```
+
+The `@cost` directive defines a custom weight for a schema location. For GraphOS Router, it customizes the operation cost calculation of the [demand control feature](/router/executing-operations/demand-control/).
+
+If `@cost` is not specified for a field, a default value is used:
+- Scalars and enums have default cost of 0
+- Composite input and output types have default cost of 1
+
+Regardless of whether `@cost` is specified on a field, the field cost for that field also accounts for its arguments and selections.
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr>
+<td>
+
+##### `weight`
+
+`Int!`
+</td>
+<td>
+
+**Required.** Assigns a custom weight for scoring the current field. 
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+<MinVersion version="2.9">
+
+### `@listSize`
+
+</MinVersion>
+
+<EnterpriseFeature />
+
+```graphql
+directive @listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
+```
+
+The `@listSize` directive is used to customize the cost calculation of the [demand control feature](/router/executing-operations/demand-control/) of GraphOS Router.
+
+In the static analysis phase, the cost calculator does not know how many entities will be returned by each list field in a given query. By providing an estimated list size for a field with `@listSize`, the cost calculator can produce a more accurate estimate the cost during static analysis.
+
+#### Configuring static list sizes
+
+The simplest way to define a list size for a field is to use the `assumedSize` argument. This defines a static assumed maximum length for a given list field in the schema.
+
+```graphql
+type Query {
+  items: [Item!] @listSize(assumedSize: 10)
+}
+
+type Item @key(fields: "id") {
+  id: ID
+}
+```
+
+In this case, all queries for `items` are expected to receive at most ten items in the list.
+
+#### Configuring dynamic list sizes
+
+When using paging parameters, the length of a list field can be determined by an input value. You can use the `slicingArguments` argument to tell the router to expect as many elements as the query requests.
+
+```graphql
+type Query {
+  items(first: Int, last: Int): [Item!] @listSize(slicingArguments: ["first", "last"], requireOneSlicingArgument: false)
+}
+```
+
+In this example, the `items` field can be requested with paging parameters. If the client sends a query with multiple slicing arguments, the scoring algorithm will use the maximum value of all specified slicing arguments. The following query is assumed to return ten items in the scoring algorithm.
+
+```graphql
+query MultipleSlicingArgumentsQuery {
+  items(first: 5, last: 10)
+}
+```
+
+In some cases, you may want to enforce that only one slicing argument is used. For example, you may want to ensure that clients request either the first _n_ items or the last _n_ items, but not both. You can do this by setting `requireOneSlicingArgument` to `true`.
+
+```graphql
+type Query {
+  items(first: Int, last: Int): [Item!] @listSize(slicingArguments: ["first", "last"], requireOneSlicingArgument: true)
+}
+```
+
+With this updated schema, sending the the above `MultipleSlicingArgumentsQuery` with its two slicing arguments to a graph would result in an error, as would sending a query with no slicing arguments.
+
+#### Cursor support
+
+Some pagination patterns include extra information along with the requested entities. For example, we may have some schema with a cursor type.
+
+```graphql
+type Query {
+  items(first: Int): Cursor! @listSize(slicingArguments: ["first"], sizedFields: ["page"])
+}
+
+type Cursor {
+  page: [Item!]
+  nextPageToken: String
+}
+
+type Item @key(fields: "id") {
+  id: ID
+}
+```
+
+This application of `@listSize` indicates that the length of the `page` field inside `Cursor` is determined by the `first` argument.
+
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr>
+<td>
+
+##### `assumedSize`
+
+`Int`
+</td>
+<td>
+
+Indicates that the annotated list field will return at most this many items.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `slicingArguments`
+
+`[String!]`
+
+</td>
+<td>
+
+Indicates that the annotated list field returns as many items as are requested by a paging argument. If multiple arguments are passed, the maximum value of the arguments is used.
+
+If both this and `assumedSize` are specified, the value from `slicingArguments` will take precedence.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `sizedFields`
+
+`[String!]`
+</td>
+<td>
+
+Supports cursor objects by indicating that the expected list size should be applied to fields within the returned object.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+##### `requireOneSlicingArgument`
+
+`Boolean`
+</td>
+<td>
+
+If `true`, indicates that queries must supply exactly one argument from `slicingArguments`.
+
+If `slicingArguments` are not specified, this value is ignored.
+
+The default value is `true`.
+
+</td>
+</tr>
+
+</tbody>
+</table>

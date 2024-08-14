@@ -218,11 +218,19 @@ const subgraphWithUnimportedCost = {
       somethingWithCost: Int @federation__cost(weight: 20)
     }
 
+    scalar ExpensiveInt @federation__cost(weight: 30)
+
+    type ExpensiveObject @federation__cost(weight: 40) {
+      id: ID
+    }
+
     type Query {
       fieldWithCost: Int @federation__cost(weight: 5)
       argWithCost(arg: Int @federation__cost(weight: 10)): Int
       enumWithCost: AorB
       inputWithCost(someInput: InputTypeWithCost): Int
+      scalarWithCost: ExpensiveInt
+      objectWithCost: ExpensiveObject
     }
   `),
 };
@@ -230,8 +238,13 @@ const subgraphWithUnimportedCost = {
 const subgraphWithUnimportedListSize = {
   name: 'subgraphWithListSize',
   typeDefs: asFed2SubgraphDocument(gql`
+    type HasInts {
+      ints: [Int!]
+    }
+
     type Query {
       fieldWithListSize: [String!] @federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+      fieldWithDynamicListSize(first: Int!): HasInts @federation__listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
     }
   `),
 };
