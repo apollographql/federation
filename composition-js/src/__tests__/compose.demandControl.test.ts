@@ -6,6 +6,7 @@ import {
   FieldDefinition,
   InputObjectType,
   ObjectType,
+  ScalarType,
   ServiceDefinition,
   Supergraph
 } from '@apollo/federation-internals';
@@ -27,11 +28,19 @@ const subgraphWithCost = {
       somethingWithCost: Int @cost(weight: 20)
     }
 
+    scalar ExpensiveInt @cost(weight: 30)
+
+    type ExpensiveObject @cost(weight: 40) {
+      id: ID
+    }
+
     type Query {
       fieldWithCost: Int @cost(weight: 5)
       argWithCost(arg: Int @cost(weight: 10)): Int
       enumWithCost: AorB
       inputWithCost(someInput: InputTypeWithCost): Int
+      scalarWithCost: ExpensiveInt
+      objectWithCost: ExpensiveObject
     }
   `),
 };
@@ -41,8 +50,13 @@ const subgraphWithListSize = {
   typeDefs: asFed2SubgraphDocument(gql`
     extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
 
+    type HasInts {
+      ints: [Int!]
+    }
+
     type Query {
       fieldWithListSize: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+      fieldWithDynamicListSize(first: Int!): HasInts @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
     }
   `),
 };
@@ -61,11 +75,19 @@ const subgraphWithRenamedCost = {
       somethingWithCost: Int @renamedCost(weight: 20)
     }
 
+    scalar ExpensiveInt @renamedCost(weight: 30)
+
+    type ExpensiveObject @renamedCost(weight: 40) {
+      id: ID
+    }
+
     type Query {
       fieldWithCost: Int @renamedCost(weight: 5)
       argWithCost(arg: Int @renamedCost(weight: 10)): Int
       enumWithCost: AorB
       inputWithCost(someInput: InputTypeWithCost): Int
+      scalarWithCost: ExpensiveInt
+      objectWithCost: ExpensiveObject
     }
   `),
 };
@@ -75,8 +97,13 @@ const subgraphWithRenamedListSize = {
   typeDefs: asFed2SubgraphDocument(gql`
     extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: [{ name: "@listSize", as: "@renamedListSize" }])
 
+    type HasInts {
+      ints: [Int!] @shareable
+    }
+
     type Query {
       fieldWithListSize: [String!] @renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)
+      fieldWithDynamicListSize(first: Int!): HasInts @renamedListSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
     }
   `),
 };
@@ -94,11 +121,19 @@ const subgraphWithCostFromFederationSpec = {
         somethingWithCost: Int @cost(weight: 20)
       }
 
+      scalar ExpensiveInt @cost(weight: 30)
+
+      type ExpensiveObject @cost(weight: 40) {
+        id: ID
+      }
+
       type Query {
         fieldWithCost: Int @cost(weight: 5)
         argWithCost(arg: Int @cost(weight: 10)): Int
         enumWithCost: AorB
         inputWithCost(someInput: InputTypeWithCost): Int
+        scalarWithCost: ExpensiveInt
+        objectWithCost: ExpensiveObject
       }
     `,
     { includeAllImports: true },
@@ -109,8 +144,13 @@ const subgraphWithListSizeFromFederationSpec = {
   name: 'subgraphWithListSize',
   typeDefs: asFed2SubgraphDocument(
     gql`
+      type HasInts {
+        ints: [Int!]
+      }
+
       type Query {
         fieldWithListSize: [String!] @listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+        fieldWithDynamicListSize(first: Int!): HasInts @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
       }
     `,
     { includeAllImports: true },
@@ -132,11 +172,19 @@ const subgraphWithRenamedCostFromFederationSpec = {
         somethingWithCost: Int @renamedCost(weight: 20)
       }
 
+      scalar ExpensiveInt @renamedCost(weight: 30)
+
+      type ExpensiveObject @renamedCost(weight: 40) {
+        id: ID
+      }
+
       type Query {
         fieldWithCost: Int @renamedCost(weight: 5)
         argWithCost(arg: Int @renamedCost(weight: 10)): Int
         enumWithCost: AorB
         inputWithCost(someInput: InputTypeWithCost): Int
+        scalarWithCost: ExpensiveInt
+        objectWithCost: ExpensiveObject
       }
     `,
 };
@@ -147,10 +195,58 @@ const subgraphWithRenamedListSizeFromFederationSpec = {
     gql`
       extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: [{ name: "@listSize", as: "@renamedListSize" }])
 
+      type HasInts {
+        ints: [Int!]
+      }
+
       type Query {
         fieldWithListSize: [String!] @renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)
+        fieldWithDynamicListSize(first: Int!): HasInts @renamedListSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
       }
     `,
+};
+
+const subgraphWithUnimportedCost = {
+  name: 'subgraphWithCost',
+  typeDefs: asFed2SubgraphDocument(gql`
+    enum AorB @federation__cost(weight: 15) {
+      A
+      B
+    }
+
+    input InputTypeWithCost {
+      somethingWithCost: Int @federation__cost(weight: 20)
+    }
+
+    scalar ExpensiveInt @federation__cost(weight: 30)
+
+    type ExpensiveObject @federation__cost(weight: 40) {
+      id: ID
+    }
+
+    type Query {
+      fieldWithCost: Int @federation__cost(weight: 5)
+      argWithCost(arg: Int @federation__cost(weight: 10)): Int
+      enumWithCost: AorB
+      inputWithCost(someInput: InputTypeWithCost): Int
+      scalarWithCost: ExpensiveInt
+      objectWithCost: ExpensiveObject
+    }
+  `),
+};
+
+const subgraphWithUnimportedListSize = {
+  name: 'subgraphWithListSize',
+  typeDefs: asFed2SubgraphDocument(gql`
+    type HasInts {
+      ints: [Int!]
+    }
+
+    type Query {
+      fieldWithListSize: [String!] @federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+      fieldWithDynamicListSize(first: Int!): HasInts @federation__listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
+    }
+  `),
 };
 
 // Used to test @cost applications on FIELD_DEFINITION
@@ -193,13 +289,42 @@ function inputWithCost(result: CompositionResult): InputObjectType | undefined {
     ?.type as InputObjectType;
 }
 
-// Used to test @listSize applications on FIELD_DEFINITION
+// Used to test @cost applications on SCALAR
+function scalarWithCost(result: CompositionResult): ScalarType | undefined {
+  return result
+    .schema
+    ?.schemaDefinition
+    .rootType('query')
+    ?.field('scalarWithCost')
+    ?.type as ScalarType
+}
+
+// Used to test @cost applications on OBJECT
+function objectWithCost(result: CompositionResult): ObjectType | undefined {
+  return result
+    .schema
+    ?.schemaDefinition
+    .rootType('query')
+    ?.field('objectWithCost')
+    ?.type as ObjectType
+}
+
+// Used to test @listSize applications on FIELD_DEFINITION with a statically assumed size
 function fieldWithListSize(result: CompositionResult): FieldDefinition<ObjectType> | undefined  {
   return result
     .schema
     ?.schemaDefinition
     .rootType('query')
     ?.field('fieldWithListSize');
+}
+
+// Used to test @listSize applications on FIELD_DEFINITION with dynamic size arguments
+function fieldWithDynamicListSize(result: CompositionResult): FieldDefinition<ObjectType> | undefined  {
+  return result
+    .schema
+    ?.schemaDefinition
+    .rootType('query')
+    ?.field('fieldWithDynamicListSize');
 }
 
 describe('demand control directive composition', () => {
@@ -223,8 +348,17 @@ describe('demand control directive composition', () => {
     const inputCostDirectiveApplications = inputWithCost(result)?.field('somethingWithCost')?.appliedDirectivesOf('cost');
     expect(inputCostDirectiveApplications?.toString()).toMatchString(`@cost(weight: 20)`);
 
+    const scalarCostDirectiveApplications = scalarWithCost(result)?.appliedDirectivesOf('cost');
+    expect(scalarCostDirectiveApplications?.toString()).toMatchString(`@cost(weight: 30)`);
+
+    const objectCostDirectiveApplications = objectWithCost(result)?.appliedDirectivesOf('cost');
+    expect(objectCostDirectiveApplications?.toString()).toMatchString(`@cost(weight: 40)`);
+
     const listSizeDirectiveApplications = fieldWithListSize(result)?.appliedDirectivesOf('listSize');
     expect(listSizeDirectiveApplications?.toString()).toMatchString(`@listSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
+
+    const dynamicListSizeDirectiveApplications = fieldWithDynamicListSize(result)?.appliedDirectivesOf('listSize');
+    expect(dynamicListSizeDirectiveApplications?.toString()).toMatchString(`@listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)`);
   });
 
   describe('when renamed', () => {
@@ -252,8 +386,20 @@ describe('demand control directive composition', () => {
       const enumCostDirectiveApplications = enumWithCost(result)?.appliedDirectivesOf('renamedCost');
       expect(enumCostDirectiveApplications?.toString()).toMatchString(`@renamedCost(weight: 15)`);
 
+      const inputCostDirectiveApplications = inputWithCost(result)?.field('somethingWithCost')?.appliedDirectivesOf('renamedCost');
+      expect(inputCostDirectiveApplications?.toString()).toMatchString(`@renamedCost(weight: 20)`);
+
+      const scalarCostDirectiveApplications = scalarWithCost(result)?.appliedDirectivesOf('renamedCost');
+      expect(scalarCostDirectiveApplications?.toString()).toMatchString(`@renamedCost(weight: 30)`);
+
+      const objectCostDirectiveApplications = objectWithCost(result)?.appliedDirectivesOf('renamedCost');
+      expect(objectCostDirectiveApplications?.toString()).toMatchString(`@renamedCost(weight: 40)`);
+
       const listSizeDirectiveApplications = fieldWithListSize(result)?.appliedDirectivesOf('renamedListSize');
       expect(listSizeDirectiveApplications?.toString()).toMatchString(`@renamedListSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
+
+      const dynamicListSizeDirectiveApplications = fieldWithDynamicListSize(result)?.appliedDirectivesOf('renamedListSize');
+      expect(dynamicListSizeDirectiveApplications?.toString()).toMatchString(`@renamedListSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)`);
     });
   });
 
@@ -379,6 +525,29 @@ describe('demand control directive composition', () => {
       `);
     });
   });
+
+  describe('when using fully qualified names instead of importing', () => {
+    it('propagates @federation__cost and @federation__listSize to the supergraph', () => {
+      const result = composeServices([subgraphWithUnimportedCost, subgraphWithUnimportedListSize]);
+      assertCompositionSuccess(result);
+      expect(result.hints).toEqual([]);
+  
+      const costDirectiveApplications = fieldWithCost(result)?.appliedDirectivesOf('federation__cost');
+      expect(costDirectiveApplications?.toString()).toMatchString(`@federation__cost(weight: 5)`);
+  
+      const argCostDirectiveApplications = argumentWithCost(result)?.appliedDirectivesOf('federation__cost');
+      expect(argCostDirectiveApplications?.toString()).toMatchString(`@federation__cost(weight: 10)`);
+  
+      const enumCostDirectiveApplications = enumWithCost(result)?.appliedDirectivesOf('federation__cost');
+      expect(enumCostDirectiveApplications?.toString()).toMatchString(`@federation__cost(weight: 15)`);
+  
+      const inputCostDirectiveApplications = inputWithCost(result)?.field('somethingWithCost')?.appliedDirectivesOf('federation__cost');
+      expect(inputCostDirectiveApplications?.toString()).toMatchString(`@federation__cost(weight: 20)`);
+  
+      const listSizeDirectiveApplications = fieldWithListSize(result)?.appliedDirectivesOf('federation__listSize');
+      expect(listSizeDirectiveApplications?.toString()).toMatchString(`@federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
+    });
+  })
 });
 
 describe('demand control directive extraction', () => {
@@ -386,11 +555,12 @@ describe('demand control directive extraction', () => {
     subgraphWithCost,
     subgraphWithRenamedCost,
     subgraphWithCostFromFederationSpec,
-    subgraphWithRenamedCostFromFederationSpec
+    subgraphWithRenamedCostFromFederationSpec,
+    subgraphWithUnimportedCost,
   ])('extracts @cost from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
-    const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithCost.name);
+    const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraph.name);
 
     expect(extracted?.toString()).toMatchString(`
       schema
@@ -406,6 +576,15 @@ describe('demand control directive extraction', () => {
         B
       }
 
+      scalar ExpensiveInt
+        @federation__cost(weight: 30)
+
+      type ExpensiveObject
+        @federation__cost(weight: 40)
+      {
+        id: ID
+      }
+
       input InputTypeWithCost {
         somethingWithCost: Int @federation__cost(weight: 20)
       }
@@ -415,6 +594,8 @@ describe('demand control directive extraction', () => {
         argWithCost(arg: Int @federation__cost(weight: 10)): Int
         enumWithCost: AorB
         inputWithCost(someInput: InputTypeWithCost): Int
+        scalarWithCost: ExpensiveInt
+        objectWithCost: ExpensiveObject
       }
     `);
   });
@@ -423,11 +604,12 @@ describe('demand control directive extraction', () => {
     subgraphWithListSize,
     subgraphWithRenamedListSize,
     subgraphWithListSizeFromFederationSpec,
-    subgraphWithRenamedListSizeFromFederationSpec
+    subgraphWithRenamedListSizeFromFederationSpec,
+    subgraphWithUnimportedListSize,
   ])('extracts @listSize from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
-    const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraphWithListSize.name);
+    const extracted = Supergraph.build(result.supergraphSdl).subgraphs().get(subgraph.name);
 
     expect(extracted?.toString()).toMatchString(`
       schema
@@ -436,63 +618,15 @@ describe('demand control directive extraction', () => {
         query: Query
       }
 
+      type HasInts {
+        ints: [Int!]
+      }
+
       type Query {
         fieldWithListSize: [String!] @federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+        fieldWithDynamicListSize(first: Int!): HasInts @federation__listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
       }
     `);
-  });
-
-  it('extracts @listSize with dynamic cost arguments', () => {
-    const subgraphA = {
-      name: 'subgraph-a',
-      typeDefs: asFed2SubgraphDocument(gql`
-        extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
-
-        type Query {
-          sizedList(first: Int!): HasInts @shareable @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
-        }
-
-        type HasInts {
-          ints: [Int!] @shareable
-        }
-      `)
-    };
-    const subgraphB = {
-      name: 'subgraph-b',
-      typeDefs: asFed2SubgraphDocument(gql`
-        extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
-
-        type Query {
-          sizedList(first: Int!): HasInts @shareable @listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: false)
-        }
-
-        type HasInts {
-          ints: [Int!] @shareable
-        }
-      `)
-    };
-
-    const result = composeServices([subgraphA, subgraphB]);
-    assertCompositionSuccess(result);
-    const supergraph = Supergraph.build(result.supergraphSdl);
-
-    const expectedSubgraph = `
-      schema
-        ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
-      {
-        query: Query
-      }
-
-      type HasInts {
-        ints: [Int!] @shareable
-      }
-
-      type Query {
-        sizedList(first: Int!): HasInts @shareable @federation__listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: false)
-      }
-    `;
-    expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(expectedSubgraph);
-    expect(supergraph.subgraphs().get(subgraphB.name)?.toString()).toMatchString(expectedSubgraph);
   });
 
   describe('when used on @shareable fields', () => {
@@ -578,6 +712,66 @@ describe('demand control directive extraction', () => {
       `;
       expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(expectedSubgraph);
       expect(supergraph.subgraphs().get(subgraphB.name)?.toString()).toMatchString(expectedSubgraph);
+    });
+  });
+
+  describe('when the supergraph uses custom directives with the same name', () => {
+    it('does not attempt to extract them to the subgraphs', () => {
+      const subgraphA = {
+        name: 'subgraph-a',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema
+            @link(url: "https://example.com/myCustomDirective/v1.0", import: ["@cost"])
+            @composeDirective(name: "@cost")
+
+          directive @cost(name: String!) on FIELD_DEFINITION
+
+          type Query {
+            a: Int @cost(name: "cost")
+          }
+        `)
+      };
+      const subgraphB = {
+        name: 'subgraph-b',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema
+            @link(url: "https://example.com/myOtherCustomDirective/v1.0", import: ["@listSize"])
+            @composeDirective(name: "@listSize")
+          
+          directive @listSize(name: String!) on FIELD_DEFINITION
+
+          type Query {
+            b: [Int] @listSize(name: "listSize")
+          }
+        `)
+      };
+
+      const result = composeServices([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+      const supergraph = Supergraph.build(result.supergraphSdl);
+
+      expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(`
+        schema
+          ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+        {
+          query: Query
+        }
+
+        type Query {
+          a: Int
+        }  
+      `);
+      expect(supergraph.subgraphs().get(subgraphB.name)?.toString()).toMatchString(`
+        schema
+          ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+        {
+          query: Query
+        }
+
+        type Query {
+          b: [Int]
+        }  
+      `);
     });
   });
 });
