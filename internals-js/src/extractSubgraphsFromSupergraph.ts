@@ -351,7 +351,8 @@ function addAllEmptySubgraphTypes(args: ExtractArguments): TypesInfo {
         for (const application of typeApplications) {
           const subgraph = getSubgraph(application);
           assert(subgraph, () => `Should have found the subgraph for ${application}`);
-          subgraph.schema.addType(newNamedType(type.kind, type.name));
+          const subgraphType = subgraph.schema.addType(newNamedType(type.kind, type.name));
+          propagateDemandControlDirectives(type, subgraphType, subgraph, args.originalDirectiveNames);
         }
         break;
     }
@@ -447,6 +448,10 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
       // the `get` below is guaranteed to not be undefined.
       const subgraphInfo = subgraphsInfo.get(args.graph)!;
       subgraphInfo.type.addImplementedInterface(args.interface);
+    }
+
+    for (const { type: subgraphType, subgraph } of subgraphsInfo.values()) {
+      propagateDemandControlDirectives(type, subgraphType, subgraph, args.originalDirectiveNames);
     }
 
     for (const field of type.fields()) {
