@@ -435,7 +435,7 @@ class Merger {
       }
     }
     const impliedFederationVersion = FeatureVersion.max(versionsFromFeatures);
-    if (!impliedFederationVersion?.satisfies(linkedFederationVersion) || linkedFederationVersion >= impliedFederationVersion) {
+    if (!impliedFederationVersion?.satisfies(linkedFederationVersion) || linkedFederationVersion.gte(impliedFederationVersion)) {
       return linkedFederationVersion;
     }
 

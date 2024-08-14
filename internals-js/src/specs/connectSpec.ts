@@ -178,6 +178,6 @@ export type ConnectDirectiveHTTP = {
 };
 
 export const CONNECT_VERSIONS = new FeatureDefinitions<ConnectSpecDefinition>(connectIdentity)
-  .add(new ConnectSpecDefinition(new FeatureVersion(0, 1), new FeatureVersion(2, 9)));
+  .add(new ConnectSpecDefinition(new FeatureVersion(0, 1), new FeatureVersion(2, 10)));
 
 registerKnownFeature(CONNECT_VERSIONS);

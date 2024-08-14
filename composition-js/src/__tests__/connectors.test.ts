@@ -10,7 +10,7 @@ describe("connect spec and join__directive", () => {
         typeDefs: parse(`
                     extend schema
                     @link(
-                        url: "https://specs.apollo.dev/federation/v2.7"
+                        url: "https://specs.apollo.dev/federation/v2.10"
                         import: ["@key"]
                     )
                     @link(
@@ -127,7 +127,7 @@ describe("connect spec and join__directive", () => {
         typeDefs: parse(`
                     extend schema
                     @link(
-                        url: "https://specs.apollo.dev/federation/v2.7"
+                        url: "https://specs.apollo.dev/federation/v2.10"
                         import: ["@key"]
                     )
                     @link(
@@ -248,7 +248,7 @@ describe("connect spec and join__directive", () => {
         typeDefs: parse(`
           extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.7"
+            url: "https://specs.apollo.dev/federation/v2.10"
             import: ["@key"]
           )
           @link(
@@ -286,7 +286,7 @@ describe("connect spec and join__directive", () => {
         typeDefs: parse(`
           extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.7"
+            url: "https://specs.apollo.dev/federation/v2.10"
             import: ["@key"]
           )
           @link(
