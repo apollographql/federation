@@ -40,7 +40,7 @@ import { parseSelectionSet } from "./operations";
 import fs from 'fs';
 import path from 'path';
 import { validateStringContainsBoolean } from "./utils";
-import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, FederationDirectiveName, SchemaElement, errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
+import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, FeatureUrl, FederationDirectiveName, SchemaElement, errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
 
 function filteredTypes(
   supergraph: Schema,
@@ -224,7 +224,7 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtra
     }
 
     const types = filteredTypes(supergraph, joinSpec, coreFeatures.coreDefinition);
-    const originalDirectiveNames = getOriginalDirectiveNames(supergraph);
+    const originalDirectiveNames = getApolloDirectiveNames(supergraph);
     const args: ExtractArguments = {
        supergraph,
        subgraphs,
@@ -351,7 +351,8 @@ function addAllEmptySubgraphTypes(args: ExtractArguments): TypesInfo {
         for (const application of typeApplications) {
           const subgraph = getSubgraph(application);
           assert(subgraph, () => `Should have found the subgraph for ${application}`);
-          subgraph.schema.addType(newNamedType(type.kind, type.name));
+          const subgraphType = subgraph.schema.addType(newNamedType(type.kind, type.name));
+          propagateDemandControlDirectives(type, subgraphType, subgraph, args.originalDirectiveNames);
         }
         break;
     }
@@ -449,6 +450,10 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
       subgraphInfo.type.addImplementedInterface(args.interface);
     }
 
+    for (const { type: subgraphType, subgraph } of subgraphsInfo.values()) {
+      propagateDemandControlDirectives(type, subgraphType, subgraph, args.originalDirectiveNames);
+    }
+
     for (const field of type.fields()) {
       const fieldApplications = field.appliedDirectivesOf(fieldDirective);
       if (fieldApplications.length === 0) {
@@ -480,13 +485,40 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
   }
 }
 
-function getOriginalDirectiveNames(supergraph: Schema): Record<string, string> {
+/**
+ * Builds a map of original name to new name for Apollo feature directives. This is
+ * used to handle cases where a directive is renamed via an import statement. For
+ * example, importing a directive with a custom name like
+ * ```graphql
+ * @link(url: "https://specs.apollo.dev/cost/v0.1", import: [{ name: "@cost", as: "@renamedCost" }])
+ * ```
+ * results in a map entry of `cost -> renamedCost` with the `@` prefix removed.
+ * 
+ * If the directive is imported under its default name, that also results in an entry. So,
+ * ```graphql
+ * @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
+ * ```
+ * results in a map entry of `cost -> cost`. This duals as a way to check if a directive
+ * is included in the supergraph schema.
+ * 
+ * **Important:** This map does _not_ include directives imported from identities other
+ * than `specs.apollo.dev`. This helps us avoid extracting directives to subgraphs
+ * when a custom directive's name conflicts with that of a default one.
+ */
+function getApolloDirectiveNames(supergraph: Schema): Record<string, string> {
   const originalDirectiveNames: Record<string, string> = {};
   for (const linkDirective of supergraph.schemaDefinition.appliedDirectivesOf("link")) {
     if (linkDirective.arguments().url && linkDirective.arguments().import) {
+      const url = FeatureUrl.maybeParse(linkDirective.arguments().url);
+      if (!url?.identity.includes("specs.apollo.dev")) {
+        continue;
+      }
+
       for (const importedDirective of linkDirective.arguments().import) {
         if (importedDirective.name && importedDirective.as) {
           originalDirectiveNames[importedDirective.name.replace('@', '')] = importedDirective.as.replace('@', '');
+        } else if (typeof importedDirective === 'string') {
+          originalDirectiveNames[importedDirective.replace('@', '')] = importedDirective.replace('@', '');
         }
       }
     }
@@ -647,16 +679,20 @@ function maybeDumpSubgraphSchema(subgraph: Subgraph): string {
 }
 
 function propagateDemandControlDirectives(source: SchemaElement<any, any>, dest: SchemaElement<any, any>, subgraph: Subgraph, originalDirectiveNames?: Record<string, string>) {
-  const costDirectiveName = originalDirectiveNames?.[FederationDirectiveName.COST] ?? FederationDirectiveName.COST;
-  const costDirective = source.appliedDirectivesOf(costDirectiveName).pop();
-  if (costDirective) {
-    dest.applyDirective(subgraph.metadata().costDirective().name, costDirective.arguments());
+  const costDirectiveName = originalDirectiveNames?.[FederationDirectiveName.COST];
+  if (costDirectiveName) {
+    const costDirective = source.appliedDirectivesOf(costDirectiveName).pop();
+    if (costDirective) {
+      dest.applyDirective(subgraph.metadata().costDirective().name, costDirective.arguments());
+    }
   }
 
-  const listSizeDirectiveName = originalDirectiveNames?.[FederationDirectiveName.LIST_SIZE] ?? FederationDirectiveName.LIST_SIZE;
-  const listSizeDirective = source.appliedDirectivesOf(listSizeDirectiveName).pop();
-  if (listSizeDirective) {
-    dest.applyDirective(subgraph.metadata().listSizeDirective().name, listSizeDirective.arguments());
+  const listSizeDirectiveName = originalDirectiveNames?.[FederationDirectiveName.LIST_SIZE];
+  if (listSizeDirectiveName) {
+    const listSizeDirective = source.appliedDirectivesOf(listSizeDirectiveName).pop();
+    if (listSizeDirective) {
+      dest.applyDirective(subgraph.metadata().listSizeDirective().name, listSizeDirective.arguments());
+    }
   }
 }
 
