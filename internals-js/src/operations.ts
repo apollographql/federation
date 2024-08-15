@@ -56,6 +56,8 @@ import { assert, mapKeys, mapValues, MapWithCachedArrays, MultiMap, SetMultiMap 
 import { argumentsEquals, argumentsFromAST, isValidValue, valueToAST, valueToString } from "./values";
 import { v1 as uuidv1 } from 'uuid';
 
+export const DEFAULT_MIN_USAGES_TO_OPTIMIZE = 2;
+
 function validate(condition: any, message: () => string, sourceAST?: ASTNode): asserts condition {
   if (!condition) {
     throw ERRORS.INVALID_GRAPHQL.err(message(), { nodes: sourceAST });
@@ -934,25 +936,41 @@ export class Operation extends DirectiveTargetElement<Operation> {
       this.appliedDirectives,
     );
   }
+  
+  private collectVariablesFromFragments(allAvailableVariables: VariableDefinitions, fragments: NamedFragments): VariableDefinitions {
+    const varDefs = new VariableDefinitions();
+    varDefs.addAll(this.variableDefinitions);
+
+    const collector = new VariableCollector();
+    collectVariablesInNamedFragments(fragments, collector);
+    
+    for (const v of collector.variables()) {
+      const def = allAvailableVariables.definition(v.name);
+      if (def) {
+        varDefs.add(def);
+      }
+    }
+    return varDefs;
+  }
 
   // Returns a copy of this operation with the provided updated selection set and fragments.
-  private withUpdatedSelectionSetAndFragments(newSelectionSet: SelectionSet, newFragments: NamedFragments | undefined): Operation {
+  private withUpdatedSelectionSetAndFragments(newSelectionSet: SelectionSet, newFragments: NamedFragments | undefined, allAvailableVariables?: VariableDefinitions): Operation {
     if (this.selectionSet === newSelectionSet && newFragments === this.fragments) {
       return this;
     }
-
+    
     return new Operation(
       this.schema(),
       this.rootKind,
       newSelectionSet,
-      this.variableDefinitions,
+      (allAvailableVariables && newFragments) ? this.collectVariablesFromFragments(allAvailableVariables, newFragments) : this.variableDefinitions,
       newFragments,
       this.name,
       this.appliedDirectives,
     );
   }
 
-  optimize(fragments?: NamedFragments, minUsagesToOptimize: number = 2): Operation {
+  optimize(fragments?: NamedFragments, minUsagesToOptimize: number = DEFAULT_MIN_USAGES_TO_OPTIMIZE, allAvailableVariables?: VariableDefinitions): Operation {
     assert(minUsagesToOptimize >= 1, `Expected 'minUsagesToOptimize' to be at least 1, but got ${minUsagesToOptimize}`)
     if (!fragments || fragments.isEmpty()) {
       return this;
@@ -1001,16 +1019,17 @@ export class Operation extends DirectiveTargetElement<Operation> {
       }
     }
 
-    return this.withUpdatedSelectionSetAndFragments(optimizedSelection, finalFragments ?? undefined);
+    return this.withUpdatedSelectionSetAndFragments(optimizedSelection, finalFragments ?? undefined, allAvailableVariables);
   }
 
-  generateQueryFragments(): Operation {
+  generateQueryFragments(allAvailableVariables: VariableDefinitions = new VariableDefinitions()): Operation {
     const [minimizedSelectionSet, fragments] = this.selectionSet.minimizeSelectionSet();
+    
     return new Operation(
       this.schema(),
       this.rootKind,
       minimizedSelectionSet,
-      this.variableDefinitions,
+      allAvailableVariables ? this.collectVariablesFromFragments(allAvailableVariables, fragments) : this.variableDefinitions,
       fragments,
       this.name,
       this.appliedDirectives,
@@ -4020,4 +4039,12 @@ export function hasSelectionWithPredicate(selectionSet: SelectionSet, predicate:
     }
   }
   return false;
+}
+
+export function collectVariablesInNamedFragments(fragments: NamedFragments, collector: VariableCollector) {
+  for (const namedFragment of fragments.definitions()) {
+    namedFragment.selectionSet.usedVariables().forEach(v => {
+      collector.add(v);
+    });
+  }
 }

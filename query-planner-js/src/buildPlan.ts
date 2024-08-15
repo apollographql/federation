@@ -25,7 +25,6 @@ import {
   Variable,
   VariableDefinition,
   VariableDefinitions,
-  VariableCollector,
   newDebugLogger,
   selectionOfElement,
   selectionSetOfElement,
@@ -64,6 +63,8 @@ import {
   isInputType,
   possibleRuntimeTypes,
   NamedType,
+  VariableCollector,
+  DEFAULT_MIN_USAGES_TO_OPTIMIZE,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -1589,18 +1590,31 @@ class FetchGroup {
         );
 
     if (this.generateQueryFragments) {
-      operation = operation.generateQueryFragments();
+      operation = operation.generateQueryFragments(variableDefinitions);
     } else {
-      operation = operation.optimize(fragments?.forSubgraph(this.subgraphName, subgraphSchema));
+      operation = operation.optimize(
+        fragments?.forSubgraph(this.subgraphName, subgraphSchema),
+        DEFAULT_MIN_USAGES_TO_OPTIMIZE,
+        variableDefinitions,
+      );
     }
 
+    // collect all used variables in the selection and in used Fragments
+    const usedVariables = new Set(selection.usedVariables().map(v => v.name));
+    if (operation.fragments) {
+      for (const namedFragment of operation.fragments.definitions()) {
+        namedFragment.selectionSet.usedVariables().forEach(v => {
+          usedVariables.add(v.name);  
+        });
+      }
+    }
     const operationDocument = operationToDocument(operation);
     const fetchNode: FetchNode = {
       kind: 'Fetch',
       id: this.id,
       serviceName: this.subgraphName,
       requires: inputNodes ? trimSelectionNodes(inputNodes.selections) : undefined,
-      variableUsages: selection.usedVariables().map(v => v.name),
+      variableUsages: (Array.from(usedVariables)),
       operation: stripIgnoredCharacters(print(operationDocument)),
       operationKind: schemaRootKindToOperationKind(operation.rootKind),
       operationName: operation.name,
