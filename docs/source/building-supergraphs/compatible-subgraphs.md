@@ -12,7 +12,7 @@ The following open-source GraphQL server libraries and hosted solutions support 
 
 | Icon | Description |
 | --- | --- |
-| <img style={{ display: 'inline-block', height: '1em', width: 'auto' }} alt="Maintained by Apollo" src="<https://apollo-server-landing-page.cdn.apollographql.com/_latest/assets/favicon.png>" /> | Maintained by Apollo |
+| <img style="display:inline-block; height:1em; width:auto;" alt="Maintained by Apollo" src="https://apollo-server-landing-page.cdn.apollographql.com/_latest/assets/favicon.png" /> | Maintained by Apollo |
 | 🟢 | Functionality is supported |
 | ❌ | Critical functionality is NOT supported |
 | 🔲 | Additional federation functionality is NOT supported |
