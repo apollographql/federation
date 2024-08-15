@@ -8,7 +8,7 @@ import {
   ListType,
 } from '../definitions';
 import { registerKnownFeature } from '../knownCoreFeatures';
-import { createDirectiveSpecification } from '../directiveAndTypeSpecification';
+import { createDirectiveSpecification, createScalarTypeSpecification } from '../directiveAndTypeSpecification';
 
 export const connectIdentity = 'https://specs.apollo.dev/connect';
 
@@ -41,8 +41,8 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       composes: false,
     }));
 
-    this.registerType({ name: URL_PATH_TEMPLATE, checkOrAdd: () => [] });
-    this.registerType({ name: JSON_SELECTION, checkOrAdd: () => [] });
+    this.registerType(createScalarTypeSpecification({ name: URL_PATH_TEMPLATE }));
+    this.registerType(createScalarTypeSpecification({ name: JSON_SELECTION }));
     this.registerType({ name: CONNECT_HTTP, checkOrAdd: () => [] });
     this.registerType({ name: SOURCE_HTTP, checkOrAdd: () => [] });
     this.registerType({ name: HTTP_HEADER_MAPPING, checkOrAdd: () => [] });
@@ -141,41 +141,6 @@ export class ConnectSpecDefinition extends FeatureDefinition {
     return 'EXECUTION';
   }
 }
-
-export type SourceDirectiveArgs = {
-  name: string;
-  http: SourceDirectiveHTTP;
-};
-
-export type SourceDirectiveHTTP = {
-  baseURL: string;
-  headers?: HTTPHeaderMapping[];
-};
-
-type HTTPHeaderMapping = {
-  name: string;
-  as?: string;
-  value?: string;
-};
-
-type URLPathTemplate = string;
-type JSONSelection = string;
-
-export type ConnectDirectiveArgs = {
-  source: string;
-  http: ConnectDirectiveHTTP;
-  selection?: JSONSelection;
-};
-
-export type ConnectDirectiveHTTP = {
-  GET?: URLPathTemplate;
-  POST?: URLPathTemplate;
-  PUT?: URLPathTemplate;
-  PATCH?: URLPathTemplate;
-  DELETE?: URLPathTemplate;
-  body?: JSONSelection;
-  headers?: HTTPHeaderMapping[];
-};
 
 export const CONNECT_VERSIONS = new FeatureDefinitions<ConnectSpecDefinition>(connectIdentity)
   .add(new ConnectSpecDefinition(new FeatureVersion(0, 1), new FeatureVersion(2, 10)));
