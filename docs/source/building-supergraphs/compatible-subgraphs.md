@@ -10,12 +10,12 @@ The following open-source GraphQL server libraries and hosted solutions support 
 
 ## Table Legend
 
-| Icon                                                                                                                                                                              | Description                                          |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| <img style="display:inline-block; height:1em; width:auto;" alt="Maintained by Apollo" src="https://apollo-server-landing-page.cdn.apollographql.com/_latest/assets/favicon.png"/> | Maintained by Apollo                                 |
-| 🟢                                                                                                                                                                                 | Functionality is supported                           |
-| ❌                                                                                                                                                                                 | Critical functionality is NOT supported              |
-| 🔲                                                                                                                                                                                 | Additional federation functionality is NOT supported |
+| Icon | Description |
+| --- | --- |
+| <img style={{ display: 'inline-block', height: '1em', width: 'auto' }} alt="Maintained by Apollo" src="<https://apollo-server-landing-page.cdn.apollographql.com/_latest/assets/favicon.png>" /> | Maintained by Apollo |
+| 🟢 | Functionality is supported |
+| ❌ | Critical functionality is NOT supported |
+| 🔲 | Additional federation functionality is NOT supported |
 
 ## Ballerina
 
@@ -27,12 +27,13 @@ The following open-source GraphQL server libraries and hosted solutions support 
       <th>Federation 2 Support</th>
     </tr>
   </thead>
-	<tbody>
-		<tr>
-			<th colspan="3"><big><a href="https://ballerina.io/spec/graphql">Ballerina GraphQL Module</a></big></th>
-		</tr>
-		<tr>
-			<td>A spec-compliant, production-ready, Standard Library module for building and interacting with GraphQL APIs using Ballerina.<br/>
+ <tbody>
+  <tr>
+   <th colSpan="3"><big><a href="https://ballerina.io/spec/graphql">Ballerina GraphQL Module</a></big></th>
+  </tr>
+  <tr>
+   <td>
+        A spec-compliant, production-ready, Standard Library module for building and interacting with GraphQL APIs using Ballerina.<br/>
 <br/>
 Github: <a href="https://github.com/ballerina-platform/module-ballerina-graphql">ballerina-platform/module-ballerina-graphql</a><br/>
 <br/>
@@ -78,12 +79,13 @@ Last Release: 2024-05-03<br/>
       <th>Federation 2 Support</th>
     </tr>
   </thead>
-	<tbody>
-		<tr>
-			<th colspan="3"><big><a href="https://graphql-dotnet.github.io">GraphQL for .NET</a></big></th>
-		</tr>
-		<tr>
-			<td>GraphQL for .NET<br/>
+ <tbody>
+  <tr>
+   <th colSpan="3"><big><a href="https://graphql-dotnet.github.io">GraphQL for .NET</a></big></th>
+  </tr>
+  <tr>
+   <td>
+                GraphQL for .NET<br/>
 <br/>
 Github: <a href="https://github.com/graphql-dotnet/graphql-dotnet">graphql-dotnet/graphql-dotnet</a><br/>
 <br/>
@@ -116,11 +118,12 @@ Last Release: 2024-02-06<br/>
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://chillicream.com/docs/hotchocolate">Hot Chocolate</a></big></th>
-		</tr>
-		<tr>
-			<td>Open-source GraphQL server for the Microsoft .NET platform that takes the complexity away and lets you focus on delivering the next big thing.<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://chillicream.com/docs/hotchocolate">Hot Chocolate</a></big></th>
+  </tr>
+  <tr>
+   <td>
+        Open-source GraphQL server for the Microsoft .NET platform that takes the complexity away and lets you focus on delivering the next big thing.<br/>
 <br/>
 Github: <a href="https://github.com/ChilliCream/graphql-platform">ChilliCream/graphql-platform</a><br/>
 <br/>
@@ -167,12 +170,13 @@ Federation Library: <a href="https://github.com/apollographql/federation-hotchoc
       <th>Federation 2 Support</th>
     </tr>
   </thead>
-	<tbody>
-		<tr>
-			<th colspan="3"><big><a href="https://hexdocs.pm/absinthe_federation/readme.html">Absinthe</a></big></th>
-		</tr>
-		<tr>
-			<td>The GraphQL toolkit for Elixir<br/>
+ <tbody>
+  <tr>
+   <th colSpan="3"><big><a href="https://hexdocs.pm/absinthe_federation/readme.html">Absinthe</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            The GraphQL toolkit for Elixir<br/>
 <br/>
 Github: <a href="https://github.com/absinthe-graphql/absinthe">absinthe-graphql/absinthe</a><br/>
 <br/>
@@ -219,12 +223,13 @@ Federation Library: <a href="https://github.com/DivvyPayHQ/absinthe_federation">
       <th>Federation 2 Support</th>
     </tr>
   </thead>
-	<tbody>
-		<tr>
-			<th colspan="3"><big><a href="https://gqlgen.com">gqlgen</a></big></th>
-		</tr>
-		<tr>
-			<td>go generate based graphql server library<br/>
+ <tbody>
+  <tr>
+   <th colSpan="3"><big><a href="https://gqlgen.com">gqlgen</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            go generate based graphql server library<br/>
 <br/>
 Github: <a href="https://github.com/99designs/gqlgen">99designs/gqlgen</a><br/>
 <br/>
@@ -257,11 +262,12 @@ Last Release: 2024-03-11<br/>
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://github.com/dariuszkuc/graphql#this-is-fork-of-graphql-gographql-that-adds-apollo-federation-support">GraphQL Go (fork)</a></big></th>
-		</tr>
-		<tr>
-			<td>This is a fork of graphql-go&#x2F;graphql that adds Federation support<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://github.com/dariuszkuc/graphql#this-is-fork-of-graphql-gographql-that-adds-apollo-federation-support">GraphQL Go (fork)</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            This is a fork of graphql-go&#x2F;graphql that adds Federation support<br/>
 <br/>
 Github: <a href="https://github.com/dariuszkuc/graphql">dariuszkuc/graphql</a><br/>
 <br/>
@@ -307,12 +313,13 @@ Last Release: 2022-11-11<br/>
       <th>Federation 2 Support</th>
     </tr>
   </thead>
-	<tbody>
-		<tr>
-			<th colspan="3"><big><a href="https://netflix.github.io/dgs/federation/">dgs-framework</a></big></th>
-		</tr>
-		<tr>
-			<td>GraphQL for Java with Spring Boot made easy.<br/>
+ <tbody>
+  <tr>
+   <th colSpan="3"><big><a href="https://netflix.github.io/dgs/federation/">dgs-framework</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            GraphQL for Java with Spring Boot made easy.<br/>
 <br/>
 Github: <a href="https://github.com/netflix/dgs-framework/">netflix/dgs-framework</a><br/>
 <br/>
@@ -347,11 +354,12 @@ Federation Library: <a href="https://github.com/apollographql/federation-jvm">ap
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://github.com/graphql-java-kickstart/graphql-spring-boot">GraphQL Java Kickstart (Spring Boot)</a></big></th>
-		</tr>
-		<tr>
-			<td>GraphQL and GraphiQL Spring Framework Boot Starters - Forked from oembedler&#x2F;graphql-spring-boot due to inactivity.<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://github.com/graphql-java-kickstart/graphql-spring-boot">GraphQL Java Kickstart (Spring Boot)</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            GraphQL and GraphiQL Spring Framework Boot Starters - Forked from oembedler&#x2F;graphql-spring-boot due to inactivity.<br/>
 <br/>
 Github: <a href="https://github.com/graphql-java-kickstart/graphql-spring-boot">graphql-java-kickstart/graphql-spring-boot</a><br/>
 <br/>
@@ -386,11 +394,12 @@ Federation Library: <a href="https://github.com/apollographql/federation-jvm">ap
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://github.com/ExpediaGroup/graphql-kotlin">GraphQL Kotlin</a></big></th>
-		</tr>
-		<tr>
-			<td>Libraries for running GraphQL in Kotlin<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://github.com/ExpediaGroup/graphql-kotlin">GraphQL Kotlin</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            Libraries for running GraphQL in Kotlin<br/>
 <br/>
 Github: <a href="https://github.com/ExpediaGroup/graphql-kotlin">ExpediaGroup/graphql-kotlin</a><br/>
 <br/>
@@ -424,11 +433,12 @@ Core Library: <a href="https://github.com/graphql-java/graphql-java">GraphQL Jav
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://docs.spring.io/spring-graphql/docs/current/reference/html/">Spring GraphQL</a></big></th>
-		</tr>
-		<tr>
-			<td>Spring Integration for GraphQL <br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://docs.spring.io/spring-graphql/docs/current/reference/html/">Spring GraphQL</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            Spring Integration for GraphQL <br/>
 <br/>
 Github: <a href="https://github.com/spring-projects/spring-graphql">spring-projects/spring-graphql</a><br/>
 <br/>
@@ -476,12 +486,13 @@ Federation Library: <a href="https://github.com/apollographql/federation-jvm">ap
       <th>Federation 2 Support</th>
     </tr>
   </thead>
-	<tbody>
-		<tr>
-			<th colspan="3"><big><a href="https://www.apollographql.com/docs/federation/">Apollo Server</a></big></th>
-		</tr>
-		<tr>
-			<td>🌍  Spec-compliant and production ready JavaScript GraphQL server that lets you develop in a schema-first way. Built for Express, Connect, Hapi, Koa, and more.<br/>
+ <tbody>
+  <tr>
+   <th colSpan="3"><big><a href="https://www.apollographql.com/docs/federation/">Apollo Server</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            🌍  Spec-compliant and production ready JavaScript GraphQL server that lets you develop in a schema-first way. Built for Express, Connect, Hapi, Koa, and more.<br/>
 <br/>
 Github: <a href="https://github.com/apollographql/apollo-server">apollographql/apollo-server&nbsp;&nbsp;<img style="display:inline-block; height:1em; width:auto;" alt="Maintained by Apollo" src="https://raw.githubusercontent.com/apollographql/apollo-federation-subgraph-compatibility/d7829ef89441c337749bf6538711a642cfa2689c/docs/assets/horizon_logo.png"/></a><br/>
 <br/>
@@ -516,11 +527,12 @@ Federation Library: <a href="https://www.npmjs.com/package/@apollo/subgraph">Apo
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://github.com/graphql/express-graphql">express-graphql</a></big></th>
-		</tr>
-		<tr>
-			<td>Create a GraphQL HTTP server with Express.<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://github.com/graphql/express-graphql">express-graphql</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            Create a GraphQL HTTP server with Express.<br/>
 <br/>
 Github: <a href="https://github.com/graphql/express-graphql">graphql/express-graphql</a><br/>
 <br/>
@@ -555,11 +567,12 @@ Federation Library: <a href="https://www.npmjs.com/package/@apollo/subgraph">Apo
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://www.the-guild.dev/graphql/yoga-server/v3/features/apollo-federation">GraphQL Yoga</a></big></th>
-		</tr>
-		<tr>
-			<td>The fully-featured GraphQL server with focus on easy setup, performance and great developer experience.<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://www.the-guild.dev/graphql/yoga-server/v3/features/apollo-federation">GraphQL Yoga</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            The fully-featured GraphQL server with focus on easy setup, performance and great developer experience.<br/>
 <br/>
 Github: <a href="https://github.com/dotansimha/graphql-yoga/">dotansimha/graphql-yoga</a><br/>
 <br/>
@@ -594,11 +607,12 @@ Federation Library: <a href="https://www.npmjs.com/package/@apollo/subgraph">Apo
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://graphql-helix.vercel.app">GraphQL Helix</a></big></th>
-		</tr>
-		<tr>
-			<td>A highly evolved and framework-agnostic GraphQL HTTP server.<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://graphql-helix.vercel.app">GraphQL Helix</a></big></th>
+  </tr>
+  <tr>
+   <td>
+        A highly evolved and framework-agnostic GraphQL HTTP server.<br/>
 <br/>
 Github: <a href="https://github.com/contra/graphql-helix">contra/graphql-helix</a><br/>
 <br/>
@@ -633,11 +647,12 @@ Federation Library: <a href="https://www.npmjs.com/package/@apollo/subgraph">Apo
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://mercurius.dev/#/">Mercurius</a></big></th>
-		</tr>
-		<tr>
-			<td>Implement GraphQL servers and gateways with Fastify<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://mercurius.dev/#/">Mercurius</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            Implement GraphQL servers and gateways with Fastify<br/>
 <br/>
 Github: <a href="https://github.com/mercurius-js/mercurius">mercurius-js/mercurius</a><br/>
 <br/>
@@ -672,11 +687,12 @@ Federation Library: <a href="https://www.npmjs.com/package/@apollo/subgraph">Apo
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://nestjs.com">NestJS (code first)</a></big></th>
-		</tr>
-		<tr>
-			<td>A progressive Node.js framework for building efficient, reliable and scalable server-side applications.<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://nestjs.com">NestJS (code first)</a></big></th>
+  </tr>
+  <tr>
+   <td>
+        A progressive Node.js framework for building efficient, reliable and scalable server-side applications.<br/>
 <br/>
 Github: <a href="https://github.com/nestjs/graphql">nestjs/graphql</a><br/>
 <br/>
@@ -711,11 +727,12 @@ Federation Library: <a href="https://www.npmjs.com/package/@apollo/subgraph">Apo
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://nestjs.com">NestJS (SDL First)</a></big></th>
-		</tr>
-		<tr>
-			<td>A progressive Node.js framework for building efficient, reliable and scalable server-side applications.<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://nestjs.com">NestJS (SDL First)</a></big></th>
+  </tr>
+  <tr>
+   <td>
+        A progressive Node.js framework for building efficient, reliable and scalable server-side applications.<br/>
 <br/>
 Github: <a href="https://github.com/nestjs/graphql">nestjs/graphql</a><br/>
 <br/>
@@ -750,11 +767,12 @@ Federation Library: <a href="https://www.npmjs.com/package/@apollo/subgraph">Apo
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://pothos-graphql.dev/docs/plugins/federation">Pothos GraphQL</a></big></th>
-		</tr>
-		<tr>
-			<td>Plugin based GraphQL schema builder that makes building graphql schemas with TypeScript easy, fast and enjoyable.<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://pothos-graphql.dev/docs/plugins/federation">Pothos GraphQL</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            Plugin based GraphQL schema builder that makes building graphql schemas with TypeScript easy, fast and enjoyable.<br/>
 <br/>
 Github: <a href="https://github.com/hayes/pothos">hayes/pothos</a><br/>
 <br/>
@@ -801,12 +819,13 @@ Core Library: <a href="https://www.npmjs.com/package/graphql">GraphQL.js</a><br/
       <th>Federation 2 Support</th>
     </tr>
   </thead>
-	<tbody>
-		<tr>
-			<th colspan="3"><big><a href="https://lighthouse-php.com/">Lighthouse (Laravel)</a></big></th>
-		</tr>
-		<tr>
-			<td>A framework for serving GraphQL from Laravel<br/>
+ <tbody>
+  <tr>
+   <th colSpan="3"><big><a href="https://lighthouse-php.com/">Lighthouse (Laravel)</a></big></th>
+  </tr>
+  <tr>
+   <td>
+        A framework for serving GraphQL from Laravel<br/>
 <br/>
 Github: <a href="https://github.com/nuwave/lighthouse">nuwave/lighthouse</a><br/>
 <br/>
@@ -840,11 +859,12 @@ Core Library: <a href="https://github.com/webonyx/graphql-php">webonyx/graphql-p
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://github.com/Skillshare/apollo-federation-php">GraphQL PHP</a></big></th>
-		</tr>
-		<tr>
-			<td>PHP implementation of the GraphQL specification based on the reference implementation in JavaScript<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://github.com/Skillshare/apollo-federation-php">GraphQL PHP</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            PHP implementation of the GraphQL specification based on the reference implementation in JavaScript<br/>
 <br/>
 Github: <a href="https://github.com/webonyx/graphql-php">webonyx/graphql-php</a><br/>
 <br/>
@@ -891,12 +911,13 @@ Federation Library: <a href="https://github.com/Skillshare/apollo-federation-php
       <th>Federation 2 Support</th>
     </tr>
   </thead>
-	<tbody>
-		<tr>
-			<th colspan="3"><big><a href="https://ariadnegraphql.org/docs/apollo-federation">Ariadne</a></big></th>
-		</tr>
-		<tr>
-			<td>Python library for implementing GraphQL servers using schema-first approach.<br/>
+ <tbody>
+  <tr>
+   <th colSpan="3"><big><a href="https://ariadnegraphql.org/docs/apollo-federation">Ariadne</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            Python library for implementing GraphQL servers using schema-first approach.<br/>
 <br/>
 Github: <a href="https://github.com/mirumee/ariadne">mirumee/ariadne</a><br/>
 <br/>
@@ -930,11 +951,12 @@ Core Library: <a href="https://github.com/graphql-python/graphql-core">GraphQL-c
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://graphene-python.org/">Graphene</a></big></th>
-		</tr>
-		<tr>
-			<td>GraphQL framework for Python<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://graphene-python.org/">Graphene</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            GraphQL framework for Python<br/>
 <br/>
 Github: <a href="https://github.com/graphql-python/graphene">graphql-python/graphene</a><br/>
 <br/>
@@ -969,11 +991,12 @@ Federation Library: <a href="https://github.com/graphql-python/graphene-federati
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://strawberry.rocks">Strawberry</a></big></th>
-		</tr>
-		<tr>
-			<td>A GraphQL library for Python that leverages type annotations 🍓<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://strawberry.rocks">Strawberry</a></big></th>
+  </tr>
+  <tr>
+   <td>
+        A GraphQL library for Python that leverages type annotations 🍓<br/>
 <br/>
 Github: <a href="https://github.com/strawberry-graphql/strawberry">strawberry-graphql/strawberry</a><br/>
 <br/>
@@ -1020,12 +1043,13 @@ Core Library: <a href="https://github.com/graphql-python/graphql-core">GraphQL-c
       <th>Federation 2 Support</th>
     </tr>
   </thead>
-	<tbody>
-		<tr>
-			<th colspan="3"><big><a href="https://graphql-ruby.org/">GraphQL Ruby</a></big></th>
-		</tr>
-		<tr>
-			<td>Ruby implementation of GraphQL <br/>
+ <tbody>
+  <tr>
+   <th colSpan="3"><big><a href="https://graphql-ruby.org/">GraphQL Ruby</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            Ruby implementation of GraphQL <br/>
 <br/>
 Github: <a href="https://github.com/rmosolgo/graphql-ruby">rmosolgo/graphql-ruby</a><br/>
 <br/>
@@ -1072,12 +1096,13 @@ Federation Library: <a href="https://github.com/Gusto/apollo-federation-ruby/">G
       <th>Federation 2 Support</th>
     </tr>
   </thead>
-	<tbody>
-		<tr>
-			<th colspan="3"><big><a href="https://async-graphql.github.io/async-graphql/en/apollo_federation.html">async-graphql</a></big></th>
-		</tr>
-		<tr>
-			<td>A GraphQL server library implemented in Rust<br/>
+ <tbody>
+  <tr>
+   <th colSpan="3"><big><a href="https://async-graphql.github.io/async-graphql/en/apollo_federation.html">async-graphql</a></big></th>
+  </tr>
+  <tr>
+   <td>
+        A GraphQL server library implemented in Rust<br/>
 <br/>
 Github: <a href="https://github.com/async-graphql/async-graphql">async-graphql/async-graphql</a><br/>
 <br/>
@@ -1123,12 +1148,13 @@ Last Release: 2022-11-28<br/>
       <th>Federation 2 Support</th>
     </tr>
   </thead>
-	<tbody>
-		<tr>
-			<th colspan="3"><big><a href="https://ghostdogpr.github.io/caliban/docs/federation.html">Caliban</a></big></th>
-		</tr>
-		<tr>
-			<td>Functional GraphQL library for Scala<br/>
+ <tbody>
+  <tr>
+   <th colSpan="3"><big><a href="https://ghostdogpr.github.io/caliban/docs/federation.html">Caliban</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            Functional GraphQL library for Scala<br/>
 <br/>
 Github: <a href="https://github.com/ghostdogpr/caliban">ghostdogpr/caliban</a><br/>
 <br/>
@@ -1161,11 +1187,12 @@ Last Release: 2024-04-16<br/>
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://sangria-graphql.github.io/learn/#graphql-federation">Sangria</a></big></th>
-		</tr>
-		<tr>
-			<td>Scala GraphQL implementation<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://sangria-graphql.github.io/learn/#graphql-federation">Sangria</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            Scala GraphQL implementation<br/>
 <br/>
 Github: <a href="https://github.com/sangria-graphql/sangria">sangria-graphql/sangria</a><br/>
 <br/>
@@ -1212,12 +1239,13 @@ Federation Library: <a href="https://github.com/sangria-graphql/sangria-federate
       <th>Federation 2 Support</th>
     </tr>
   </thead>
-	<tbody>
-		<tr>
-			<th colspan="3"><big><a href="https://github.com/GraphQLSwift/Graphiti">Graphiti</a></big></th>
-		</tr>
-		<tr>
-			<td>The Swift GraphQL Schema framework for macOS and Linux<br/>
+ <tbody>
+  <tr>
+   <th colSpan="3"><big><a href="https://github.com/GraphQLSwift/Graphiti">Graphiti</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            The Swift GraphQL Schema framework for macOS and Linux<br/>
 <br/>
 Github: <a href="https://github.com/GraphQLSwift/Graphiti">GraphQLSwift/Graphiti</a><br/>
 <br/>
@@ -1263,12 +1291,13 @@ Last Release: 2023-11-15<br/>
       <th>Federation 2 Support</th>
     </tr>
   </thead>
-	<tbody>
-		<tr>
-			<th colspan="3"><big><a href="https://aws.amazon.com/appsync/">AWS AppSync</a></big></th>
-		</tr>
-		<tr>
-			<td>Serverless GraphQL and Pub&#x2F;Sub APIs<br/>
+ <tbody>
+  <tr>
+   <th colSpan="3"><big><a href="https://aws.amazon.com/appsync/">AWS AppSync</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            Serverless GraphQL and Pub&#x2F;Sub APIs<br/>
 <br/>
 <br/>
       </td>
@@ -1296,11 +1325,12 @@ Last Release: 2023-11-15<br/>
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://dgraph.io/docs/graphql/">Dgraph</a></big></th>
-		</tr>
-		<tr>
-			<td>Dgraph is the native GraphQL database with a graph backend. It is open-source, scalable, distributed, highly available and lightning fast.<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://dgraph.io/docs/graphql/">Dgraph</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            Dgraph is the native GraphQL database with a graph backend. It is open-source, scalable, distributed, highly available and lightning fast.<br/>
 <br/>
 <br/>
       </td>
@@ -1328,11 +1358,12 @@ Last Release: 2023-11-15<br/>
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://grafbase.com/docs">Grafbase</a></big></th>
-		</tr>
-		<tr>
-			<td>The GraphQL platform<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://grafbase.com/docs">Grafbase</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            The GraphQL platform<br/>
 <br/>
 Github: <a href="https://github.com/grafbase/grafbase">grafbase/grafbase</a><br/>
 <br/>
@@ -1365,11 +1396,12 @@ Last Release: 2024-02-23<br/>
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://www.the-guild.dev/graphql/mesh">GraphQL Mesh</a></big></th>
-		</tr>
-		<tr>
-			<td>Executable GraphQL schema from multiple data sources, query anything, run anywhere.<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://www.the-guild.dev/graphql/mesh">GraphQL Mesh</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            Executable GraphQL schema from multiple data sources, query anything, run anywhere.<br/>
 <br/>
 Github: <a href="https://github.com/Urigo/graphql-mesh">Urigo/graphql-mesh</a><br/>
 <br/>
@@ -1402,11 +1434,12 @@ Last Release: 2024-04-30<br/>
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://neo4j.com/docs/graphql-manual/current/">Neo4J Graph Database</a></big></th>
-		</tr>
-		<tr>
-			<td>A GraphQL to Cypher query execution layer for Neo4j and JavaScript GraphQL implementations.<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://neo4j.com/docs/graphql-manual/current/">Neo4J Graph Database</a></big></th>
+  </tr>
+  <tr>
+   <td>
+        A GraphQL to Cypher query execution layer for Neo4j and JavaScript GraphQL implementations.<br/>
 <br/>
 Github: <a href="https://github.com/neo4j/graphql">neo4j/graphql</a><br/>
 <br/>
@@ -1441,11 +1474,12 @@ Federation Library: <a href="https://www.npmjs.com/package/@apollo/subgraph">Apo
         </table>
       </td>
     </tr>
-		<tr>
-			<th colspan="3"><big><a href="https://stepzen.com/apollo-stepzen">StepZen, an IBM Company</a></big></th>
-		</tr>
-		<tr>
-			<td>Build GraphQL APIs for all your data in a declarative way. Federate across any data source, including GraphQL.<br/>
+  <tr>
+   <th colSpan="3"><big><a href="https://stepzen.com/apollo-stepzen">StepZen, an IBM Company</a></big></th>
+  </tr>
+  <tr>
+   <td>
+            Build GraphQL APIs for all your data in a declarative way. Federate across any data source, including GraphQL.<br/>
 <br/>
 <br/>
       </td>
