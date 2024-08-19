@@ -97,6 +97,8 @@ import {
   createInitialOptions,
   buildFederatedQueryGraph,
   FEDERATED_GRAPH_ROOT_SOURCE,
+  Transition,
+  InterfaceObjectFakeDownCast,
 } from "@apollo/query-graphs";
 import { stripIgnoredCharacters, print, OperationTypeNode, SelectionSetNode, Kind } from "graphql";
 import { DeferredNode, FetchDataKeyRenamer, FetchDataRewrite } from ".";
@@ -4344,11 +4346,16 @@ function computeGroupsForTree(
             contextToConditionsGroups,
           };
 
-          if (conditions && edge.conditions) {
+          if (conditions) {
             // We have @requires or some other dependency to create groups for.
             const requireResult = handleRequires(
               dependencyGraph,
-              edge,
+              {
+                head: edge.head,
+                transition: edge.transition,
+                conditions: edge.conditions,
+                edgeString: () => edge.toString(),
+              },
               conditions,
               group,
               path,
@@ -4357,44 +4364,23 @@ function computeGroupsForTree(
             );
             updated.group = requireResult.group;
             updated.path = requireResult.path;
-
-            // add __typename to site where we are retrieving context from
-            // this is necessary because the context rewrites path will start with a type condition
+            
             if (contextToSelection) {
-              assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
-              updated.group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
-            }
-
-            if (contextToSelection) {
+              if (requireResult.createdGroups.length === 0) {
+                assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
+                updated.group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
+              }
               const newContextToConditionsGroups = new Map<string, FetchGroup[]>([...contextToConditionsGroups]);
-              for (const context of contextToSelection) {
-                newContextToConditionsGroups.set(context, [group]);
+              // If a new group is created for the conditions, make sure that we add that as a dependency
+              // so that using a context will not occur within the same fetch group as it is retrieved
+              if (!requireResult.newGroupIsUnneeded || group.isTopLevel) {
+                for (const context of contextToSelection) {
+                  newContextToConditionsGroups.set(context, [group]);
+                }
               }
               updated.contextToConditionsGroups = newContextToConditionsGroups;
             }
             updateCreatedGroups(createdGroups, ...requireResult.createdGroups);
-          } else if (conditions) {
-            // add __typename to site where we are retrieving context from
-            // this is necessary because the context rewrites path will start with a type condition
-            assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
-            group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
-
-            const conditionsGroups = computeGroupsForTree({
-              dependencyGraph, 
-              pathTree: conditions, 
-              startGroup: group, 
-              initialGroupPath: path, 
-              initialDeferContext: deferContextForConditions(deferContext),
-            });
-
-            if (contextToSelection) {
-              const newContextToConditionsGroups = new Map<string, FetchGroup[]>([...contextToConditionsGroups]);
-              for (const context of contextToSelection) {
-                newContextToConditionsGroups.set(context, [group, ...conditionsGroups]);
-              }
-              updated.contextToConditionsGroups = newContextToConditionsGroups;
-            }
-            updateCreatedGroups(createdGroups, ...conditionsGroups);
           }
 
           // if we're going to start using context variables, every variable used must be set in a different parent
@@ -4655,7 +4641,12 @@ function typeAtPath(parentType: CompositeType, path: OperationPath): CompositeTy
 
 function handleRequires(
   dependencyGraph: FetchDependencyGraph,
-  edge: Edge,
+  edge: {
+    transition: Transition,
+    conditions: SelectionSet | undefined,
+    head: Vertex,
+    edgeString: () => string,
+  },
   requiresConditions: OpPathTree,
   group: FetchGroup,
   path: GroupPath,
@@ -4665,6 +4656,7 @@ function handleRequires(
   group: FetchGroup,
   path: GroupPath,
   createdGroups: FetchGroup[],
+  newGroupIsUnneeded: boolean | undefined,
 } {
   // @requires should be on an entity type, and we only support object types right now
   const entityType = edge.head.type as ObjectType;
@@ -4710,14 +4702,15 @@ function handleRequires(
       initialGroupPath: path, 
       initialDeferContext: deferContextForConditions(deferContext)
     });
+    
     if (createdGroups.length === 0) {
       // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
       // and continue.
       assert(group.canMergeSiblingIn(newGroup), () => `We should be able to merge ${newGroup} into ${group} by construction`);
       group.mergeSiblingIn(newGroup);
-      return {group, path, createdGroups: []};
+      return {group, path, createdGroups: [], newGroupIsUnneeded: false};
     }
-
+    
     // We know the @require needs createdGroups. We do want to know however if any of the conditions was
     // fetched from our `newGroup`. If not, then this means that the `createdGroups` don't really depend on
     // the current `group` and can be dependencies of the parent (or even merged into this parent).
@@ -4812,8 +4805,13 @@ function handleRequires(
     if (unmergedGroups.length == 0) {
       // We still need to add the stuffs we require though (but `group` already has a key in its inputs,
       // we don't need one).
-      group.addInputs(inputsForRequire(dependencyGraph, entityType, edge, context, false).inputs);
-      return { group, path, createdGroups: [] };
+      group.addInputs(
+        inputsForRequire(
+          dependencyGraph, 
+          entityType, 
+          edge,
+          context, false).inputs);
+      return { group, path, createdGroups: [],  newGroupIsUnneeded };
     }
 
     // If we get here, it means that @require needs the information from `unmergedGroups` (plus whatever has
@@ -4855,6 +4853,7 @@ function handleRequires(
       group: postRequireGroup,
       path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
       createdGroups: unmergedGroups,
+      newGroupIsUnneeded: false,
     };
   } else {
     // We're in the somewhat simpler case where a @require happens somewhere in the middle of a subgraph query (so, not
@@ -4871,9 +4870,8 @@ function handleRequires(
     // If we didn't created any group, that means the whole condition was fetched from the current group
     // and we're good.
     if (createdGroups.length == 0) {
-      return { group, path, createdGroups: []};
+      return { group, path, createdGroups: [], newGroupIsUnneeded: true};
     }
-
     // We need to create a new group, on the same subgraph `group`, where we resume fetching the field for
     // which we handle the @requires _after_ we've delt with the `requiresConditionsGroups`.
     // Note that we know the conditions will include a key for our group so we can resume properly.
@@ -4913,6 +4911,7 @@ function handleRequires(
       group: newGroup,
       path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
       createdGroups,
+      newGroupIsUnneeded: false,
     };
   }
 }
@@ -4921,7 +4920,12 @@ function addPostRequireInputs(
   dependencyGraph: FetchDependencyGraph,
   requirePath: GroupPath,
   entityType: ObjectType,
-  edge: Edge,
+  edge: {
+    transition: Transition,
+    conditions: SelectionSet | undefined,
+    head: Vertex,
+    edgeString: () => string,
+  },
   context: PathContext,
   preRequireGroup: FetchGroup,
   postRequireGroup: FetchGroup,
@@ -4949,7 +4953,12 @@ function newCompositeTypeSelectionSet(type: CompositeType): MutableSelectionSet 
 function inputsForRequire(
   dependencyGraph: FetchDependencyGraph,
   entityType: ObjectType,
-  edge: Edge,
+  edge: {
+    transition: Transition,
+    conditions: SelectionSet | undefined,
+    head: Vertex,
+    edgeString: () => string,
+  },
   context: PathContext,
   includeKeyInputs: boolean = true
 ): {
@@ -4962,7 +4971,7 @@ function inputsForRequire(
   // up querying some fields in the @interfaceObject subgraph for entities that we know won't match a type
   // condition of the query.
   const isInterfaceObjectDownCast = edge.transition.kind === 'InterfaceObjectFakeDownCast';
-  const inputTypeName = isInterfaceObjectDownCast ? edge.transition.castedTypeName : entityType.name;
+  const inputTypeName = isInterfaceObjectDownCast ? (edge.transition as InterfaceObjectFakeDownCast).castedTypeName : entityType.name;
   const inputType = dependencyGraph.supergraphSchema.type(inputTypeName);
   assert(inputType && isCompositeType(inputType), () => `Type ${inputTypeName} should exist in the supergraph and be a composite type`);
 
@@ -4973,7 +4982,7 @@ function inputsForRequire(
   let keyInputs: MutableSelectionSet | undefined = undefined;
   if (includeKeyInputs) {
     const keyCondition = getLocallySatisfiableKey(dependencyGraph.federatedQueryGraph, edge.head);
-    assert(keyCondition, () => `Due to @require, validation should have required a key to be present for ${edge}`);
+    assert(keyCondition, () => `Due to @require, validation should have required a key to be present for ${edge.edgeString()}`);
     let keyConditionAsInput = keyCondition;
     if (isInterfaceObjectDownCast) {
       // This means that conditions parents are on the @interfaceObject type, but we actually want to select only the

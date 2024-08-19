@@ -9016,10 +9016,6 @@ describe('@fromContext impacts on query planning', () => {
               t {
                 __typename
                 id
-                u {
-                  __typename
-                  id
-                }
               }
             }
           },
@@ -9038,17 +9034,20 @@ describe('@fromContext impacts on query planning', () => {
               }
             },
           },
-          Flatten(path: "t.u") {
+          Flatten(path: "t") {
             Fetch(service: "Subgraph1") {
               {
-                ... on U {
+                ... on T {
                   __typename
                   id
                 }
               } =>
               {
-                ... on U {
-                  field(a: $contextualArgument_1_0)
+                ... on T {
+                  u {
+                    id
+                    field(a: $contextualArgument_1_0)
+                  }
                 }
               }
             },
@@ -9059,7 +9058,7 @@ describe('@fromContext impacts on query planning', () => {
     expect((plan as any).node.nodes[2].node.contextRewrites).toEqual([
       {
         kind: 'KeyRenamer',
-        path: ['..', '... on T', 'prop'],
+        path: ['prop'],
         renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
@@ -9967,10 +9966,7 @@ describe('@fromContext impacts on query planning', () => {
                   __typename
                   id
                 }
-                u {
-                  __typename
-                  id
-                }
+                id
               }
             }
           },
@@ -10009,17 +10005,19 @@ describe('@fromContext impacts on query planning', () => {
               }
             },
           },
-          Flatten(path: "t.u") {
+          Flatten(path: "t") {
             Fetch(service: "Subgraph1") {
               {
-                ... on U {
+                ... on T {
                   __typename
                   id
                 }
               } =>
               {
-                ... on U {
-                  field(a: $contextualArgument_1_0)
+                ... on T {
+                  u {
+                    field(a: $contextualArgument_1_0)
+                  }
                 }
               }
             },
@@ -10030,8 +10028,315 @@ describe('@fromContext impacts on query planning', () => {
     expect((plan as any).node.nodes[3].node.contextRewrites).toEqual([
       {
         kind: 'KeyRenamer',
-        path: ['..', '... on T', 'a', 'b', 'c', 'prop'],
+        path: ['a', 'b', 'c', 'prop'],
         renameKeyTo: 'contextualArgument_1_0',
+      },
+    ]);
+  });
+  
+  it('fromContext before key resolution transtion', () => {
+    const subgraph1 = {
+      name: 'subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          customer: Customer!
+        }
+        
+        type Identifiers @key(fields: "id") {
+          id: ID!
+          legacyUserId: ID!
+        }
+        
+        type Customer @key(fields: "id") {
+          id: ID!
+          child: Child!
+          identifiers: Identifiers!
+        }
+        
+        type Child @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+    
+    const subgraph2 = {
+      name: 'subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Customer @key(fields: "id") @context(name: "ctx") {
+          id: ID!
+          identifiers: Identifiers! @external
+        }
+        
+        type Identifiers @key(fields: "id") {
+          id: ID!
+          legacyUserId: ID! @external
+        }
+        
+        type Child @key(fields: "id") {
+          id: ID!
+          prop(
+            legacyUserId: ID @fromContext(field: "$ctx { identifiers { legacyUserId } }")
+          ): String
+        }
+      `,
+    };
+    
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          customer {
+            child {
+              id
+              prop
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "subgraph1") {
+            {
+              customer {
+                __typename
+                identifiers {
+                  legacyUserId
+                }
+                child {
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "customer.child") {
+            Fetch(service: "subgraph2") {
+              {
+                ... on Child {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on Child {
+                  prop(legacyUserId: $contextualArgument_1_0)
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
+  
+  it('fromContext efficiently merge fetch groups', () => {
+    const subgraph1 = {
+      name: 'sg1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Identifiers @key(fields: "id") {
+          id: ID!
+          id2: ID @external
+          id3: ID @external
+          wid: ID @requires(fields: "id2 id3")
+        }
+      `,
+    };
+    
+    const subgraph2 = {
+      name: 'sg2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          customer: Customer
+        }
+
+        type Customer @key(fields: "id") {
+          id: ID!
+          identifiers: Identifiers
+          mid: ID
+        }
+
+        type Identifiers @key(fields: "id") {
+          id: ID!
+          id2: ID
+          id3: ID
+          id5: ID
+        }
+      `,
+    };
+    
+    const subgraph3 = {
+      name: 'sg3',
+      url: 'https://Subgraph3',
+      typeDefs: gql`
+        type Customer @key(fields: "id") @context(name: "retailCtx")  {
+          accounts: Accounts @shareable
+          id: ID!
+          mid: ID @external
+          identifiers: Identifiers @external
+        }
+
+        type Identifiers @key(fields: "id") {
+          id: ID!
+          id5: ID @external
+        }
+        type Accounts @key(fields: "id") {
+          foo(
+            randomInput: String,
+            ctx_id5: ID @fromContext(field: "$retailCtx { identifiers { id5 } }"),
+            ctx_mid: ID @fromContext(field: "$retailCtx { mid }")
+          ): Foo
+          id: ID!
+        }
+
+        type Foo {
+          id: ID
+        }
+      `,
+    };
+    
+    const subgraph4 = {
+      name: 'sg4',
+      url: 'https://Subgraph4',
+      typeDefs: gql`
+        type Customer @key(fields: "id", resolvable: false) @context(name: "widCtx")  {
+          accounts: Accounts @shareable
+          id: ID!
+          identifiers: Identifiers @external
+        }
+
+        type Identifiers @key(fields: "id", resolvable: false) {
+          id: ID!
+          wid: ID @external # @requires(fields: "id2 id3")
+        }
+
+        type Accounts @key(fields: "id") {
+          bar(
+            ctx_wid: ID @fromContext(field: "$widCtx { identifiers { wid } }"),
+          ): Bar
+
+          id: ID!
+        }
+
+        type Bar {
+          id: ID
+        }
+
+      `,
+    };
+
+    
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2, subgraph3, subgraph4]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          customer {
+            accounts {
+              foo {
+                id
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "sg2") {
+            {
+              customer {
+                __typename
+                id
+                identifiers {
+                  id5
+                }
+                mid
+              }
+            }
+          },
+          Flatten(path: "customer") {
+            Fetch(service: "sg3") {
+              {
+                ... on Customer {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on Customer {
+                  __typename
+                  accounts {
+                    foo(ctx_id5: $contextualArgument_3_0, ctx_mid: $contextualArgument_3_1) {
+                      id
+                    }
+                  }
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['identifiers', 'id5'],
+        renameKeyTo: 'contextualArgument_3_0',
+      },
+      {
+        kind: 'KeyRenamer',
+        path: ['mid'],
+        renameKeyTo: 'contextualArgument_3_1',
       },
     ]);
   });
