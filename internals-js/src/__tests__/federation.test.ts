@@ -1,7 +1,7 @@
-import gql from "graphql-tag";
-import { buildSubgraph, federationMetadata } from "..";
+import gql from 'graphql-tag';
+import { buildSubgraph, federationMetadata } from '..';
 
-it("detects federation 1 subgraphs correctly", () => {
+it('detects federation 1 subgraphs correctly', () => {
   const schema = gql`
     type Query {
       s: String
@@ -14,10 +14,9 @@ it("detects federation 1 subgraphs correctly", () => {
   expect(metadata?.isFed2Schema()).toBeFalsy();
 });
 
-it("detects federation 2 subgraphs correctly", () => {
+it('detects federation 2 subgraphs correctly', () => {
   const schema = gql`
-    extend schema
-      @link(url: "https://specs.apollo.dev/federation/v2.0")
+    extend schema @link(url: "https://specs.apollo.dev/federation/v2.0")
 
     type Query {
       s: String

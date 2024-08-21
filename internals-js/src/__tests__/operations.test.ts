@@ -6,8 +6,26 @@ import {
 } from '../definitions';
 import { buildSchema } from '../buildSchema';
 import { FederationBlueprint } from '../federation';
-import { FragmentRestrictionAtType, MutableSelectionSet, NamedFragmentDefinition, Operation, operationFromDocument, parseOperation } from '../operations';
-import { DocumentNode, FieldNode, GraphQLError, Kind, OperationDefinitionNode, OperationTypeNode, parse, SelectionNode, SelectionSetNode, validate } from 'graphql';
+import {
+  FragmentRestrictionAtType,
+  MutableSelectionSet,
+  NamedFragmentDefinition,
+  Operation,
+  operationFromDocument,
+  parseOperation,
+} from '../operations';
+import {
+  DocumentNode,
+  FieldNode,
+  GraphQLError,
+  Kind,
+  OperationDefinitionNode,
+  OperationTypeNode,
+  parse,
+  SelectionNode,
+  SelectionSetNode,
+  validate,
+} from 'graphql';
 import { assert } from '../utils';
 import gql from 'graphql-tag';
 
@@ -52,7 +70,9 @@ describe('generate query fragments', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       query {
           entities {
               ... on B {
@@ -66,7 +86,8 @@ describe('generate query fragments', () => {
               }
           }
       }
-    `);
+    `,
+    );
 
     const withGeneratedFragments = operation.generateQueryFragments();
     console.log(withGeneratedFragments.toString());
@@ -102,9 +123,9 @@ describe('fragments optimization', () => {
     query,
     expanded,
   }: {
-    schema: Schema,
-    query: string,
-    expanded: string,
+    schema: Schema;
+    query: string;
+    expanded: string;
   }) {
     const operation = parseOperation(schema, query);
     const withoutFragments = operation.expandAllFragments();
@@ -146,7 +167,9 @@ describe('fragments optimization', () => {
       union U = T1 | T2
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       fragment OnT1 on T1 {
         a
         b
@@ -177,7 +200,8 @@ describe('fragments optimization', () => {
           }
         }
       }
-    `);
+    `,
+    );
 
     const withoutFragments = operation.expandAllFragments();
     expect(withoutFragments.toString()).toMatchString(`
@@ -270,7 +294,9 @@ describe('fragments optimization', () => {
       union U = T1 | T2
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       fragment OnT1 on T1 {
         a
         b
@@ -309,7 +335,8 @@ describe('fragments optimization', () => {
           }
         }
       }
-    `);
+    `,
+    );
 
     const withoutFragments = operation.expandAllFragments();
     expect(withoutFragments.toString()).toMatchString(`
@@ -478,7 +505,6 @@ describe('fragments optimization', () => {
       }
     `);
 
-
     // The subtlety here is that `FA` contains `__typename` and so after we're reused it, the
     // selection will look like:
     // {
@@ -493,7 +519,7 @@ describe('fragments optimization', () => {
     // directly, it is fine to reuse).
     testFragmentsRoundtrip({
       schema,
-      query:  `
+      query: `
         fragment FA on A {
           __typename
           x
@@ -1027,7 +1053,9 @@ describe('fragments optimization', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       {
         t {
           ...TFrag
@@ -1047,7 +1075,8 @@ describe('fragments optimization', () => {
         __typename
         id
       }
-    `);
+    `,
+    );
 
     const withoutFragments = operation.expandAllFragments();
     expect(withoutFragments.toString()).toMatchString(`
@@ -1279,7 +1308,9 @@ describe('fragments optimization', () => {
       `);
       const gqlSchema = schema.toGraphQLJSSchema();
 
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         query {
           t1 {
             id
@@ -1296,8 +1327,11 @@ describe('fragments optimization', () => {
             f(arg: 1)
           }
         }
-      `);
-      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+      `,
+      );
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual(
+        [],
+      );
 
       const withoutFragments = operation.expandAllFragments();
       expect(withoutFragments.toString()).toMatchString(`
@@ -1339,7 +1373,9 @@ describe('fragments optimization', () => {
       //
       // And so this test does make sure we do not generate the query above (do not use `F1` in `t1`).
       const optimized = withoutFragments.optimize(operation.fragments!, 1);
-      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual(
+        [],
+      );
 
       expect(optimized.toString()).toMatchString(`
         fragment F1 on I {
@@ -1388,7 +1424,9 @@ describe('fragments optimization', () => {
       `);
       const gqlSchema = schema.toGraphQLJSSchema();
 
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         query {
           t1 {
             id
@@ -1410,8 +1448,11 @@ describe('fragments optimization', () => {
           }
         }
 
-      `);
-      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+      `,
+      );
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual(
+        [],
+      );
 
       const withoutFragments = operation.expandAllFragments();
       expect(withoutFragments.toString()).toMatchString(`
@@ -1433,7 +1474,9 @@ describe('fragments optimization', () => {
       // first, and then we need to make sure we do not apply `F2` even though it's restriction
       // inside `t1` matches its selection set.
       const optimized = withoutFragments.optimize(operation.fragments!, 1);
-      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual(
+        [],
+      );
 
       expect(optimized.toString()).toMatchString(`
         fragment F1 on T1 {
@@ -1493,7 +1536,9 @@ describe('fragments optimization', () => {
       `);
       const gqlSchema = schema.toGraphQLJSSchema();
 
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         query {
           t1 {
             id
@@ -1524,8 +1569,11 @@ describe('fragments optimization', () => {
           }
         }
 
-      `);
-      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+      `,
+      );
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual(
+        [],
+      );
 
       const withoutFragments = operation.expandAllFragments();
       expect(withoutFragments.toString()).toMatchString(`
@@ -1556,7 +1604,9 @@ describe('fragments optimization', () => {
       // within the first `T1` branch. But they can't both be used because their `... on WithF` part conflict,
       // and even though that part is dead in `T1`, this would still be illegal graphQL.
       const optimized = withoutFragments.optimize(operation.fragments!, 1);
-      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual(
+        [],
+      );
 
       expect(optimized.toString()).toMatchString(`
         fragment F1 on I {
@@ -1613,7 +1663,9 @@ describe('fragments optimization', () => {
       `);
       const gqlSchema = schema.toGraphQLJSSchema();
 
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         fragment onV1V2 on SomeV {
           ... on V1 {
             x
@@ -1636,8 +1688,11 @@ describe('fragments optimization', () => {
             }
           }
         }
-      `);
-      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+      `,
+      );
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual(
+        [],
+      );
 
       const withoutFragments = operation.expandAllFragments();
       expect(withoutFragments.toString()).toMatchString(`
@@ -1662,7 +1717,9 @@ describe('fragments optimization', () => {
       `);
 
       const optimized = withoutFragments.optimize(operation.fragments!, 1);
-      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual(
+        [],
+      );
 
       expect(optimized.toString()).toMatchString(`
         fragment onV1V2 on SomeV {
@@ -1716,7 +1773,9 @@ describe('fragments optimization', () => {
       `);
       const gqlSchema = schema.toGraphQLJSSchema();
 
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         fragment onV1V3 on SomeV {
           ... on V1 {
             x
@@ -1749,8 +1808,11 @@ describe('fragments optimization', () => {
             }
           }
         }
-      `);
-      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+      `,
+      );
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual(
+        [],
+      );
 
       const withoutFragments = operation.expandAllFragments();
       expect(withoutFragments.toString()).toMatchString(`
@@ -1781,7 +1843,9 @@ describe('fragments optimization', () => {
       `);
 
       const optimized = withoutFragments.optimize(operation.fragments!, 1);
-      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual(
+        [],
+      );
 
       expect(optimized.toString()).toMatchString(`
         fragment onV1V3 on SomeV {
@@ -1856,7 +1920,9 @@ describe('fragments optimization', () => {
       `);
       const gqlSchema = schema.toGraphQLJSSchema();
 
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         fragment onV1V2 on SomeV {
           ... on V1 {
             x
@@ -1887,8 +1953,11 @@ describe('fragments optimization', () => {
             }
           }
         }
-      `);
-      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+      `,
+      );
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual(
+        [],
+      );
 
       const withoutFragments = operation.expandAllFragments();
       expect(withoutFragments.toString()).toMatchString(`
@@ -1921,7 +1990,9 @@ describe('fragments optimization', () => {
       `);
 
       const optimized = withoutFragments.optimize(operation.fragments!, 1);
-      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual(
+        [],
+      );
 
       expect(optimized.toString()).toMatchString(`
         fragment onV1V2 on SomeV {
@@ -1981,7 +2052,9 @@ describe('fragments optimization', () => {
       `);
       const gqlSchema = schema.toGraphQLJSSchema();
 
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         {
           t1 {
             ...GetAll
@@ -2004,8 +2077,11 @@ describe('fragments optimization', () => {
         fragment GetT2 on T2 {
            b
         }
-      `);
-      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+      `,
+      );
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual(
+        [],
+      );
 
       const withoutFragments = operation.expandAllFragments();
       expect(withoutFragments.toString()).toMatchString(`
@@ -2031,7 +2107,9 @@ describe('fragments optimization', () => {
       // "getting rid" of the `...GetT2` spread, keeping in the query, which is
       // invalid (we cannot have `...GetT2` inside `t1`).
       const optimized = withoutFragments.optimize(operation.fragments!, 2);
-      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual(
+        [],
+      );
 
       expect(optimized.toString()).toMatchString(`
         fragment GetT2 on T2 {
@@ -2074,7 +2152,9 @@ describe('fragments optimization', () => {
       `);
       const gqlSchema = schema.toGraphQLJSSchema();
 
-      const operation = parseOperation(schema, `
+      const operation = parseOperation(
+        schema,
+        `
         {
           u1 {
             ...F1
@@ -2109,8 +2189,11 @@ describe('fragments optimization', () => {
            }
            ...F2
         }
-      `);
-      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
+      `,
+      );
+      expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual(
+        [],
+      );
 
       const withoutFragments = operation.expandAllFragments();
       expect(withoutFragments.toString()).toMatchString(`
@@ -2149,9 +2232,13 @@ describe('fragments optimization', () => {
       // We use `mapToExpandedSelectionSets` with a no-op mapper because this will still expand the selections
       // and re-optimize them, which 1) happens to match what happens in the query planner and 2) is necessary
       // for reproducing a bug that this test was initially added to cover.
-      const newFragments = operation.fragments!.mapToExpandedSelectionSets((s) => s);
+      const newFragments = operation.fragments!.mapToExpandedSelectionSets(
+        (s) => s,
+      );
       const optimized = withoutFragments.optimize(newFragments, 2);
-      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual([]);
+      expect(validate(gqlSchema, parse(optimized.toString()))).toStrictEqual(
+        [],
+      );
 
       expect(optimized.toString()).toMatchString(`
         fragment F3 on U {
@@ -2209,7 +2296,9 @@ describe('fragments optimization', () => {
     `);
     const gqlSchema = schema.toGraphQLJSSchema();
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       query {
         t1 {
           ...Outer
@@ -2233,7 +2322,8 @@ describe('fragments optimization', () => {
           y
         }
       }
-    `);
+    `,
+    );
     expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
 
     const withoutFragments = operation.expandAllFragments();
@@ -2309,7 +2399,9 @@ describe('fragments optimization', () => {
     `);
     const gqlSchema = schema.toGraphQLJSSchema();
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       query {
         t1 {
           ...Outer
@@ -2342,7 +2434,8 @@ describe('fragments optimization', () => {
       fragment WillBeUnused on Y {
         v
       }
-    `);
+    `,
+    );
     expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
 
     const withoutFragments = operation.expandAllFragments();
@@ -2387,7 +2480,9 @@ describe('fragments optimization', () => {
     `);
     const gqlSchema = schema.toGraphQLJSSchema();
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       query {
         t1 {
           ...TFields
@@ -2416,7 +2511,8 @@ describe('fragments optimization', () => {
         x
         y
       }
-    `);
+    `,
+    );
     expect(validate(gqlSchema, parse(operation.toString()))).toStrictEqual([]);
 
     const withoutFragments = operation.expandAllFragments();
@@ -2505,14 +2601,23 @@ describe('validations', () => {
     `);
 
     expect(() => {
-      parseOperation(schema, `
+      parseOperation(
+        schema,
+        `
         ${rootKind} {
           ... ${directive} {
             x
           }
         }
-      `)
-    }).toThrowError(new GraphQLError(`The @defer and @stream directives cannot be used on ${rootKind} root type "${defaultRootName(rootKind as SchemaRootKind)}"`));
+      `,
+      );
+    }).toThrowError(
+      new GraphQLError(
+        `The @defer and @stream directives cannot be used on ${rootKind} root type "${defaultRootName(
+          rootKind as SchemaRootKind,
+        )}"`,
+      ),
+    );
   });
 
   test('allows nullable variable for non-nullable input field with default', () => {
@@ -2527,11 +2632,14 @@ describe('validations', () => {
     `);
 
     // Just testing that this parse correctly and does not throw an exception.
-    parseOperation(schema, `
+    parseOperation(
+      schema,
+      `
       query test($x: Int) {
         f(i: { x: $x })
       }
-    `);
+    `,
+    );
   });
 });
 
@@ -2567,77 +2675,69 @@ describe('empty branches removal', () => {
         kind: Kind.OPERATION_DEFINITION,
         operation: OperationTypeNode.QUERY,
         selectionSet: op,
-      }
+      };
       const document: DocumentNode = {
         kind: Kind.DOCUMENT,
         definitions: [opDef],
-      }
+      };
       operation = operationFromDocument(schema, document, { validate: false });
     }
-    return operation.selectionSet.withoutEmptyBranches()?.toString()
+    return operation.selectionSet.withoutEmptyBranches()?.toString();
   };
 
-
-  it.each([
-    '{ t { a } }',
-    '{ t { a b } }',
-    '{ t { a c { x y } } }',
-  ])('is identity if there is no empty branch', (op) => {
-    expect(withoutEmptyBranches(op)).toBe(op);
-  });
+  it.each(['{ t { a } }', '{ t { a b } }', '{ t { a c { x y } } }'])(
+    'is identity if there is no empty branch',
+    (op) => {
+      expect(withoutEmptyBranches(op)).toBe(op);
+    },
+  );
 
   it('removes simple empty branches', () => {
-    expect(withoutEmptyBranches(
-      astSSet(
-        astField('t', astSSet(
-          astField('a'),
-          astField('c', astSSet()),
-        ))
-      )
-    )).toBe('{ t { a } }');
+    expect(
+      withoutEmptyBranches(
+        astSSet(
+          astField('t', astSSet(astField('a'), astField('c', astSSet()))),
+        ),
+      ),
+    ).toBe('{ t { a } }');
 
-    expect(withoutEmptyBranches(
-      astSSet(
-        astField('t', astSSet(
-          astField('c', astSSet()),
-          astField('a'),
-        ))
-      )
-    )).toBe('{ t { a } }');
+    expect(
+      withoutEmptyBranches(
+        astSSet(
+          astField('t', astSSet(astField('c', astSSet()), astField('a'))),
+        ),
+      ),
+    ).toBe('{ t { a } }');
 
-    expect(withoutEmptyBranches(
-      astSSet(
-        astField('t', astSSet())
-      )
-    )).toBeUndefined();
+    expect(
+      withoutEmptyBranches(astSSet(astField('t', astSSet()))),
+    ).toBeUndefined();
   });
 
   it('removes cascading empty branches', () => {
-    expect(withoutEmptyBranches(
-      astSSet(
-        astField('t', astSSet(
-          astField('c', astSSet()),
-        ))
-      )
-    )).toBeUndefined();
+    expect(
+      withoutEmptyBranches(
+        astSSet(astField('t', astSSet(astField('c', astSSet())))),
+      ),
+    ).toBeUndefined();
 
-    expect(withoutEmptyBranches(
-      astSSet(
-        astField('u'),
-        astField('t', astSSet(
-          astField('c', astSSet()),
-        ))
-      )
-    )).toBe('{ u }');
+    expect(
+      withoutEmptyBranches(
+        astSSet(
+          astField('u'),
+          astField('t', astSSet(astField('c', astSSet()))),
+        ),
+      ),
+    ).toBe('{ u }');
 
-    expect(withoutEmptyBranches(
-      astSSet(
-        astField('t', astSSet(
-          astField('c', astSSet()),
-        )),
-        astField('u'),
-      )
-    )).toBe('{ u }');
+    expect(
+      withoutEmptyBranches(
+        astSSet(
+          astField('t', astSSet(astField('c', astSSet()))),
+          astField('u'),
+        ),
+      ),
+    ).toBe('{ u }');
   });
 });
 
@@ -2676,7 +2776,9 @@ describe('basic operations', () => {
     directive @customSkip(if: Boolean!, label: String!) on FIELD | INLINE_FRAGMENT
   `);
 
-  const operation = parseOperation(schema, `
+  const operation = parseOperation(
+    schema,
+    `
     {
       t {
         v1
@@ -2697,12 +2799,15 @@ describe('basic operations', () => {
         }
       }
     }
-  `);
+  `,
+  );
 
   test('forEachElement', () => {
     // We collect a pair of (parent type, field-or-fragment).
     const actual: [string, string][] = [];
-    operation.selectionSet.forEachElement((elt) => actual.push([elt.parentType.name, elt.toString()]));
+    operation.selectionSet.forEachElement((elt) =>
+      actual.push([elt.parentType.name, elt.toString()]),
+    );
     expect(actual).toStrictEqual([
       ['Query', 't'],
       ['T', 'v1'],
@@ -2717,20 +2822,23 @@ describe('basic operations', () => {
       ['B', 'b2'],
       ['T', 'v2'],
     ]);
-  })
+  });
 
   describe('same field merging', () => {
     test('do merge when same field and no directive', () => {
-      const operation = operationFromDocument(schema, gql`
-        query Test {
-          t {
-            v1
+      const operation = operationFromDocument(
+        schema,
+        gql`
+          query Test {
+            t {
+              v1
+            }
+            t {
+              v2
+            }
           }
-          t {
-            v2
-          }
-        }
-      `);
+        `,
+      );
 
       expect(operation.toString()).toMatchString(`
         query Test {
@@ -2743,16 +2851,19 @@ describe('basic operations', () => {
     });
 
     test('do merge when both have the _same_ directive', () => {
-      const operation = operationFromDocument(schema, gql`
-        query Test($skipIf: Boolean!) {
-          t @skip(if: $skipIf) {
-            v1
+      const operation = operationFromDocument(
+        schema,
+        gql`
+          query Test($skipIf: Boolean!) {
+            t @skip(if: $skipIf) {
+              v1
+            }
+            t @skip(if: $skipIf) {
+              v2
+            }
           }
-          t @skip(if: $skipIf) {
-            v2
-          }
-        }
-      `);
+        `,
+      );
 
       expect(operation.toString()).toMatchString(`
         query Test($skipIf: Boolean!) {
@@ -2765,16 +2876,19 @@ describe('basic operations', () => {
     });
 
     test('do merge when both have the _same_ directive, even if argument order differs', () => {
-      const operation = operationFromDocument(schema, gql`
-        query Test($skipIf: Boolean!) {
-          t @customSkip(if: $skipIf, label: "foo") {
-            v1
+      const operation = operationFromDocument(
+        schema,
+        gql`
+          query Test($skipIf: Boolean!) {
+            t @customSkip(if: $skipIf, label: "foo") {
+              v1
+            }
+            t @customSkip(label: "foo", if: $skipIf) {
+              v2
+            }
           }
-          t @customSkip(label: "foo", if: $skipIf) {
-            v2
-          }
-        }
-      `);
+        `,
+      );
 
       expect(operation.toString()).toMatchString(`
         query Test($skipIf: Boolean!) {
@@ -2787,16 +2901,19 @@ describe('basic operations', () => {
     });
 
     test('do not merge when one has a directive and the other do not', () => {
-      const operation = operationFromDocument(schema, gql`
-        query Test($skipIf: Boolean!) {
-          t {
-            v1
+      const operation = operationFromDocument(
+        schema,
+        gql`
+          query Test($skipIf: Boolean!) {
+            t {
+              v1
+            }
+            t @skip(if: $skipIf) {
+              v2
+            }
           }
-          t @skip(if: $skipIf) {
-            v2
-          }
-        }
-      `);
+        `,
+      );
 
       expect(operation.toString()).toMatchString(`
         query Test($skipIf: Boolean!) {
@@ -2811,16 +2928,19 @@ describe('basic operations', () => {
     });
 
     test('do not merge when both have _differing_ directives', () => {
-      const operation = operationFromDocument(schema, gql`
-        query Test($skip1: Boolean!, $skip2: Boolean!) {
-          t @skip(if: $skip1) {
-            v1
+      const operation = operationFromDocument(
+        schema,
+        gql`
+          query Test($skip1: Boolean!, $skip2: Boolean!) {
+            t @skip(if: $skip1) {
+              v1
+            }
+            t @skip(if: $skip2) {
+              v2
+            }
           }
-          t @skip(if: $skip2) {
-            v2
-          }
-        }
-      `);
+        `,
+      );
 
       expect(operation.toString()).toMatchString(`
         query Test($skip1: Boolean!, $skip2: Boolean!) {
@@ -2835,16 +2955,19 @@ describe('basic operations', () => {
     });
 
     test('do not merge @defer directive, even if applied the same way', () => {
-      const operation = operationFromDocument(schema, gql`
-        query Test {
-          t @defer {
-            v1
+      const operation = operationFromDocument(
+        schema,
+        gql`
+          query Test {
+            t @defer {
+              v1
+            }
+            t @defer {
+              v2
+            }
           }
-          t @defer {
-            v2
-          }
-        }
-      `);
+        `,
+      );
 
       expect(operation.toString()).toMatchString(`
         query Test {
@@ -2861,18 +2984,21 @@ describe('basic operations', () => {
 
   describe('same fragment merging', () => {
     test('do merge when same fragment and no directive', () => {
-      const operation = operationFromDocument(schema, gql`
-        query Test {
-          t {
-            ... on T {
-              v1
-            }
-            ... on T {
-              v2
+      const operation = operationFromDocument(
+        schema,
+        gql`
+          query Test {
+            t {
+              ... on T {
+                v1
+              }
+              ... on T {
+                v2
+              }
             }
           }
-        }
-      `);
+        `,
+      );
 
       expect(operation.toString()).toMatchString(`
         query Test {
@@ -2887,18 +3013,21 @@ describe('basic operations', () => {
     });
 
     test('do merge when both have the _same_ directive', () => {
-      const operation = operationFromDocument(schema, gql`
-        query Test($skipIf: Boolean!) {
-          t {
-            ... on T @skip(if: $skipIf) {
-              v1
-            }
-            ... on T @skip(if: $skipIf) {
-              v2
+      const operation = operationFromDocument(
+        schema,
+        gql`
+          query Test($skipIf: Boolean!) {
+            t {
+              ... on T @skip(if: $skipIf) {
+                v1
+              }
+              ... on T @skip(if: $skipIf) {
+                v2
+              }
             }
           }
-        }
-      `);
+        `,
+      );
 
       expect(operation.toString()).toMatchString(`
         query Test($skipIf: Boolean!) {
@@ -2913,18 +3042,21 @@ describe('basic operations', () => {
     });
 
     test('do merge when both have the _same_ directive, even if argument order differs', () => {
-      const operation = operationFromDocument(schema, gql`
-        query Test($skipIf: Boolean!) {
-          t {
-            ... on T @customSkip(if: $skipIf, label: "foo") {
-              v1
-            }
-            ... on T @customSkip(label: "foo", if: $skipIf) {
-              v2
+      const operation = operationFromDocument(
+        schema,
+        gql`
+          query Test($skipIf: Boolean!) {
+            t {
+              ... on T @customSkip(if: $skipIf, label: "foo") {
+                v1
+              }
+              ... on T @customSkip(label: "foo", if: $skipIf) {
+                v2
+              }
             }
           }
-        }
-      `);
+        `,
+      );
 
       expect(operation.toString()).toMatchString(`
         query Test($skipIf: Boolean!) {
@@ -2939,18 +3071,21 @@ describe('basic operations', () => {
     });
 
     test('do not merge when one has a directive and the other do not', () => {
-      const operation = operationFromDocument(schema, gql`
-        query Test($skipIf: Boolean!) {
-          t {
-            ... on T {
-              v1
-            }
-            ... on T @skip(if: $skipIf) {
-              v2
+      const operation = operationFromDocument(
+        schema,
+        gql`
+          query Test($skipIf: Boolean!) {
+            t {
+              ... on T {
+                v1
+              }
+              ... on T @skip(if: $skipIf) {
+                v2
+              }
             }
           }
-        }
-      `);
+        `,
+      );
 
       expect(operation.toString()).toMatchString(`
         query Test($skipIf: Boolean!) {
@@ -2967,18 +3102,21 @@ describe('basic operations', () => {
     });
 
     test('do not merge when both have _differing_ directives', () => {
-      const operation = operationFromDocument(schema, gql`
-        query Test($skip1: Boolean!, $skip2: Boolean!) {
-          t {
-            ... on T @skip(if: $skip1) {
-              v1
-            }
-            ... on T @skip(if: $skip2) {
-              v2
+      const operation = operationFromDocument(
+        schema,
+        gql`
+          query Test($skip1: Boolean!, $skip2: Boolean!) {
+            t {
+              ... on T @skip(if: $skip1) {
+                v1
+              }
+              ... on T @skip(if: $skip2) {
+                v2
+              }
             }
           }
-        }
-      `);
+        `,
+      );
 
       expect(operation.toString()).toMatchString(`
         query Test($skip1: Boolean!, $skip2: Boolean!) {
@@ -2995,18 +3133,21 @@ describe('basic operations', () => {
     });
 
     test('do not merge @defer directive, even if applied the same way', () => {
-      const operation = operationFromDocument(schema, gql`
-        query Test {
-          t {
-            ... on T @defer {
-              v1
-            }
-            ... on T @defer {
-              v2
+      const operation = operationFromDocument(
+        schema,
+        gql`
+          query Test {
+            t {
+              ... on T @defer {
+                v1
+              }
+              ... on T @defer {
+                v2
+              }
             }
           }
-        }
-      `);
+        `,
+      );
 
       expect(operation.toString()).toMatchString(`
         query Test {
@@ -3040,20 +3181,17 @@ describe('MutableSelectionSet', () => {
     `);
 
     type Value = {
-      count: number
+      count: number;
     };
 
     let calls = 0;
     const sets: string[] = [];
 
     const queryType = schema.schemaDefinition.rootType('query')!;
-    const ss = MutableSelectionSet.emptyWithMemoized<Value>(
-      queryType,
-      (s) => {
-        sets.push(s.toString());
-        return { count: ++calls };
-      }
-    );
+    const ss = MutableSelectionSet.emptyWithMemoized<Value>(queryType, (s) => {
+      sets.push(s.toString());
+      return { count: ++calls };
+    });
 
     expect(ss.memoized().count).toBe(1);
     // Calling a 2nd time with no change to make sure we're not re-generating the value.
@@ -3081,7 +3219,12 @@ describe('MutableSelectionSet', () => {
     expect(ss.memoized().count).toBe(3);
     // But that of the clone should have changed.
     expect(cloned.memoized().count).toBe(4);
-    expect(sets).toStrictEqual(['{}', '{ t { v1 } }', '{ t { v1 v3 } }', '{ t { v1 v3 v2 } }']);
+    expect(sets).toStrictEqual([
+      '{}',
+      '{ t { v1 } }',
+      '{ t { v1 v3 } }',
+      '{ t { v1 v3 v2 } }',
+    ]);
 
     // And here we make sure that if we update the fist selection, we don't have v3 in the set received
     ss.updates().add(parseOperation(schema, `{ t { v4 } }`).selectionSet);
@@ -3089,7 +3232,13 @@ describe('MutableSelectionSet', () => {
     // the total count should be 5 (even if the previous count for `ss` was only 3).
     expect(ss.memoized().count).toBe(5);
     expect(cloned.memoized().count).toBe(4);
-    expect(sets).toStrictEqual(['{}', '{ t { v1 } }', '{ t { v1 v3 } }', '{ t { v1 v3 v2 } }', '{ t { v1 v3 v4 } }']);
+    expect(sets).toStrictEqual([
+      '{}',
+      '{ t { v1 } }',
+      '{ t { v1 v3 } }',
+      '{ t { v1 v3 v2 } }',
+      '{ t { v1 v3 v4 } }',
+    ]);
   });
 });
 
@@ -3129,36 +3278,51 @@ describe('unsatisfiable branches removal', () => {
   `);
 
   const normalized = (op: string) => {
-    return parseOperation(schema, op).normalize().toString(false, false)
+    return parseOperation(schema, op).normalize().toString(false, false);
   };
 
-
-  it.each([
-    '{ i { a } }',
-    '{ i { ... on T1 { a b c } } }',
-  ])('is identity if there is no unsatisfiable branches', (op) => {
-    expect(normalized(op)).toBe(op);
-  });
+  it.each(['{ i { a } }', '{ i { ... on T1 { a b c } } }'])(
+    'is identity if there is no unsatisfiable branches',
+    (op) => {
+      expect(normalized(op)).toBe(op);
+    },
+  );
 
   it.each([
     { input: '{ i { ... on I { a } } }', output: '{ i { a } }' },
-    { input: '{ i { ... on T1 { ... on I { a b } } } }', output: '{ i { ... on T1 { a b } } }' },
-    { input: '{ i { ... on I { a ... on T2 { d } } } }', output: '{ i { a ... on T2 { d } } }' },
-    { input: '{ i { ... on T2 { ... on I { a ... on J { b } } } } }', output: '{ i { ... on T2 { a } } }' },
-  ])('removes unsatisfiable branches', ({input, output}) => {
+    {
+      input: '{ i { ... on T1 { ... on I { a b } } } }',
+      output: '{ i { ... on T1 { a b } } }',
+    },
+    {
+      input: '{ i { ... on I { a ... on T2 { d } } } }',
+      output: '{ i { a ... on T2 { d } } }',
+    },
+    {
+      input: '{ i { ... on T2 { ... on I { a ... on J { b } } } } }',
+      output: '{ i { ... on T2 { a } } }',
+    },
+  ])('removes unsatisfiable branches', ({ input, output }) => {
     expect(normalized(input)).toBe(output);
   });
 });
 
 describe('named fragment selection set restrictions at type', () => {
-  const expandAtType = (frag: NamedFragmentDefinition, schema: Schema, typeName: string): FragmentRestrictionAtType => {
+  const expandAtType = (
+    frag: NamedFragmentDefinition,
+    schema: Schema,
+    typeName: string,
+  ): FragmentRestrictionAtType => {
     const type = schema.type(typeName);
-    assert(type && isCompositeType(type), `Invalid type ${typeName}`)
+    assert(type && isCompositeType(type), `Invalid type ${typeName}`);
     // `expandedSelectionSetAtType` assumes it's argument passes `canApplyAtType`, so let's make sure we're
     // not typo-ing something in our tests.
-    assert(frag.canApplyDirectlyAtType(type), `${frag.name} cannot be applied at type ${typeName}`);
+    assert(
+      frag.canApplyDirectlyAtType(type),
+      `${frag.name} cannot be applied at type ${typeName}`,
+    );
     return frag.expandedSelectionSetAtType(type);
-  }
+  };
 
   test('for fragment on object types', () => {
     const schema = parseSchema(`
@@ -3172,7 +3336,9 @@ describe('named fragment selection set restrictions at type', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       {
         t1 {
           ...FonT1
@@ -3183,7 +3349,8 @@ describe('named fragment selection set restrictions at type', () => {
         x
         y
       }
-    `);
+    `,
+    );
 
     const frag = operation.fragments?.get('FonT1')!;
 
@@ -3223,7 +3390,9 @@ describe('named fragment selection set restrictions at type', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       {
         t1 {
           ...FonI1
@@ -3245,12 +3414,15 @@ describe('named fragment selection set restrictions at type', () => {
           x
         }
       }
-    `);
+    `,
+    );
 
     const frag = operation.fragments?.get('FonI1')!;
 
     let { selectionSet, validator } = expandAtType(frag, schema, 'I1');
-    expect(selectionSet.toString()).toBe('{ x ... on T1 { x } ... on T2 { x } ... on I2 { x } ... on I3 { x } }');
+    expect(selectionSet.toString()).toBe(
+      '{ x ... on T1 { x } ... on T2 { x } ... on I2 { x } ... on I3 { x } }',
+    );
     // Note: Due to `FieldsInSetCanMerge` rule, we can't use trimmed validators for
     // fragments on non-object types.
     expect(validator?.toString()).toMatchString(`
@@ -3308,7 +3480,9 @@ describe('named fragment selection set restrictions at type', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       {
         t1 {
           ...FonU1
@@ -3333,7 +3507,8 @@ describe('named fragment selection set restrictions at type', () => {
           }
         }
       }
-    `);
+    `,
+    );
 
     const frag = operation.fragments?.get('FonU1')!;
 
@@ -3341,7 +3516,9 @@ describe('named fragment selection set restrictions at type', () => {
     // possible runtimes.
 
     let { selectionSet, validator } = expandAtType(frag, schema, 'U1');
-    expect(selectionSet.toString()).toBe('{ ... on T1 { x y } ... on T2 { z w } }');
+    expect(selectionSet.toString()).toBe(
+      '{ ... on T1 { x y } ... on T2 { z w } }',
+    );
     // Similar remarks than on interfaces (the validator is strictly speaking not necessary, but
     // this happens due to the "lifting" of selection mentioned above, is a bit hard to avoid,
     // and is essentially harmess (it may result in a bit more cpu cycles in some cases but
@@ -3451,7 +3628,9 @@ describe('named fragment rebasing on subgraphs', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       query {
         t {
           ...FragOnT
@@ -3472,7 +3651,8 @@ describe('named fragment rebasing on subgraphs', () => {
           v5
         }
       }
-    `);
+    `,
+    );
 
     const fragments = operation.fragments;
     assert(fragments, 'Should have some fragments');
@@ -3523,7 +3703,9 @@ describe('named fragment rebasing on subgraphs', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       query {
         t {
           ...FragOnT
@@ -3542,7 +3724,8 @@ describe('named fragment rebasing on subgraphs', () => {
         x
         y
       }
-    `);
+    `,
+    );
 
     const fragments = operation.fragments;
     assert(fragments, 'Should have some fragments');
@@ -3591,7 +3774,9 @@ describe('named fragment rebasing on subgraphs', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       query {
         i {
           ...FragOnI
@@ -3608,7 +3793,8 @@ describe('named fragment rebasing on subgraphs', () => {
            y
          }
       }
-    `);
+    `,
+    );
 
     const fragments = operation.fragments;
     assert(fragments, 'Should have some fragments');
@@ -3651,7 +3837,9 @@ describe('named fragment rebasing on subgraphs', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       query {
         i {
           ...FragOnI
@@ -3663,12 +3851,14 @@ describe('named fragment rebasing on subgraphs', () => {
         id
         x
       }
-    `);
+    `,
+    );
 
     const fragments = operation.fragments;
     assert(fragments, 'Should have some fragments');
 
-    const subgraph = buildSchema(`
+    const subgraph = buildSchema(
+      `
       extend schema
         @link(
           url: "https://specs.apollo.dev/federation/v2.5",
@@ -3710,7 +3900,9 @@ describe('named fragment rebasing on subgraphs', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       query {
         t {
           ...F1
@@ -3737,7 +3929,8 @@ describe('named fragment rebasing on subgraphs', () => {
          c
          d
       }
-    `);
+    `,
+    );
 
     const fragments = operation.fragments;
     assert(fragments, 'Should have some fragments');
@@ -3781,7 +3974,9 @@ describe('named fragment rebasing on subgraphs', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       query {
         ...TheQuery
       }
@@ -3799,7 +3994,8 @@ describe('named fragment rebasing on subgraphs', () => {
            z
          }
       }
-    `);
+    `,
+    );
 
     const fragments = operation.fragments;
     assert(fragments, 'Should have some fragments');
@@ -3842,7 +4038,9 @@ describe('named fragment rebasing on subgraphs', () => {
       }
     `);
 
-    const operation = parseOperation(schema, `
+    const operation = parseOperation(
+      schema,
+      `
       query {
         ...TQuery
       }
@@ -3856,7 +4054,8 @@ describe('named fragment rebasing on subgraphs', () => {
           }
         }
       }
-    `);
+    `,
+    );
 
     const fragments = operation.fragments;
     assert(fragments, 'Should have some fragments');

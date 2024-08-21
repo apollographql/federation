@@ -100,6 +100,7 @@ import {
   SourceFieldDirectiveArgs,
   SourceTypeDirectiveArgs,
 } from "./specs/sourceSpec";
+import { CostDirectiveArguments, ListSizeDirectiveArguments } from "./specs/costSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -1275,6 +1276,14 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.CONTEXT);
   }
 
+  costDirective(): Post20FederationDirectiveDefinition<CostDirectiveArguments> {
+    return this.getPost20FederationDirective(FederationDirectiveName.COST);
+  }
+
+  listSizeDirective(): Post20FederationDirectiveDefinition<ListSizeDirectiveArguments> {
+    return this.getPost20FederationDirective(FederationDirectiveName.LIST_SIZE);
+  }
+
   allFederationDirectives(): DirectiveDefinition[] {
     const baseDirectives: DirectiveDefinition[] = [
       this.keyDirective(),
@@ -1336,6 +1345,16 @@ export class FederationMetadata {
     const fromContextDirective = this.fromContextDirective();
     if (isFederationDirectiveDefinedInSchema(fromContextDirective)) {
       baseDirectives.push(fromContextDirective);
+    }
+
+    const costDirective = this.costDirective();
+    if (isFederationDirectiveDefinedInSchema(costDirective)) {
+      baseDirectives.push(costDirective);
+    }
+
+    const listSizeDirective = this.listSizeDirective();
+    if (isFederationDirectiveDefinedInSchema(listSizeDirective)) {
+      baseDirectives.push(listSizeDirective);
     }
 
     return baseDirectives;
@@ -1831,9 +1850,9 @@ export function setSchemaAsFed2Subgraph(schema: Schema, useLatest: boolean = fal
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.8", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy", "@sourceAPI", "@sourceType", "@sourceField", "@context", "@fromContext"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy", "@sourceAPI", "@sourceType", "@sourceField", "@context", "@fromContext", "@cost", "@listSize"])';
 // This is the full @link declaration that is added when upgrading fed v1 subgraphs to v2 version. It should only be used by tests.
-export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.8", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
+export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 
 // This is the federation @link for tests that go through the SchemaUpgrader.
 export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS_UPGRADED = '@link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
