@@ -1048,7 +1048,7 @@ directive @listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: 
 
 The `@listSize` directive is used to customize the cost calculation of the [demand control feature](/router/executing-operations/demand-control/) of GraphOS Router.
 
-In the static analysis phase, the cost calculator does not know how many entities will be returned by each list field in a given query. By providing an estimated list size for a field with `@listSize`, the cost calculator can produce a more accurate estimate the cost during static analysis.
+In the static analysis phase, the cost calculator does not know how many entities will be returned by each list field in a given query. By providing an estimated list size for a field with `@listSize`, the cost calculator can produce a more accurate estimate of the cost during static analysis.
 
 #### Configuring static list sizes
 
