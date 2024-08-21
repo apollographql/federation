@@ -959,11 +959,18 @@ export class Operation extends DirectiveTargetElement<Operation> {
       return this;
     }
     
+    let newVariableDefinitions: VariableDefinitions;
+    if (allAvailableVariables && newFragments) {
+      newVariableDefinitions = this.collectVariablesFromFragments(allAvailableVariables, newFragments);
+      newVariableDefinitions.addAll(this.variableDefinitions);
+    } else {
+      newVariableDefinitions = this.variableDefinitions;
+    }
     return new Operation(
       this.schema(),
       this.rootKind,
       newSelectionSet,
-      (allAvailableVariables && newFragments) ? this.collectVariablesFromFragments(allAvailableVariables, newFragments) : this.variableDefinitions,
+      newVariableDefinitions,
       newFragments,
       this.name,
       this.appliedDirectives,
