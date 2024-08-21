@@ -1029,14 +1029,14 @@ export class Operation extends DirectiveTargetElement<Operation> {
     return this.withUpdatedSelectionSetAndFragments(optimizedSelection, finalFragments ?? undefined, allAvailableVariables);
   }
 
-  generateQueryFragments(allAvailableVariables: VariableDefinitions = new VariableDefinitions()): Operation {
+  generateQueryFragments(): Operation {
     const [minimizedSelectionSet, fragments] = this.selectionSet.minimizeSelectionSet();
     
     return new Operation(
       this.schema(),
       this.rootKind,
       minimizedSelectionSet,
-      allAvailableVariables ? this.collectVariablesFromFragments(allAvailableVariables, fragments) : this.variableDefinitions,
+      this.variableDefinitions,
       fragments,
       this.name,
       this.appliedDirectives,

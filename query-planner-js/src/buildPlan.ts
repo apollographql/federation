@@ -1590,7 +1590,7 @@ class FetchGroup {
         );
 
     if (this.generateQueryFragments) {
-      operation = operation.generateQueryFragments(variableDefinitions);
+      operation = operation.generateQueryFragments();
     } else {
       operation = operation.optimize(
         fragments?.forSubgraph(this.subgraphName, subgraphSchema),
