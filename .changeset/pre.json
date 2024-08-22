@@ -10,5 +10,10 @@
     "@apollo/query-planner": "2.8.4",
     "@apollo/subgraph": "2.8.4"
   },
-  "changesets": []
+  "changesets": [
+    "cuddly-badgers-sit",
+    "fast-points-wonder",
+    "happy-bats-exist",
+    "poor-seahorses-whisper"
+  ]
 }
