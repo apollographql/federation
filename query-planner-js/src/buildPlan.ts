@@ -1614,7 +1614,7 @@ class FetchGroup {
       id: this.id,
       serviceName: this.subgraphName,
       requires: inputNodes ? trimSelectionNodes(inputNodes.selections) : undefined,
-      variableUsages: (Array.from(usedVariables)),
+      variableUsages: Array.from(usedVariables),
       operation: stripIgnoredCharacters(print(operationDocument)),
       operationKind: schemaRootKindToOperationKind(operation.rootKind),
       operationName: operation.name,
