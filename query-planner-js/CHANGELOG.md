@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.9.0-beta.0
+
+### Patch Changes
+
+- Fix issue where variable was not passed into subgraph when embedded in a fragment ([#3119](https://github.com/apollographql/federation/pull/3119))
+
+- Updated dependencies [[`acfe3193429c7f99b4fc564b20828aaa8659a75c`](https://github.com/apollographql/federation/commit/acfe3193429c7f99b4fc564b20828aaa8659a75c), [`02c2a34a62c3717a4885449172e404f19ebf66c9`](https://github.com/apollographql/federation/commit/02c2a34a62c3717a4885449172e404f19ebf66c9), [`0ccfd937d4b4a576f890665ceebbd7986fac5d0c`](https://github.com/apollographql/federation/commit/0ccfd937d4b4a576f890665ceebbd7986fac5d0c), [`e0a5075c0d12a0e2f7ef303b246e3216a139d3e0`](https://github.com/apollographql/federation/commit/e0a5075c0d12a0e2f7ef303b246e3216a139d3e0)]:
+  - @apollo/query-graphs@2.9.0-beta.0
+  - @apollo/federation-internals@2.9.0-beta.0
+
 ## 2.8.4
 
 ### Patch Changes
