@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.8.5
+
+### Patch Changes
+
+- Switched plan count from `Number` to a `BigInt`. ([#3128](https://github.com/apollographql/federation/pull/3128))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.5
+  - @apollo/query-graphs@2.8.5
+
 ## 2.8.4
 
 ### Patch Changes
