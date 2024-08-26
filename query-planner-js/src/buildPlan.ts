@@ -665,7 +665,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     const maxPlansToCompute = this.parameters.config.debug.maxEvaluatedPlans;
     while (planCount > maxPlansToCompute && firstBranch.length > 1) {
       // we remove the right-most option of the first branch, and them move that branch to it's new place.
-      const prevSize = firstBranch.length;
+      const prevSize = BigInt(firstBranch.length);
       firstBranch.pop();
       planCount -= planCount / prevSize;
       this.reorderFirstBranch();
@@ -678,7 +678,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     // Note that if `!this.isTopLevel`, then this means we're resolving a sub-plan for an edge condition, and we
     // don't want to count those as "evaluated plans".
     if (this.parameters.statistics && this.isTopLevel) {
-      this.parameters.statistics.evaluatedPlanCount += planCount;
+      this.parameters.statistics.evaluatedPlanCount += Number(planCount);
     }
 
     debug.log(() => `All branches:${this.closedBranches.map((opts, i) => `\n${i}:${opts.map((opt => `\n - ${closedPathToString(opt)}`))}`)}`);
@@ -3596,16 +3596,16 @@ function mapOptionsToSelections<RV extends Vertex>(
   return selectionSet.selectionsInReverseOrder().map(node => [node, options]);
 }
 
-function possiblePlans(closedBranches: ClosedBranch<any>[]): number {
-  let totalCombinations = 1;
+function possiblePlans(closedBranches: ClosedBranch<any>[]): bigint {
+  let totalCombinations = BigInt(1);
   for (let i = 0; i < closedBranches.length; ++i){
-    const eltSize = closedBranches[i].length;
-    if (eltSize === 0) {
+    const eltSize = BigInt(closedBranches[i].length);
+    if (eltSize === BigInt(0)) {
       // This would correspond to not being to find *any* path for a particular queried field, which means we have no plan
       // for the overall query. Now, this shouldn't happen in practice if composition validation has been run successfully
       // (and is not buggy), since the goal of composition validation is exactly to ensure we can never run into this path.
       // In any case, we will throw later if that happens, but let's just return the proper result here, which is no plan at all.
-      return 0;
+      return BigInt(0);
     }
     totalCombinations *= eltSize;
   }
