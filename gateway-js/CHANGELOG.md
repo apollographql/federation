@@ -2,7 +2,15 @@
 
 ## 2.8.5
 
-### Patch Changes
+## 🔒 Security
+
+### CVE-2024-43414: Prevent uncontrolled recursion for complex queries
+
+Correct a bug where complex queries can cause uncontrolled recursion due to failure to reduce the number of possible query plans (classified as [CWE-674](https://cwe.mitre.org/data/definitions/674.html)). ([#3128](https://github.com/apollographql/federation/pull/3128))
+
+This weakness impacts all v2 versions of `@apollo/gateway` prior to this release.  See the associated Github Advisory, [GHSA-fmj9-77q8-g6c4](https://github.com/apollographql/federation/security/advisories/GHSA-fmj9-77q8-g6c4), for more information.
+
+##
 
 - Updated dependencies [[`926cbb7949200e12b81100a07fa3438b5ae9efd0`](https://github.com/apollographql/federation/commit/926cbb7949200e12b81100a07fa3438b5ae9efd0)]:
   - @apollo/query-planner@2.8.5

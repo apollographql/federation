@@ -2,9 +2,15 @@
 
 ## 2.8.5
 
-### Patch Changes
+## 🔒 Security
 
-- Switched plan count from `Number` to a `BigInt`. ([#3128](https://github.com/apollographql/federation/pull/3128))
+### CVE-2024-43414: Prevent uncontrolled recursion for complex queries
+
+Correct a bug where complex queries can cause uncontrolled recursion due to failure to reduce the number of possible query plans (classified as [CWE-674](https://cwe.mitre.org/data/definitions/674.html)). ([#3128](https://github.com/apollographql/federation/pull/3128))
+
+This weakness impacts all v2 versions of `@apollo/query-planner` prior to this release.  See the associated Github Advisory, [GHSA-fmj9-77q8-g6c4](https://github.com/apollographql/federation/security/advisories/GHSA-fmj9-77q8-g6c4), for more information.
+
+##
 
 - Updated dependencies []:
   - @apollo/federation-internals@2.8.5
