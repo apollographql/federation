@@ -1,5 +1,18 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.9.0
+
+### Patch Changes
+
+- Avoid type explosion for inline fragments where the type condition is an interface that implements the parent type. ([#3122](https://github.com/apollographql/federation/pull/3122))
+
+- Reduce memory overhead during satisfiability checking when there are many options. ([#3109](https://github.com/apollographql/federation/pull/3109))
+
+- Updated dependencies [[`02c2a34a62c3717a4885449172e404f19ebf66c9`](https://github.com/apollographql/federation/commit/02c2a34a62c3717a4885449172e404f19ebf66c9), [`0ccfd937d4b4a576f890665ceebbd7986fac5d0c`](https://github.com/apollographql/federation/commit/0ccfd937d4b4a576f890665ceebbd7986fac5d0c), [`e0a5075c0d12a0e2f7ef303b246e3216a139d3e0`](https://github.com/apollographql/federation/commit/e0a5075c0d12a0e2f7ef303b246e3216a139d3e0)]:
+  - @apollo/federation-internals@2.9.0
+  - @apollo/composition@2.9.0
+  - @apollo/query-planner@2.9.0
+
 ## 2.8.5
 
 ## 🔒 Security
@@ -8,7 +21,7 @@
 
 Correct a bug where complex queries can cause uncontrolled recursion due to failure to reduce the number of possible query plans (classified as [CWE-674](https://cwe.mitre.org/data/definitions/674.html)). ([#3128](https://github.com/apollographql/federation/pull/3128))
 
-This weakness impacts all v2 versions of `@apollo/gateway` prior to this release.  See the associated Github Advisory, [GHSA-fmj9-77q8-g6c4](https://github.com/apollographql/federation/security/advisories/GHSA-fmj9-77q8-g6c4), for more information.
+This weakness impacts all v2 versions of `@apollo/gateway` prior to this release. See the associated Github Advisory, [GHSA-fmj9-77q8-g6c4](https://github.com/apollographql/federation/security/advisories/GHSA-fmj9-77q8-g6c4), for more information.
 
 ##
 
