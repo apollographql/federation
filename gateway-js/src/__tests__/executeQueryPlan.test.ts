@@ -2300,22 +2300,14 @@ describe('executeQueryPlan', () => {
 
       queryPlan = buildPlan(operation, queryPlanner);
 
-      // TODO: we're actually type-exploding in this case because currently, as soon as we need to type-explode, we do
-      // so into all the runtime types, while here it could make sense to only type-explode into the direct sub-types=
-      // (the sub-interfaces). We should fix this (but it's only sub-optimal, not incorrect).
       expect(queryPlan).toMatchInlineSnapshot(`
         QueryPlan {
           Fetch(service: "S1") {
             {
               allValues {
                 __typename
-                ... on T1 {
-                  a
-                }
-                ... on T2 {
-                  a
-                }
-                ... on T4 {
+                ... on SubInterface1 {
+                  __typename
                   a
                 }
               }

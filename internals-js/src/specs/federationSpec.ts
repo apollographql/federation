@@ -20,6 +20,7 @@ import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
 import { POLICY_VERSIONS } from './policySpec';
 import { SOURCE_VERSIONS } from './sourceSpec';
 import { CONTEXT_VERSIONS } from './contextSpec';
+import { COST_VERSIONS } from "./costSpec";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -48,6 +49,8 @@ export enum FederationDirectiveName {
   SOURCE_FIELD = 'sourceField',
   CONTEXT = 'context',
   FROM_CONTEXT = 'fromContext',
+  COST = 'cost',
+  LIST_SIZE = 'listSize',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
@@ -182,6 +185,10 @@ export class FederationSpecDefinition extends FeatureDefinition {
     if (version.gte(new FeatureVersion(2, 8))) {
       this.registerSubFeature(CONTEXT_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
+
+    if (version.gte(new FeatureVersion(2, 9))) {
+      this.registerSubFeature(COST_VERSIONS.find(new FeatureVersion(0, 1))!);
+    }
   }
 }
 
@@ -194,6 +201,7 @@ export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefiniti
   .add(new FederationSpecDefinition(new FeatureVersion(2, 5)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 6)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 7)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 8)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 8)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 9)));
 
 registerKnownFeature(FEDERATION_VERSIONS);

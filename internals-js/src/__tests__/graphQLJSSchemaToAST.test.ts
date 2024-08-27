@@ -3,15 +3,20 @@ import {
   buildSchema,
   GraphQLSchema,
   introspectionFromSchema,
-  print
-} from "graphql";
-import { graphQLJSSchemaToAST } from "../graphQLJSSchemaToAST";
+  print,
+} from 'graphql';
+import { graphQLJSSchemaToAST } from '../graphQLJSSchemaToAST';
 
-function validateRoundtrip(schemaStr: string, expectedWithoutASTNodes: string | undefined = schemaStr) {
+function validateRoundtrip(
+  schemaStr: string,
+  expectedWithoutASTNodes: string | undefined = schemaStr,
+) {
   const schema = buildSchema(schemaStr);
   expect(print(graphQLJSSchemaToAST(schema))).toMatchString(schemaStr);
   if (expectedWithoutASTNodes) {
-    expect(print(graphQLJSSchemaToAST(withoutASTNodes(schema)))).toMatchString(expectedWithoutASTNodes);
+    expect(print(graphQLJSSchemaToAST(withoutASTNodes(schema)))).toMatchString(
+      expectedWithoutASTNodes,
+    );
   }
 }
 
@@ -152,4 +157,3 @@ it('round-trip with extensions', () => {
 
   validateRoundtrip(schema, noAST);
 });
-
