@@ -121,6 +121,42 @@ describe('composition of directive with non-trivial argument strategies', () => 
     resultValues: {
       t: ['foo', 'bar'], k: ['v1', 'v2'], b: ['x'],
     },
+  },
+  {
+    name: 'nullable_and',
+    type: (schema: Schema) => schema.booleanType(),
+    compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_AND,
+    argValues: {
+      s1: { t: true, k: true },
+      s2: { t: undefined, k: false, b: false },
+    },
+    resultValues: {
+      t: true, k: false, b: false,
+    },
+  },
+  {
+    name: 'nullable_max',
+    type: (schema: Schema) => schema.intType(),
+    compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_MAX,
+    argValues: {
+      s1: { t: 3, k: 1 },
+      s2: { t: 2, k: undefined, b: undefined },
+    },
+    resultValues: {
+      t: 3, k: 1, b: undefined,
+    },
+  },
+  {
+    name: 'nullable_union',
+    type: (schema: Schema) => new ListType(new NonNullType(schema.stringType())),
+    compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_UNION,
+    argValues: {
+      s1: { t: ['foo', 'bar'], k: [] },
+      s2: { t: ['foo'], k: ['v1', 'v2'], b: ['x'] },
+    },
+    resultValues: {
+      t: ['foo', 'bar'], k: ['v1', 'v2'], b: ['x'],
+    },
   }])('works for $name', ({ name, type, compositionStrategy, argValues, resultValues }) => {
     createTestFeature({
       url: 'https://specs.apollo.dev',
@@ -183,7 +219,7 @@ describe('composition of directive with non-trivial argument strategies', () => 
     const s = result.schema;
 
     expect(directiveStrings(s.schemaDefinition, name)).toStrictEqual([
-      `@link(url: "https://specs.apollo.dev/${name}/v0.1")`
+      `@link(url: "https://specs.apollo.dev/${name}/v0.1", import: ["@${name}"])`
     ]);
 
     const t = s.type('T') as ObjectType;

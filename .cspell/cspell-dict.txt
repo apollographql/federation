@@ -81,6 +81,7 @@ follwoing
 fooz
 Fragmentization
 fufilled
+GHSA
 Gmsuh
 gqlgen
 Graphi

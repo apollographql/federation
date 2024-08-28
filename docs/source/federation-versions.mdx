@@ -26,6 +26,80 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 
 - If you maintain a [subgraph-compatible library](/graphos/reference/federation/compatible-subgraphs), consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](/graphos/reference/federation/subgraph-spec/#subgraph-schema-additions).
 
+## v2.9
+
+<hr/>
+
+<CodeColumns cols="3">
+
+<div>
+
+First release
+
+**August 2024**
+
+</div>
+
+<div>
+
+Minimum router version
+
+**TBD**
+
+</div>
+
+</CodeColumns>
+
+<hr/>
+
+#### Directive changes
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ minWidth: 200 }}>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+#### `@cost`
+
+</td>
+<td>
+
+Introduced. [Learn more](./federated-types/federated-directives/#cost).
+
+```graphql
+directive @cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
+```
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+#### `@listSize`
+
+</td>
+<td>
+
+Introduced. [Learn more](./federated-types/federated-directives/#listsize).
+
+```graphql
+directive @listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
+```
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
 ## v2.8
 
 <hr/>
