@@ -455,7 +455,11 @@ describe('buildSubgraphSchema', () => {
       const schema = buildSubgraphSchema([
         {
           typeDefs: gql`
-            extend schema @link(url: "https://specs.apollo.dev/federation/v2.8", import: ["@key"])
+            extend schema
+              @link(
+                url: "https://specs.apollo.dev/federation/v2.8"
+                import: ["@key"]
+              )
 
             enum ProductType {
               A
@@ -521,8 +525,8 @@ describe('buildSubgraphSchema', () => {
                 };
               },
             },
-          }
-        }
+          },
+        },
       ]);
 
       const { data, errors } = await graphql({
