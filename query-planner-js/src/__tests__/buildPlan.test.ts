@@ -2986,6 +2986,97 @@ describe('@requires', () => {
       }
     `);
   });
+
+  it('ignores non-resolvable keys when inserting self jump for @requires', () => {
+    const subgraph1 = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id1", resolvable: false) @key(fields: "id2 id3") {
+          id1: ID!
+          id2: ID!
+          id3: ID!
+          req: Int @external
+          v: Int @requires(fields: "req")
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'B',
+      typeDefs: gql`
+        type T @key(fields: "id1") {
+          id1: ID!
+          req: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "A") {
+            {
+              t {
+                __typename
+                id1
+                id2
+                id3
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "B") {
+              {
+                ... on T {
+                  __typename
+                  id1
+                }
+              } =>
+              {
+                ... on T {
+                  req
+                }
+              }
+            },
+          },
+          Flatten(path: "t") {
+            Fetch(service: "A") {
+              {
+                ... on T {
+                  __typename
+                  req
+                  id2
+                  id3
+                }
+              } =>
+              {
+                ... on T {
+                  v
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 describe('fetch operation names', () => {
