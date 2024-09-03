@@ -1,7 +1,7 @@
 import { DirectiveLocation } from 'graphql';
 import { createDirectiveSpecification } from '../directiveAndTypeSpecification';
 import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from './coreSpec';
-import { ListType, NonNullType } from '../definitions';
+import { DirectiveDefinition, ListType, NonNullType, Schema } from '../definitions';
 import { registerKnownFeature } from '../knownCoreFeatures';
 import { ARGUMENT_COMPOSITION_STRATEGIES } from '../argumentCompositionStrategies';
 
@@ -40,6 +40,14 @@ export class CostSpecDefinition extends FeatureDefinition {
       repeatable: false,
       supergraphSpecification: (fedVersion) => COST_VERSIONS.getMinimumRequiredVersion(fedVersion)
     }));
+  }
+
+  costDirective(schema: Schema): DirectiveDefinition<CostDirectiveArguments> | undefined {
+    return this.directive(schema, 'cost');
+  }
+
+  listSizeDirective(schema: Schema): DirectiveDefinition<ListSizeDirectiveArguments> | undefined {
+    return this.directive(schema, 'listSize');
   }
 }
 
