@@ -984,12 +984,28 @@ export class CoreFeature {
   }
 
   directiveNameInSchema(name: string): string {
-    const elementImport = this.imports.find((i) => i.name.charAt(0) === '@' && i.name.slice(1) === name);
+    return CoreFeature.directiveNameInSchemaForCoreArguments(
+      this.url,
+      this.nameInSchema,
+      this.imports,
+      name,
+    );
+  }
+
+  static directiveNameInSchemaForCoreArguments(
+    specUrl: FeatureUrl,
+    specNameInSchema: string,
+    imports: CoreImport[],
+    directiveNameInSpec: string,
+  ): string {
+    const elementImport = imports.find((i) =>
+      i.name.charAt(0) === '@' && i.name.slice(1) === directiveNameInSpec
+    );
     return elementImport
-      ? (elementImport.as?.slice(1) ?? name)
-      : (name === this.url.name
-        ? this.nameInSchema
-        : this.nameInSchema + '__' + name
+      ? (elementImport.as?.slice(1) ?? directiveNameInSpec)
+      : (directiveNameInSpec === specUrl.name
+        ? specNameInSchema
+        : specNameInSchema + '__' + directiveNameInSpec
       );
   }
 
@@ -1064,7 +1080,7 @@ export class CoreFeatures {
       const feature = this.byAlias.get(splitted[0]);
       return feature ? {
         feature,
-        nameInFeature: splitted[1],
+        nameInFeature: splitted.slice(1).join('__'),
         isImported: false,
       } : undefined;
     } else {
@@ -1076,7 +1092,7 @@ export class CoreFeatures {
           if ((as ?? name) === importName) {
             return {
               feature,
-              nameInFeature: name.slice(1),
+              nameInFeature: isDirective ? name.slice(1) : name,
               isImported: true,
             };
           }
@@ -1088,8 +1104,8 @@ export class CoreFeatures {
       if (directFeature && isDirective) {
         return {
           feature: directFeature,
-          nameInFeature: directFeature.imports.find(imp => imp.as === `@${element.name}`)?.name.slice(1) ?? element.name,
-          isImported: true,
+          nameInFeature: element.name,
+          isImported: false,
         };
       }
 
