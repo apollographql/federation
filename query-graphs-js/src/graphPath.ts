@@ -1930,6 +1930,9 @@ export function getLocallySatisfiableKey(graph: QueryGraph, typeVertex: Vertex):
   assert(metadata, () => `Could not find federation metadata for source ${typeVertex.source}`);
   const keyDirective = metadata.keyDirective();
   for (const key of type.appliedDirectivesOf(keyDirective)) {
+    if (!(key.arguments().resolvable ?? true)) {
+      continue;
+    }
     const selection = parseFieldSetArgument({ parentType: type, directive: key });
     if (!metadata.selectionSelectsAnyExternalField(selection)) {
       return selection;
