@@ -1,5 +1,14 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.9.1
+
+### Patch Changes
+
+- When resolving references, skip type resolution if the reference resolves to null. ([#3138](https://github.com/apollographql/federation/pull/3138))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.9.1
+
 ## 2.9.0
 
 ### Patch Changes

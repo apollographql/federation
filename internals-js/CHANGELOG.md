@@ -1,5 +1,7 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.9.1
+
 ## 2.9.0
 
 ### Minor Changes
