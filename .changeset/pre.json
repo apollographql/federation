@@ -11,6 +11,7 @@
     "@apollo/subgraph": "2.9.0"
   },
   "changesets": [
-    "happy-bats-exist"
+    "heavy-drinks-end",
+    "young-pigs-crash"
   ]
 }
