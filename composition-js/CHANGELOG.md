@@ -1,5 +1,27 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.9.0
+
+### Minor Changes
+
+- Implements two new directives for defining custom costs for demand control. The `@cost` directive allows setting a custom weight to a particular field in the graph, overriding the default cost calculation. The `@listSize` directive gives the cost calculator information about how to estimate the size of lists returned by subgraphs. This can either be a static size or a value derived from input arguments, such as paging parameters. ([#3074](https://github.com/apollographql/federation/pull/3074))
+
+### Patch Changes
+
+- Reduce memory overhead during satisfiability checking when there are many options. ([#3109](https://github.com/apollographql/federation/pull/3109))
+
+- Updated dependencies [[`acfe3193429c7f99b4fc564b20828aaa8659a75c`](https://github.com/apollographql/federation/commit/acfe3193429c7f99b4fc564b20828aaa8659a75c), [`02c2a34a62c3717a4885449172e404f19ebf66c9`](https://github.com/apollographql/federation/commit/02c2a34a62c3717a4885449172e404f19ebf66c9), [`0ccfd937d4b4a576f890665ceebbd7986fac5d0c`](https://github.com/apollographql/federation/commit/0ccfd937d4b4a576f890665ceebbd7986fac5d0c), [`e0a5075c0d12a0e2f7ef303b246e3216a139d3e0`](https://github.com/apollographql/federation/commit/e0a5075c0d12a0e2f7ef303b246e3216a139d3e0)]:
+  - @apollo/query-graphs@2.9.0
+  - @apollo/federation-internals@2.9.0
+
+## 2.8.5
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.5
+  - @apollo/query-graphs@2.8.5
+
 ## 2.8.4
 
 ### Patch Changes
