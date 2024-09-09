@@ -93,13 +93,8 @@ import {
 import { defaultPrintOptions, PrintOptions as PrintOptions, printSchema } from "./print";
 import { createObjectTypeSpecification, createScalarTypeSpecification, createUnionTypeSpecification } from "./directiveAndTypeSpecification";
 import { didYouMean, suggestionList } from "./suggestions";
-import { coreFeatureDefinitionIfKnown, validateKnownFeatures } from "./knownCoreFeatures";
+import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
 import { joinIdentity } from "./specs/joinSpec";
-import {
-  SourceAPIDirectiveArgs,
-  SourceFieldDirectiveArgs,
-  SourceTypeDirectiveArgs,
-} from "./specs/sourceSpec";
 import { CostDirectiveArguments, ListSizeDirectiveArguments } from "./specs/costSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
@@ -398,10 +393,10 @@ const validateFieldValueType = ({
   fromContextParent: ArgumentDefinition<FieldDefinition<ObjectType | InterfaceType | UnionType>>,
 }): { resolvedType: InputType | undefined } => {
   const selections = selectionSet.selections();
-  
+
   // ensure that type is not an interfaceObject
   const interfaceObjectDirective = metadata.interfaceObjectDirective();
-  if (currentType.kind === 'ObjectType' && isFederationDirectiveDefinedInSchema(interfaceObjectDirective) && (currentType.appliedDirectivesOf(interfaceObjectDirective).length > 0)) { 
+  if (currentType.kind === 'ObjectType' && isFederationDirectiveDefinedInSchema(interfaceObjectDirective) && (currentType.appliedDirectivesOf(interfaceObjectDirective).length > 0)) {
     errorCollector.push(ERRORS.CONTEXT_INVALID_SELECTION.err(
       `Context "is used in "${fromContextParent.coordinate}" but the selection is invalid: One of the types in the selection is an interfaceObject: "${currentType.name}"`,
       { nodes: sourceASTs(fromContextParent) }
@@ -595,7 +590,7 @@ function validateFieldValue({
   if (selectionType === 'error') {
     return;
   }
-  
+
   const usedTypeConditions = new Set<string>;
   for (const location of setContextLocations) {
     // for each location, we need to validate that the selection will result in exactly one field being selected
@@ -622,7 +617,7 @@ function validateFieldValue({
         { nodes: sourceASTs(fromContextParent) }
       ));
     }
-    
+
     if (selectionType === 'field') {
       const { resolvedType } = validateFieldValueType({
         currentType: location,
@@ -795,13 +790,13 @@ export function collectUsedFields(metadata: FederationMetadata): Set<FieldDefini
     },
     usedFields,
   );
-  
+
   // also for @fromContext
   collectUsedFieldsForFromContext<CompositeType>(
     metadata,
     usedFields,
   );
-    
+
   // Collects all fields used to satisfy an interface constraint
   for (const itfType of metadata.schema.interfaceTypes()) {
     const runtimeTypes = itfType.possibleRuntimeTypes();
@@ -824,12 +819,12 @@ function collectUsedFieldsForFromContext<TParent extends SchemaElement<any, any>
 ) {
   const fromContextDirective = metadata.fromContextDirective();
   const contextDirective = metadata.contextDirective();
-  
+
   // if one of the directives is not defined, there's nothing to validate
   if (!isFederationDirectiveDefinedInSchema(fromContextDirective) || !isFederationDirectiveDefinedInSchema(contextDirective)) {
-    return;  
+    return;
   }
-  
+
   // build the list of context entry points
   const entryPoints = new Map<string, Set<CompositeType>>();
   for (const application of contextDirective.applications()) {
@@ -842,9 +837,9 @@ function collectUsedFieldsForFromContext<TParent extends SchemaElement<any, any>
     if (!entryPoints.has(context)) {
       entryPoints.set(context, new Set());
     }
-    entryPoints.get(context)!.add(type as CompositeType);    
+    entryPoints.get(context)!.add(type as CompositeType);
   }
-  
+
   for (const application of fromContextDirective.applications()) {
     const type = application.parent as TParent;
     if (!type) {
@@ -854,20 +849,20 @@ function collectUsedFieldsForFromContext<TParent extends SchemaElement<any, any>
 
     const fieldValue = application.arguments().field;
     const { context, selection } = parseContext(fieldValue);
-    
+
     if (!context) {
       continue;
     }
-    
+
     // now we need to collect all the fields used for every type that they could be used for
     const contextTypes = entryPoints.get(context);
     if (!contextTypes) {
       continue;
     }
-    
+
     for (const contextType of contextTypes) {
       try {
-        // helper function 
+        // helper function
         const fieldAccessor = (t: CompositeType, f: string) => {
           const field = t.field(f);
           if (field) {
@@ -883,7 +878,7 @@ function collectUsedFieldsForFromContext<TParent extends SchemaElement<any, any>
           }
           return field;
         };
-        
+
         parseSelectionSet({ parentType: contextType, source: selection, fieldAccessor });
       } catch (e) {
         // ignore the error, it will be caught later
@@ -1256,18 +1251,6 @@ export class FederationMetadata {
     return this.getPost20FederationDirective(FederationDirectiveName.POLICY);
   }
 
-  sourceAPIDirective(): Post20FederationDirectiveDefinition<SourceAPIDirectiveArgs> {
-    return this.getPost20FederationDirective(FederationDirectiveName.SOURCE_API);
-  }
-
-  sourceTypeDirective(): Post20FederationDirectiveDefinition<SourceTypeDirectiveArgs> {
-    return this.getPost20FederationDirective(FederationDirectiveName.SOURCE_TYPE);
-  }
-
-  sourceFieldDirective(): Post20FederationDirectiveDefinition<SourceFieldDirectiveArgs> {
-    return this.getPost20FederationDirective(FederationDirectiveName.SOURCE_FIELD);
-  }
-
   fromContextDirective(): Post20FederationDirectiveDefinition<{ field: string }> {
     return this.getPost20FederationDirective(FederationDirectiveName.FROM_CONTEXT);
   }
@@ -1322,19 +1305,6 @@ export class FederationMetadata {
     const policyDirective = this.policyDirective();
     if (isFederationDirectiveDefinedInSchema(policyDirective)) {
       baseDirectives.push(policyDirective);
-    }
-
-    const sourceAPIDirective = this.sourceAPIDirective();
-    if (isFederationDirectiveDefinedInSchema(sourceAPIDirective)) {
-      baseDirectives.push(sourceAPIDirective);
-    }
-    const sourceTypeDirective = this.sourceTypeDirective();
-    if (isFederationDirectiveDefinedInSchema(sourceTypeDirective)) {
-      baseDirectives.push(sourceTypeDirective);
-    }
-    const sourceFieldDirective = this.sourceFieldDirective();
-    if (isFederationDirectiveDefinedInSchema(sourceFieldDirective)) {
-      baseDirectives.push(sourceFieldDirective);
     }
 
     const contextDirective = this.contextDirective();
@@ -1595,7 +1565,6 @@ export class FederationBlueprint extends SchemaBlueprint {
     for (const application of contextDirective.applications()) {
       const parent = application.parent;
       const name = application.arguments().name as string;
-      
       const match = name.match(/^([A-Za-z]\w*)$/);
       if (name.includes('_')) {
         errorCollector.push(ERRORS.CONTEXT_NAME_INVALID.err(
@@ -1621,7 +1590,7 @@ export class FederationBlueprint extends SchemaBlueprint {
     for (const application of fromContextDirective.applications()) {
       const { field } = application.arguments();
       const { context, selection } = parseContext(field);
-      
+
       // error if parent's parent is a directive definition
       if (application.parent.parent.kind === 'DirectiveDefinition') {
         errorCollector.push(ERRORS.CONTEXT_NOT_SET.err(
@@ -1653,14 +1622,14 @@ export class FederationBlueprint extends SchemaBlueprint {
           ));
         }
       }
-      
+
       if (parent.defaultValue !== undefined) {
         errorCollector.push(ERRORS.CONTEXT_NOT_SET.err(
           `@fromContext arguments may not have a default value: "${parent.coordinate}".`,
           { nodes: sourceASTs(application) }
-        ));  
+        ));
       }
-      
+
       if (!context || !selection) {
         errorCollector.push(ERRORS.NO_CONTEXT_IN_SELECTION.err(
           `@fromContext argument does not reference a context "${field}".`,
@@ -1683,7 +1652,7 @@ export class FederationBlueprint extends SchemaBlueprint {
             metadata,
           });
         }
-        
+
         // validate that there is at least one resolvable key on the type
         const keyDirective = metadata.keyDirective();
         const keyApplications = objectType.appliedDirectivesOf(keyDirective);
@@ -1701,10 +1670,6 @@ export class FederationBlueprint extends SchemaBlueprint {
     validateKeyOnInterfacesAreAlsoOnAllImplementations(metadata, errorCollector);
     validateInterfaceObjectsAreOnEntities(metadata, errorCollector);
 
-    // FeatureDefinition objects passed to registerKnownFeature can register
-    // validation functions for subgraph schemas by overriding the
-    // validateSubgraphSchema method.
-    validateKnownFeatures(schema, errorCollector);
     // If tag is redefined by the user, make sure the definition is compatible with what we expect
     const tagDirective = metadata.tagDirective();
     if (tagDirective) {
@@ -1850,9 +1815,9 @@ export function setSchemaAsFed2Subgraph(schema: Schema, useLatest: boolean = fal
 
 // This is the full @link declaration as added by `asFed2SubgraphDocument`. It's here primarily for uses by tests that print and match
 // subgraph schema to avoid having to update 20+ tests every time we use a new directive or the order of import changes ...
-export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy", "@sourceAPI", "@sourceType", "@sourceField", "@context", "@fromContext", "@cost", "@listSize"])';
+export const FEDERATION2_LINK_WITH_FULL_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.10", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject", "@authenticated", "@requiresScopes", "@policy", "@context", "@fromContext", "@cost", "@listSize"])';
 // This is the full @link declaration that is added when upgrading fed v1 subgraphs to v2 version. It should only be used by tests.
-export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
+export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS = '@link(url: "https://specs.apollo.dev/federation/v2.10", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';
 
 // This is the federation @link for tests that go through the SchemaUpgrader.
 export const FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS_UPGRADED = '@link(url: "https://specs.apollo.dev/federation/v2.4", import: ["@key", "@requires", "@provides", "@external", "@tag", "@extends", "@shareable", "@inaccessible", "@override", "@composeDirective", "@interfaceObject"])';

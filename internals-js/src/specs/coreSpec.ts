@@ -117,11 +117,6 @@ export abstract class FeatureDefinition {
       .concat(this.typeSpecs().map((spec) => spec.name));
   }
 
-  // No-op implementation that can be overridden by subclasses.
-  validateSubgraphSchema(_schema: Schema): GraphQLError[] {
-    return [];
-  }
-
   protected nameInSchema(schema: Schema): string | undefined {
     const feature = this.featureInSchema(schema);
     return feature?.nameInSchema;
@@ -623,7 +618,7 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
     // this._definitions is already sorted with the most recent first
     // get the first definition that is compatible with the federation version
     // if the minimum version is not present, assume that we won't look for an older version
-    const def = this._definitions.find(def => def.minimumFederationVersion ? fedVersion >= def.minimumFederationVersion : true);
+    const def = this._definitions.find(def => def.minimumFederationVersion ? fedVersion.gte(def.minimumFederationVersion) : true);
     assert(def, `No compatible definition exists for federation version ${fedVersion}`);
 
     // note that it's necessary that we can only get versions that have the same major version as the latest,
@@ -675,7 +670,7 @@ export class FeatureVersion {
     let max: FeatureVersion | undefined;
 
     for (const version of versions) {
-      if (!max || version > max) {
+      if (!max || version.gt(max)) {
         max = version;
       }
     }

@@ -310,14 +310,14 @@ test('handles the addition of @shareable when an @external is used on a type', (
   // 1. the @external on type `T` in s2 should be removed, as @external on types were no-ops in fed1 (but not in fed2 anymore, hence the removal)
   // 2. field `T.x` in s1 must be marked @shareable since it is resolved by s2 (since again, it's @external annotation is ignored).
 
-  const s2Upgraded = res.subgraphs?.get('s2')!;
-  expect(s2Upgraded.schema.type('T')?.hasAppliedDirective('external')).toBe(
+  const s2Upgraded = res.subgraphs?.get('s2');
+  expect(s2Upgraded?.schema.type('T')?.hasAppliedDirective('external')).toBe(
     false,
   );
 
-  const s1Upgraded = res.subgraphs?.get('s1')!;
+  const s1Upgraded = res.subgraphs?.get('s1');
   expect(
-    (s1Upgraded.schema.type('T') as ObjectType)
+    (s1Upgraded?.schema.type('T') as ObjectType)
       .field('x')
       ?.hasAppliedDirective('shareable'),
   ).toBe(true);
@@ -372,8 +372,8 @@ test("don't add @shareable to subscriptions", () => {
     type Query {
       hello: String
     }
-    
-    type Subscription { 
+
+    type Subscription {
       update: String!
     }
   `,
@@ -386,8 +386,8 @@ test("don't add @shareable to subscriptions", () => {
     type Query {
       hello: String
     }
-    
-    type Subscription { 
+
+    type Subscription {
       update: String!
     }
   `,

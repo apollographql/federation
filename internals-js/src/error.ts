@@ -591,123 +591,10 @@ const INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE = makeCodeDefinition(
   { addedIn: '2.3.0' },
 )
 
-const SOURCE_FEDERATION_VERSION_REQUIRED = makeCodeDefinition(
-  'SOURCE_FEDERATION_VERSION_REQUIRED',
-  'Schemas using `@source{API,Type,Field}` directives must @link-import v2.7 or later of federation',
-  { addedIn: '2.7.1' },
-);
-
-const SOURCE_API_NAME_INVALID = makeCodeDefinition(
-  'SOURCE_API_NAME_INVALID',
-  'Each `@sourceAPI` directive must take a unique and valid name as an argument',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_API_PROTOCOL_INVALID = makeCodeDefinition(
-  'SOURCE_API_PROTOCOL_INVALID',
-  'Each `@sourceAPI` directive must specify exactly one of the known protocols',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_API_HTTP_BASE_URL_INVALID = makeCodeDefinition(
-  'SOURCE_API_HTTP_BASE_URL_INVALID',
-  'The `@sourceAPI` directive must specify a valid http.baseURL',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_HTTP_HEADERS_INVALID = makeCodeDefinition(
-  'SOURCE_HTTP_HEADERS_INVALID',
-  'The `http.headers` argument of `@source*` directives must specify valid HTTP headers',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_TYPE_API_ERROR = makeCodeDefinition(
-  'SOURCE_TYPE_API_ERROR',
-  'The `api` argument of the `@sourceType` directive must match a valid `@sourceAPI` name',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_TYPE_PROTOCOL_INVALID = makeCodeDefinition(
-  'SOURCE_TYPE_PROTOCOL_INVALID',
-  'The `@sourceType` directive must specify the same protocol as its corresponding `@sourceAPI`',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_TYPE_HTTP_METHOD_INVALID = makeCodeDefinition(
-  'SOURCE_TYPE_HTTP_METHOD_INVALID',
-  'The `@sourceType` directive must specify exactly one of `http.GET` or `http.POST`',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_TYPE_HTTP_PATH_INVALID = makeCodeDefinition(
-  'SOURCE_TYPE_HTTP_PATH_INVALID',
-  'The `@sourceType` directive must specify a valid URL template for `http.GET` or `http.POST`',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_TYPE_HTTP_BODY_INVALID = makeCodeDefinition(
-  'SOURCE_TYPE_HTTP_BODY_INVALID',
-  'If the `@sourceType` specifies `http.body`, it must be a valid `JSONSelection`',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_TYPE_ON_NON_OBJECT_OR_NON_ENTITY = makeCodeDefinition(
-  'SOURCE_TYPE_ON_NON_OBJECT_OR_NON_ENTITY',
-  'The `@sourceType` directive must be applied to an object or interface type that also has `@key`',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_TYPE_SELECTION_INVALID = makeCodeDefinition(
-  'SOURCE_TYPE_SELECTION_INVALID',
-  'The `selection` argument of the `@sourceType` directive must be a valid `JSONSelection` that outputs fields of the GraphQL type',
-);
-
-const SOURCE_FIELD_API_ERROR = makeCodeDefinition(
-  'SOURCE_FIELD_API_ERROR',
-  'The `api` argument of the `@sourceField` directive must match a valid `@sourceAPI` name',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_FIELD_PROTOCOL_INVALID = makeCodeDefinition(
-  'SOURCE_FIELD_PROTOCOL_INVALID',
-  'If `@sourceField` specifies a protocol, it must match the corresponding `@sourceAPI` protocol',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_FIELD_HTTP_METHOD_INVALID = makeCodeDefinition(
-  'SOURCE_FIELD_HTTP_METHOD_INVALID',
-  'The `@sourceField` directive must specify at most one of `http.{GET,POST,PUT,PATCH,DELETE}`',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_FIELD_HTTP_PATH_INVALID = makeCodeDefinition(
-  'SOURCE_FIELD_HTTP_PATH_INVALID',
-  'The `@sourceField` directive must specify a valid URL template for `http.{GET,POST,PUT,PATCH,DELETE}`',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_FIELD_HTTP_BODY_INVALID = makeCodeDefinition(
-  'SOURCE_FIELD_HTTP_BODY_INVALID',
-  'If `@sourceField` specifies http.body, it must be a valid `JSONSelection` matching available arguments and fields',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_FIELD_SELECTION_INVALID = makeCodeDefinition(
-  'SOURCE_FIELD_SELECTION_INVALID',
-  'The `selection` argument of the `@sourceField` directive must be a valid `JSONSelection` that outputs fields of the GraphQL type',
-  { addedIn: '2.7.0' },
-);
-
-const SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD = makeCodeDefinition(
-  'SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD',
-  'The `@sourceField` directive must be applied to a field of the `Query` or `Mutation` types, or of an entity type',
-  { addedIn: '2.7.0' },
-);
-
 const CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS = makeCodeDefinition(
-  'CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS',
-  'Argument on field is marked contextual in only some subgraphs',
-  { addedIn: '2.7.0' },
+    'CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS',
+    'Argument on field is marked contextual in only some subgraphs',
+    { addedIn: '2.7.0' },
 );
 
 export const ERROR_CATEGORIES = {
@@ -803,27 +690,7 @@ export const ERRORS = {
   INTERFACE_OBJECT_USAGE_ERROR,
   INTERFACE_KEY_NOT_ON_IMPLEMENTATION,
   INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE,
-  // Errors related to @sourceAPI, @sourceType, and/or @sourceField
-  SOURCE_FEDERATION_VERSION_REQUIRED,
-  SOURCE_API_NAME_INVALID,
-  SOURCE_API_PROTOCOL_INVALID,
-  SOURCE_API_HTTP_BASE_URL_INVALID,
-  SOURCE_HTTP_HEADERS_INVALID,
-  SOURCE_TYPE_API_ERROR,
-  SOURCE_TYPE_PROTOCOL_INVALID,
-  SOURCE_TYPE_HTTP_METHOD_INVALID,
-  SOURCE_TYPE_HTTP_PATH_INVALID,
-  SOURCE_TYPE_HTTP_BODY_INVALID,
-  SOURCE_TYPE_ON_NON_OBJECT_OR_NON_ENTITY,
-  SOURCE_TYPE_SELECTION_INVALID,
-  SOURCE_FIELD_API_ERROR,
-  SOURCE_FIELD_PROTOCOL_INVALID,
-  SOURCE_FIELD_HTTP_METHOD_INVALID,
-  SOURCE_FIELD_HTTP_PATH_INVALID,
-  SOURCE_FIELD_HTTP_BODY_INVALID,
-  SOURCE_FIELD_SELECTION_INVALID,
-  SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD,
-  CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS,
+    CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

@@ -1259,31 +1259,21 @@ describe('when a directive causes an implicit federation version upgrade', () =>
   const autoUpgradedSchema = gql`
     extend schema
       @link(url: "https://specs.apollo.dev/federation/v2.5", import: ["@key", "@shareable"])
-      @link(url: "https://specs.apollo.dev/source/v0.1", import: [
-        "@sourceAPI"
-        "@sourceType"
-        "@sourceField"
-      ])
-      @sourceAPI(
-        name: "A"
-        http: { baseURL: "https://api.a.com/v1" }
+      @link(
+        url: "https://specs.apollo.dev/connect/v0.1"
+        import: ["@connect", "@source"]
       )
-      {
-        query: Query
-      }
+      @source(name: "v1", http: { baseURL: "http://v1" })
 
     type Query @shareable {
-      resources: [Resource!]! @sourceField(
-        api: "A"
+      resources: [Resource!]! @connect(
+        source: "v1"
         http: { GET: "/resources" }
+        selection: ""
       )
     }
 
-    type Resource @shareable @key(fields: "id") @sourceType(
-      api: "A"
-      http: { GET: "/resources/{id}" }
-      selection: "id description"
-    ) {
+    type Resource @shareable @key(fields: "id") {
       id: ID!
       description: String!
     }
@@ -1308,7 +1298,7 @@ describe('when a directive causes an implicit federation version upgrade', () =>
     assertCompositionSuccess(result);
     expect(result).toRaiseHint(
       HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
-      'Subgraph upgraded has been implicitly upgraded from federation v2.5 to v2.7',
+      'Subgraph upgraded has been implicitly upgraded from federation v2.5 to v2.10',
       '@link'
     );
   });
@@ -1328,12 +1318,12 @@ describe('when a directive causes an implicit federation version upgrade', () =>
     assertCompositionSuccess(result);
     expect(result).toRaiseHint(
       HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
-      'Subgraph upgraded-1 has been implicitly upgraded from federation v2.5 to v2.7',
+      'Subgraph upgraded-1 has been implicitly upgraded from federation v2.5 to v2.10',
       '@link'
     );
     expect(result).toRaiseHint(
       HINTS.IMPLICITLY_UPGRADED_FEDERATION_VERSION,
-      'Subgraph upgraded-2 has been implicitly upgraded from federation v2.5 to v2.7',
+      'Subgraph upgraded-2 has been implicitly upgraded from federation v2.5 to v2.10',
       '@link'
     );
   });

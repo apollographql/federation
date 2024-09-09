@@ -41,6 +41,7 @@ export const ROUTER_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
   'https://specs.apollo.dev/source/v0.1',
   'https://specs.apollo.dev/context/v0.1',
   'https://specs.apollo.dev/cost/v0.1',
+  'https://specs.apollo.dev/connect/v0.1',
 ]);
 
 const coreVersionZeroDotOneUrl = FeatureUrl.parse('https://specs.apollo.dev/core/v0.1');
@@ -128,7 +129,7 @@ export class Supergraph {
     this.containedSubgraphs = extractSubgraphsNamesAndUrlsFromSupergraph(schema);
   }
 
-  static build(supergraphSdl: string | DocumentNode, options?: { supportedFeatures?: Set<string>, validateSupergraph?: boolean }) {
+  static build(supergraphSdl: string | DocumentNode, options?: { supportedFeatures?: Set<string> | null, validateSupergraph?: boolean }) {
     // We delay validation because `checkFeatureSupport` in the constructor gives slightly more useful errors if, say, 'for' is used with core v0.1.
     const schema = typeof supergraphSdl === 'string'
       ? buildSchema(supergraphSdl, { validate: false })
