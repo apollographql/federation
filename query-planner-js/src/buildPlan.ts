@@ -4702,7 +4702,6 @@ function handleRequires(
       initialGroupPath: path, 
       initialDeferContext: deferContextForConditions(deferContext)
     });
-    
     if (createdGroups.length === 0) {
       // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
       // and continue.
@@ -4710,7 +4709,7 @@ function handleRequires(
       group.mergeSiblingIn(newGroup);
       return {group, path, createdGroups: [], newGroupIsUnneeded: false};
     }
-    
+
     // We know the @require needs createdGroups. We do want to know however if any of the conditions was
     // fetched from our `newGroup`. If not, then this means that the `createdGroups` don't really depend on
     // the current `group` and can be dependencies of the parent (or even merged into this parent).
