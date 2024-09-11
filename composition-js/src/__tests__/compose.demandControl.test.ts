@@ -253,26 +253,26 @@ const subgraphWithUnimportedCostFromRenamedFederationSpec = {
   name: 'subgraphWithCost',
   typeDefs:
     gql`
-      extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", as: "myfederation")
+      extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", as: "my_federation")
 
-      enum AorB @myfederation__cost(weight: 15) {
+      enum AorB @my_federation__cost(weight: 15) {
         A
         B
       }
 
       input InputTypeWithCost {
-        somethingWithCost: Int @myfederation__cost(weight: 20)
+        somethingWithCost: Int @my_federation__cost(weight: 20)
       }
 
-      scalar ExpensiveInt @myfederation__cost(weight: 30)
+      scalar ExpensiveInt @my_federation__cost(weight: 30)
 
-      type ExpensiveObject @myfederation__cost(weight: 40) {
+      type ExpensiveObject @my_federation__cost(weight: 40) {
         id: ID
       }
 
       type Query {
-        fieldWithCost: Int @myfederation__cost(weight: 5)
-        argWithCost(arg: Int @myfederation__cost(weight: 10)): Int
+        fieldWithCost: Int @my_federation__cost(weight: 5)
+        argWithCost(arg: Int @my_federation__cost(weight: 10)): Int
         enumWithCost: AorB
         inputWithCost(someInput: InputTypeWithCost): Int
         scalarWithCost: ExpensiveInt
@@ -285,15 +285,15 @@ const subgraphWithUnimportedListSizeFromRenamedFederationSpec = {
   name: 'subgraphWithListSize',
   typeDefs:
     gql`
-      extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", as: "myfederation")
+      extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", as: "my_federation")
 
       type HasInts {
         ints: [Int!]
       }
 
       type Query {
-        fieldWithListSize: [String!] @myfederation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)
-        fieldWithDynamicListSize(first: Int!): HasInts @myfederation__listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
+        fieldWithListSize: [String!] @my_federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+        fieldWithDynamicListSize(first: Int!): HasInts @my_federation__listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
       }
     `,
 };
@@ -598,25 +598,25 @@ describe('demand control directive composition', () => {
     });
 
     describe('when the federation spec is renamed', () => {
-      it('propagates @myfederation__cost and @myfederation__listSize to the supergraph', () => {
+      it('propagates @my_federation__cost and @my_federation__listSize to the supergraph', () => {
         const result = composeServices([subgraphWithUnimportedCostFromRenamedFederationSpec, subgraphWithUnimportedListSizeFromRenamedFederationSpec]);
         assertCompositionSuccess(result);
         expect(result.hints).toEqual([]);
     
-        const costDirectiveApplications = fieldWithCost(result)?.appliedDirectivesOf('myfederation__cost');
-        expect(costDirectiveApplications?.toString()).toMatchString(`@myfederation__cost(weight: 5)`);
+        const costDirectiveApplications = fieldWithCost(result)?.appliedDirectivesOf('my_federation__cost');
+        expect(costDirectiveApplications?.toString()).toMatchString(`@my_federation__cost(weight: 5)`);
     
-        const argCostDirectiveApplications = argumentWithCost(result)?.appliedDirectivesOf('myfederation__cost');
-        expect(argCostDirectiveApplications?.toString()).toMatchString(`@myfederation__cost(weight: 10)`);
+        const argCostDirectiveApplications = argumentWithCost(result)?.appliedDirectivesOf('my_federation__cost');
+        expect(argCostDirectiveApplications?.toString()).toMatchString(`@my_federation__cost(weight: 10)`);
     
-        const enumCostDirectiveApplications = enumWithCost(result)?.appliedDirectivesOf('myfederation__cost');
-        expect(enumCostDirectiveApplications?.toString()).toMatchString(`@myfederation__cost(weight: 15)`);
+        const enumCostDirectiveApplications = enumWithCost(result)?.appliedDirectivesOf('my_federation__cost');
+        expect(enumCostDirectiveApplications?.toString()).toMatchString(`@my_federation__cost(weight: 15)`);
     
-        const inputCostDirectiveApplications = inputWithCost(result)?.field('somethingWithCost')?.appliedDirectivesOf('myfederation__cost');
-        expect(inputCostDirectiveApplications?.toString()).toMatchString(`@myfederation__cost(weight: 20)`);
+        const inputCostDirectiveApplications = inputWithCost(result)?.field('somethingWithCost')?.appliedDirectivesOf('my_federation__cost');
+        expect(inputCostDirectiveApplications?.toString()).toMatchString(`@my_federation__cost(weight: 20)`);
     
-        const listSizeDirectiveApplications = fieldWithListSize(result)?.appliedDirectivesOf('myfederation__listSize');
-        expect(listSizeDirectiveApplications?.toString()).toMatchString(`@myfederation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
+        const listSizeDirectiveApplications = fieldWithListSize(result)?.appliedDirectivesOf('my_federation__listSize');
+        expect(listSizeDirectiveApplications?.toString()).toMatchString(`@my_federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
       });
     });
   })
