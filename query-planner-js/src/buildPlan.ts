@@ -65,6 +65,7 @@ import {
   NamedType,
   VariableCollector,
   DEFAULT_MIN_USAGES_TO_OPTIMIZE,
+  parseFieldSetArgument,
 } from "@apollo/federation-internals";
 import {
   advanceSimultaneousPathsWithOperation,
@@ -4940,7 +4941,26 @@ function addPostRequireInputs(
   preRequireGroup: FetchGroup,
   postRequireGroup: FetchGroup,
 ) {
-  const { inputs, keyInputs } = inputsForRequire(dependencyGraph, entityType, edge, context);
+  const keyConditionIsCrossSubgraph =
+    edge.head.source !== preRequireGroup.subgraphName;
+
+  const crossSubgraphKeyCondition = keyConditionIsCrossSubgraph
+    ? resolveKeyConditionFromParentGroup(
+      dependencyGraph,
+      edge,
+      preRequireGroup.subgraphName,
+    )
+    : undefined;
+
+  const { inputs, keyInputs } = inputsForRequire(
+    dependencyGraph,
+    entityType,
+    edge,
+    context,
+    true,
+    crossSubgraphKeyCondition,
+  );
+
   // Note that `computeInputRewritesOnKeyFetch` will return `undefined` in general, but if `entityType` is an interface/interface object,
   // then we need those rewrites to ensure the underlying fetch is valid.
   postRequireGroup.addInputs(
@@ -4954,6 +4974,75 @@ function addPostRequireInputs(
   }
 }
 
+function resolveKeyConditionFromParentGroup(
+  dependencyGraph: FetchDependencyGraph,
+  edge: Edge,
+  parentSource: string,
+): SelectionSet {
+  const parentSchema = dependencyGraph.federatedQueryGraph.sources
+    .get(parentSource);
+  const parentSchemaMetadata = parentSchema && federationMetadata(parentSchema);
+  assert(
+    parentSchemaMetadata,
+    () => `Could not find federation metadata for source ${parentSource}`,
+  );
+
+  const inputTypeSchema = dependencyGraph.federatedQueryGraph.sources
+    .get(edge.head.source);
+  const inputTypeSchemaMetadata = inputTypeSchema
+    && federationMetadata(inputTypeSchema);
+  assert(
+    inputTypeSchemaMetadata,
+    () => `Could not find federation metadata for source ${edge.head.source}`,
+  );
+
+  const isInterfaceObjectDownCast =
+    edge.transition.kind === 'InterfaceObjectFakeDownCast';
+  const inputType = edge.head.type as CompositeType;
+
+  let typeToRebaseOn: CompositeType;
+  if (isInterfaceObjectDownCast || isInterfaceObjectType(inputType)) {
+    const supergraphItfType = dependencyGraph.supergraphSchema
+      .type(inputType.name);
+    assert(
+      supergraphItfType && isInterfaceType(supergraphItfType),
+      () => `Type ${inputType.name} should be an interface in the supergraph`,
+    );
+    typeToRebaseOn = supergraphItfType;
+  } else {
+    const parentType = parentSchema.type(inputType.name);
+    assert(
+      parentType && isObjectType(parentType),
+      () => `Type ${inputType.name} should be in schema for source ${parentSource}`,
+    );
+    typeToRebaseOn = parentType;
+  }
+
+  const inputTypeSchemaKeyDirective = inputTypeSchemaMetadata.keyDirective();
+  let keyFieldSelectionSet: SelectionSet | undefined;
+  for (const key of inputType.appliedDirectivesOf(inputTypeSchemaKeyDirective)) {
+    if (!(key.arguments().resolvable ?? true)) continue;
+
+    const selectionSet = parseFieldSetArgument({
+      parentType: inputType,
+      directive: key,
+    });
+    if (!inputTypeSchemaMetadata.selectionSelectsAnyExternalField(selectionSet)
+      && selectionSet.canRebaseOn(typeToRebaseOn)
+    ) {
+      keyFieldSelectionSet = selectionSet;
+      break;
+    }
+  }
+
+  assert(
+    keyFieldSelectionSet,
+    () => `Due to @requires, validation should have required a key to be present for ${edge}`,
+  );
+
+  return keyFieldSelectionSet;
+}
+
 function newCompositeTypeSelectionSet(type: CompositeType): MutableSelectionSet {
   const selectionSet = MutableSelectionSet.empty(type);
   selectionSet.updates().add(new FieldSelection(new Field(type.typenameField()!)));
@@ -4965,7 +5054,8 @@ function inputsForRequire(
   entityType: ObjectType,
   edge: Edge,
   context: PathContext,
-  includeKeyInputs: boolean = true
+  includeKeyInputs: boolean = true,
+  keyConditionOverride?: SelectionSet,
 ): {
   inputs: SelectionSet,
   keyInputs: SelectionSet | undefined,
@@ -4986,7 +5076,10 @@ function inputsForRequire(
   }
   let keyInputs: MutableSelectionSet | undefined = undefined;
   if (includeKeyInputs) {
-    const keyCondition = getLocallySatisfiableKey(dependencyGraph.federatedQueryGraph, edge.head);
+    const keyCondition = keyConditionOverride ?? getLocallySatisfiableKey(
+      dependencyGraph.federatedQueryGraph,
+      edge.head,
+    );
     assert(keyCondition, () => `Due to @require, validation should have required a key to be present for ${edge}`);
     let keyConditionAsInput = keyCondition;
     if (isInterfaceObjectDownCast) {

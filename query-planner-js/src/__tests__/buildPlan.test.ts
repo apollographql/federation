@@ -3077,6 +3077,157 @@ describe('@requires', () => {
       }
     `);
   });
+
+  it('selects a valid key from parent fetch group (for another subgraph) when handling @requires', () => {
+    /**
+     * Previously, there was an issue where, when recognizing that we can select
+     * a key on `T` at `t.y.t2` in the fetch group C-y to be used as input for
+     * fetch group A-t::y::t2, we would search A's schema for a key field on
+     * type `T` to select, assuming that `T`'s definition in C's schema has the
+     * same key(s).
+     */
+    const subgraph1 = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id1") @key(fields: "id2") {
+          id1: ID!
+          id2: ID!
+          x: Int @external
+          req: Int @requires(fields: "x")
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'B',
+      typeDefs: gql`
+        type T @key(fields: "id1") {
+          id1: ID!
+          x: Int
+        }
+      `,
+    };
+
+    const subgraph3 = {
+      name: 'C',
+      typeDefs: gql`
+        type Y {
+          t2: T
+        }
+
+        type T @key(fields: "id2") {
+          id2: ID!
+          y: Y
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            y {
+              t2 {
+                req
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "A") {
+            {
+              t {
+                __typename
+                id2
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "C") {
+              {
+                ... on T {
+                  __typename
+                  id2
+                }
+              } =>
+              {
+                ... on T {
+                  y {
+                    t2 {
+                      __typename
+                      id2
+                    }
+                  }
+                }
+              }
+            },
+          },
+          Flatten(path: "t.y.t2") {
+            Fetch(service: "A") {
+              {
+                ... on T {
+                  __typename
+                  id2
+                }
+              } =>
+              {
+                ... on T {
+                  id1
+                }
+              }
+            },
+          },
+          Flatten(path: "t.y.t2") {
+            Fetch(service: "B") {
+              {
+                ... on T {
+                  __typename
+                  id1
+                }
+              } =>
+              {
+                ... on T {
+                  x
+                }
+              }
+            },
+          },
+          Flatten(path: "t.y.t2") {
+            Fetch(service: "A") {
+              {
+                ... on T {
+                  __typename
+                  x
+                  id2
+                }
+              } =>
+              {
+                ... on T {
+                  req
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 describe('fetch operation names', () => {
