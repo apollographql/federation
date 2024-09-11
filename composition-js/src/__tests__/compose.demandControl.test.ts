@@ -249,6 +249,55 @@ const subgraphWithUnimportedListSize = {
   `),
 };
 
+const subgraphWithUnimportedCostFromRenamedFederationSpec = {
+  name: 'subgraphWithCost',
+  typeDefs:
+    gql`
+      extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", as: "myfederation")
+
+      enum AorB @myfederation__cost(weight: 15) {
+        A
+        B
+      }
+
+      input InputTypeWithCost {
+        somethingWithCost: Int @myfederation__cost(weight: 20)
+      }
+
+      scalar ExpensiveInt @myfederation__cost(weight: 30)
+
+      type ExpensiveObject @myfederation__cost(weight: 40) {
+        id: ID
+      }
+
+      type Query {
+        fieldWithCost: Int @myfederation__cost(weight: 5)
+        argWithCost(arg: Int @myfederation__cost(weight: 10)): Int
+        enumWithCost: AorB
+        inputWithCost(someInput: InputTypeWithCost): Int
+        scalarWithCost: ExpensiveInt
+        objectWithCost: ExpensiveObject
+      }
+    `,
+};
+
+const subgraphWithUnimportedListSizeFromRenamedFederationSpec = {
+  name: 'subgraphWithListSize',
+  typeDefs:
+    gql`
+      extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", as: "myfederation")
+
+      type HasInts {
+        ints: [Int!]
+      }
+
+      type Query {
+        fieldWithListSize: [String!] @myfederation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)
+        fieldWithDynamicListSize(first: Int!): HasInts @myfederation__listSize(slicingArguments: ["first"], sizedFields: ["ints"], requireOneSlicingArgument: true)
+      }
+    `,
+};
+
 // Used to test @cost applications on FIELD_DEFINITION
 function fieldWithCost(result: CompositionResult): FieldDefinition<ObjectType> | undefined {
   return result
@@ -547,6 +596,29 @@ describe('demand control directive composition', () => {
       const listSizeDirectiveApplications = fieldWithListSize(result)?.appliedDirectivesOf('federation__listSize');
       expect(listSizeDirectiveApplications?.toString()).toMatchString(`@federation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
     });
+
+    describe('when the federation spec is renamed', () => {
+      it('propagates @myfederation__cost and @myfederation__listSize to the supergraph', () => {
+        const result = composeServices([subgraphWithUnimportedCostFromRenamedFederationSpec, subgraphWithUnimportedListSizeFromRenamedFederationSpec]);
+        assertCompositionSuccess(result);
+        expect(result.hints).toEqual([]);
+    
+        const costDirectiveApplications = fieldWithCost(result)?.appliedDirectivesOf('myfederation__cost');
+        expect(costDirectiveApplications?.toString()).toMatchString(`@myfederation__cost(weight: 5)`);
+    
+        const argCostDirectiveApplications = argumentWithCost(result)?.appliedDirectivesOf('myfederation__cost');
+        expect(argCostDirectiveApplications?.toString()).toMatchString(`@myfederation__cost(weight: 10)`);
+    
+        const enumCostDirectiveApplications = enumWithCost(result)?.appliedDirectivesOf('myfederation__cost');
+        expect(enumCostDirectiveApplications?.toString()).toMatchString(`@myfederation__cost(weight: 15)`);
+    
+        const inputCostDirectiveApplications = inputWithCost(result)?.field('somethingWithCost')?.appliedDirectivesOf('myfederation__cost');
+        expect(inputCostDirectiveApplications?.toString()).toMatchString(`@myfederation__cost(weight: 20)`);
+    
+        const listSizeDirectiveApplications = fieldWithListSize(result)?.appliedDirectivesOf('myfederation__listSize');
+        expect(listSizeDirectiveApplications?.toString()).toMatchString(`@myfederation__listSize(assumedSize: 2000, requireOneSlicingArgument: false)`);
+      });
+    });
   })
 });
 
@@ -557,6 +629,7 @@ describe('demand control directive extraction', () => {
     subgraphWithCostFromFederationSpec,
     subgraphWithRenamedCostFromFederationSpec,
     subgraphWithUnimportedCost,
+    subgraphWithUnimportedCostFromRenamedFederationSpec,
   ])('extracts @cost from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
@@ -606,6 +679,7 @@ describe('demand control directive extraction', () => {
     subgraphWithListSizeFromFederationSpec,
     subgraphWithRenamedListSizeFromFederationSpec,
     subgraphWithUnimportedListSize,
+    subgraphWithUnimportedListSizeFromRenamedFederationSpec,
   ])('extracts @listSize from the supergraph', (subgraph: ServiceDefinition) => {
     const result = composeServices([subgraph]);
     assertCompositionSuccess(result);
