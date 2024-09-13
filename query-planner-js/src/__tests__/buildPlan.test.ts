@@ -10124,8 +10124,8 @@ describe('@fromContext impacts on query planning', () => {
       },
     ]);
   });
-  
-  it('fromContext before key resolution transtion', () => {
+
+  it('fromContext before key resolution transition', () => {
     const subgraph1 = {
       name: 'subgraph1',
       url: 'https://Subgraph1',
@@ -10133,24 +10133,24 @@ describe('@fromContext impacts on query planning', () => {
         type Query {
           customer: Customer!
         }
-        
+
         type Identifiers @key(fields: "id") {
           id: ID!
           legacyUserId: ID!
         }
-        
+
         type Customer @key(fields: "id") {
           id: ID!
           child: Child!
           identifiers: Identifiers!
         }
-        
+
         type Child @key(fields: "id") {
           id: ID!
         }
       `,
     };
-    
+
     const subgraph2 = {
       name: 'subgraph2',
       url: 'https://Subgraph2',
@@ -10159,21 +10159,22 @@ describe('@fromContext impacts on query planning', () => {
           id: ID!
           identifiers: Identifiers! @external
         }
-        
+
         type Identifiers @key(fields: "id") {
           id: ID!
           legacyUserId: ID! @external
         }
-        
+
         type Child @key(fields: "id") {
           id: ID!
           prop(
-            legacyUserId: ID @fromContext(field: "$ctx { identifiers { legacyUserId } }")
+            legacyUserId: ID
+              @fromContext(field: "$ctx { identifiers { legacyUserId } }")
           ): String
         }
       `,
     };
-    
+
     const asFed2Service = (service: ServiceDefinition) => {
       return {
         ...service,
@@ -10245,7 +10246,7 @@ describe('@fromContext impacts on query planning', () => {
       }
     `);
   });
-  
+
   it('fromContext efficiently merge fetch groups', () => {
     const subgraph1 = {
       name: 'sg1',
@@ -10259,7 +10260,7 @@ describe('@fromContext impacts on query planning', () => {
         }
       `,
     };
-    
+
     const subgraph2 = {
       name: 'sg2',
       url: 'https://Subgraph2',
@@ -10282,12 +10283,12 @@ describe('@fromContext impacts on query planning', () => {
         }
       `,
     };
-    
+
     const subgraph3 = {
       name: 'sg3',
       url: 'https://Subgraph3',
       typeDefs: gql`
-        type Customer @key(fields: "id") @context(name: "retailCtx")  {
+        type Customer @key(fields: "id") @context(name: "retailCtx") {
           accounts: Accounts @shareable
           id: ID!
           mid: ID @external
@@ -10300,8 +10301,9 @@ describe('@fromContext impacts on query planning', () => {
         }
         type Accounts @key(fields: "id") {
           foo(
-            randomInput: String,
-            ctx_id5: ID @fromContext(field: "$retailCtx { identifiers { id5 } }"),
+            randomInput: String
+            ctx_id5: ID
+              @fromContext(field: "$retailCtx { identifiers { id5 } }")
             ctx_mid: ID @fromContext(field: "$retailCtx { mid }")
           ): Foo
           id: ID!
@@ -10312,12 +10314,14 @@ describe('@fromContext impacts on query planning', () => {
         }
       `,
     };
-    
+
     const subgraph4 = {
       name: 'sg4',
       url: 'https://Subgraph4',
       typeDefs: gql`
-        type Customer @key(fields: "id", resolvable: false) @context(name: "widCtx")  {
+        type Customer
+          @key(fields: "id", resolvable: false)
+          @context(name: "widCtx") {
           accounts: Accounts @shareable
           id: ID!
           identifiers: Identifiers @external
@@ -10330,7 +10334,7 @@ describe('@fromContext impacts on query planning', () => {
 
         type Accounts @key(fields: "id") {
           bar(
-            ctx_wid: ID @fromContext(field: "$widCtx { identifiers { wid } }"),
+            ctx_wid: ID @fromContext(field: "$widCtx { identifiers { wid } }")
           ): Bar
 
           id: ID!
@@ -10339,11 +10343,9 @@ describe('@fromContext impacts on query planning', () => {
         type Bar {
           id: ID
         }
-
       `,
     };
 
-    
     const asFed2Service = (service: ServiceDefinition) => {
       return {
         ...service,
@@ -10357,7 +10359,12 @@ describe('@fromContext impacts on query planning', () => {
       return composeServices(services.map((s) => asFed2Service(s)));
     };
 
-    const result = composeAsFed2Subgraphs([subgraph1, subgraph2, subgraph3, subgraph4]);
+    const result = composeAsFed2Subgraphs([
+      subgraph1,
+      subgraph2,
+      subgraph3,
+      subgraph4,
+    ]);
     expect(result.errors).toBeUndefined();
     const [api, queryPlanner] = [
       result.schema!.toAPISchema(),
