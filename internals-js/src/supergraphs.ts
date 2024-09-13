@@ -1,7 +1,9 @@
 import { DocumentNode, GraphQLError } from "graphql";
-import { ErrCoreCheckFailed, FeatureUrl, FeatureVersion } from "./specs/coreSpec";
 import { CoreFeatures, Schema, sourceASTs } from "./definitions";
+import { ErrCoreCheckFailed, FeatureUrl, FeatureVersion } from "./specs/coreSpec";
 import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from "./specs/joinSpec";
+import { CONTEXT_VERSIONS, ContextSpecDefinition } from "./specs/contextSpec";
+import { COST_VERSIONS, costIdentity, CostSpecDefinition } from "./specs/costSpec";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { extractSubgraphsNamesAndUrlsFromSupergraph, extractSubgraphsFromSupergraph } from "./extractSubgraphsFromSupergraph";
 import { ERRORS } from "./error";
@@ -40,6 +42,7 @@ export const ROUTER_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
   'https://specs.apollo.dev/policy/v0.1',
   'https://specs.apollo.dev/source/v0.1',
   'https://specs.apollo.dev/context/v0.1',
+  'https://specs.apollo.dev/cost/v0.1',
 ]);
 
 const coreVersionZeroDotOneUrl = FeatureUrl.parse('https://specs.apollo.dev/core/v0.1');
@@ -80,11 +83,17 @@ function checkFeatureSupport(coreFeatures: CoreFeatures, supportedFeatures: Set<
   }
 }
 
-export function validateSupergraph(supergraph: Schema): [CoreFeatures, JoinSpecDefinition] {
+export function validateSupergraph(supergraph: Schema): [
+  CoreFeatures,
+  JoinSpecDefinition,
+  ContextSpecDefinition | undefined,
+  CostSpecDefinition | undefined,
+] {
   const coreFeatures = supergraph.coreFeatures;
   if (!coreFeatures) {
     throw ERRORS.INVALID_FEDERATION_SUPERGRAPH.err("Invalid supergraph: must be a core schema");
   }
+
   const joinFeature = coreFeatures.getByIdentity(joinIdentity);
   if (!joinFeature) {
     throw ERRORS.INVALID_FEDERATION_SUPERGRAPH.err("Invalid supergraph: must use the join spec");
@@ -94,7 +103,27 @@ export function validateSupergraph(supergraph: Schema): [CoreFeatures, JoinSpecD
     throw ERRORS.INVALID_FEDERATION_SUPERGRAPH.err(
       `Invalid supergraph: uses unsupported join spec version ${joinFeature.url.version} (supported versions: ${JOIN_VERSIONS.versions().join(', ')})`);
   }
-  return [coreFeatures, joinSpec];
+
+  const contextFeature = coreFeatures.getByIdentity(ContextSpecDefinition.identity);
+  let contextSpec = undefined;
+  if (contextFeature) {
+    contextSpec = CONTEXT_VERSIONS.find(contextFeature.url.version);
+    if (!contextSpec) {
+      throw ERRORS.INVALID_FEDERATION_SUPERGRAPH.err(
+        `Invalid supergraph: uses unsupported context spec version ${contextFeature.url.version} (supported versions: ${CONTEXT_VERSIONS.versions().join(', ')})`);
+    }
+  }
+
+  const costFeature = coreFeatures.getByIdentity(costIdentity);
+  let costSpec = undefined;
+  if (costFeature) {
+    costSpec = COST_VERSIONS.find(costFeature.url.version);
+    if (!costSpec) {
+      throw ERRORS.INVALID_FEDERATION_SUPERGRAPH.err(
+        `Invalid supergraph: uses unsupported cost spec version ${costFeature.url.version} (supported versions: ${COST_VERSIONS.versions().join(', ')})`);
+    }
+  }
+  return [coreFeatures, joinSpec, contextSpec, costSpec];
 }
 
 export function isFed1Supergraph(supergraph: Schema): boolean {

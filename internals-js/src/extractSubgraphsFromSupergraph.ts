@@ -40,7 +40,7 @@ import { parseSelectionSet } from "./operations";
 import fs from 'fs';
 import path from 'path';
 import { validateStringContainsBoolean } from "./utils";
-import { CONTEXT_VERSIONS, ContextSpecDefinition, DirectiveDefinition, errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
+import { ContextSpecDefinition, CostSpecDefinition, SchemaElement, errorCauses, isFederationDirectiveDefinedInSchema, printErrors } from ".";
 
 function filteredTypes(
   supergraph: Schema,
@@ -194,7 +194,7 @@ function typesUsedInFederationDirective(fieldSet: string | undefined, parentType
 }
 
 export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtractedSubgraphs: boolean = true): [Subgraphs, Map<string, string>] {
-  const [coreFeatures, joinSpec] = validateSupergraph(supergraph);
+  const [coreFeatures, joinSpec, contextSpec, costSpec] = validateSupergraph(supergraph);
   const isFed1 = joinSpec.version.equals(new FeatureVersion(0, 1));
   try {
     // We first collect the subgraphs (creating an empty schema that we'll populate next for each).
@@ -228,6 +228,8 @@ export function extractSubgraphsFromSupergraph(supergraph: Schema, validateExtra
        supergraph,
        subgraphs,
        joinSpec,
+       contextSpec,
+       costSpec,
        filteredTypes: types,
        getSubgraph,
        getSubgraphEnumValue,
@@ -291,6 +293,8 @@ type ExtractArguments = {
   supergraph: Schema,
   subgraphs: Subgraphs,
   joinSpec: JoinSpecDefinition,
+  contextSpec: ContextSpecDefinition | undefined,
+  costSpec: CostSpecDefinition | undefined,
   filteredTypes: NamedType[],
   getSubgraph: (application: Directive<any, { graph?: string }>) => Subgraph | undefined,
   getSubgraphEnumValue: (subgraphName: string) => string
@@ -348,7 +352,10 @@ function addAllEmptySubgraphTypes(args: ExtractArguments): TypesInfo {
         for (const application of typeApplications) {
           const subgraph = getSubgraph(application);
           assert(subgraph, () => `Should have found the subgraph for ${application}`);
-          subgraph.schema.addType(newNamedType(type.kind, type.name));
+          const subgraphType = subgraph.schema.addType(newNamedType(type.kind, type.name));
+          if (args.costSpec) {
+            propagateDemandControlDirectives(type, subgraphType, subgraph, args.costSpec);
+          }
         }
         break;
     }
@@ -397,17 +404,8 @@ function addEmptyType<T extends NamedType>(
       }
     }
   }
-  
-  const coreFeatures = supergraph.coreFeatures;
-  assert(coreFeatures, 'Should have core features');
-  const contextFeature = coreFeatures.getByIdentity(ContextSpecDefinition.identity);
-  let supergraphContextDirective: DirectiveDefinition<{ name: string}> | undefined;
-  if (contextFeature) {
-    const contextSpec = CONTEXT_VERSIONS.find(contextFeature.url.version);
-    assert(contextSpec, 'Should have context spec');
-    supergraphContextDirective = contextSpec.contextDirective(supergraph);
-  }
-  
+
+  const supergraphContextDirective = args.contextSpec?.contextDirective(supergraph);
   if (supergraphContextDirective) {
     const contextApplications = type.appliedDirectivesOf(supergraphContextDirective);
     // for every application, apply the context directive to the correct subgraph
@@ -444,13 +442,25 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
       subgraphInfo.type.addImplementedInterface(args.interface);
     }
 
+    if (args.costSpec) {
+      for (const { type: subgraphType, subgraph } of subgraphsInfo.values()) {
+        propagateDemandControlDirectives(type, subgraphType, subgraph, args.costSpec);
+      }
+    }
+
     for (const field of type.fields()) {
       const fieldApplications = field.appliedDirectivesOf(fieldDirective);
       if (fieldApplications.length === 0) {
         // In fed2 subgraph, no @join__field means that the field is in all the subgraphs in which the type is.
         const isShareable = isObjectType(type) && subgraphsInfo.size > 1;
         for (const { type: subgraphType, subgraph } of subgraphsInfo.values()) {
-          addSubgraphField({ field, type: subgraphType, subgraph, isShareable });
+          addSubgraphField({
+            field,
+            type: subgraphType,
+            subgraph,
+            isShareable,
+            costSpec: args.costSpec
+          });
         }
       } else {
         const isShareable = isObjectType(type)
@@ -468,7 +478,13 @@ function extractObjOrItfContent(args: ExtractArguments, info: TypeInfo<ObjectTyp
           }
 
           const { type: subgraphType, subgraph } = subgraphsInfo.get(joinFieldArgs.graph)!;
-          addSubgraphField({ field, type: subgraphType, subgraph, isShareable, joinFieldArgs });
+          addSubgraphField({
+            field,
+            type: subgraphType,
+            subgraph, isShareable,
+            joinFieldArgs,
+            costSpec: args.costSpec
+          });
         }
       }
     }
@@ -484,19 +500,30 @@ function extractInputObjContent(args: ExtractArguments, info: TypeInfo<InputObje
       if (fieldApplications.length === 0) {
         // In fed2 subgraph, no @join__field means that the field is in all the subgraphs in which the type is.
         for (const { type: subgraphType, subgraph } of subgraphsInfo.values()) {
-          addSubgraphInputField({ field, type: subgraphType, subgraph });
+          addSubgraphInputField({
+            field,
+            type: subgraphType,
+            subgraph,
+            costSpec: args.costSpec
+          });
         }
       } else {
         for (const application of fieldApplications) {
-          const args = application.arguments();
+          const joinFieldArgs = application.arguments();
           // We use a @join__field with no graph to indicates when a field in the supergraph does not come
           // directly from any subgraph and there is thus nothing to do to "extract" it.
-          if (!args.graph) {
+          if (!joinFieldArgs.graph) {
             continue;
           }
 
-          const { type: subgraphType, subgraph } = subgraphsInfo.get(args.graph)!;
-          addSubgraphInputField({ field, type: subgraphType, subgraph, joinFieldArgs: args});
+          const { type: subgraphType, subgraph } = subgraphsInfo.get(joinFieldArgs.graph)!;
+          addSubgraphInputField({
+            field,
+            type: subgraphType,
+            subgraph,
+            joinFieldArgs,
+            costSpec: args.costSpec
+          });
         }
       }
     }
@@ -508,6 +535,12 @@ function extractEnumTypeContent(args: ExtractArguments, info: TypeInfo<EnumType>
   const enumValueDirective = args.joinSpec.enumValueDirective(args.supergraph);
 
   for (const { type, subgraphsInfo } of info) {
+    if (args.costSpec) {
+      for (const { type: subgraphType, subgraph } of subgraphsInfo.values()) {
+        propagateDemandControlDirectives(type, subgraphType, subgraph, args.costSpec);
+      }
+    }
+
     for (const value of type.values) {
       const enumValueApplications = enumValueDirective ? value.appliedDirectivesOf(enumValueDirective) : [];
       if (enumValueApplications.length === 0) {
@@ -620,6 +653,24 @@ function maybeDumpSubgraphSchema(subgraph: Subgraph): string {
   }
 }
 
+function propagateDemandControlDirectives(source: SchemaElement<any, any>, dest: SchemaElement<any, any>, subgraph: Subgraph, costSpec: CostSpecDefinition) {
+  const costDirective = costSpec.costDirective(source.schema());
+  if (costDirective) {
+    const application = source.appliedDirectivesOf(costDirective)[0];
+    if (application) {
+      dest.applyDirective(subgraph.metadata().costDirective().name, application.arguments());
+    }
+  }
+
+  const listSizeDirective = costSpec.listSizeDirective(source.schema());
+  if (listSizeDirective) {
+    const application = source.appliedDirectivesOf(listSizeDirective)[0];
+    if (application) {
+      dest.applyDirective(subgraph.metadata().listSizeDirective().name, application.arguments());
+    }
+  }
+}
+
 function errorToString(e: any,): string {
   const causes = errorCauses(e);
   return causes ? printErrors(causes) : String(e);
@@ -631,12 +682,14 @@ function addSubgraphField({
   subgraph,
   isShareable,
   joinFieldArgs,
+  costSpec,
 }: {
   field: FieldDefinition<ObjectType | InterfaceType>,
   type: ObjectType | InterfaceType,
   subgraph: Subgraph,
   isShareable: boolean,
   joinFieldArgs?: JoinFieldDirectiveArguments,
+  costSpec?: CostSpecDefinition,
 }): FieldDefinition<ObjectType | InterfaceType> {
   const copiedFieldType = joinFieldArgs?.type
     ? decodeType(joinFieldArgs.type, subgraph.schema, subgraph.name)
@@ -644,7 +697,10 @@ function addSubgraphField({
 
   const subgraphField = type.addField(field.name, copiedFieldType);
   for (const arg of field.arguments()) {
-    subgraphField.addArgument(arg.name, copyType(arg.type!, subgraph.schema, subgraph.name), arg.defaultValue);
+    const argDef = subgraphField.addArgument(arg.name, copyType(arg.type!, subgraph.schema, subgraph.name), arg.defaultValue);
+    if (costSpec) {
+      propagateDemandControlDirectives(arg, argDef, subgraph, costSpec);
+    }
   }
   if (joinFieldArgs?.requires) {
     subgraphField.applyDirective(subgraph.metadata().requiresDirective(), {'fields': joinFieldArgs.requires});
@@ -689,6 +745,11 @@ function addSubgraphField({
   if (isShareable && !external && !usedOverridden) {
     subgraphField.applyDirective(subgraph.metadata().shareableDirective());
   }
+
+  if (costSpec) {
+    propagateDemandControlDirectives(field, subgraphField, subgraph, costSpec);
+  }
+
   return subgraphField;
 }
 
@@ -697,11 +758,13 @@ function addSubgraphInputField({
   type,
   subgraph,
   joinFieldArgs,
+  costSpec,
 }: {
   field: InputFieldDefinition,
   type: InputObjectType,
   subgraph: Subgraph,
   joinFieldArgs?: JoinFieldDirectiveArguments,
+  costSpec?: CostSpecDefinition,
 }): InputFieldDefinition {
   const copiedType = joinFieldArgs?.type
     ? decodeType(joinFieldArgs?.type, subgraph.schema, subgraph.name)
@@ -709,6 +772,11 @@ function addSubgraphInputField({
 
   const inputField = type.addField(field.name, copiedType);
   inputField.defaultValue = field.defaultValue
+
+  if (costSpec) {
+    propagateDemandControlDirectives(field, inputField, subgraph, costSpec);
+  }
+
   return inputField;
 }
 

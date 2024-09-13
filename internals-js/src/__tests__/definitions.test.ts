@@ -9,12 +9,14 @@ import {
   UnionType,
   InputObjectType,
 } from '../definitions';
-import {
-  printSchema as printGraphQLjsSchema,
-} from 'graphql';
+import { printSchema as printGraphQLjsSchema } from 'graphql';
 import { defaultPrintOptions, printSchema } from '../print';
 import { buildSchema } from '../buildSchema';
-import { buildSubgraph, federationMetadata, newEmptyFederation2Schema } from '../federation';
+import {
+  buildSubgraph,
+  federationMetadata,
+  newEmptyFederation2Schema,
+} from '../federation';
 
 function parseSchema(schema: string): Schema {
   try {
@@ -48,50 +50,71 @@ declare global {
   namespace jest {
     interface Matchers<R> {
       toHaveField(name: string, type?: Type): R;
-      toHaveDirective<TArgs extends {[key: string]: any}>(directive: DirectiveDefinition<TArgs>, args?: TArgs): R;
+      toHaveDirective<TArgs extends { [key: string]: any }>(
+        directive: DirectiveDefinition<TArgs>,
+        args?: TArgs,
+      ): R;
     }
   }
 }
 
 expect.extend({
-  toHaveField(parentType: ObjectType | InterfaceType, name: string, type?: Type) {
+  toHaveField(
+    parentType: ObjectType | InterfaceType,
+    name: string,
+    type?: Type,
+  ) {
     const field = parentType.field(name);
     if (!field) {
       return {
-        message: () => `Cannot find field '${name}' in Object Type ${parentType} with fields [${[...parentType.fields()]}]`,
-        pass: false
+        message: () =>
+          `Cannot find field '${name}' in Object Type ${parentType} with fields [${[
+            ...parentType.fields(),
+          ]}]`,
+        pass: false,
       };
     }
     if (field.name != name) {
       return {
-        message: () => `Type ${parentType} has a field linked to name ${name} but that field name is actually ${field.name}`,
-        pass: false
+        message: () =>
+          `Type ${parentType} has a field linked to name ${name} but that field name is actually ${field.name}`,
+        pass: false,
       };
     }
     if (type && field.type != type) {
       return {
-        message: () => `Expected field ${parentType}.${name} to have type ${type} but got type ${field.type}`,
-        pass: false
+        message: () =>
+          `Expected field ${parentType}.${name} to have type ${type} but got type ${field.type}`,
+        pass: false,
       };
     }
     return {
-      message: () => `Expected ${parentType} not to have field ${name} but it does (${field})`,
-      pass: true
-    }
+      message: () =>
+        `Expected ${parentType} not to have field ${name} but it does (${field})`,
+      pass: true,
+    };
   },
 
-  toHaveDirective(element: SchemaElement<any, any>, definition: DirectiveDefinition, args?: Record<string, any>) {
+  toHaveDirective(
+    element: SchemaElement<any, any>,
+    definition: DirectiveDefinition,
+    args?: Record<string, any>,
+  ) {
     const directives = element.appliedDirectivesOf(definition);
     if (directives.length == 0) {
       return {
-        message: () => `Cannot find directive @${definition} applied to element ${element} (whose applied directives are [${element.appliedDirectives.join(', ')}]`,
-        pass: false
+        message: () =>
+          `Cannot find directive @${definition} applied to element ${element} (whose applied directives are [${element.appliedDirectives.join(
+            ', ',
+          )}]`,
+        pass: false,
       };
     }
     if (!args) {
       return {
-        message: () => `Expected directive @${definition} to not be applied to ${element} but it is`,
-        pass: true
+        message: () =>
+          `Expected directive @${definition} to not be applied to ${element} but it is`,
+        pass: true,
       };
     }
 
@@ -99,34 +122,44 @@ expect.extend({
       if (directive.matchArguments(args)) {
         return {
           // Not 100% certain that message is correct but I don't think it's going to be used ...
-          message: () => `Expected directive ${directive.name} applied to ${element} to have arguments ${JSON.stringify(args)} but got ${JSON.stringify(directive.arguments)}`,
-          pass: true
+          message: () =>
+            `Expected directive ${
+              directive.name
+            } applied to ${element} to have arguments ${JSON.stringify(
+              args,
+            )} but got ${JSON.stringify(directive.arguments)}`,
+          pass: true,
         };
       }
     }
     return {
-      message: () => `Element ${element} has application of directive @${definition} but not with the requested arguments. Got applications: [${directives.join(', ')}]`,
-      pass: false
-    }
+      message: () =>
+        `Element ${element} has application of directive @${definition} but not with the requested arguments. Got applications: [${directives.join(
+          ', ',
+        )}]`,
+      pass: false,
+    };
   },
 });
 
 test('building a simple schema programatically', () => {
   const schema = newEmptyFederation2Schema();
-  const queryType = schema.schemaDefinition.setRoot('query', schema.addType(new ObjectType('Query'))).type;
+  const queryType = schema.schemaDefinition.setRoot(
+    'query',
+    schema.addType(new ObjectType('Query')),
+  ).type;
   const typeA = schema.addType(new ObjectType('A'));
   const key = federationMetadata(schema)!.keyDirective();
 
   queryType.addField('a', typeA);
   typeA.addField('q', queryType);
-  typeA.applyDirective(key, { fields: 'a'});
+  typeA.applyDirective(key, { fields: 'a' });
 
   expect(queryType).toBe(schema.schemaDefinition.root('query')!.type);
   expect(queryType).toHaveField('a', typeA);
   expect(typeA).toHaveField('q', queryType);
-  expect(typeA).toHaveDirective(key, { fields: 'a'});
+  expect(typeA).toHaveDirective(key, { fields: 'a' });
 });
-
 
 test('parse schema and modify', () => {
   const sdl = `
@@ -164,7 +197,10 @@ test('parse schema and modify', () => {
 });
 
 test('removal of all directives of a schema', () => {
-  const subgraph = buildSubgraph('foo', '', `
+  const subgraph = buildSubgraph(
+    'foo',
+    '',
+    `
     schema @foo {
       query: Query
     }
@@ -188,11 +224,12 @@ test('removal of all directives of a schema', () => {
     directive @foo on SCHEMA | FIELD_DEFINITION | OBJECT
     directive @foobar on UNION
     directive @bar on ARGUMENT_DEFINITION | FIELD_DEFINITION
-  `).validate();
+  `,
+  ).validate();
 
   const schema = subgraph.schema;
   for (const element of schema.allSchemaElement()) {
-    element.appliedDirectives.forEach(d => d.remove());
+    element.appliedDirectives.forEach((d) => d.remove());
   }
 
   expect(subgraph.toString()).toMatchString(`
@@ -232,17 +269,20 @@ test('removal of an enum type should remove enum values', () => {
     }
   `);
 
-  const enumType = schema.type("Enum");
-  expectEnumType(enumType)
+  const enumType = schema.type('Enum');
+  expectEnumType(enumType);
   const enumValues = Array.from(enumType.values);
-  enumType.remove()
+  enumType.remove();
   for (const value of enumValues) {
-    expect(value.isAttached()).toBe(false)
+    expect(value.isAttached()).toBe(false);
   }
 });
 
 test('removal of all inaccessible elements of a schema', () => {
-  const subgraph = buildSubgraph('foo', '', `
+  const subgraph = buildSubgraph(
+    'foo',
+    '',
+    `
     schema @foo {
       query: Query
     }
@@ -265,7 +305,8 @@ test('removal of all inaccessible elements of a schema', () => {
     directive @inaccessible on FIELD_DEFINITION | OBJECT | ARGUMENT_DEFINITION | UNION
     directive @foo on SCHEMA | FIELD_DEFINITION
     directive @bar on ARGUMENT_DEFINITION | FIELD_DEFINITION
-  `);
+  `,
+  );
 
   const schema = subgraph.schema;
   const inaccessibleDirective = schema.directive('inaccessible')!;
@@ -475,7 +516,8 @@ test('handling of descriptions', () => {
   // Checking we get back the schema through printing it is mostly good enough, but let's just
   // make sure long descriptions don't get annoying formatting newlines for instance when acessed on the
   // schema directly.
-  const longComment = "Something that explains what the product is. This can just be the title of the product, but this can be more than that if we want to. But it should be useful you know, otherwise our customer won't buy it.";
+  const longComment =
+    "Something that explains what the product is. This can just be the title of the product, but this can be more than that if we want to. But it should be useful you know, otherwise our customer won't buy it.";
   const product = schema.type('Product');
   expectInterfaceType(product);
   expect(product.field('description')!.description).toBe(longComment);
@@ -536,9 +578,18 @@ test('handling of extensions', () => {
 
   const aunion = schema.type('AUnion');
   expectUnionType(aunion);
-  expect([...aunion.types()].map(t => t.name)).toEqual(['AType', 'AType2', 'AType3']);
+  expect([...aunion.types()].map((t) => t.name)).toEqual([
+    'AType',
+    'AType2',
+    'AType3',
+  ]);
 
-  expect(subgraph.toString({ ...defaultPrintOptions, mergeTypesAndExtensions: true })).toMatchString(`
+  expect(
+    subgraph.toString({
+      ...defaultPrintOptions,
+      mergeTypesAndExtensions: true,
+    }),
+  ).toMatchString(`
     directive @foo on SCALAR
 
     type Query {
@@ -666,7 +717,7 @@ describe('type extension where definition is empty', () => {
     expect(schema.type('Foo')?.hasNonExtensionElements()).toBeTruthy();
     expect(schema.type('Foo')?.hasExtensionElements()).toBeTruthy();
   });
-})
+});
 
 test('reject type defined multiple times', () => {
   const sdl = `
@@ -683,7 +734,9 @@ test('reject type defined multiple times', () => {
     }
   `;
 
-  expect(() => buildSchema(sdl).validate()).toThrow('There can be only one type named "Foo"');
+  expect(() => buildSchema(sdl).validate()).toThrow(
+    'There can be only one type named "Foo"',
+  );
 });
 
 test('default arguments for directives', () => {
@@ -718,12 +771,12 @@ test('default arguments for directives', () => {
   const d3 = v3.appliedDirectivesOf(exampleDirective)[0];
 
   expect(d1.arguments()).toEqual({});
-  expect(d2.arguments()).toEqual({ inputObject: {}});
-  expect(d3.arguments()).toEqual({ inputObject: { number: 3 }});
+  expect(d2.arguments()).toEqual({ inputObject: {} });
+  expect(d3.arguments()).toEqual({ inputObject: { number: 3 } });
 
-  expect(d1.arguments(true)).toEqual({ inputObject: { number: 3 }});
-  expect(d2.arguments(true)).toEqual({ inputObject: { number: 3 }});
-  expect(d3.arguments(true)).toEqual({ inputObject: { number: 3 }});
+  expect(d1.arguments(true)).toEqual({ inputObject: { number: 3 } });
+  expect(d2.arguments(true)).toEqual({ inputObject: { number: 3 } });
+  expect(d3.arguments(true)).toEqual({ inputObject: { number: 3 } });
 });
 
 describe('clone', () => {
@@ -741,17 +794,20 @@ describe('clone', () => {
       }
     `).clone();
 
-    expect(schema.elementByCoordinate("@foo")).toBeDefined();
-    expect(schema.elementByCoordinate("@wizz")).toBeDefined();
-    expect(schema.elementByCoordinate("@fuzz")).toBeDefined();
-    expect(schema.elementByCoordinate("@buzz")).toBeDefined();
-    expect(schema.elementByCoordinate("@baz")).toBeDefined();
-    expect(schema.elementByCoordinate("@bar")).toBeDefined();
+    expect(schema.elementByCoordinate('@foo')).toBeDefined();
+    expect(schema.elementByCoordinate('@wizz')).toBeDefined();
+    expect(schema.elementByCoordinate('@fuzz')).toBeDefined();
+    expect(schema.elementByCoordinate('@buzz')).toBeDefined();
+    expect(schema.elementByCoordinate('@baz')).toBeDefined();
+    expect(schema.elementByCoordinate('@bar')).toBeDefined();
   });
 
   // https://github.com/apollographql/federation/issues/1794
   it('should allow using an imported federation diretive in another directive', () => {
-    const schema = buildSubgraph('foo', "", `
+    const schema = buildSubgraph(
+      'foo',
+      '',
+      `
       extend schema
         @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@tag"])
 
@@ -760,9 +816,10 @@ describe('clone', () => {
       type Query {
         hi: String! @foo
       }
-    `).schema.clone();
-    expect(schema.elementByCoordinate("@foo")).toBeDefined();
-    expect(schema.elementByCoordinate("@tag")).toBeDefined();
+    `,
+    ).schema.clone();
+    expect(schema.elementByCoordinate('@foo')).toBeDefined();
+    expect(schema.elementByCoordinate('@tag')).toBeDefined();
   });
 
   it('should allow type use in directives', () => {
@@ -775,7 +832,7 @@ describe('clone', () => {
       }
     `).clone();
 
-    expect(schema.elementByCoordinate("@foo")).toBeDefined();
+    expect(schema.elementByCoordinate('@foo')).toBeDefined();
   });
 
   it('should allow recursive directive definitions', () => {
@@ -787,8 +844,8 @@ describe('clone', () => {
         getData(arg: String @foo): String!
       }
     `).clone();
-    expect(schema.elementByCoordinate("@foo")).toBeDefined();
-    expect(schema.elementByCoordinate("@bar")).toBeDefined();
+    expect(schema.elementByCoordinate('@foo')).toBeDefined();
+    expect(schema.elementByCoordinate('@bar')).toBeDefined();
   });
 });
 
@@ -825,7 +882,9 @@ describe('Conversion to graphQL-js schema', () => {
     `;
     const schema = parseSchema(sdl);
 
-    expect(printGraphQLjsSchema(schema.toGraphQLJSSchema({ includeDefer: true }))).toMatchString(`
+    expect(
+      printGraphQLjsSchema(schema.toGraphQLJSSchema({ includeDefer: true })),
+    ).toMatchString(`
       directive @defer(label: String, if: Boolean! = true) on FRAGMENT_SPREAD | INLINE_FRAGMENT
 
       type Query {
@@ -833,7 +892,11 @@ describe('Conversion to graphQL-js schema', () => {
       }
     `);
 
-    expect(printGraphQLjsSchema(schema.toGraphQLJSSchema({ includeDefer: true, includeStream:  true }))).toMatchString(`
+    expect(
+      printGraphQLjsSchema(
+        schema.toGraphQLJSSchema({ includeDefer: true, includeStream: true }),
+      ),
+    ).toMatchString(`
       directive @defer(label: String, if: Boolean! = true) on FRAGMENT_SPREAD | INLINE_FRAGMENT
 
       directive @stream(label: String, initialCount: Int = 0, if: Boolean! = true) on FIELD
@@ -868,7 +931,9 @@ describe('Conversion to graphQL-js schema', () => {
       }
     `);
 
-    expect(printGraphQLjsSchema(apiSchema.toGraphQLJSSchema({ includeDefer: true }))).toMatchString(`
+    expect(
+      printGraphQLjsSchema(apiSchema.toGraphQLJSSchema({ includeDefer: true })),
+    ).toMatchString(`
       directive @defer(label: String, if: Boolean! = true) on FRAGMENT_SPREAD | INLINE_FRAGMENT
 
       type Query {
@@ -876,7 +941,14 @@ describe('Conversion to graphQL-js schema', () => {
       }
     `);
 
-    expect(printGraphQLjsSchema(apiSchema.toGraphQLJSSchema({ includeDefer: true, includeStream:  true }))).toMatchString(`
+    expect(
+      printGraphQLjsSchema(
+        apiSchema.toGraphQLJSSchema({
+          includeDefer: true,
+          includeStream: true,
+        }),
+      ),
+    ).toMatchString(`
       directive @defer(label: String, if: Boolean! = true) on FRAGMENT_SPREAD | INLINE_FRAGMENT
 
       directive @stream(label: String, initialCount: Int = 0, if: Boolean! = true) on FIELD
@@ -887,7 +959,6 @@ describe('Conversion to graphQL-js schema', () => {
     `);
   });
 });
-
 
 test('retrieving elements by coordinate', () => {
   const sdl = `
@@ -919,14 +990,20 @@ test('retrieving elements by coordinate', () => {
   `;
   const schema = parseSchema(sdl);
 
-  expect(schema.elementByCoordinate('Query')).toBe(schema.schemaDefinition.rootType('query'));
-  expect(schema.elementByCoordinate('Query.t')).toBe(schema.schemaDefinition.rootType('query')?.field('t'));
+  expect(schema.elementByCoordinate('Query')).toBe(
+    schema.schemaDefinition.rootType('query'),
+  );
+  expect(schema.elementByCoordinate('Query.t')).toBe(
+    schema.schemaDefinition.rootType('query')?.field('t'),
+  );
 
   const typeT = schema.type('T') as ObjectType;
   expect(schema.elementByCoordinate('T')).toBe(typeT);
   expect(schema.elementByCoordinate('T.f1')).toBe(typeT.field('f1'));
   expect(schema.elementByCoordinate('T.f2')).toBe(typeT.field('f2'));
-  expect(schema.elementByCoordinate('T.f1(x:)')).toBe(typeT.field('f1')?.argument('x'));
+  expect(schema.elementByCoordinate('T.f1(x:)')).toBe(
+    typeT.field('f1')?.argument('x'),
+  );
 
   const typeI = schema.type('I') as InterfaceType;
   expect(schema.elementByCoordinate('I')).toBe(typeI);
@@ -944,7 +1021,9 @@ test('retrieving elements by coordinate', () => {
 
   const directiveFoo = schema.directive('foo')!;
   expect(schema.elementByCoordinate('@foo')).toBe(directiveFoo);
-  expect(schema.elementByCoordinate('@foo(bar:)')).toBe(directiveFoo.argument('bar'));
+  expect(schema.elementByCoordinate('@foo(bar:)')).toBe(
+    directiveFoo.argument('bar'),
+  );
 
   expect(schema.elementByCoordinate('SomeType')).toBeUndefined();
   expect(schema.elementByCoordinate('T.f3')).toBeUndefined();
@@ -961,7 +1040,7 @@ test('retrieving elements by coordinate', () => {
   expect(() => schema.elementByCoordinate('O.x(foo:)')).toThrow();
   // Note that because 'Date' is a scalar, it cannot have fields
   expect(() => schema.elementByCoordinate('Date.bar')).toThrow();
-})
+});
 
 test('parse error', () => {
   const schema = `
