@@ -31,7 +31,6 @@ import {
   CompositeType,
   Subgraphs,
   JOIN_VERSIONS,
-  INACCESSIBLE_VERSIONS,
   NamedSchemaElement,
   errorCauses,
   isObjectType,
@@ -69,7 +68,6 @@ import {
   CoreSpecDefinition,
   FeatureVersion,
   FEDERATION_VERSIONS,
-  InaccessibleSpecDefinition,
   LinkDirectiveArgs,
   sourceIdentity,
   FeatureUrl,
@@ -81,6 +79,10 @@ import {
   isNullableType,
   isFieldDefinition,
   Post20FederationDirectiveDefinition,
+  DirectiveCompositionSpecification,
+  FeatureDefinition,
+  CoreImport,
+  inaccessibleIdentity,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -345,6 +347,12 @@ interface OverrideArgs {
   label?: string;
 }
 
+interface MergedDirectiveInfo {
+  definition: DirectiveDefinition;
+  argumentsMerger?: ArgumentMerger;
+  staticArgumentTransform?: StaticArgumentsTransform;
+}
+
 class Merger {
   readonly names: readonly string[];
   readonly subgraphsSchema: readonly Schema[];
@@ -353,7 +361,8 @@ class Merger {
   readonly merged: Schema = new Schema();
   readonly subgraphNamesToJoinSpecName: Map<string, string>;
   readonly mergedFederationDirectiveNames = new Set<string>();
-  readonly mergedFederationDirectiveInSupergraph = new Map<string, { definition: DirectiveDefinition, argumentsMerger?: ArgumentMerger, staticArgumentTransform?: StaticArgumentsTransform }>();
+  readonly mergedFederationDirectiveInSupergraphByDirectiveName =
+    new Map<string, MergedDirectiveInfo>();
   readonly enumUsages = new Map<string, EnumTypeUsage>();
   private composeDirectiveManager: ComposeDirectiveManager;
   private mismatchReporter: MismatchReporter;
@@ -364,7 +373,7 @@ class Merger {
   }[];
   private joinSpec: JoinSpecDefinition;
   private linkSpec: CoreSpecDefinition;
-  private inaccessibleSpec: InaccessibleSpecDefinition;
+  private inaccessibleDirectiveInSupergraph?: DirectiveDefinition;
   private latestFedVersionUsed: FeatureVersion;
   private joinDirectiveIdentityURLs = new Set<string>();
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
@@ -375,7 +384,6 @@ class Merger {
     this.latestFedVersionUsed = this.getLatestFederationVersionUsed();
     this.joinSpec = JOIN_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.linkSpec = LINK_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
-    this.inaccessibleSpec = INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.fieldsWithFromContext = this.getFieldsWithFromContextDirective();
     this.fieldsWithOverride = this.getFieldsWithOverrideDirective();
     
@@ -470,59 +478,127 @@ class Merger {
     assert(errors.length === 0, "We shouldn't have errors adding the join spec to the (still empty) supergraph schema");
 
     const directivesMergeInfo = collectCoreDirectivesToCompose(this.subgraphs);
-    for (const mergeInfo of directivesMergeInfo) {
-      this.validateAndMaybeAddSpec(mergeInfo);
-    }
-
+    this.validateAndMaybeAddSpecs(directivesMergeInfo);
     return this.joinSpec.populateGraphEnum(this.merged, this.subgraphs);
   }
 
-  private validateAndMaybeAddSpec({url, name, definitionsPerSubgraph, compositionSpec}: CoreDirectiveInSubgraphs) {
-    // Not composition specification means that it shouldn't be composed.
-    if (!compositionSpec) {
-      return;
-    }
-
-    let nameInSupergraph: string | undefined;
-    for (const subgraph of this.subgraphs) {
-      const directive = definitionsPerSubgraph.get(subgraph.name);
-      if (!directive) {
-        continue;
+  private validateAndMaybeAddSpecs(directivesMergeInfo: CoreDirectiveInSubgraphs[]) {
+    const supergraphInfoByIdentity = new Map<
+      string,
+      {
+        specInSupergraph: FeatureDefinition;
+        directives: {
+          nameInFeature: string;
+          nameInSupergraph: string;
+          compositionSpec: DirectiveCompositionSpecification;
+        }[];
       }
+    >;
 
-      if (!nameInSupergraph) {
-        nameInSupergraph = directive.name;
-      } else if (nameInSupergraph !== directive.name) {
-        this.mismatchReporter.reportMismatchError(
-          ERRORS.LINK_IMPORT_NAME_MISMATCH,
-          `The "@${name}" directive (from ${url}) is imported with mismatched name between subgraphs: it is imported as `,
-          directive,
-          sourcesFromArray(this.subgraphs.values().map((s) => definitionsPerSubgraph.get(s.name))),
-          (def) => `"@${def.name}"`,
-        );
+    for (const {url, name, definitionsPerSubgraph, compositionSpec} of directivesMergeInfo) {
+      // No composition specification means that it shouldn't be composed.
+      if (!compositionSpec) {
         return;
       }
+
+      let nameInSupergraph: string | undefined;
+      for (const subgraph of this.subgraphs) {
+        const directive = definitionsPerSubgraph.get(subgraph.name);
+        if (!directive) {
+          continue;
+        }
+
+        if (!nameInSupergraph) {
+          nameInSupergraph = directive.name;
+        } else if (nameInSupergraph !== directive.name) {
+          this.mismatchReporter.reportMismatchError(
+            ERRORS.LINK_IMPORT_NAME_MISMATCH,
+            `The "@${name}" directive (from ${url}) is imported with mismatched name between subgraphs: it is imported as `,
+            directive,
+            sourcesFromArray(this.subgraphs.values().map((s) => definitionsPerSubgraph.get(s.name))),
+            (def) => `"@${def.name}"`,
+          );
+          return;
+        }
+      }
+
+      // If we get here with `nameInSupergraph` unset, it means there is no usage for the directive at all and we
+      // don't bother adding the spec to the supergraph.
+      if (nameInSupergraph) {
+        const specInSupergraph = compositionSpec.supergraphSpecification(this.latestFedVersionUsed);
+        let supergraphInfo = supergraphInfoByIdentity.get(specInSupergraph.url.identity);
+        if (supergraphInfo) {
+          assert(
+            specInSupergraph.url.equals(supergraphInfo.specInSupergraph.url),
+            `Spec ${specInSupergraph.url} directives disagree on version for supergraph`,
+          );
+        } else {
+          supergraphInfo = {
+            specInSupergraph,
+            directives: [],
+          };
+          supergraphInfoByIdentity.set(specInSupergraph.url.identity, supergraphInfo);
+        }
+        supergraphInfo.directives.push({
+          nameInFeature: name,
+          nameInSupergraph,
+          compositionSpec,
+        });
+      }
     }
 
-    // If we get here with `nameInSupergraph` unset, it means there is no usage for the directive at all and we
-    // don't bother adding the spec to the supergraph.
-    if (nameInSupergraph) {
-      const specInSupergraph = compositionSpec.supergraphSpecification(this.latestFedVersionUsed);
-      const errors = this.linkSpec.applyFeatureAsLink(this.merged, specInSupergraph, specInSupergraph.defaultCorePurpose, [{ name, as: name === nameInSupergraph ? undefined : nameInSupergraph }], );
-      assert(errors.length === 0, "We shouldn't have errors adding the join spec to the (still empty) supergraph schema");
-      const feature = this.merged?.coreFeatures?.getByIdentity(specInSupergraph.url.identity);
-      assert(feature, 'Should have found the feature we just added');
-      const argumentsMerger = compositionSpec.argumentsMerger?.call(null, this.merged, feature);
-      if (argumentsMerger instanceof GraphQLError) {
-        // That would mean we made a mistake in the declaration of a hard-coded directive, so we just throw right away so this can be caught and corrected.
-        throw argumentsMerger;
+    for (const { specInSupergraph, directives } of supergraphInfoByIdentity.values()) {
+      const imports: CoreImport[] = [];
+      for (const { nameInFeature, nameInSupergraph } of directives) {
+        const defaultNameInSupergraph = CoreFeature.directiveNameInSchemaForCoreArguments(
+          specInSupergraph.url,
+          specInSupergraph.url.name,
+          [],
+          nameInFeature,
+        );
+        if (nameInSupergraph !== defaultNameInSupergraph) {
+          imports.push(nameInFeature === nameInSupergraph
+            ? { name: `@${nameInFeature}` }
+            : { name: `@${nameInFeature}`, as: `@${nameInSupergraph}` }
+          );
+        }
       }
-      this.mergedFederationDirectiveNames.add(nameInSupergraph);
-      this.mergedFederationDirectiveInSupergraph.set(name, {
-        definition: this.merged.directive(nameInSupergraph)!,
-        argumentsMerger,
-        staticArgumentTransform: compositionSpec.staticArgumentTransform,
-      });
+      const errors = this.linkSpec.applyFeatureToSchema(
+        this.merged,
+        specInSupergraph,
+        undefined,
+        specInSupergraph.defaultCorePurpose,
+        imports,
+      );
+      assert(
+        errors.length === 0,
+        "We shouldn't have errors adding the join spec to the (still empty) supergraph schema"
+      );
+      const feature = this.merged.coreFeatures?.getByIdentity(specInSupergraph.url.identity);
+      assert(feature, 'Should have found the feature we just added');
+      for (const { nameInFeature, nameInSupergraph, compositionSpec } of directives) {
+        const argumentsMerger = compositionSpec.argumentsMerger?.call(null, this.merged, feature);
+        if (argumentsMerger instanceof GraphQLError) {
+          // That would mean we made a mistake in the declaration of a hard-coded directive,
+          // so we just throw right away so this can be caught and corrected.
+          throw argumentsMerger;
+        }
+        this.mergedFederationDirectiveNames.add(nameInSupergraph);
+        this.mergedFederationDirectiveInSupergraphByDirectiveName.set(nameInSupergraph, {
+          definition: this.merged.directive(nameInSupergraph)!,
+          argumentsMerger,
+          staticArgumentTransform: compositionSpec.staticArgumentTransform,
+        });
+        // If we encounter the @inaccessible directive, we need to record its
+        // definition so certain merge validations that care about @inaccessible
+        // can act accordingly.
+        if (
+          specInSupergraph.identity === inaccessibleIdentity
+            && nameInFeature === specInSupergraph.url.name
+        ) {
+          this.inaccessibleDirectiveInSupergraph = this.merged.directive(nameInSupergraph)!;
+        }
+      }
     }
   }
 
@@ -2464,8 +2540,8 @@ class Merger {
     this.recordAppliedDirectivesToMerge(valueSources, value);
     this.addJoinEnumValue(valueSources, value);
 
-    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(this.inaccessibleSpec.inaccessibleDirectiveSpec.name);
-    const isInaccessible = inaccessibleInSupergraph && value.hasAppliedDirective(inaccessibleInSupergraph.definition);
+    const isInaccessible = this.inaccessibleDirectiveInSupergraph
+      && value.hasAppliedDirective(this.inaccessibleDirectiveInSupergraph);
     // The merging strategy depends on the enum type usage:
     //  - if it is _only_ used in position of Input type, we merge it with an "intersection" strategy (like other input types/things).
     //  - if it is _only_ used in position of Output type, we merge it with an "union" strategy (like other output types/things).
@@ -2562,8 +2638,6 @@ class Merger {
   }
 
   private mergeInput(inputSources: Sources<InputObjectType>, dest: InputObjectType) {
-    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(this.inaccessibleSpec.inaccessibleDirectiveSpec.name);
-
     // Like for other inputs, we add all the fields found in any subgraphs initially as a simple mean to have a complete list of
     // field to iterate over, but we will remove those that are not in all subgraphs.
     const added = this.addFieldsShallow(inputSources, dest);
@@ -2572,7 +2646,8 @@ class Merger {
       // compatibility between definitions and 2) we actually want to see if the result is marked inaccessible or not and it makes
       // that easier.
       this.mergeInputField(subgraphFields, destField);
-      const isInaccessible = inaccessibleInSupergraph && destField.hasAppliedDirective(inaccessibleInSupergraph.definition);
+      const isInaccessible = this.inaccessibleDirectiveInSupergraph
+        && destField.hasAppliedDirective(this.inaccessibleDirectiveInSupergraph);
       // Note that if the field is manually marked @inaccessible, we can always accept it to be inconsistent between subgraphs since
       // it won't be exposed in the API, and we don't hint about it because we're just doing what the user is explicitely asking.
       if (!isInaccessible && someSources(subgraphFields, field => !field)) {
@@ -2840,8 +2915,7 @@ class Merger {
   // is @inaccessible, which is necessary to exist in the supergraph for EnumValues to properly
   // determine whether the fact that a value is both input / output will matter
   private recordAppliedDirectivesToMerge(sources: Sources<SchemaElement<any, any>>, dest: SchemaElement<any, any>) {
-    const inaccessibleInSupergraph = this.mergedFederationDirectiveInSupergraph.get(this.inaccessibleSpec.inaccessibleDirectiveSpec.name);
-    const inaccessibleName = inaccessibleInSupergraph?.definition.name;
+    const inaccessibleName = this.inaccessibleDirectiveInSupergraph?.name;
     const names = this.gatherAppliedDirectiveNames(sources);
 
     if (inaccessibleName && names.has(inaccessibleName)) {
@@ -2905,7 +2979,7 @@ class Merger {
       return;
     }
 
-    const directiveInSupergraph = this.mergedFederationDirectiveInSupergraph.get(name);
+    const directiveInSupergraph = this.mergedFederationDirectiveInSupergraphByDirectiveName.get(name);
     
     if (dest.schema().directive(name)?.repeatable) {
       // For repeatable directives, we simply include each application found but with exact duplicates removed
@@ -2945,7 +3019,7 @@ class Merger {
       if (differentApplications.length === 1) {
         dest.applyDirective(name, differentApplications[0].arguments(false));
       } else {
-        const info = this.mergedFederationDirectiveInSupergraph.get(name);
+        const info = this.mergedFederationDirectiveInSupergraphByDirectiveName.get(name);
         if (info && info.argumentsMerger) {
           const mergedArguments = Object.create(null);
           const applicationsArguments = differentApplications.map((a) => a.arguments(true));
