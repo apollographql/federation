@@ -1930,6 +1930,9 @@ export function getLocallySatisfiableKey(graph: QueryGraph, typeVertex: Vertex):
   assert(metadata, () => `Could not find federation metadata for source ${typeVertex.source}`);
   const keyDirective = metadata.keyDirective();
   for (const key of type.appliedDirectivesOf(keyDirective)) {
+    if (!(key.arguments().resolvable ?? true)) {
+      continue;
+    }
     const selection = parseFieldSetArgument({ parentType: type, directive: key });
     if (!metadata.selectionSelectsAnyExternalField(selection)) {
       return selection;
@@ -2055,10 +2058,10 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   }
   const pathTree = resolution.pathTree;
   const lastEdge = path.lastEdge();
-  if (edge.transition.kind === 'FieldCollection'
+  if ((edge.transition.kind === 'FieldCollection' || edge.transition.kind === 'InterfaceObjectFakeDownCast')
     && lastEdge !== null
     && lastEdge?.transition.kind !== 'KeyResolution'
-    && (!pathTree || pathTree.isAllInSameSubgraph())) {
+    && (!pathTree || !pathTree.isAllInSameSubgraph())) {
 
     debug.log('@requires conditions are satisfied, but validating post-require key.');
     const postRequireKeyCondition = getLocallySatisfiableKey(path.graph, edge.head);
@@ -2324,6 +2327,25 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
           options = options.concat(pathWithOperation);
         }
         debug.groupEnd();
+      }
+    } else if (operation.kind === 'FragmentElement' && path.tailIsInterfaceObject()) {
+      const pathsWithNonCollecting = subgraphSimultaneousPaths.indirectOptions(updatedContext, i);
+      for (const pathWithNonCollecting of pathsWithNonCollecting.paths) {
+        // if (!isInterfaceType(pathWithNonCollecting.tail.type)) {
+        //   continue;
+        // }
+        const { options: pathWithOperation } = advanceWithOperation(
+          supergraphSchema,
+          pathWithNonCollecting,
+          operation,
+          updatedContext,
+          subgraphSimultaneousPaths.conditionResolver,
+          overrideConditions,
+        );
+        if (!pathWithOperation) {
+          continue;
+        }
+        options = options.concat(pathWithOperation);
       }
     }
 
