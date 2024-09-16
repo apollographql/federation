@@ -62,7 +62,7 @@ describe('tests related to @external', () => {
       typeDefs: gql`
         type T @key(fields: "id") {
           id: ID!
-          f(x: Int!): String @shareable
+          f(x: Int): String @shareable
         }
       `,
     };
@@ -73,38 +73,6 @@ describe('tests related to @external', () => {
       ['EXTERNAL_ARGUMENT_MISSING', 'Field "T.f" is missing argument "T.f(x:)" in some subgraphs where it is marked @external: argument "T.f(x:)" is declared in subgraph "subgraphB" but not in subgraph "subgraphA" (where "T.f" is @external).'],
     ]);
   });
-  
-  it('succeeds on @external definition where difference between definitions is an optional argument', () => {
-    const subgraphA = {
-      name: 'subgraphA',
-      typeDefs: gql`
-        type Query {
-          locations: [Location]
-        }
-
-        type Location @key(fields: "id") {
-            id: ID!
-            name: String!
-            photo(smallVersion: Boolean): String! # New optional arg shouldn't break existing clients
-        }
-      `,
-    };
-
-    const subgraphB = {
-      name: 'subgraphB',
-      typeDefs: gql`
-        type Location @key(fields: "id") {
-            id: ID!
-            photo: String! @external
-            banner: String @requires(fields: "photo")
-        }
-      `,
-    };
-
-    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
-    assertCompositionSuccess(result);
-  });
-
 
   it('errors on incompatible argument types in @external declaration', () => {
     const subgraphA = {
