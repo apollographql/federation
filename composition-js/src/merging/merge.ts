@@ -1864,7 +1864,9 @@ class Merger {
         const name = destArg.name;
         const arg = source.argument(name);
         if (!arg) {
-          invalidArgsPresence.add(name);
+          if (!destArg.type || destArg.type.kind === 'NonNullType') {
+            invalidArgsPresence.add(name);
+          }
           continue;
         }
         if (!sameType(destArg.type!, arg.type!) && !this.isStrictSubtype(arg.type!, destArg.type!)) {
