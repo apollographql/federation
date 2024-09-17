@@ -336,6 +336,10 @@ describe('demand control directive composition', () => {
     assertCompositionSuccess(result);
     expect(result.hints).toEqual([]);
 
+    expect(result.schema.directive(`cost`)).toBeDefined();
+    expect(result.schema.directive(`listSize`)).toBeDefined();
+    expect(result.schema.directive(`cost__listSize`)).toBeUndefined();
+
     const costDirectiveApplications = fieldWithCost(result)?.appliedDirectivesOf('cost');
     expect(costDirectiveApplications?.toString()).toMatchString(`@cost(weight: 5)`);
 
@@ -771,6 +775,39 @@ describe('demand control directive extraction', () => {
         type Query {
           b: [Int]
         }  
+      `);
+    });
+
+    it('does not attempt to extract them to the subgraphs with similar spec URL', () => {
+      const subgraphA = {
+        name: 'subgraph-a',
+        typeDefs: asFed2SubgraphDocument(gql`
+          extend schema
+            @link(url: "https://specs.apollo.dev.foo.com/cost/v0.1")
+            @composeDirective(name: "@cost")
+
+          directive @cost(weight: Int!) on FIELD_DEFINITION
+
+          type Query {
+            a: Int @cost(weight: 1)
+          }
+        `)
+      };
+
+      const result = composeServices([subgraphA]);
+      assertCompositionSuccess(result);
+      const supergraph = Supergraph.build(result.supergraphSdl);
+
+      expect(supergraph.subgraphs().get(subgraphA.name)?.toString()).toMatchString(`
+        schema
+          ${FEDERATION2_LINK_WITH_AUTO_EXPANDED_IMPORTS}
+        {
+          query: Query
+        }
+
+        type Query {
+          a: Int
+        }
       `);
     });
   });
