@@ -710,6 +710,12 @@ const CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS = makeCodeDefinition(
   { addedIn: '2.7.0' },
 );
 
+const INVALID_LISTSIZE_USAGE = makeCodeDefinition(
+  'INVALID_LISTSIZE_USAGE',
+  'TBD',
+  { addedIn: '2.9.2' },
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -824,6 +830,7 @@ export const ERRORS = {
   SOURCE_FIELD_SELECTION_INVALID,
   SOURCE_FIELD_NOT_ON_ROOT_OR_ENTITY_FIELD,
   CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS,
+  INVALID_LISTSIZE_USAGE,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

@@ -100,7 +100,7 @@ import {
   SourceFieldDirectiveArgs,
   SourceTypeDirectiveArgs,
 } from "./specs/sourceSpec";
-import { CostDirectiveArguments, ListSizeDirectiveArguments } from "./specs/costSpec";
+import { COST_VERSIONS, CostDirectiveArguments, ListSizeDirectiveArguments, costIdentity } from "./specs/costSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -1733,6 +1733,25 @@ export class FederationBlueprint extends SchemaBlueprint {
           `Invalid use of @shareable on field "${element.coordinate}": only object type fields can be marked with @shareable`,
           { nodes: sourceASTs(shareableApplication, element.parent) },
         ));
+      }
+    }
+
+    // Validate @listSize
+    const costFeature = schema.coreFeatures?.getByIdentity(costIdentity);
+    const costSpec = costFeature && COST_VERSIONS.find(costFeature.url.version);
+    const listSizeDirective = costSpec?.listSizeDirective(schema);
+    console.log(`Has ${listSizeDirective?.applications().size} applications`);
+    for (const application of listSizeDirective?.applications() ?? []) {
+      const parent = application.parent;
+      if (parent instanceof FieldDefinition) {
+        for (const slicingArgument of application.arguments().slicingArguments ?? []) {
+          if (!parent.argument(slicingArgument)) {
+            errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+              `Slicing argument "${slicingArgument}" is not an argument of ${parent.name}`,
+              { nodes: sourceASTs(application) }
+            ));
+          }
+        }
       }
     }
 

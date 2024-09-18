@@ -1484,3 +1484,24 @@ describe('@interfaceObject/@key on interfaces validation', () => {
     ]);
   });
 });
+
+describe('@listSize', () => {
+  describe('slicingArguments', () => {
+    it.only('rejects slicingArguments which are not arguments of the field', () => {
+      const doc = gql`
+        extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
+
+        type Query {
+          field(something: Int): [String] @listSize(slicingArguments: ["missing"])
+        }
+      `;
+
+      expect(buildForErrors(doc)).toStrictEqual([
+        [
+          'INVALID_LISTSIZE_USAGE',
+          'A very important error message'
+        ]
+      ]);
+    });
+  });
+});
