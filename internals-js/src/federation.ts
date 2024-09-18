@@ -1740,16 +1740,39 @@ export class FederationBlueprint extends SchemaBlueprint {
     const costFeature = schema.coreFeatures?.getByIdentity(costIdentity);
     const costSpec = costFeature && COST_VERSIONS.find(costFeature.url.version);
     const listSizeDirective = costSpec?.listSizeDirective(schema);
-    console.log(`Has ${listSizeDirective?.applications().size} applications`);
+
     for (const application of listSizeDirective?.applications() ?? []) {
       const parent = application.parent;
+      // @listSize can only be applied to FIELD_DEFINITION
       if (parent instanceof FieldDefinition) {
+        // Slicing arguments must be one of the field's arguments
         for (const slicingArgument of application.arguments().slicingArguments ?? []) {
           if (!parent.argument(slicingArgument)) {
             errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
-              `Slicing argument "${slicingArgument}" is not an argument of ${parent.name}`,
-              { nodes: sourceASTs(application) }
+              `Slicing argument "${slicingArgument}" is not an argument of "${parent.coordinate}"`,
+              { nodes: sourceASTs(application, parent) }
             ));
+          }
+        }
+
+        const sizedFields = application.arguments().sizedFields ?? [];
+        if (sizedFields.length && parent.type) {
+          if (!isCompositeType(parent.type)) {
+            // The returned type must have fields
+            errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+              `Sized fields cannot be used because "${parent.type}" is not an object type`,
+              { nodes: sourceASTs(application, parent)}
+            ));
+          } else {
+            // Sized fields must be present on the returned type
+            for (const sizedField of application.arguments().sizedFields ?? []) {
+              if (!parent.type.field(sizedField)) {
+                errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+                  `Sized field "${sizedField}" is not a field on type "${parent.type.coordinate}"`,
+                  { nodes: sourceASTs(application, parent) }
+                ));
+              }
+            }
           }
         }
       }

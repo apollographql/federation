@@ -1486,22 +1486,77 @@ describe('@interfaceObject/@key on interfaces validation', () => {
 });
 
 describe('@listSize', () => {
-  describe('slicingArguments', () => {
-    it.only('rejects slicingArguments which are not arguments of the field', () => {
-      const doc = gql`
-        extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
+  it('rejects slicingArguments which are not arguments of the field', () => {
+    const doc = gql`
+      extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
 
-        type Query {
-          field(something: Int): [String] @listSize(slicingArguments: ["missing"])
-        }
-      `;
+      type Query {
+        myField(something: Int): [String] @listSize(slicingArguments: ["missing1", "missing2"])
+        myOtherField(somethingElse: String): [Int] @listSize(slicingArguments: ["alsoMissing"])
+      }
+    `;
 
-      expect(buildForErrors(doc)).toStrictEqual([
-        [
-          'INVALID_LISTSIZE_USAGE',
-          'A very important error message'
-        ]
-      ]);
-    });
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_LISTSIZE_USAGE',
+        `[S] Slicing argument "missing1" is not an argument of "Query.myField"`
+      ],
+      [
+        'INVALID_LISTSIZE_USAGE',
+        `[S] Slicing argument "missing2" is not an argument of "Query.myField"`
+      ],
+      [
+        'INVALID_LISTSIZE_USAGE',
+        `[S] Slicing argument "alsoMissing" is not an argument of "Query.myOtherField"`
+      ]
+    ]);
+  });
+
+  it.only('rejects sizedFields when the field type is not an object', () => {
+    const doc = gql`
+      extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
+
+      type Query {
+        notObject: Int @listSize(assumedSize: 1, sizedFields: ["anything"])
+        a: A @listSize(assumedSize: 5, sizedFields: ["ints"])
+        b: B @listSize(assumedSize: 10, sizedFields: ["ints"])
+      }
+
+      type A {
+        ints: [Int]
+      }
+
+      interface B {
+        ints: [Int]
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_LISTSIZE_USAGE',
+        `[S] Sized fields cannot be used because "Int" is not an object type`
+      ],
+    ]);
+  });
+
+  it('rejects sizedFields which are not fields of the field type', () => {
+    const doc = gql`
+      extend schema @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
+
+      type Query {
+        a: A @listSize(assumedSize: 5, sizedFields: ["notOnA"])
+      }
+
+      type A {
+        ints: [Int]
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'INVALID_LISTSIZE_USAGE',
+        `[S] Sized field "notOnA" is not a field on type "A"`
+      ],
+    ]);
   });
 });
