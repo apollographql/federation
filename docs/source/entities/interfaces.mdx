@@ -84,7 +84,7 @@ type Review {
 }
 ```
 
-Subgraph B could have added `Book.reviews` by [contributing the field](/graphos/schema-development/federated-schemas/entities/contribute-fields) directly to the entity as usual. However, what if we wanted to add `reviews` to a hundred different entity implementations of `Media`?
+Subgraph B could have added `Book.reviews` by [contributing the field](/graphos/schema-design/federated-schemas/entities/contribute-fields) directly to the entity as usual. However, what if we wanted to add `reviews` to a hundred different entity implementations of `Media`?
 
 By instead adding entity fields via `@interfaceObject`, we can avoid redefining a hundred entities in Subgraph B (not to mention adding more definitions whenever a new implementing entity is created). [Learn more.](#why-is-interfaceobject-necessary)
 

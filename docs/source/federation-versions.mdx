@@ -581,7 +581,7 @@ Minimum router version
 </td>
 <td>
 
-Introduced. [Learn more.](/graphos/schema-development/federated-schemas/entities/interfaces)
+Introduced. [Learn more.](/graphos/schema-design/federated-schemas/entities/interfaces)
 
 ```graphql
 directive @interfaceObject on OBJECT
@@ -598,7 +598,7 @@ directive @interfaceObject on OBJECT
 </td>
 <td>
 
-Can now be applied to interface definitions to support [entity interfaces](/graphos/schema-development/federated-schemas/entities/interfaces/).
+Can now be applied to interface definitions to support [entity interfaces](/graphos/schema-design/federated-schemas/entities/interfaces/).
 
 (Previous versions of composition threw an error if `@key` was applied to an interface definition.)
 
@@ -978,7 +978,7 @@ Value types
 <td>
 
 * To define a value type with shared fields across multiple subgraphs, those shared fields must be marked as `@shareable` in every subgraph that defines them.
-* Value type fields can differ across subgraphs (in certain ways). For details, see [Differing shared fields](/graphos/schema-development/federated-schemas/sharing-types#differing-shared-fields).
+* Value type fields can differ across subgraphs (in certain ways). For details, see [Differing shared fields](/graphos/schema-design/federated-schemas/sharing-types#differing-shared-fields).
 
 </td>
 </tr>

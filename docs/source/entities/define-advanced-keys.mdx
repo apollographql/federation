@@ -71,7 +71,7 @@ That means either `id` or (`id` and `sku`) is enough to uniquely identify the en
 
 ### Referencing entities with multiple keys
 
-A subgraph that [references an entity without contributing any fields](/graphos/schema-development/federated-schemas/entities/contribute-fields#referencing-an-entity-without-contributing-fields) can use any `@key` fields in its stub definition. For example, if the Products subgraph defines the `Product` entity like this:
+A subgraph that [references an entity without contributing any fields](/graphos/schema-design/federated-schemas/entities/contribute-fields#referencing-an-entity-without-contributing-fields) can use any `@key` fields in its stub definition. For example, if the Products subgraph defines the `Product` entity like this:
 
 ```graphql {1} title="Products subgraph"
 type Product @key(fields: "id") @key(fields: "sku") {
@@ -242,4 +242,4 @@ type Query {
 
 ## Next steps
 
-If you haven't already, learn how to [contribute entity fields](/graphos/schema-development/federated-schemas/entities/contribute-fields) to the supergraph and [reference them](/graphos/schema-development/federated-schemas/entities/contribute-fields#referencing-an-entity-without-contributing-fields) from subgraphs that don't contribute any fields.
+If you haven't already, learn how to [contribute entity fields](/graphos/schema-design/federated-schemas/entities/contribute-fields) to the supergraph and [reference them](/graphos/schema-design/federated-schemas/entities/contribute-fields#referencing-an-entity-without-contributing-fields) from subgraphs that don't contribute any fields.

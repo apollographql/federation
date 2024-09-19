@@ -55,7 +55,7 @@ type Book {
 
 In Federation 2, this "identical definition" constraint is removed. Value types and their fields can be shared across subgraphs, even if certain details differ between definitions.
 
-For details, see the sections below, along with [Value types](/graphos/schema-development/federated-schemas/sharing-types/).
+For details, see the sections below, along with [Value types](/graphos/schema-design/federated-schemas/sharing-types/).
 
 ### Objects
 
@@ -82,7 +82,7 @@ type Book @shareable {
 
 </CodeColumns>
 
-The two `Book` type definitions above differ in terms of the fields they include and the nullability of those fields. Notice also the new [`@shareable`](/graphos/schema-development/federated-schemas/sharing-types/#using-shareable) directive, which is required to indicate that a field can be resolved by multiple subgraphs.
+The two `Book` type definitions above differ in terms of the fields they include and the nullability of those fields. Notice also the new [`@shareable`](/graphos/schema-design/federated-schemas/sharing-types/#using-shareable) directive, which is required to indicate that a field can be resolved by multiple subgraphs.
 
 <Note>
 
@@ -97,7 +97,7 @@ This flexibility is especially helpful when an organization has multiple standal
 * The return type of a shared field can vary in nullability (`String` / `String!`).
 * Types can omit fields that are included in other subgraphs, as long as every field in your supergraph is always resolvable. (For details, see [Rules of composition](/graphos/reference/federation/composition-rules).)
 
-For details on how these field differences are handled, see [Differing shared fields](/graphos/schema-development/federated-schemas/sharing-types/#differing-shared-fields).
+For details on how these field differences are handled, see [Differing shared fields](/graphos/schema-design/federated-schemas/sharing-types/#differing-shared-fields).
 
 ### Enums, unions, and interfaces
 
@@ -155,7 +155,7 @@ type Product @key(fields: "id") {
 
 </CodeColumns>
 
-For details, see [Contributing entity fields](/graphos/schema-development/federated-schemas/entities/contribute-fields).
+For details, see [Contributing entity fields](/graphos/schema-design/federated-schemas/entities/contribute-fields).
 
 ### Shared entity fields
 
@@ -183,7 +183,7 @@ type Product @key(fields: "id") {
 
 </CodeColumns>
 
-For more information, see [Resolving another subgraph's field](/graphos/schema-development/federated-schemas/entities/resolve-another-subgraphs-fields).
+For more information, see [Resolving another subgraph's field](/graphos/schema-design/federated-schemas/entities/resolve-another-subgraphs-fields).
 
 ### Changes to `@key`
 
@@ -218,7 +218,7 @@ type Review {
 
 In this case, the Reviews subgraph references the `Product` entity by using it as the return type for `Review.product`. However, the subgraph doesn't contribute any unique fields to `Product`, so it doesn't need to define a reference resolver for it. Therefore, the "stub" definition of `Product` in the Reviews subgraph can include `resolvable: false`.
 
-For more information, see [Referencing an entity without contributing fields](/graphos/schema-development/federated-schemas/entities/contribute-fields#contributing-computed-entity-fields).
+For more information, see [Referencing an entity without contributing fields](/graphos/schema-design/federated-schemas/entities/contribute-fields#contributing-computed-entity-fields).
 
 ### Migrating fields
 
@@ -246,7 +246,7 @@ type Bill @key(fields: "id") {
 
 </CodeColumns>
 
-For details, see [Entity migration](/graphos/schema-development/federated-schemas/entities/migrate-fields).
+For details, see [Entity migration](/graphos/schema-design/federated-schemas/entities/migrate-fields).
 
 ## Interfaces implementing interfaces
 
