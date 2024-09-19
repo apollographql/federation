@@ -36,6 +36,7 @@ import {
   isListType,
   isWrapperType,
   possibleRuntimeTypes,
+  isIntType,
 } from "./definitions";
 import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues, assertUnreachable } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -1736,40 +1737,92 @@ export class FederationBlueprint extends SchemaBlueprint {
       }
     }
 
-    // Validate @listSize
     const costFeature = schema.coreFeatures?.getByIdentity(costIdentity);
     const costSpec = costFeature && COST_VERSIONS.find(costFeature.url.version);
+    const costDirective = costSpec?.costDirective(schema);
     const listSizeDirective = costSpec?.listSizeDirective(schema);
 
+    // Validate @cost
+    for (const application of costDirective?.applications() ?? []) {
+      const parent = application.parent;
+      // @cost cannot be used on interfaces https://ibm.github.io/graphql-specs/cost-spec.html#sec-No-Cost-on-Interface-Fields
+      if (parent instanceof FieldDefinition && parent.parent instanceof InterfaceType) {
+        errorCollector.push(ERRORS.INVALID_COST_USAGE.err(
+          `@cost cannot be applied to interface "${parent.coordinate}"`,
+          { nodes: sourceASTs(application, parent) }
+        ));
+      }
+    }
+
+    // Validate @listSize
     for (const application of listSizeDirective?.applications() ?? []) {
       const parent = application.parent;
       // @listSize can only be applied to FIELD_DEFINITION
-      if (parent instanceof FieldDefinition) {
-        // Slicing arguments must be one of the field's arguments
-        for (const slicingArgument of application.arguments().slicingArguments ?? []) {
-          if (!parent.argument(slicingArgument)) {
+      if (parent instanceof FieldDefinition && parent.type) {
+        const { assumedSize, slicingArguments = [], sizedFields = [] } = application.arguments();
+        // @listSize must be applied to a list https://ibm.github.io/graphql-specs/cost-spec.html#sec-Valid-List-Size-Target
+        if (!sizedFields.length && !isListType(parent.type)) {
+          errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+            `"${parent.coordinate}" is not a list`,
+            { nodes: sourceASTs(application, parent) },
+          ));
+        }
+
+        // Validate assumed size, but we differ from https://ibm.github.io/graphql-specs/cost-spec.html#sec-Valid-Assumed-Size.
+        // Assumed size is used as a backup for slicing arguments in the event they are both specified. 
+        // The spec aims to rule out cases when the assumed size will never be used because there is always
+        // a slicing argument. Two applications which are compliant with that validation rule can be merged
+        // into an application which is not compliant, thus we need to handle this case gracefully at runtime regardless.
+        // We omit this check to keep the validations to those that will otherwise cause runtime failures.
+        //
+        // With all that said, assumed size should not be negative.
+        if (assumedSize && assumedSize < 0) {
+          errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+            `Assumed size of "${parent.coordinate}" cannot be negative`,
+            { nodes: sourceASTs(application, parent) },
+          ));
+        }
+
+        // Validate slicingArguments https://ibm.github.io/graphql-specs/cost-spec.html#sec-Valid-Slicing-Arguments-Target
+        for (const slicingArgumentName of slicingArguments) {
+          const slicingArgument = parent.argument(slicingArgumentName);
+          if (!slicingArgument?.type) {
+            // Slicing arguments must be one of the field's arguments
             errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
-              `Slicing argument "${slicingArgument}" is not an argument of "${parent.coordinate}"`,
+              `Slicing argument "${slicingArgumentName}" is not an argument of "${parent.coordinate}"`,
+              { nodes: sourceASTs(application, parent) }
+            ));
+          } else if (!isIntType(slicingArgument.type) && !(isNonNullType(slicingArgument.type) && isIntType(slicingArgument.type.baseType()))) {
+            // Slicing arguments must be Int or Int!
+            errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+              `Slicing argument "${slicingArgument.coordinate}" must be Int or Int!`,
               { nodes: sourceASTs(application, parent) }
             ));
           }
         }
 
-        const sizedFields = application.arguments().sizedFields ?? [];
-        if (sizedFields.length && parent.type) {
+        // Validate sizedFields https://ibm.github.io/graphql-specs/cost-spec.html#sec-Valid-Sized-Fields-Target
+        if (sizedFields.length) {
           if (!isCompositeType(parent.type)) {
-            // The returned type must have fields
+            // The output type must have fields
             errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
               `Sized fields cannot be used because "${parent.type}" is not an object type`,
               { nodes: sourceASTs(application, parent)}
             ));
           } else {
-            // Sized fields must be present on the returned type
-            for (const sizedField of application.arguments().sizedFields ?? []) {
-              if (!parent.type.field(sizedField)) {
+            for (const sizedFieldName of sizedFields) {
+              const sizedField = parent.type.field(sizedFieldName);
+              if (!sizedField) {
+                // Sized fields must be present on the output type
                 errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
-                  `Sized field "${sizedField}" is not a field on type "${parent.type.coordinate}"`,
+                  `Sized field "${sizedFieldName}" is not a field on type "${parent.type.coordinate}"`,
                   { nodes: sourceASTs(application, parent) }
+                ));
+              } else if (!sizedField.type || !isListType(sizedField.type)) {
+                // Sized fields must be lists
+                errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+                  `Sized field "${sizedField.coordinate}" is not a list`,
+                  { nodes: sourceASTs(application, parent) },
                 ));
               }
             }
