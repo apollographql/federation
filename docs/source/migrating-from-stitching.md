@@ -72,7 +72,7 @@ We strongly recommend that you register all of your GraphQL schemas with an [ext
 
 [GraphOS](/graphos#whats-in-graphos) provides a free schema registry that helps you manage your federated gateway's configuration. You provide your gateway a Studio API key on startup, which directs the gateway to download your schemas automatically in a fault-tolerant way.
 
-GraphOS can also provide [schema validation](/graphos/delivery/schema-checks/) to ensure that all changes you make to your subgraphs are compatible with your complete graph.
+GraphOS can also provide [schema validation](/graphos/platform/schema-management/checks/) to ensure that all changes you make to your subgraphs are compatible with your complete graph.
 
 [Learn more about managed configuration.](./managed-federation/overview)
 

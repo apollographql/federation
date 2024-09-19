@@ -20,7 +20,7 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 
     <Note>
     
-    Before you increment a subgraph's federation version, update your router and build pipeline. For details, see [Updating your graph safely](/graphos/deployment/admin/updates).
+    Before you increment a subgraph's federation version, update your router and build pipeline. For details, see [Updating your graph safely](/graphos/reference/migration/updates).
 
     </Note>
 
@@ -71,7 +71,7 @@ Minimum router version
 </td>
 <td>
 
-Introduced. [Learn more](./federated-types/federated-directives/#cost).
+Introduced. [Learn more](/graphos/federation/federated-schemas/federated-directives#cost).
 
 ```graphql
 directive @cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
@@ -88,7 +88,7 @@ directive @cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION |
 </td>
 <td>
 
-Introduced. [Learn more](./federated-types/federated-directives/#listsize).
+Introduced. [Learn more](/graphos/federation/federated-schemas/federated-directives#listsize).
 
 ```graphql
 directive @listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
