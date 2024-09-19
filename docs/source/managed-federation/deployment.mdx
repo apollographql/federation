@@ -358,7 +358,7 @@ To configure a canary deployment for the `prod` graph variant:
 
     * If a previous deployment can't be redeployed, repeat steps 3 and 4 with the `launchID` you want to roll back to. Ensure the deployed subgraphs are compatible with the supergraph schema, then redeploy the router with a newly fetched supergraph schema for your target `launchID`. Before considering only rolling back the supergraph schema, see its [caveats](#roll-back-supergraph-schema-only).
 
-With your canary deployment [reporting metrics to GraphOS](/graphos/monitoring/observability/graphos-metrics/collection), you can use [GraphOS Studio](https://studio.apollographql.com?referrer=docs-content) to verify a canary's performance before rolling out changes to the rest of the graph.
+With your canary deployment [reporting metrics to GraphOS](/graphos/platform/insights/collection), you can use [GraphOS Studio](https://studio.apollographql.com?referrer=docs-content) to verify a canary's performance before rolling out changes to the rest of the graph.
 
 ## Modifying query-planning logic
 
