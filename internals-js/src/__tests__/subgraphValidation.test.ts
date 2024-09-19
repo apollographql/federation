@@ -1501,7 +1501,7 @@ describe('@cost', () => {
 
     expect(buildForErrors(doc)).toStrictEqual([
       [
-        'INVALID_COST_USAGE',
+        'COST_APPLIED_TO_INTERFACE_FIELD',
         `[S] @cost cannot be applied to interface "A.x"`
       ]
     ]);
@@ -1525,7 +1525,7 @@ describe('@listSize', () => {
 
     expect(buildForErrors(doc)).toStrictEqual([
       [
-        'INVALID_LISTSIZE_USAGE',
+        'LIST_SIZE_APPLIED_TO_NON_LIST',
         `[S] "Query.a1" is not a list`,
       ]
     ]);
@@ -1543,7 +1543,7 @@ describe('@listSize', () => {
 
     expect(buildForErrors(doc)).toStrictEqual([
       [
-        'INVALID_LISTSIZE_USAGE',
+        'LIST_SIZE_INVALID_ASSUMED_SIZE',
         `[S] Assumed size of "Query.a" cannot be negative`,
       ]
     ]);
@@ -1561,15 +1561,15 @@ describe('@listSize', () => {
 
     expect(buildForErrors(doc)).toStrictEqual([
       [
-        'INVALID_LISTSIZE_USAGE',
+        'LIST_SIZE_INVALID_SLICING_ARGUMENT',
         `[S] Slicing argument "missing1" is not an argument of "Query.myField"`
       ],
       [
-        'INVALID_LISTSIZE_USAGE',
+        'LIST_SIZE_INVALID_SLICING_ARGUMENT',
         `[S] Slicing argument "missing2" is not an argument of "Query.myField"`
       ],
       [
-        'INVALID_LISTSIZE_USAGE',
+        'LIST_SIZE_INVALID_SLICING_ARGUMENT',
         `[S] Slicing argument "alsoMissing" is not an argument of "Query.myOtherField"`
       ],
     ]);
@@ -1586,7 +1586,7 @@ describe('@listSize', () => {
 
     expect(buildForErrors(doc)).toStrictEqual([
       [
-        'INVALID_LISTSIZE_USAGE',
+        'LIST_SIZE_INVALID_SLICING_ARGUMENT',
         `[S] Slicing argument "Query.sliced(first:)" must be Int or Int!`
       ],
     ]);
@@ -1613,7 +1613,7 @@ describe('@listSize', () => {
 
     expect(buildForErrors(doc)).toStrictEqual([
       [
-        'INVALID_LISTSIZE_USAGE',
+        'LIST_SIZE_INVALID_SIZED_FIELD',
         `[S] Sized fields cannot be used because "Int" is not an object type`
       ],
     ]);
@@ -1634,7 +1634,7 @@ describe('@listSize', () => {
 
     expect(buildForErrors(doc)).toStrictEqual([
       [
-        'INVALID_LISTSIZE_USAGE',
+        'LIST_SIZE_INVALID_SIZED_FIELD',
         `[S] Sized field "notOnA" is not a field on type "A"`
       ],
     ]);
@@ -1655,7 +1655,7 @@ describe('@listSize', () => {
 
     expect(buildForErrors(doc)).toStrictEqual([
       [
-        'INVALID_LISTSIZE_USAGE',
+        'LIST_SIZE_APPLIED_TO_NON_LIST',
         `[S] Sized field "A.notList" is not a list`
       ],
     ]);

@@ -1747,7 +1747,7 @@ export class FederationBlueprint extends SchemaBlueprint {
       const parent = application.parent;
       // @cost cannot be used on interfaces https://ibm.github.io/graphql-specs/cost-spec.html#sec-No-Cost-on-Interface-Fields
       if (parent instanceof FieldDefinition && parent.parent instanceof InterfaceType) {
-        errorCollector.push(ERRORS.INVALID_COST_USAGE.err(
+        errorCollector.push(ERRORS.COST_APPLIED_TO_INTERFACE_FIELD.err(
           `@cost cannot be applied to interface "${parent.coordinate}"`,
           { nodes: sourceASTs(application, parent) }
         ));
@@ -1762,7 +1762,7 @@ export class FederationBlueprint extends SchemaBlueprint {
         const { assumedSize, slicingArguments = [], sizedFields = [] } = application.arguments();
         // @listSize must be applied to a list https://ibm.github.io/graphql-specs/cost-spec.html#sec-Valid-List-Size-Target
         if (!sizedFields.length && !isListType(parent.type)) {
-          errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+          errorCollector.push(ERRORS.LIST_SIZE_APPLIED_TO_NON_LIST.err(
             `"${parent.coordinate}" is not a list`,
             { nodes: sourceASTs(application, parent) },
           ));
@@ -1777,7 +1777,7 @@ export class FederationBlueprint extends SchemaBlueprint {
         //
         // With all that said, assumed size should not be negative.
         if (assumedSize && assumedSize < 0) {
-          errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+          errorCollector.push(ERRORS.LIST_SIZE_INVALID_ASSUMED_SIZE.err(
             `Assumed size of "${parent.coordinate}" cannot be negative`,
             { nodes: sourceASTs(application, parent) },
           ));
@@ -1788,13 +1788,13 @@ export class FederationBlueprint extends SchemaBlueprint {
           const slicingArgument = parent.argument(slicingArgumentName);
           if (!slicingArgument?.type) {
             // Slicing arguments must be one of the field's arguments
-            errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+            errorCollector.push(ERRORS.LIST_SIZE_INVALID_SLICING_ARGUMENT.err(
               `Slicing argument "${slicingArgumentName}" is not an argument of "${parent.coordinate}"`,
               { nodes: sourceASTs(application, parent) }
             ));
           } else if (!isIntType(slicingArgument.type) && !(isNonNullType(slicingArgument.type) && isIntType(slicingArgument.type.baseType()))) {
             // Slicing arguments must be Int or Int!
-            errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+            errorCollector.push(ERRORS.LIST_SIZE_INVALID_SLICING_ARGUMENT.err(
               `Slicing argument "${slicingArgument.coordinate}" must be Int or Int!`,
               { nodes: sourceASTs(application, parent) }
             ));
@@ -1805,7 +1805,7 @@ export class FederationBlueprint extends SchemaBlueprint {
         if (sizedFields.length) {
           if (!isCompositeType(parent.type)) {
             // The output type must have fields
-            errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+            errorCollector.push(ERRORS.LIST_SIZE_INVALID_SIZED_FIELD.err(
               `Sized fields cannot be used because "${parent.type}" is not an object type`,
               { nodes: sourceASTs(application, parent)}
             ));
@@ -1814,13 +1814,13 @@ export class FederationBlueprint extends SchemaBlueprint {
               const sizedField = parent.type.field(sizedFieldName);
               if (!sizedField) {
                 // Sized fields must be present on the output type
-                errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+                errorCollector.push(ERRORS.LIST_SIZE_INVALID_SIZED_FIELD.err(
                   `Sized field "${sizedFieldName}" is not a field on type "${parent.type.coordinate}"`,
                   { nodes: sourceASTs(application, parent) }
                 ));
               } else if (!sizedField.type || !isListType(sizedField.type)) {
                 // Sized fields must be lists
-                errorCollector.push(ERRORS.INVALID_LISTSIZE_USAGE.err(
+                errorCollector.push(ERRORS.LIST_SIZE_APPLIED_TO_NON_LIST.err(
                   `Sized field "${sizedField.coordinate}" is not a list`,
                   { nodes: sourceASTs(application, parent) },
                 ));
