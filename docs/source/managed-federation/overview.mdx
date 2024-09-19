@@ -10,7 +10,7 @@ Apollo GraphOS provides managed federation support for graphs that use Apollo Fe
 
 With managed federation, you maintain subgraphs and delegate GraphOS to manage CI/CD tasks including the validation, composition, and update of your supergraph:
 
-* Your subgraphs publish their schemas to GraphOS, which stores them in its schema registry. GraphOS then [validates](/graphos/schema-development/pipeline/checks) and [composes](/graphos/schema-design/federated-schemas/composition) them into a supergraph schema. 
+* Your subgraphs publish their schemas to GraphOS, which stores them in its schema registry. GraphOS then [validates](/graphos/platform/schema-management/checks) and [composes](/graphos/schema-design/federated-schemas/composition) them into a supergraph schema. 
 
 * Your routers can poll GraphOS&mdash;specifically, its [Apollo Uplink](/graphos/router-configuration/uplink) endpoint&mdash;to get the latest validated supergraph schema and other configurations.
 

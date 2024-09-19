@@ -4,7 +4,7 @@ subtitle: Reference for composition hints
 description: Learn about hints flagged during Apollo Federation schema composition using GraphOS Studio or the Rover CLI.
 ---
 
-When you successfully compose your subgraph schemas into a supergraph schema, the composition process can flag potential improvements or hints. Hints are violations of the [GraphOS schema linter's](/graphos/schema-development/pipeline/checks/linting) [composition rules](/graphos/reference/schema-development/linter-rules#composition-rules). You can review them on the [Checks](/graphos/schema-development/pipeline/checks) page in GraphOS Studio or via the [Rover CLI](/rover/).
+When you successfully compose your subgraph schemas into a supergraph schema, the composition process can flag potential improvements or hints. Hints are violations of the [GraphOS schema linter's](/graphos/platform/schema-management/checks/linting) [composition rules](/graphos/reference/schema-development/linter-rules#composition-rules). You can review them on the [Checks](/graphos/platform/schema-management/checks) page in GraphOS Studio or via the [Rover CLI](/rover/).
 
 <Note>
 
@@ -12,7 +12,7 @@ Composition hints only appear in GraphOS Studio and via the `rover subgraph chec
 
 </Note>
 
-The [`rover subgraph check`](/rover/commands/subgraphs#subgraph-check) command outputs rule violations with the [severity levels](/graphos/schema-development/pipeline/checks/linting/#setting-severity-levels) you've configured for your graph variant. The [`rover supergraph compose`](/rover/commands/supergraphs#supergraph-compose) command outputs rule violations for all local subgraph schemas.
+The [`rover subgraph check`](/rover/commands/subgraphs#subgraph-check) command outputs rule violations with the [severity levels](/graphos/platform/schema-management/checks/linting/#setting-severity-levels) you've configured for your graph variant. The [`rover supergraph compose`](/rover/commands/supergraphs#supergraph-compose) command outputs rule violations for all local subgraph schemas.
 
 See below for a list of composition rules categorized by rule type. The heading for each rule is the code that GraphOS returns for the rule violation. Refer to the [rules reference page](/graphos/reference/schema-development/linter-rules) for a comprehensive list of linter rules.
 

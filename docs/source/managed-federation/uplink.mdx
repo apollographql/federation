@@ -161,7 +161,7 @@ If your supergraph schema does exceed 6MB, you can set up a [build status webhoo
 
 In advanced use cases, you may want your router to use a supergraph schema different than the latest validated schema provided by Uplink. For example, you have different deployment environments for the same [graph variant](/graphos/get-started/concepts/graphs-and-variants#variants), and you want everything that managed federation provides except for your routers to use supergraph schemas specific to their deployment environment.
 
-For this scenario, you can follow a workflow that, instead of retrieving supergraph schemas from Uplink, uses the [GraphOS Platform API](/graphos/reference/platform-api) to retrieve a supergraph schema for a specific [GraphOS launch](/graphos/schema-development/pipeline/delivery/launch). The workflow, in summary:
+For this scenario, you can follow a workflow that, instead of retrieving supergraph schemas from Uplink, uses the [GraphOS Platform API](/graphos/reference/platform-api) to retrieve a supergraph schema for a specific [GraphOS launch](/graphos/platform/schema-management/delivery/launch). The workflow, in summary:
 
 1. When deploying your graphs, publish your subgraphs in a batch using the GraphOS Platform API.
     * The Platform API triggers a launch (and possible downstream launches for contracts) and returns the launch ID (and downstream launch IDs, if necessary).
