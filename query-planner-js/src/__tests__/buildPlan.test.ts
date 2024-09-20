@@ -1281,6 +1281,94 @@ describe('@provides', () => {
 });
 
 describe('@requires', () => {
+  it('basic handle requires', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          k: K
+        }
+
+        type K @key(fields: "id") {
+          id: ID!
+          r: String! @external
+          f: Int! @requires(fields: "r")
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type K @key(fields: "id") {
+          id: ID!
+          r: String!
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          k {
+            f
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // The main goal of this test is to show that the 2 @requires for `f` gets handled seemlessly
+    // into the same fetch group. But note that because the type for `f` differs, the 2nd instance
+    // gets aliased (or the fetch would be invalid graphQL).
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              k {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "k") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on K {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on K {
+                  r
+                }
+              }
+            },
+          },
+          Flatten(path: "k") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on K {
+                  __typename
+                  r
+                  id
+                }
+              } =>
+              {
+                ... on K {
+                  f
+                }
+              }
+            },
+          },
+        },
+      }
+      `);
+  });
   it('handles multiple requires within the same entity fetch', () => {
     const subgraph1 = {
       name: 'Subgraph1',
