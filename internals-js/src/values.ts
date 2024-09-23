@@ -135,8 +135,10 @@ export function valueEquals(a: any, b: any): boolean {
   if (Array.isArray(a)) {
     return Array.isArray(b) && arrayValueEquals(a, b) ;
   }
-  if (typeof a === 'object') {
-    return typeof b === 'object' && objectEquals(a, b);
+  // Note that typeof null === 'object', so we have to manually rule that out
+  // here.
+  if (a !== null && typeof a === 'object') {
+    return b !== null && typeof b === 'object' && objectEquals(a, b);
   }
   return a === b;
 }
@@ -224,8 +226,10 @@ function applyDefaultValues(value: any, type: InputType): any {
       if (fieldValue === undefined) {
         if (field.defaultValue !== undefined) {
           updated[field.name] = applyDefaultValues(field.defaultValue, field.type);
-        } else if (isNonNullType(field.type)) {
-          throw ERRORS.INVALID_GRAPHQL.err(`Field "${field.name}" of required type ${type} was not provided.`);
+        } else if (!isNonNullType(field.type)) {
+          updated[field.name] = null;
+        } else {
+          throw ERRORS.INVALID_GRAPHQL.err(`Required field "${field.name}" of type ${type} was not provided.`);
         }
       } else {
         updated[field.name] = applyDefaultValues(fieldValue, field.type);
@@ -249,8 +253,12 @@ export function withDefaultValues(value: any, argument: ArgumentDefinition<any>)
     throw buildError(`Cannot compute default value for argument ${argument} as the type is undefined`);
   }
   if (value === undefined) {
-    if (argument.defaultValue) {
+    if (argument.defaultValue !== undefined) {
       return applyDefaultValues(argument.defaultValue, argument.type);
+    } else if (!isNonNullType(argument.type)) {
+      return null;
+    } else {
+      throw ERRORS.INVALID_GRAPHQL.err(`Required argument "${argument.coordinate}" was not provided.`);
     }
   }
   return applyDefaultValues(value, argument.type);

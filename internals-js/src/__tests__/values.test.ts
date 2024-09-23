@@ -414,5 +414,6 @@ describe('objectEquals tests', () => {
     expect(valueEquals({ foo: 'foo', bar: undefined }, { foo: 'foo' })).toBe(
       false,
     );
+    expect(valueEquals({}, null)).toBe(false);
   });
 });
