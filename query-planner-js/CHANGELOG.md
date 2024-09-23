@@ -1,5 +1,39 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.9.1
+
+### Patch Changes
+
+- Updated dependencies [[`b8e4ab5352a4dfd262af49493fdd42e86e5e3d99`](https://github.com/apollographql/federation/commit/b8e4ab5352a4dfd262af49493fdd42e86e5e3d99), [`e6c05b6c96023aa3dec79889431f8217fcb3806d`](https://github.com/apollographql/federation/commit/e6c05b6c96023aa3dec79889431f8217fcb3806d)]:
+  - @apollo/federation-internals@2.9.1
+  - @apollo/query-graphs@2.9.1
+
+## 2.9.0
+
+### Patch Changes
+
+- Fix issue where variable was not passed into subgraph when embedded in a fragment ([#3119](https://github.com/apollographql/federation/pull/3119))
+
+- Updated dependencies [[`acfe3193429c7f99b4fc564b20828aaa8659a75c`](https://github.com/apollographql/federation/commit/acfe3193429c7f99b4fc564b20828aaa8659a75c), [`02c2a34a62c3717a4885449172e404f19ebf66c9`](https://github.com/apollographql/federation/commit/02c2a34a62c3717a4885449172e404f19ebf66c9), [`0ccfd937d4b4a576f890665ceebbd7986fac5d0c`](https://github.com/apollographql/federation/commit/0ccfd937d4b4a576f890665ceebbd7986fac5d0c), [`e0a5075c0d12a0e2f7ef303b246e3216a139d3e0`](https://github.com/apollographql/federation/commit/e0a5075c0d12a0e2f7ef303b246e3216a139d3e0)]:
+  - @apollo/query-graphs@2.9.0
+  - @apollo/federation-internals@2.9.0
+
+## 2.8.5
+
+## 🔒 Security
+
+### CVE-2024-43414: Prevent uncontrolled recursion for complex queries
+
+Correct a bug where complex queries can cause uncontrolled recursion due to failure to reduce the number of possible query plans (classified as [CWE-674](https://cwe.mitre.org/data/definitions/674.html)). ([#3128](https://github.com/apollographql/federation/pull/3128))
+
+This weakness impacts all v2 versions of `@apollo/query-planner` prior to this release. See the associated Github Advisory, [GHSA-fmj9-77q8-g6c4](https://github.com/apollographql/federation/security/advisories/GHSA-fmj9-77q8-g6c4), for more information.
+
+##
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.5
+  - @apollo/query-graphs@2.8.5
+
 ## 2.8.4
 
 ### Patch Changes

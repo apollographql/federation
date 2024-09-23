@@ -117,11 +117,6 @@ export abstract class FeatureDefinition {
       .concat(this.typeSpecs().map((spec) => spec.name));
   }
 
-  // No-op implementation that can be overridden by subclasses.
-  validateSubgraphSchema(_schema: Schema): GraphQLError[] {
-    return [];
-  }
-
   protected nameInSchema(schema: Schema): string | undefined {
     const feature = this.featureInSchema(schema);
     return feature?.nameInSchema;
@@ -195,7 +190,8 @@ export type CoreDirectiveArgs = {
   url: undefined,
   feature: string,
   as?: string,
-  for?: string
+  for?: string,
+  import: undefined,
 }
 
 export type LinkDirectiveArgs = {
@@ -203,7 +199,7 @@ export type LinkDirectiveArgs = {
   feature: undefined,
   as?: string,
   for?: string,
-  import?: (string | CoreImport)[]
+  import?: (string | CoreImport)[],
 }
 
 export type CoreOrLinkDirectiveArgs = CoreDirectiveArgs | LinkDirectiveArgs;
@@ -539,36 +535,36 @@ export class CoreSpecDefinition extends FeatureDefinition {
     return feature.url.version;
   }
 
-  applyFeatureToSchema(schema: Schema, feature: FeatureDefinition, as?: string, purpose?: CorePurpose): GraphQLError[] {
+  applyFeatureToSchema(
+    schema: Schema,
+    feature: FeatureDefinition,
+    as?: string,
+    purpose?: CorePurpose,
+    imports?: CoreImport[],
+  ): GraphQLError[] {
     const coreDirective = this.coreDirective(schema);
     const args = {
       [this.urlArgName()]: feature.toString(),
       as,
-    } as CoreDirectiveArgs;
-    if (this.supportPurposes() && purpose) {
-      args.for = purpose;
+    } as CoreOrLinkDirectiveArgs;
+    if (purpose) {
+      if (this.supportPurposes()) {
+        args.for = purpose;
+      } else {
+        return [new GraphQLError(
+          `Cannot apply feature ${feature} with purpose since the schema's @core/@link version does not support it.`
+        )];
+      }
     }
-    schema.schemaDefinition.applyDirective(coreDirective, args);
-    return feature.addElementsToSchema(schema);
-  }
-
-  applyFeatureAsLink(schema: Schema, feature: FeatureDefinition, purpose?: CorePurpose, imports?: CoreImport[]): GraphQLError[] {
-    const existing = schema.schemaDefinition.appliedDirectivesOf(linkDirectiveDefaultName).find((link) => link.arguments().url === feature.toString());
-    if (existing) {
-      existing.remove();
+    if (imports && imports.length > 0) {
+      if (this.supportImport()) {
+        args.import = imports.map(i => i.as ? i : i.name);
+      } else {
+        return [new GraphQLError(
+          `Cannot apply feature ${feature} with imports since the schema's @core/@link version does not support it.`
+        )];
+      }
     }
-
-    const coreDirective = this.coreDirective(schema);
-    const args: LinkDirectiveArgs = {
-      url: feature.toString(),
-      import: (existing?.arguments().import ?? []).concat(imports?.map((i) => i.as ? { name: `@${i.name}`, as: `@${i.as}` } : `@${i.name}`)),
-      feature: undefined,
-    };
-
-    if (this.supportPurposes() && purpose) {
-      args.for = purpose;
-    }
-
     schema.schemaDefinition.applyDirective(coreDirective, args);
     return feature.addElementsToSchema(schema);
   }
@@ -623,7 +619,7 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
     // this._definitions is already sorted with the most recent first
     // get the first definition that is compatible with the federation version
     // if the minimum version is not present, assume that we won't look for an older version
-    const def = this._definitions.find(def => def.minimumFederationVersion ? fedVersion >= def.minimumFederationVersion : true);
+    const def = this._definitions.find(def => def.minimumFederationVersion ? fedVersion.gte(def.minimumFederationVersion) : true);
     assert(def, `No compatible definition exists for federation version ${fedVersion}`);
 
     // note that it's necessary that we can only get versions that have the same major version as the latest,
@@ -675,7 +671,7 @@ export class FeatureVersion {
     let max: FeatureVersion | undefined;
 
     for (const version of versions) {
-      if (!max || version > max) {
+      if (!max || version.gt(max)) {
         max = version;
       }
     }

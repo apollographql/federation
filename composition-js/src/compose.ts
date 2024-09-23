@@ -50,7 +50,7 @@ function validateCompositionOptions(options: CompositionOptions) {
 /**
  * Used to compose a supergraph from subgraphs
  * `options.runSatisfiability` will default to `true`
- * 
+ *
  * @param subgraphs Subgraphs
  * @param options CompositionOptions
  */
@@ -94,7 +94,7 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
 
 /**
  * Method to validate and compose services
- * 
+ *
  * @param services List of Service definitions
  * @param options CompositionOptions
  * @returns CompositionResult
@@ -118,9 +118,9 @@ type SatisfiabilityArgs = {
 
 /**
  * Run satisfiability check for a supergraph
- * 
+ *
  * Can pass either the supergraph's Schema or SDL to validate
- * @param args: SatisfiabilityArgs 
+ * @param args: SatisfiabilityArgs
  * @returns { errors? : GraphQLError[], hints? : CompositionHint[] }
  */
 export function validateSatisfiability({ supergraphSchema, supergraphSdl} : SatisfiabilityArgs) : {
@@ -130,7 +130,7 @@ export function validateSatisfiability({ supergraphSchema, supergraphSdl} : Sati
   // We pass `null` for the `supportedFeatures` to disable the feature support validation. Validating feature support
   // is useful when executing/handling a supergraph, but here we're just validating the supergraph we've just created,
   // and there is no reason to error due to an unsupported feature.
-  const supergraph = supergraphSchema ? new Supergraph(supergraphSchema, null) : Supergraph.build(supergraphSdl);
+  const supergraph = supergraphSchema ? new Supergraph(supergraphSchema, null) : Supergraph.build(supergraphSdl, { supportedFeatures: null });
   const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
   const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
   return validateGraphComposition(supergraph.schema, supergraph.subgraphNameToGraphEnumValue(), supergraphQueryGraph, federatedQueryGraph);
@@ -140,8 +140,8 @@ type ValidateSubgraphsAndMergeResult = MergeResult | { errors: GraphQLError[] };
 
 /**
  * Upgrade subgraphs if necessary, then validates subgraphs before attempting to merge
- * 
- * @param subgraphs 
+ *
+ * @param subgraphs
  * @returns ValidateSubgraphsAndMergeResult
  */
 function validateSubgraphsAndMerge(subgraphs: Subgraphs) : ValidateSubgraphsAndMergeResult {

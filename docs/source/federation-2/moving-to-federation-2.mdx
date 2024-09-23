@@ -168,11 +168,11 @@ You can update your subgraphs one at a time. The steps below describe how to mod
 
 Federation 2 provides powerful new features that require making some changes to your subgraphs. These features include:
 
-- Selectively sharing types and fields across subgraphs with [`@shareable`](../federated-types/federated-directives#shareable)
-- Safely migrating fields from one subgraph to another with [`@override`](../federated-types/federated-directives#override)
-- Hiding internal routing fields from graph consumers with [`@inaccessible`](../federated-types/federated-directives#inaccessible)
+- Selectively sharing types and fields across subgraphs with [`@shareable`](../federated-schemas/federated-directives#shareable)
+- Safely migrating fields from one subgraph to another with [`@override`](../federated-schemas/federated-directives#override)
+- Hiding internal routing fields from graph consumers with [`@inaccessible`](../federated-schemas/federated-directives#inaccessible)
 
-The schema changes you make are backward incompatible with Federation 1, which means you won't be able to use Federation 1 composition anymore unless you revert those changes.
+The schema changes you make are not backward compatible with Federation 1, which means you won't be able to use Federation 1 composition anymore unless you revert those changes.
 
 ### Update your subgraph library
 
@@ -203,7 +203,7 @@ This definition identifies a schema as a Federation 2 schema, and it `import`s a
 
 Depending on your schema, you might need to add other federated directives to the `import` array, such as `@external` or `@provides`.
 
-[See all Federation-specific directives.](../federated-types/federated-directives/)
+[See all Federation-specific directives.](../federated-schemas/federated-directives/)
 
 </Note>
 
@@ -234,7 +234,7 @@ Some subgraph libraries are "code-first" (they dynamically generate their schema
 
 </Note>
 
-Definitions for all Federation 2 directives are available in [this article](../federated-types/federated-directives/). We work with library maintainers to help automatically add these schema definitions in as many subgraph libraries as possible.
+Definitions for all Federation 2 directives are available in [this article](../federated-schemas/federated-directives/). We work with library maintainers to help automatically add these schema definitions in as many subgraph libraries as possible.
 
 ### Mark all value types as `@shareable`
 
@@ -288,7 +288,7 @@ You can also apply `@shareable` directly to a type definition (such as `Position
 
 </Note>
 
-For more details, see [Value types](../federated-types/sharing-types/).
+For more details, see [Value types](../federated-schemas/sharing-types/).
 
 ### Update entity definitions
 

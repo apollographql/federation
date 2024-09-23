@@ -162,15 +162,20 @@ async function withResolvedType<T>({
   info: GraphQLResolveInfo,
   callback: (runtimeType: GraphQLObjectType) => PromiseOrValue<T>,
 }): Promise<T> {
+  const resolvedValue = await value;
+  if (resolvedValue === null) {
+    return resolvedValue;
+  }
+
   const resolveTypeFn = type.resolveType ?? defaultTypeResolver;
-  const runtimeType = resolveTypeFn(await value, context, info, type);
+  const runtimeType = resolveTypeFn(resolvedValue, context, info, type);
   if (isPromise(runtimeType)) {
     return runtimeType.then((name) => (
-      callback(ensureValidRuntimeType(name, info.schema, type, value))
+      callback(ensureValidRuntimeType(name, info.schema, type, resolvedValue))
     ));
   }
 
-  return callback(ensureValidRuntimeType(runtimeType, info.schema, type, value));
+  return callback(ensureValidRuntimeType(runtimeType, info.schema, type, resolvedValue));
 }
 
 function definedResolveReference(type: GraphQLObjectType | GraphQLInterfaceType): GraphQLReferenceResolver<any> | undefined {

@@ -1,5 +1,26 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.9.1
+
+### Patch Changes
+
+- Updated dependencies [[`b8e4ab5352a4dfd262af49493fdd42e86e5e3d99`](https://github.com/apollographql/federation/commit/b8e4ab5352a4dfd262af49493fdd42e86e5e3d99), [`e6c05b6c96023aa3dec79889431f8217fcb3806d`](https://github.com/apollographql/federation/commit/e6c05b6c96023aa3dec79889431f8217fcb3806d)]:
+  - @apollo/federation-internals@2.9.1
+
+## 2.9.0
+
+### Patch Changes
+
+- Updated dependencies [[`02c2a34a62c3717a4885449172e404f19ebf66c9`](https://github.com/apollographql/federation/commit/02c2a34a62c3717a4885449172e404f19ebf66c9), [`0ccfd937d4b4a576f890665ceebbd7986fac5d0c`](https://github.com/apollographql/federation/commit/0ccfd937d4b4a576f890665ceebbd7986fac5d0c), [`e0a5075c0d12a0e2f7ef303b246e3216a139d3e0`](https://github.com/apollographql/federation/commit/e0a5075c0d12a0e2f7ef303b246e3216a139d3e0)]:
+  - @apollo/federation-internals@2.9.0
+
+## 2.8.5
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.8.5
+
 ## 2.8.4
 
 ### Patch Changes
