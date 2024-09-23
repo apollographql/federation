@@ -1,5 +1,13 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.9.1
+
+### Patch Changes
+
+- Fix edge cases for subgraph extraction logic when using spec renaming or specs URLs that look similar to `specs.apollo.dev`. ([#3136](https://github.com/apollographql/federation/pull/3136))
+
+- Fix bugs in composition when merging nulls in directive applications and when handling renames. ([#3134](https://github.com/apollographql/federation/pull/3134))
+
 ## 2.9.0
 
 ### Minor Changes

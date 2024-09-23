@@ -89,17 +89,19 @@ describe('composition of directive with non-trivial argument strategies', () => 
       t: 2, k: 1, b: 4,
     },
   }, {
-    name: 'sum',
-    type: (schema: Schema) => new NonNullType(schema.intType()),
-    compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.SUM,
-    argValues: {
-      s1: { t: 3, k: 1 },
-      s2: { t: 2, k: 5, b: 4 },
-    },
-    resultValues: {
-      t: 5, k: 6, b: 4,
-    },
-  }, {
+  // NOTE: See the note for the SUM strategy in argumentCompositionStrategies.ts
+  // for more information on why this is commented out.
+  //   name: 'sum',
+  //   type: (schema: Schema) => new NonNullType(schema.intType()),
+  //   compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.SUM,
+  //   argValues: {
+  //     s1: { t: 3, k: 1 },
+  //     s2: { t: 2, k: 5, b: 4 },
+  //   },
+  //   resultValues: {
+  //     t: 5, k: 6, b: 4,
+  //   },
+  // }, {
     name: 'intersection',
     type: (schema: Schema) => new NonNullType(new ListType(new NonNullType(schema.stringType()))),
     compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.INTERSECTION,
@@ -219,7 +221,7 @@ describe('composition of directive with non-trivial argument strategies', () => 
     const s = result.schema;
 
     expect(directiveStrings(s.schemaDefinition, name)).toStrictEqual([
-      `@link(url: "https://specs.apollo.dev/${name}/v0.1", import: ["@${name}"])`
+      `@link(url: "https://specs.apollo.dev/${name}/v0.1")`
     ]);
 
     const t = s.type('T') as ObjectType;
