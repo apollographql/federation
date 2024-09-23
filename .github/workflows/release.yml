@@ -25,11 +25,11 @@ jobs:
 
       - name: Install Dependencies
         run: npm i
-        
+
       - name: Set env
         run: echo "FEDERATION_VERSION=$(npm --prefix ./internals-js version --json |jq -r '.["@apollo/federation-internals"]')" >> $GITHUB_ENV
 
-      - name: Create Release Pull Request
+      - name: Create Release Pull Request or Publish to npm
         id: changesets
         uses: changesets/action@v1
         with:
@@ -41,7 +41,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-      
+
       - name: Sleep for 20 seconds (arbitrary, give NPM time to populate new `latest` versions)
         if: steps.changesets.outputs.published == 'true'
         run: sleep 20
@@ -58,7 +58,7 @@ jobs:
               repo: 'federation-rs',
               workflow_id: '.github/workflows/release.yml',
               ref: 'main',
-              inputs: { 
+              inputs: {
                 version: "${{ env.FEDERATION_VERSION }}"
               }
             })
@@ -66,7 +66,7 @@ jobs:
         if: steps.changesets.outputs.published == 'true'
         # write token to the NPM rc file (npm login)
         run: echo //registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }} > ~/.npmrc
-        
+
       - name: Update next tags if appropriate
         if: steps.changesets.outputs.published == 'true'
         run: node scripts/update-next-tags.mjs
