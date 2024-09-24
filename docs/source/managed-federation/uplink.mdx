@@ -35,13 +35,14 @@ To maximize uptime, Uplink is hosted simultaneously at two endpoints, one in GCP
 
 ### GraphOS Router
 
-If you use the GraphOS Router with managed federation, by default it polls Uplink every ten seconds. Every time it does so, it cycles through Uplink endpoints in round-robin fashion.
+If you use the GraphOS Router with managed federation, it polls Uplink every ten seconds by default.
+Each time, it cycles through Uplink endpoints until it receives a response.
 
 Whenever a poll request times out or otherwise fails (the default timeout is thirty seconds), the router continues polling as usual at the next interval. In the meantime, it continues using its most recent successfully obtained configuration.
 
 ### `@apollo/gateway`
 
-If you use the `@apollo/gateway` library with managed federation, by default your gateway polls Uplink every ten seconds. Every time it does so, it cycles through Uplink endpoints in round-robin fashion.
+If you use the `@apollo/gateway` library with managed federation, your gateway polls Uplink every ten seconds by default. Each time, it cycles through Uplink endpoints until it receives a response.
 
 <Note>
 
