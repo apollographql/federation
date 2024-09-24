@@ -1484,3 +1484,188 @@ describe('@interfaceObject/@key on interfaces validation', () => {
     ]);
   });
 });
+
+describe('@cost', () => {
+  it('rejects applications on interfaces', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@cost"])
+
+      type Query {
+        a: A
+      }
+
+      interface A {
+        x: Int @cost(weight: 10)
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'COST_APPLIED_TO_INTERFACE_FIELD',
+        `[S] @cost cannot be applied to interface "A.x"`,
+      ],
+    ]);
+  });
+});
+
+describe('@listSize', () => {
+  it('rejects applications on non-lists (unless it uses sizedFields)', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
+
+      type Query {
+        a1: A @listSize(assumedSize: 5)
+        a2: A @listSize(assumedSize: 10, sizedFields: ["ints"])
+      }
+
+      type A {
+        ints: [Int]
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([
+      ['LIST_SIZE_APPLIED_TO_NON_LIST', `[S] "Query.a1" is not a list`],
+    ]);
+  });
+
+  it('rejects negative assumedSize', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
+
+      type Query {
+        a: [Int] @listSize(assumedSize: -5)
+        b: [Int] @listSize(assumedSize: 0)
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'LIST_SIZE_INVALID_ASSUMED_SIZE',
+        `[S] Assumed size of "Query.a" cannot be negative`,
+      ],
+    ]);
+  });
+
+  it('rejects slicingArguments which are not arguments of the field', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
+
+      type Query {
+        myField(something: Int): [String]
+          @listSize(slicingArguments: ["missing1", "missing2"])
+        myOtherField(somethingElse: String): [Int]
+          @listSize(slicingArguments: ["alsoMissing"])
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'LIST_SIZE_INVALID_SLICING_ARGUMENT',
+        `[S] Slicing argument "missing1" is not an argument of "Query.myField"`,
+      ],
+      [
+        'LIST_SIZE_INVALID_SLICING_ARGUMENT',
+        `[S] Slicing argument "missing2" is not an argument of "Query.myField"`,
+      ],
+      [
+        'LIST_SIZE_INVALID_SLICING_ARGUMENT',
+        `[S] Slicing argument "alsoMissing" is not an argument of "Query.myOtherField"`,
+      ],
+    ]);
+  });
+
+  it('rejects slicingArguments which are not Int or Int!', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
+
+      type Query {
+        sliced(first: String, second: Int, third: Int!): [String]
+          @listSize(slicingArguments: ["first", "second", "third"])
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'LIST_SIZE_INVALID_SLICING_ARGUMENT',
+        `[S] Slicing argument "Query.sliced(first:)" must be Int or Int!`,
+      ],
+    ]);
+  });
+
+  it('rejects sizedFields when the output type is not an object', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
+
+      type Query {
+        notObject: Int @listSize(assumedSize: 1, sizedFields: ["anything"])
+        a: A @listSize(assumedSize: 5, sizedFields: ["ints"])
+        b: B @listSize(assumedSize: 10, sizedFields: ["ints"])
+      }
+
+      type A {
+        ints: [Int]
+      }
+
+      interface B {
+        ints: [Int]
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'LIST_SIZE_INVALID_SIZED_FIELD',
+        `[S] Sized fields cannot be used because "Int" is not an object type`,
+      ],
+    ]);
+  });
+
+  it('rejects sizedFields which are not fields of the output type', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
+
+      type Query {
+        a: A @listSize(assumedSize: 5, sizedFields: ["notOnA"])
+      }
+
+      type A {
+        ints: [Int]
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'LIST_SIZE_INVALID_SIZED_FIELD',
+        `[S] Sized field "notOnA" is not a field on type "A"`,
+      ],
+    ]);
+  });
+
+  it('rejects sizedFields which are not lists', () => {
+    const doc = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
+
+      type Query {
+        a: A @listSize(assumedSize: 5, sizedFields: ["notList"])
+      }
+
+      type A {
+        notList: String
+      }
+    `;
+
+    expect(buildForErrors(doc)).toStrictEqual([
+      [
+        'LIST_SIZE_APPLIED_TO_NON_LIST',
+        `[S] Sized field "A.notList" is not a list`,
+      ],
+    ]);
+  });
+});
