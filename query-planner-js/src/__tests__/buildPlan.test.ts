@@ -9164,7 +9164,7 @@ describe('@fromContext impacts on query planning', () => {
               } =>
               {
                 ... on U {
-                  field(a: $contextualArgument_1_0)
+                  field(a: $contextualArgument_2_0)
                 }
               }
             },
@@ -9176,7 +9176,7 @@ describe('@fromContext impacts on query planning', () => {
       {
         kind: 'KeyRenamer',
         path: ['..', '... on T', 'prop'],
-        renameKeyTo: 'contextualArgument_1_0',
+        renameKeyTo: 'contextualArgument_2_0',
       },
     ]);
   });
