@@ -1584,8 +1584,16 @@ describe('@listSize', () => {
         @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
 
       type Query {
-        sliced(first: String, second: Int, third: Int!): [String]
-          @listSize(slicingArguments: ["first", "second", "third"])
+        sliced(
+          first: String
+          second: Int
+          third: Int!
+          fourth: [Int]
+          fifth: [Int]!
+        ): [String]
+          @listSize(
+            slicingArguments: ["first", "second", "third", "fourth", "fifth"]
+          )
       }
     `;
 
@@ -1593,6 +1601,14 @@ describe('@listSize', () => {
       [
         'LIST_SIZE_INVALID_SLICING_ARGUMENT',
         `[S] Slicing argument "Query.sliced(first:)" must be Int or Int!`,
+      ],
+      [
+        'LIST_SIZE_INVALID_SLICING_ARGUMENT',
+        `[S] Slicing argument "Query.sliced(fourth:)" must be Int or Int!`,
+      ],
+      [
+        'LIST_SIZE_INVALID_SLICING_ARGUMENT',
+        `[S] Slicing argument "Query.sliced(fifth:)" must be Int or Int!`,
       ],
     ]);
   });
@@ -1620,7 +1636,7 @@ describe('@listSize', () => {
     expect(buildForErrors(doc)).toStrictEqual([
       [
         'LIST_SIZE_INVALID_SIZED_FIELD',
-        `[S] Sized fields cannot be used because "Int" is not an object type`,
+        `[S] Sized fields cannot be used because "Int" is not a composite type`,
       ],
     ]);
   });
@@ -1653,10 +1669,16 @@ describe('@listSize', () => {
         @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
 
       type Query {
-        a: A @listSize(assumedSize: 5, sizedFields: ["notList"])
+        a: A
+          @listSize(
+            assumedSize: 5
+            sizedFields: ["list", "nonNullList", "notList"]
+          )
       }
 
       type A {
+        list: [String]
+        nonNullList: [String]!
         notList: String
       }
     `;
