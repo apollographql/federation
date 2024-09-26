@@ -37,8 +37,9 @@ import {
   isWrapperType,
   possibleRuntimeTypes,
   isIntType,
+  Type,
 } from "./definitions";
-import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues, assertUnreachable, isDefined } from "./utils";
+import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues, assertUnreachable } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
 import { specifiedSDLRules } from "graphql/validation/specifiedRules";
 import {
@@ -1097,12 +1098,16 @@ function validateAssumedSizeNotNegative(
   // We omit this check to keep the validations to those that will otherwise cause runtime failures.
   //
   // With all that said, assumed size should not be negative.
-  if (isDefined(assumedSize) && assumedSize < 0) {
+  if (assumedSize !== undefined && assumedSize !== null && assumedSize < 0) {
     errorCollector.push(ERRORS.LIST_SIZE_INVALID_ASSUMED_SIZE.err(
       `Assumed size of "${parent.coordinate}" cannot be negative`,
       { nodes: sourceASTs(application, parent) },
     ));
   }
+}
+
+function isNonNullIntType(ty: Type): boolean {
+  return isNonNullType(ty) && isIntType(ty.ofType)
 }
 
 function validateSlicingArgumentsAreValidIntegers(
@@ -1120,7 +1125,7 @@ function validateSlicingArgumentsAreValidIntegers(
         `Slicing argument "${slicingArgumentName}" is not an argument of "${parent.coordinate}"`,
         { nodes: sourceASTs(application, parent) }
       ));
-    } else if (!isIntType(slicingArgument.type) && !(isNonNullType(slicingArgument.type) && isIntType(slicingArgument.type.baseType()))) {
+    } else if (!isIntType(slicingArgument.type) && !isNonNullIntType(slicingArgument.type)) {
       // Slicing arguments must be Int or Int!
       errorCollector.push(ERRORS.LIST_SIZE_INVALID_SLICING_ARGUMENT.err(
         `Slicing argument "${slicingArgument.coordinate}" must be Int or Int!`,
@@ -1128,6 +1133,10 @@ function validateSlicingArgumentsAreValidIntegers(
       ));
     }
   }
+}
+
+function isNonNullListType(ty: Type): boolean {
+  return isNonNullType(ty) && isListType(ty.ofType)
 }
 
 function validateSizedFieldsAreValidLists(
@@ -1141,7 +1150,7 @@ function validateSizedFieldsAreValidLists(
     if (!parent.type || !isCompositeType(parent.type)) {
       // The output type must have fields
       errorCollector.push(ERRORS.LIST_SIZE_INVALID_SIZED_FIELD.err(
-        `Sized fields cannot be used because "${parent.type}" is not an object type`,
+        `Sized fields cannot be used because "${parent.type}" is not a composite type`,
         { nodes: sourceASTs(application, parent)}
       ));
     } else {
@@ -1153,7 +1162,7 @@ function validateSizedFieldsAreValidLists(
             `Sized field "${sizedFieldName}" is not a field on type "${parent.type.coordinate}"`,
             { nodes: sourceASTs(application, parent) }
           ));
-        } else if (!sizedField.type || !isListType(sizedField.type)) {
+        } else if (!sizedField.type || !(isListType(sizedField.type) || isNonNullListType(sizedField.type))) {
           // Sized fields must be lists
           errorCollector.push(ERRORS.LIST_SIZE_APPLIED_TO_NON_LIST.err(
             `Sized field "${sizedField.coordinate}" is not a list`,
