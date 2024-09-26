@@ -3615,6 +3615,7 @@ describe('named fragments', () => {
             Deferred(depends: [0], path: "t") {
               {
                 ... on T {
+                  __typename
                   y
                 }
               }:

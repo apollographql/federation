@@ -170,6 +170,17 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   baseType(): NamedType {
     return baseType(this.definition.type!);
   }
+
+  copy(): Field<TArgs> {
+    const newField = new Field<TArgs>(
+      this.definition,
+      this.args,
+      this.appliedDirectives,
+      this.alias,
+    );
+    this.copyAttachmentsTo(newField);
+    return newField;
+  }
   
   withUpdatedArguments(newArgs: TArgs): Field<TArgs> {
     const newField = new Field<TArgs>(
@@ -3030,18 +3041,6 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     super(field);
   }
 
-  withAttachment(key: string, value: string): FieldSelection {
-    const field = (this.element as Field);
-    const updatedField = new Field(
-        field.definition,
-        field.args,
-        field.appliedDirectives,
-        field.alias
-    );
-    updatedField.addAttachment(key, value);
-    return this.withUpdatedElement(updatedField);
-  }
-
   get selectionSet(): SelectionSet | undefined {
     return this._selectionSet;
   }
@@ -3052,6 +3051,12 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
 
   isTypenameField(): boolean {
     return this.element.definition.name === typenameFieldName;
+  }
+
+  withAttachment(key: string, value: string): FieldSelection {
+    const updatedField = this.element.copy();
+    updatedField.addAttachment(key, value);
+    return this.withUpdatedElement(updatedField);
   }
 
   withUpdatedComponents(field: Field<any>, selectionSet: SelectionSet | undefined): FieldSelection {

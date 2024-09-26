@@ -3392,10 +3392,10 @@ export class QueryPlanner {
    * implements an alternative: to avoid the query planning spending time of exploring options for
    * __typename, we "remove" the __typename selections from the operation. But of course, we still
    * need to ensure that __typename is effectively queried, so as we do that removal, we also "tag"
-   * one of the "sibling" selection (using `addAttachement`) to remember that __typename needs to
+   * one of the "sibling" selection (using `addAttachment`) to remember that __typename needs to
    * be added back eventually. The core query planning algorithm will ignore that tag, and because
    * __typename has been otherwise removed, we'll save any related work. But as we build the final
-   * query plan, we'll check back for those "tags" (see `getAttachement` in `computeGroupsForTree`),
+   * query plan, we'll check back for those "tags" (see `getAttachment` in `computeGroupsForTree`),
    * and when we fine one, we'll add back the request to __typename. As this only happen after the
    * query planning algorithm has computed all choices, we achieve our goal of not considering useless
    * choices due to __typename. Do note that if __typename is the "only" selection of some selection
@@ -3447,6 +3447,9 @@ export class QueryPlanner {
         }
         if (!firstFieldSelection && updated.kind === 'FieldSelection') {
           firstFieldSelection = updated;
+          firstFieldIndex = updatedSelections
+            ? updatedSelections.length
+            : i;
         }
       }
 
@@ -3460,9 +3463,6 @@ export class QueryPlanner {
       }
       // Record the (potentially updated) selection if we're creating a new selection set, and said selection is not discarded.
       if (updatedSelections && !!updated) {
-        if (updated === firstFieldSelection) {
-          firstFieldIndex = updatedSelections.length;
-        }
         updatedSelections.push(updated);
       }
     }
@@ -4336,7 +4336,7 @@ function computeGroupsForTree(
           const typenameAttachment = operation.getAttachment(SIBLING_TYPENAME_KEY);
           if (typenameAttachment !== undefined) {
             // We need to add the query __typename for the current type in the current group.
-            // Note that the value of the "attachement" is the alias or '' if there is no alias
+            // Note that the value of the "attachment" is the alias or '' if there is no alias
             const alias = typenameAttachment === '' ? undefined : typenameAttachment;
             const typenameField = new Field(operation.parentType.typenameField()!, undefined, undefined, alias);
             group.addAtPath(path.inGroup().concat(typenameField));
@@ -4641,7 +4641,7 @@ function addBackTypenameInAttachments(selectionSet: SelectionSet): SelectionSet 
       return updated;
     } else {
       // We need to add the query __typename for the current type in the current group.
-      // Note that the value of the "attachement" is the alias or '' if there is no alias
+      // Note that the value of the "attachment" is the alias or '' if there is no alias
       const alias = typenameAttachment === '' ? undefined : typenameAttachment;
       const typenameField = new Field(s.element.parentType.typenameField()!, undefined, undefined, alias);
       return [
