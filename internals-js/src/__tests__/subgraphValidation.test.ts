@@ -1584,8 +1584,16 @@ describe('@listSize', () => {
         @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
 
       type Query {
-        sliced(first: String, second: Int, third: Int!, fourth: [Int], fifth: [Int]!): [String]
-          @listSize(slicingArguments: ["first", "second", "third", "fourth", "fifth"])
+        sliced(
+          first: String
+          second: Int
+          third: Int!
+          fourth: [Int]
+          fifth: [Int]!
+        ): [String]
+          @listSize(
+            slicingArguments: ["first", "second", "third", "fourth", "fifth"]
+          )
       }
     `;
 
@@ -1661,7 +1669,11 @@ describe('@listSize', () => {
         @link(url: "https://specs.apollo.dev/cost/v0.1", import: ["@listSize"])
 
       type Query {
-        a: A @listSize(assumedSize: 5, sizedFields: ["list", "nonNullList", "notList"])
+        a: A
+          @listSize(
+            assumedSize: 5
+            sizedFields: ["list", "nonNullList", "notList"]
+          )
       }
 
       type A {
