@@ -142,8 +142,8 @@ describe('generate query fragments', () => {
     `);
 
     const operation = parseOperation(
-        schema,
-        `
+      schema,
+      `
       query Foo($flag: Boolean!) {
         foo {
           a1
