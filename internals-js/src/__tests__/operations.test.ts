@@ -90,7 +90,6 @@ describe('generate query fragments', () => {
     );
 
     const withGeneratedFragments = operation.generateQueryFragments();
-    console.log(withGeneratedFragments.toString());
     expect(withGeneratedFragments.toString()).toMatchString(`
       fragment _generated_onB1_0 on B {
         ... on B {
@@ -109,6 +108,83 @@ describe('generate query fragments', () => {
       {
         entities {
           ..._generated_onB1_2
+        }
+      }
+    `);
+  });
+
+  test('minimizes all sub selections', () => {
+    const schema = parseSchema(`
+      type Query {
+        foo: A
+      }
+
+      type A {
+        a1: Int
+        a2: I
+      }
+      
+      interface I {
+        i: Int
+      }
+
+      type B implements I {
+        i: Int
+        b1: String
+        b2: I
+      }
+      
+      type C implements I {
+        i: Int
+        c1: Int
+        c2: String
+      }
+    `);
+
+    const operation = parseOperation(
+        schema,
+        `
+      query Foo($flag: Boolean!) {
+        foo {
+          a1
+          a2 {
+            i
+            ... on B @include(if: $flag) {
+              b1
+              b2 {
+                i
+                ... on C {
+                  c1
+                  c2
+                }
+              }
+            }
+          }
+        }
+      }
+    `,
+    );
+
+    const withGeneratedFragments = operation.generateQueryFragments();
+    expect(withGeneratedFragments.toString()).toMatchString(`
+      fragment _generated_onC2_0 on C {
+        c1
+        c2
+      }
+    
+      query Foo($flag: Boolean!) {
+        foo {
+          a1
+          a2 {
+            i
+            ... on B @include(if: $flag) {
+              b1
+              b2 {
+                i
+                ..._generated_onC2_0
+              }
+            }
+          }
         }
       }
     `);
