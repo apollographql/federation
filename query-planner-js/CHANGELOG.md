@@ -1,5 +1,19 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.9.2
+
+### Patch Changes
+
+- Fixes handling of a `__typename` selection during query planning process. ([#3156](https://github.com/apollographql/federation/pull/3156))
+
+  When expanding fragments we were keeping references to the same `Field`s regardless where those fragments appeared in our original selection set. This was generally fine as in most cases we would have same inline fragment selection sets across whole operation but was causing problems when we were applying another optimization by collapsing those expanded inline fragments creating a new selection set. As a result, if any single field selection (within that fragment) would perform optimization around the usage of `__typename`, ALL occurrences of that field selection would get that optimization as well.
+
+- Fixes issue where contextual parameters can have naming collisions if used in multiple subgraphs ([#3155](https://github.com/apollographql/federation/pull/3155))
+
+- Updated dependencies [[`2192f355f50db33fe0807d16153f357696b9f190`](https://github.com/apollographql/federation/commit/2192f355f50db33fe0807d16153f357696b9f190), [`e1e2605b30efc488b57f62ba43436606a38a3607`](https://github.com/apollographql/federation/commit/e1e2605b30efc488b57f62ba43436606a38a3607), [`5ac01b534318105e904c1e6598070f753add3bb1`](https://github.com/apollographql/federation/commit/5ac01b534318105e904c1e6598070f753add3bb1)]:
+  - @apollo/federation-internals@2.9.2
+  - @apollo/query-graphs@2.9.2
+
 ## 2.9.1
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.9.2
+
+### Patch Changes
+
+- Fixes issue where contextual parameters can have naming collisions if used in multiple subgraphs ([#3155](https://github.com/apollographql/federation/pull/3155))
+
+- Updated dependencies [[`2192f355f50db33fe0807d16153f357696b9f190`](https://github.com/apollographql/federation/commit/2192f355f50db33fe0807d16153f357696b9f190), [`5ac01b534318105e904c1e6598070f753add3bb1`](https://github.com/apollographql/federation/commit/5ac01b534318105e904c1e6598070f753add3bb1)]:
+  - @apollo/federation-internals@2.9.2
+
 ## 2.9.1
 
 ### Patch Changes
