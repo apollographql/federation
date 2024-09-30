@@ -1658,10 +1658,10 @@ export class SelectionSet {
         }
 
         return new FragmentSpreadSelection(this.parentType, namedFragments, fragmentDefinition, []);
-      } else if (selection.kind === 'FieldSelection') {
-        if (selection.selectionSet) {
-          selection = selection.withUpdatedSelectionSet(selection.selectionSet.minimizeSelectionSet(namedFragments, seenSelections)[0]);
-        }
+      }
+
+      if (selection.selectionSet) {
+        selection = selection.withUpdatedSelectionSet(selection.selectionSet.minimizeSelectionSet(namedFragments, seenSelections)[0]);
       }
       return selection;
     });
