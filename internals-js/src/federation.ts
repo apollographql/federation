@@ -36,6 +36,8 @@ import {
   isListType,
   isWrapperType,
   possibleRuntimeTypes,
+  isIntType,
+  Type,
 } from "./definitions";
 import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues, assertUnreachable } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -100,7 +102,7 @@ import {
   SourceFieldDirectiveArgs,
   SourceTypeDirectiveArgs,
 } from "./specs/sourceSpec";
-import { CostDirectiveArguments, ListSizeDirectiveArguments } from "./specs/costSpec";
+import { COST_VERSIONS, CostDirectiveArguments, ListSizeDirectiveArguments, costIdentity } from "./specs/costSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -1055,6 +1057,123 @@ function validateShareableNotRepeatedOnSameDeclaration(
     }
   }
 }
+
+function validateCostNotAppliedToInterface(application: Directive<SchemaElement<any, any>, CostDirectiveArguments>, errorCollector: GraphQLError[]) {
+  const parent = application.parent;
+  // @cost cannot be used on interfaces https://ibm.github.io/graphql-specs/cost-spec.html#sec-No-Cost-on-Interface-Fields
+  if (parent instanceof FieldDefinition && parent.parent instanceof InterfaceType) {
+    errorCollector.push(ERRORS.COST_APPLIED_TO_INTERFACE_FIELD.err(
+      `@cost cannot be applied to interface "${parent.coordinate}"`,
+      { nodes: sourceASTs(application, parent) }
+    ));
+  }
+}
+
+function validateListSizeAppliedToList(
+  application: Directive<SchemaElement<any, any>, ListSizeDirectiveArguments>,
+  parent: FieldDefinition<CompositeType>,
+  errorCollector: GraphQLError[],
+) {
+  const { sizedFields = [] } = application.arguments();
+  // @listSize must be applied to a list https://ibm.github.io/graphql-specs/cost-spec.html#sec-Valid-List-Size-Target
+  if (!sizedFields.length && parent.type && !isListType(parent.type)) {
+    errorCollector.push(ERRORS.LIST_SIZE_APPLIED_TO_NON_LIST.err(
+      `"${parent.coordinate}" is not a list`,
+      { nodes: sourceASTs(application, parent) },
+    ));
+  }
+}
+
+function validateAssumedSizeNotNegative(
+  application: Directive<SchemaElement<any, any>, ListSizeDirectiveArguments>,
+  parent: FieldDefinition<CompositeType>,
+  errorCollector: GraphQLError[]
+) {
+  const { assumedSize } = application.arguments();
+  // Validate assumed size, but we differ from https://ibm.github.io/graphql-specs/cost-spec.html#sec-Valid-Assumed-Size.
+  // Assumed size is used as a backup for slicing arguments in the event they are both specified. 
+  // The spec aims to rule out cases when the assumed size will never be used because there is always
+  // a slicing argument. Two applications which are compliant with that validation rule can be merged
+  // into an application which is not compliant, thus we need to handle this case gracefully at runtime regardless.
+  // We omit this check to keep the validations to those that will otherwise cause runtime failures.
+  //
+  // With all that said, assumed size should not be negative.
+  if (assumedSize !== undefined && assumedSize !== null && assumedSize < 0) {
+    errorCollector.push(ERRORS.LIST_SIZE_INVALID_ASSUMED_SIZE.err(
+      `Assumed size of "${parent.coordinate}" cannot be negative`,
+      { nodes: sourceASTs(application, parent) },
+    ));
+  }
+}
+
+function isNonNullIntType(ty: Type): boolean {
+  return isNonNullType(ty) && isIntType(ty.ofType)
+}
+
+function validateSlicingArgumentsAreValidIntegers(
+  application: Directive<SchemaElement<any, any>, ListSizeDirectiveArguments>,
+  parent: FieldDefinition<CompositeType>,
+  errorCollector: GraphQLError[]
+) {
+  const { slicingArguments = [] } = application.arguments();
+  // Validate slicingArguments https://ibm.github.io/graphql-specs/cost-spec.html#sec-Valid-Slicing-Arguments-Target
+  for (const slicingArgumentName of slicingArguments) {
+    const slicingArgument = parent.argument(slicingArgumentName);
+    if (!slicingArgument?.type) {
+      // Slicing arguments must be one of the field's arguments
+      errorCollector.push(ERRORS.LIST_SIZE_INVALID_SLICING_ARGUMENT.err(
+        `Slicing argument "${slicingArgumentName}" is not an argument of "${parent.coordinate}"`,
+        { nodes: sourceASTs(application, parent) }
+      ));
+    } else if (!isIntType(slicingArgument.type) && !isNonNullIntType(slicingArgument.type)) {
+      // Slicing arguments must be Int or Int!
+      errorCollector.push(ERRORS.LIST_SIZE_INVALID_SLICING_ARGUMENT.err(
+        `Slicing argument "${slicingArgument.coordinate}" must be Int or Int!`,
+        { nodes: sourceASTs(application, parent) }
+      ));
+    }
+  }
+}
+
+function isNonNullListType(ty: Type): boolean {
+  return isNonNullType(ty) && isListType(ty.ofType)
+}
+
+function validateSizedFieldsAreValidLists(
+  application: Directive<SchemaElement<any, any>, ListSizeDirectiveArguments>,
+  parent: FieldDefinition<CompositeType>,
+  errorCollector: GraphQLError[]
+) {
+  const { sizedFields = [] } = application.arguments();
+  // Validate sizedFields https://ibm.github.io/graphql-specs/cost-spec.html#sec-Valid-Sized-Fields-Target
+  if (sizedFields.length) {
+    if (!parent.type || !isCompositeType(parent.type)) {
+      // The output type must have fields
+      errorCollector.push(ERRORS.LIST_SIZE_INVALID_SIZED_FIELD.err(
+        `Sized fields cannot be used because "${parent.type}" is not a composite type`,
+        { nodes: sourceASTs(application, parent)}
+      ));
+    } else {
+      for (const sizedFieldName of sizedFields) {
+        const sizedField = parent.type.field(sizedFieldName);
+        if (!sizedField) {
+          // Sized fields must be present on the output type
+          errorCollector.push(ERRORS.LIST_SIZE_INVALID_SIZED_FIELD.err(
+            `Sized field "${sizedFieldName}" is not a field on type "${parent.type.coordinate}"`,
+            { nodes: sourceASTs(application, parent) }
+          ));
+        } else if (!sizedField.type || !(isListType(sizedField.type) || isNonNullListType(sizedField.type))) {
+          // Sized fields must be lists
+          errorCollector.push(ERRORS.LIST_SIZE_APPLIED_TO_NON_LIST.err(
+            `Sized field "${sizedField.coordinate}" is not a list`,
+            { nodes: sourceASTs(application, parent) },
+          ));
+        }
+      }
+    }
+  }
+}
+
 export class FederationMetadata {
   private _externalTester?: ExternalTester;
   private _sharingPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
@@ -1734,6 +1853,26 @@ export class FederationBlueprint extends SchemaBlueprint {
           { nodes: sourceASTs(shareableApplication, element.parent) },
         ));
       }
+    }
+
+    const costFeature = schema.coreFeatures?.getByIdentity(costIdentity);
+    const costSpec = costFeature && COST_VERSIONS.find(costFeature.url.version);
+    const costDirective = costSpec?.costDirective(schema);
+    const listSizeDirective = costSpec?.listSizeDirective(schema);
+
+    // Validate @cost
+    for (const application of costDirective?.applications() ?? []) {
+      validateCostNotAppliedToInterface(application, errorCollector);
+    }
+
+    // Validate @listSize
+    for (const application of listSizeDirective?.applications() ?? []) {
+      const parent = application.parent;
+      assert(parent instanceof FieldDefinition, "@listSize can only be applied to FIELD_DEFINITION");
+      validateListSizeAppliedToList(application, parent, errorCollector);
+      validateAssumedSizeNotNegative(application, parent, errorCollector);
+      validateSlicingArgumentsAreValidIntegers(application, parent, errorCollector);
+      validateSizedFieldsAreValidLists(application, parent, errorCollector);
     }
 
     return errorCollector;

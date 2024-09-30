@@ -1,5 +1,23 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.9.2
+
+### Patch Changes
+
+- Updated dependencies [[`2192f355f50db33fe0807d16153f357696b9f190`](https://github.com/apollographql/federation/commit/2192f355f50db33fe0807d16153f357696b9f190), [`e1e2605b30efc488b57f62ba43436606a38a3607`](https://github.com/apollographql/federation/commit/e1e2605b30efc488b57f62ba43436606a38a3607), [`5ac01b534318105e904c1e6598070f753add3bb1`](https://github.com/apollographql/federation/commit/5ac01b534318105e904c1e6598070f753add3bb1)]:
+  - @apollo/federation-internals@2.9.2
+  - @apollo/query-graphs@2.9.2
+
+## 2.9.1
+
+### Patch Changes
+
+- Fix bugs in composition when merging nulls in directive applications and when handling renames. ([#3134](https://github.com/apollographql/federation/pull/3134))
+
+- Updated dependencies [[`b8e4ab5352a4dfd262af49493fdd42e86e5e3d99`](https://github.com/apollographql/federation/commit/b8e4ab5352a4dfd262af49493fdd42e86e5e3d99), [`e6c05b6c96023aa3dec79889431f8217fcb3806d`](https://github.com/apollographql/federation/commit/e6c05b6c96023aa3dec79889431f8217fcb3806d)]:
+  - @apollo/federation-internals@2.9.1
+  - @apollo/query-graphs@2.9.1
+
 ## 2.9.0
 
 ### Minor Changes
