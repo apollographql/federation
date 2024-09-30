@@ -4693,6 +4693,7 @@ function handleRequires(
   dependencyGraph.reduce();
 
   const parents = group.parents();
+  
   // In general, we should do like for an edge, and create a new group _for the current subgraph_
   // that depends on the createdGroups and have the created groups depend on the current one.
   // However, we can be more efficient in general (and this is expected by the user) because
@@ -4702,33 +4703,41 @@ function handleRequires(
   // group we're coming from is our "direct parent", we can merge it to said direct parent (which
   // effectively means that the parent group will collect the provides before taking the edge
   // to our current group).
+  let groupCopy : FetchGroup | undefined;
   if (parents.length === 1 && pathHasOnlyFragments(path.inGroup())) {
     const parent = parents[0];
 
     // We start by computing the groups for the conditions. We do this using a copy of the current
     // group (with only the inputs) as that allows to modify this copy without modifying `group`.
-    const newGroup = dependencyGraph.newKeyFetchGroup({
+    groupCopy = dependencyGraph.newKeyFetchGroup({
       subgraphName: group.subgraphName,
       mergeAt: group.mergeAt!,
       deferRef: group.deferRef
     });
-    newGroup.addParent(parent);
-    newGroup.copyInputsOf(group);
-    const createdGroups = computeGroupsForTree({
-      dependencyGraph, 
-      pathTree: requiresConditions, 
-      startGroup: newGroup, 
-      initialGroupPath: path, 
-      initialDeferContext: deferContextForConditions(deferContext)
-    });
-    if (createdGroups.length === 0) {
-      // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
-      // and continue.
-      assert(group.canMergeSiblingIn(newGroup), () => `We should be able to merge ${newGroup} into ${group} by construction`);
-      group.mergeSiblingIn(newGroup);
-      return {group, path, createdGroups: [], newGroupIsUnneeded: false};
-    }
+    groupCopy.addParent(parent);
+    groupCopy.copyInputsOf(group);
+  }
+  
+  // Call computeGroupsForTree on the requiresConditions. The start group will either be group or the copy of group if we 
+  // expect to be able to optimize
+  const createdGroups = computeGroupsForTree({
+    dependencyGraph, 
+    pathTree: requiresConditions, 
+    startGroup: groupCopy ?? group, 
+    initialGroupPath: path, 
+    initialDeferContext: deferContextForConditions(deferContext)
+  });
 
+  if (createdGroups.length == 0) {
+    // All conditions were local. If we created a copy of the current group, merge it back in
+    if (groupCopy) {
+      assert(group.canMergeSiblingIn(groupCopy), () => `We should be able to merge ${groupCopy} into ${group} by construction`);
+      group.mergeSiblingIn(groupCopy);
+    }
+    return { group, path, createdGroups: [], newGroupIsUnneeded: true};
+  }
+  if (groupCopy) {
+    const parent = groupCopy.parents()[0];
     // We know the @require needs createdGroups. We do want to know however if any of the conditions was
     // fetched from our `newGroup`. If not, then this means that the `createdGroups` don't really depend on
     // the current `group` and can be dependencies of the parent (or even merged into this parent).
@@ -4741,8 +4750,8 @@ function handleRequires(
     // directly fetched from the parent. If it can, then we can just merge `newGroup` into that parent.
     // Otherwise, we will have to "keep it".
     // Note: it is to be sure this test is not poluted by other things in `group` that we created `newGroup`.
-    newGroup.removeInputsFromSelection();
-    const newGroupIsUnneeded = parent.path && newGroup.selection.canRebaseOn(typeAtPath(parent.group.selection.parentType, parent.path));
+    groupCopy.removeInputsFromSelection();
+    const newGroupIsUnneeded = parent.path && groupCopy.selection.canRebaseOn(typeAtPath(parent.group.selection.parentType, parent.path));
     const unmergedGroups = [];
 
     if (newGroupIsUnneeded) {
@@ -4750,7 +4759,7 @@ function handleRequires(
       // its children to it. Note that we just checked that `newGroup` selection was just its inputs, so
       // we know that merging it to the parent is mostly a no-op from that POV, except maybe for requesting
       // a few additional `__typename` we didn't before (due to the exclusion of `__typename` in the `newGroupIsUnneeded` check)
-      parent.group.mergeChildIn(newGroup);
+      parent.group.mergeChildIn(groupCopy);
 
       // Now, all created groups are going to be descendant of `parentGroup`. But some of them may actually be
       // mergeable into it.
@@ -4793,8 +4802,8 @@ function handleRequires(
       // @require, or because we had more than one parent and don't know how to handle this (unsure if the later
       // can actually happen at this point tbh (?)). Bu not reason not to merge `newGroup` back to `group` so
       // we do that first.
-      assert(group.canMergeSiblingIn(newGroup), () => `We should be able to merge ${newGroup} into ${group} by construction`);
-      group.mergeSiblingIn(newGroup);
+      assert(group.canMergeSiblingIn(groupCopy), () => `We should be able to merge ${groupCopy} into ${group} by construction`);
+      group.mergeSiblingIn(groupCopy);
 
       // The created group depend on `group` and the dependency cannot be moved to the parent in
       // this case. However, we might still be able to merge some created group directly in the
@@ -4874,22 +4883,6 @@ function handleRequires(
       newGroupIsUnneeded: false,
     };
   } else {
-    // We're in the somewhat simpler case where a @require happens somewhere in the middle of a subgraph query (so, not
-    // just after having jumped to that subgraph). In that case, there isn't tons of optimisation we can do: we have to
-    // see what satisfying the @require necessitate, and if it needs anything from another subgraph, we have to stop the
-    // current subgraph fetch there, get the requirements from other subgraphs, and then resume the query of that particular subgraph.
-    const createdGroups = computeGroupsForTree({
-      dependencyGraph, 
-      pathTree: requiresConditions, 
-      startGroup: group, 
-      initialGroupPath: path, 
-      initialDeferContext: deferContextForConditions(deferContext)
-    });
-    // If we didn't created any group, that means the whole condition was fetched from the current group
-    // and we're good.
-    if (createdGroups.length == 0) {
-      return { group, path, createdGroups: [], newGroupIsUnneeded: true};
-    }
     // We need to create a new group, on the same subgraph `group`, where we resume fetching the field for
     // which we handle the @requires _after_ we've delt with the `requiresConditionsGroups`.
     // Note that we know the conditions will include a key for our group so we can resume properly.
