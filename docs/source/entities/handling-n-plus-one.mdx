@@ -65,7 +65,7 @@ type Product @key(fields: "id") {
 </CodeColumns>
 
 
-Most subgraph implementations use _reference resolvers_ to returns the entity object corresponding to a key.
+Most subgraph implementations use _reference resolvers_ to return the entity object corresponding to a key.
 Although this pattern is straightforward, it can diminish performance when a client operation requests fields from many entities.
 Recall the `topReviews` query, now in the context of a federated graph:
 
