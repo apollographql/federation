@@ -5,7 +5,6 @@ description: Learn how your router orchestrates operations across subgraphs, ens
 ---
 
 Learn more about query plans to help you optimize and debug advanced use cases of Apollo Federation.
-If you haven't already, see the [Query Plan overview](/graphos/get-started/concepts/query-plans) article.
 
 ## Example graph
 
@@ -433,7 +432,7 @@ A `Defer` node corresponds to one or more `@defer`s at the same level of nesting
 
 The node contains a _primary block_ and an array of _deferred blocks_. The primary block represents the part of the query that isn't deferred. Each deferred block corresponds to the one deferred part of the query.
 
-Read more about how `@defer` works in the [router support for @defer article](/graphos/router-configuration/operations/defer/).
+Read more about how `@defer` works in the [router support for @defer article](/graphos/routing/operations/defer/).
 
 ```graphql
 QueryPlan {

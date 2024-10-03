@@ -20,7 +20,7 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 
     <Note>
     
-    Before you increment a subgraph's federation version, update your router and build pipeline. For details, see [Updating your graph safely](/graphos/reference/migration/updates).
+    Before you increment a subgraph's federation version, update your router and build pipeline. For details, see [Updating your graph safely](/graphos/platform/graph-management/updates).
 
     </Note>
 
@@ -71,7 +71,7 @@ Minimum router version
 </td>
 <td>
 
-Introduced. [Learn more](/graphos/federation/federated-schemas/federated-directives#cost).
+Introduced. [Learn more](/federation/federated-schemas/federated-directives#cost).
 
 ```graphql
 directive @cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
@@ -88,7 +88,7 @@ directive @cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION |
 </td>
 <td>
 
-Introduced. [Learn more](/graphos/federation/federated-schemas/federated-directives#listsize).
+Introduced. [Learn more](/federation/federated-schemas/federated-directives#listsize).
 
 ```graphql
 directive @listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
@@ -303,7 +303,7 @@ Minimum router version
 <td>
 
 
-Introduced. [Learn more.](/graphos/router-configuration/security/authorization)
+Introduced. [Learn more.](/graphos/routing/security/authorization)
 
 ```graphql
 directive @policy(policies: [[federation__Policy!]!]!) on
@@ -400,7 +400,7 @@ Minimum router version
 <td>
 
 
-Introduced. [Learn more.](/graphos/router-configuration/security/authorization)
+Introduced. [Learn more.](/graphos/routing/security/authorization)
 
 ```graphql
 directive @authenticated on
@@ -423,7 +423,7 @@ directive @authenticated on
 <td>
 
 
-Introduced. [Learn more.](/graphos/router-configuration/security/authorization)
+Introduced. [Learn more.](/graphos/routing/security/authorization)
 
 ```graphql
 directive @requiresScopes(scopes: [[federation__Scope!]!]!) on
@@ -520,7 +520,7 @@ Subscriptions
 <td>
 
 - Composition now supports defining the `Subscription` type in subgraph schemas.
-- Use of GraphQL subscriptions with a federated graph requires a compatible version of the GraphOS Router. [See details.](/graphos/router-configuration/operations/subscriptions/#prerequisites)
+- Use of GraphQL subscriptions with a federated graph requires a compatible version of the GraphOS Router. [See details.](/graphos/routing/operations/subscriptions/#prerequisites)
 
 </td>
 </tr>

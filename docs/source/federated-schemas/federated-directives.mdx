@@ -472,7 +472,7 @@ directive @authenticated on
   | ENUM
 ```
 
-Indicates to composition that the target element is accessible only to the authenticated supergraph users. For more granular access control, see the [`@requiresScopes`](#requiresScopes) directive below. Refer to the [router article](/graphos/router-configuration/security/authorization#authenticated) for additional details.
+Indicates to composition that the target element is accessible only to the authenticated supergraph users. For more granular access control, see the [`@requiresScopes`](#requiresScopes) directive below. Refer to the [router article](/graphos/routing/security/authorization#authenticated) for additional details.
 
 <MinVersion version="2.5">
 
@@ -491,7 +491,7 @@ directive @requiresScopes(scopes: [[federation__Scope!]!]!) on
   | ENUM
 ```
 
-Indicates to composition that the target element is accessible only to the authenticated supergraph users with the appropriate JWT scopes. Refer to the [router article](/graphos/router-configuration/security/authorization#requiresscopes) for additional details.
+Indicates to composition that the target element is accessible only to the authenticated supergraph users with the appropriate JWT scopes. Refer to the [router article](/graphos/routing/security/authorization#requiresscopes) for additional details.
 
 #### Arguments
 
@@ -540,7 +540,7 @@ directive @policy(policies: [[federation__Policy!]!]!) on
   | ENUM
 ```
 
-Indicates to composition that the target element is restricted based on authorization policies that are evaluated in a Rhai script or coprocessor. Refer to the [router article](/graphos/router-configuration/security/authorization#policy) for additional details.
+Indicates to composition that the target element is restricted based on authorization policies that are evaluated in a Rhai script or coprocessor. Refer to the [router article](/graphos/routing/security/authorization#policy) for additional details.
 
 #### Arguments
 
