@@ -934,17 +934,6 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
       }
     }
     
-    for (const [subgraphName, args] of subgraphToArgs) {
-      args.sort();
-      const argToIndex = new Map();
-      for (let idx=0; idx < args.length; idx++) {
-        argToIndex.set(args[idx], `contextualArgument_${i}_${idx}`);
-      }
-      subgraphToArgIndices.set(subgraphName, argToIndex);
-    }
-    
-    builder.setContextMaps(subgraphToArgs, subgraphToArgIndices);
-    
     simpleTraversal(
       subgraph,
       _v => { return undefined; },
@@ -965,6 +954,22 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
    
   }
 
+  // add contextual argument maps to builder
+  for (const [i, subgraph] of subgraphs.entries()) {
+    const subgraphName = subgraph.name;
+    const args = subgraphToArgs.get(subgraph.name);
+    if (args) {
+      args.sort();
+      const argToIndex = new Map();
+      for (let idx=0; idx < args.length; idx++) {
+        argToIndex.set(args[idx], `contextualArgument_${i+1}_${idx}`);
+      }
+      subgraphToArgIndices.set(subgraphName, argToIndex);
+    }
+  }
+  
+  builder.setContextMaps(subgraphToArgs, subgraphToArgIndices);
+      
   // Now we handle @provides
   let provideId = 0;
   for (const [i, subgraph] of subgraphs.entries()) {

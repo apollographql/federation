@@ -106,6 +106,7 @@ import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig, validateQueryPla
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, SubscriptionNode, trimSelectionNodes } from "./QueryPlan";
 
+
 const debug = newDebugLogger('plan');
 
 // Somewhat random string used to optimise handling __typename in some cases. See usage for details. The concrete value
@@ -3391,10 +3392,10 @@ export class QueryPlanner {
    * implements an alternative: to avoid the query planning spending time of exploring options for
    * __typename, we "remove" the __typename selections from the operation. But of course, we still
    * need to ensure that __typename is effectively queried, so as we do that removal, we also "tag"
-   * one of the "sibling" selection (using `addAttachement`) to remember that __typename needs to
+   * one of the "sibling" selection (using `addAttachment`) to remember that __typename needs to
    * be added back eventually. The core query planning algorithm will ignore that tag, and because
    * __typename has been otherwise removed, we'll save any related work. But as we build the final
-   * query plan, we'll check back for those "tags" (see `getAttachement` in `computeGroupsForTree`),
+   * query plan, we'll check back for those "tags" (see `getAttachment` in `computeGroupsForTree`),
    * and when we fine one, we'll add back the request to __typename. As this only happen after the
    * query planning algorithm has computed all choices, we achieve our goal of not considering useless
    * choices due to __typename. Do note that if __typename is the "only" selection of some selection
@@ -3413,6 +3414,7 @@ export class QueryPlanner {
     // (for instance, the fragment condition could be "less precise" than the parent type, in which case query planning
     // will ignore it) and tagging those could lose the tagging.
     let firstFieldSelection: FieldSelection | undefined = undefined;
+    let firstFieldIndex = -1;
     for (let i = 0; i < selections.length; i++) {
       const selection = selections[i];
       let updated: Selection | undefined;
@@ -3445,6 +3447,9 @@ export class QueryPlanner {
         }
         if (!firstFieldSelection && updated.kind === 'FieldSelection') {
           firstFieldSelection = updated;
+          firstFieldIndex = updatedSelections
+            ? updatedSelections.length
+            : i;
         }
       }
 
@@ -3473,7 +3478,7 @@ export class QueryPlanner {
     if (typenameSelection) {
       if (firstFieldSelection) {
         // Note that as we tag the element, we also record the alias used if any since that needs to be preserved.
-        firstFieldSelection.element.addAttachement(SIBLING_TYPENAME_KEY, typenameSelection.element.alias ? typenameSelection.element.alias : '');
+        updatedSelections[firstFieldIndex] = firstFieldSelection.withAttachment(SIBLING_TYPENAME_KEY, typenameSelection.element.alias ? typenameSelection.element.alias : '');
       } else {
         // If we have no other field selection, then we can't optimize __typename and we need to add
         // it back to the updated subselections (we add it first because that's usually where we
@@ -4328,10 +4333,10 @@ function computeGroupsForTree(
 
           // We have a operation element, field or inline fragment. We first check if it's been "tagged" to remember that __typename
           // must be queried. See the comment on the `optimizeSiblingTypenames()` method to see why this exists.
-          const typenameAttachment = operation.getAttachement(SIBLING_TYPENAME_KEY);
+          const typenameAttachment = operation.getAttachment(SIBLING_TYPENAME_KEY);
           if (typenameAttachment !== undefined) {
             // We need to add the query __typename for the current type in the current group.
-            // Note that the value of the "attachement" is the alias or '' if there is no alias
+            // Note that the value of the "attachment" is the alias or '' if there is no alias
             const alias = typenameAttachment === '' ? undefined : typenameAttachment;
             const typenameField = new Field(operation.parentType.typenameField()!, undefined, undefined, alias);
             group.addAtPath(path.inGroup().concat(typenameField));
@@ -4631,12 +4636,12 @@ function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet, parentType
 function addBackTypenameInAttachments(selectionSet: SelectionSet): SelectionSet {
   return selectionSet.lazyMap((s) => {
     const updated = s.mapToSelectionSet((ss) => addBackTypenameInAttachments(ss));
-    const typenameAttachment = s.element.getAttachement(SIBLING_TYPENAME_KEY);
+    const typenameAttachment = s.element.getAttachment(SIBLING_TYPENAME_KEY);
     if (typenameAttachment === undefined) {
       return updated;
     } else {
       // We need to add the query __typename for the current type in the current group.
-      // Note that the value of the "attachement" is the alias or '' if there is no alias
+      // Note that the value of the "attachment" is the alias or '' if there is no alias
       const alias = typenameAttachment === '' ? undefined : typenameAttachment;
       const typenameField = new Field(s.element.parentType.typenameField()!, undefined, undefined, alias);
       return [
