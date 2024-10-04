@@ -2302,7 +2302,7 @@ export function parseFieldSetArgument({
         }
       });
     }
-    return selectionSet;
+    return selectionSet.normalize({ parentType, recursive: true });
   } catch (e) {
     if (!(e instanceof GraphQLError) || !decorateValidationErrors) {
       throw e;

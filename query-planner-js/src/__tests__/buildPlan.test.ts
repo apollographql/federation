@@ -2986,6 +2986,94 @@ describe('@requires', () => {
       }
     `);
   });
+
+  it(`normalizes requires field set selection`, () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          a: A
+        }
+        
+        type A {
+          a1: Int
+          a2: Int
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          a: A @external
+          b: Int @requires(fields: "a { ... on A { a1 a2 } a1 }")
+        }
+
+        type A @external {
+          a1: Int
+          a2: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+        api,
+        gql`
+          {
+            t {
+              b
+            }
+          }
+        `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+                a {
+                  a1
+                  a2
+                }
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                  a {
+                    a1
+                    a2
+                  }
+                }
+              } =>
+              {
+                ... on T {
+                  b
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 describe('fetch operation names', () => {
