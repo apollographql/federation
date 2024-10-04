@@ -2999,7 +2999,7 @@ describe('@requires', () => {
           id: ID!
           a: A
         }
-        
+
         type A {
           a1: Int
           a2: Int
@@ -3025,14 +3025,14 @@ describe('@requires', () => {
 
     const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
     const operation = operationFromDocument(
-        api,
-        gql`
-          {
-            t {
-              b
-            }
+      api,
+      gql`
+        {
+          t {
+            b
           }
-        `,
+        }
+      `,
     );
 
     const plan = queryPlanner.buildQueryPlan(operation);
