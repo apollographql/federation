@@ -1,5 +1,21 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.9.3
+
+### Patch Changes
+
+- Ensure all useless fetch groups are removed ([#3163](https://github.com/apollographql/federation/pull/3163))
+
+  When removing "useless" fetch nodes/groups we remove them in-place while still iterating over the same list. This leads to potentially skipping processing of some the children fetch nodes, as when we remove nodes we left shift all remaining children but the iterator keeps the old position unchanged effectively skipping next child.
+
+- fix: normalize field set selection sets ([#3162](https://github.com/apollographql/federation/pull/3162))
+
+  `FieldSet` scalar represents a selection set without outer braces. This means that users could potentially specify some selections that could be normalized (i.e. eliminate duplicate field selections, hoist/collapse unnecessary inline fragments, etc). Previously we were using `@requires` field set selection AS-IS for edge conditions. With this change we will now normalize the `FieldSet` selections before using them as fetch node conditions.
+
+- Updated dependencies [[`cc4573471696ef78d04fa00c4cf8e5c50314ba9f`](https://github.com/apollographql/federation/commit/cc4573471696ef78d04fa00c4cf8e5c50314ba9f), [`df5eb3cb0e2b4802fcd425ab9c23714de2707db3`](https://github.com/apollographql/federation/commit/df5eb3cb0e2b4802fcd425ab9c23714de2707db3)]:
+  - @apollo/federation-internals@2.9.3
+  - @apollo/query-graphs@2.9.3
+
 ## 2.9.2
 
 ### Patch Changes
