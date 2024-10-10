@@ -3425,7 +3425,7 @@ export class QueryPlanner {
       if (
         !typenameSelection
         && selection.kind === 'FieldSelection'
-        && selection.element.name === typenameFieldName
+        && selection.isPlainTypenameField()
         && !parentMaybeInterfaceObject
       ) {
         // The reason we check for `!typenameSelection` is that due to aliasing, there can be more than one __typename selection

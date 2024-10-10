@@ -2114,10 +2114,10 @@ export class SelectionSet {
     // By default, we will print the selection the order in which things were added to it.
     // If __typename is selected however, we put it first. It's a detail but as __typename is a bit special it looks better,
     // and it happens to mimic prior behavior on the query plan side so it saves us from changing tests for no good reasons.
-    const isNonAliasedTypenameSelection = (s: Selection) => s.kind === 'FieldSelection' && !s.element.alias && s.element.name === typenameFieldName;
-    const typenameSelection = this._selections.find((s) => isNonAliasedTypenameSelection(s));
+    const isPlainTypenameSelection = (s: Selection) => s.kind === 'FieldSelection' && s.isPlainTypenameField();
+    const typenameSelection = this._selections.find((s) => isPlainTypenameSelection(s));
     if (typenameSelection) {
-      return [typenameSelection].concat(this.selections().filter(s => !isNonAliasedTypenameSelection(s)));
+      return [typenameSelection].concat(this.selections().filter(s => !isPlainTypenameSelection(s)));
     } else {
       return this._selections;
     }
@@ -3051,6 +3051,13 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
 
   isTypenameField(): boolean {
     return this.element.definition.name === typenameFieldName;
+  }
+
+  // Is this a plain simple __typename without any directive or alias?
+  isPlainTypenameField(): boolean {
+    return this.element.definition.name === typenameFieldName
+        && this.element.appliedDirectives.length == 0
+        && !this.element.alias;
   }
 
   withAttachment(key: string, value: string): FieldSelection {
