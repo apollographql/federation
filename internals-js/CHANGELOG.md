@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.9.3
+
+### Patch Changes
+
+- fix: normalize field set selection sets ([#3162](https://github.com/apollographql/federation/pull/3162))
+
+  `FieldSet` scalar represents a selection set without outer braces. This means that users could potentially specify some selections that could be normalized (i.e. eliminate duplicate field selections, hoist/collapse unnecessary inline fragments, etc). Previously we were using `@requires` field set selection AS-IS for edge conditions. With this change we will now normalize the `FieldSet` selections before using them as fetch node conditions.
+
+- Fix fragment generation recursion logic to apply minification on all subselections. ([#3158](https://github.com/apollographql/federation/pull/3158))
+
 ## 2.9.2
 
 ### Patch Changes
