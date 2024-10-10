@@ -2612,8 +2612,12 @@ class FetchDependencyGraph {
   }
 
   private removeUselessGroups(group: FetchGroup) {
+    // Since we can potentially remove child in place, we need to
+    // explicitly copy the list of all children to ensure that we
+    // process ALL children
+    const children = group.children().concat();
     // Recursing first, this makes it a bit easier to reason about.
-    for (const child of group.children()) {
+    for (const child of children) {
       this.removeUselessGroups(child);
     }
 
