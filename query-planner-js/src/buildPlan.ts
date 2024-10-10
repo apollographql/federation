@@ -98,6 +98,8 @@ import {
   createInitialOptions,
   buildFederatedQueryGraph,
   FEDERATED_GRAPH_ROOT_SOURCE,
+  Transition,
+  InterfaceObjectFakeDownCast,
 } from "@apollo/query-graphs";
 import { stripIgnoredCharacters, print, OperationTypeNode, SelectionSetNode, Kind } from "graphql";
 import { DeferredNode, FetchDataKeyRenamer, FetchDataRewrite } from ".";
@@ -4231,7 +4233,7 @@ function computeGroupsForTree(
             });
             updateCreatedGroups(createdGroups, newGroup);
             newGroup.addParents(conditionsGroups.map((conditionGroup) => {
-              // If `conditionGroup` parent is `group`, that is the same as `newGroup` current parent, then we can infer the path of `newGroup` into
+              // If `conditionGroup` parent is `group`, that is the same as `groupCopy` current parent, then we can infer the path of `groupCopy` into
               // that condition `group` by looking at the paths of each to their common parent. But otherwise, we cannot have a proper
               // "path in parent".
               const conditionGroupParents = conditionGroup.parents();
@@ -4367,11 +4369,16 @@ function computeGroupsForTree(
             contextToConditionsGroups,
           };
 
-          if (conditions && edge.conditions) {
+          if (conditions) {
             // We have @requires or some other dependency to create groups for.
             const requireResult = handleRequires(
               dependencyGraph,
-              edge,
+              {
+                head: edge.head,
+                transition: edge.transition,
+                conditions: edge.conditions,
+                edgeString: () => edge.toString(),
+              },
               conditions,
               group,
               path,
@@ -4380,44 +4387,23 @@ function computeGroupsForTree(
             );
             updated.group = requireResult.group;
             updated.path = requireResult.path;
-
-            // add __typename to site where we are retrieving context from
-            // this is necessary because the context rewrites path will start with a type condition
+            
             if (contextToSelection) {
-              assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
-              updated.group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
-            }
-
-            if (contextToSelection) {
+              if (requireResult.createdGroups.length === 0) {
+                assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
+                updated.group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
+              }
               const newContextToConditionsGroups = new Map<string, FetchGroup[]>([...contextToConditionsGroups]);
-              for (const context of contextToSelection) {
-                newContextToConditionsGroups.set(context, [group]);
+              // If a new group is created for the conditions, make sure that we add that as a dependency
+              // so that using a context will not occur within the same fetch group as it is retrieved
+              if (!requireResult.newGroupIsUnneeded || group.isTopLevel) {
+                for (const context of contextToSelection) {
+                  newContextToConditionsGroups.set(context, [group]);
+                }
               }
               updated.contextToConditionsGroups = newContextToConditionsGroups;
             }
             updateCreatedGroups(createdGroups, ...requireResult.createdGroups);
-          } else if (conditions) {
-            // add __typename to site where we are retrieving context from
-            // this is necessary because the context rewrites path will start with a type condition
-            assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
-            group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
-
-            const conditionsGroups = computeGroupsForTree({
-              dependencyGraph, 
-              pathTree: conditions, 
-              startGroup: group, 
-              initialGroupPath: path, 
-              initialDeferContext: deferContextForConditions(deferContext),
-            });
-
-            if (contextToSelection) {
-              const newContextToConditionsGroups = new Map<string, FetchGroup[]>([...contextToConditionsGroups]);
-              for (const context of contextToSelection) {
-                newContextToConditionsGroups.set(context, [group, ...conditionsGroups]);
-              }
-              updated.contextToConditionsGroups = newContextToConditionsGroups;
-            }
-            updateCreatedGroups(createdGroups, ...conditionsGroups);
           }
 
           // if we're going to start using context variables, every variable used must be set in a different parent
@@ -4678,7 +4664,12 @@ function typeAtPath(parentType: CompositeType, path: OperationPath): CompositeTy
 
 function handleRequires(
   dependencyGraph: FetchDependencyGraph,
-  edge: Edge,
+  edge: {
+    transition: Transition,
+    conditions: SelectionSet | undefined,
+    head: Vertex,
+    edgeString: () => string,
+  },
   requiresConditions: OpPathTree,
   group: FetchGroup,
   path: GroupPath,
@@ -4688,162 +4679,56 @@ function handleRequires(
   group: FetchGroup,
   path: GroupPath,
   createdGroups: FetchGroup[],
+  newGroupIsUnneeded: boolean | undefined,
 } {
-  // @requires should be on an entity type, and we only support object types right now
+  const result = handleRequiresTree(dependencyGraph, requiresConditions, group, path, deferContext);
+  return createPostRequiresGroup(dependencyGraph, edge, group, path, context, result);
+}
+
+function createPostRequiresGroup(
+  dependencyGraph: FetchDependencyGraph,
+  edge: {
+    transition: Transition,
+    conditions: SelectionSet | undefined,
+    head: Vertex,
+    edgeString: () => string,
+  },
+  group: FetchGroup,
+  path: GroupPath,
+  context: PathContext,
+  result: {
+    group: FetchGroup,
+    path: GroupPath,
+    createdGroups: FetchGroup[],
+    unmergedGroups: FetchGroup[],
+    extraParent: ParentRelation | undefined,
+    newGroupIsUnneeded: boolean | undefined,
+  }
+): {
+  group: FetchGroup,
+  path: GroupPath,
+  createdGroups: FetchGroup[],
+  newGroupIsUnneeded: boolean | undefined,
+} {
+  const { createdGroups, unmergedGroups, newGroupIsUnneeded } = result;
   const entityType = edge.head.type as ObjectType;
-
-  // In many case, we can optimize requires by merging the requirement to previously existing groups. However,
-  // we only do this when the current group has only a single parent (it's hard to reason about it otherwise).
-  // But the current could have multiple parents due to the graph lacking minimimality, and we don't want that
-  // to needlessly prevent us from this optimization. So we do a graph reduction first (which effectively
-  // just eliminate unecessary edges). To illustrate, we could be in a case like:
-  //     1
-  //   /  \
-  // 0 --- 2
-  // with current group 2. And while the group currently has 2 parents, the `reduce` step will ensure
-  // the edge `0 --- 2` is removed (since the dependency of 2 on 0 is already provide transitively through 1).
-  dependencyGraph.reduce();
-
+  // if we never created any groups, all conditions were local
+  if (createdGroups.length === 0) {
+    return result;
+  }
   const parents = group.parents();
-  // In general, we should do like for an edge, and create a new group _for the current subgraph_
-  // that depends on the createdGroups and have the created groups depend on the current one.
-  // However, we can be more efficient in general (and this is expected by the user) because
-  // required fields will usually come just after a key edge (at the top of a fetch group).
-  // In that case (when the path is only typeCasts), we can put the created groups directly
-  // as dependency of the current group, avoiding to create a new one. Additionally, if the
-  // group we're coming from is our "direct parent", we can merge it to said direct parent (which
-  // effectively means that the parent group will collect the provides before taking the edge
-  // to our current group).
-  if (parents.length === 1 && pathHasOnlyFragments(path.inGroup())) {
+  const triedToMerge = parents.length === 1 && pathHasOnlyFragments(path.inGroup());
+  if (triedToMerge) {
     const parent = parents[0];
-
-    // We start by computing the groups for the conditions. We do this using a copy of the current
-    // group (with only the inputs) as that allows to modify this copy without modifying `group`.
-    const newGroup = dependencyGraph.newKeyFetchGroup({
-      subgraphName: group.subgraphName,
-      mergeAt: group.mergeAt!,
-      deferRef: group.deferRef
-    });
-    newGroup.addParent(parent);
-    newGroup.copyInputsOf(group);
-    const createdGroups = computeGroupsForTree({
-      dependencyGraph, 
-      pathTree: requiresConditions, 
-      startGroup: newGroup, 
-      initialGroupPath: path, 
-      initialDeferContext: deferContextForConditions(deferContext)
-    });
-    if (createdGroups.length === 0) {
-      // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
-      // and continue.
-      assert(group.canMergeSiblingIn(newGroup), () => `We should be able to merge ${newGroup} into ${group} by construction`);
-      group.mergeSiblingIn(newGroup);
-      return {group, path, createdGroups: []};
+    if (unmergedGroups.length === 0) {
+      group.addInputs(
+        inputsForRequire(
+          dependencyGraph, 
+          entityType, 
+          edge,
+          context, false).inputs);
+      return { group, path, createdGroups: [], newGroupIsUnneeded };
     }
-
-    // We know the @require needs createdGroups. We do want to know however if any of the conditions was
-    // fetched from our `newGroup`. If not, then this means that the `createdGroups` don't really depend on
-    // the current `group` and can be dependencies of the parent (or even merged into this parent).
-    //
-    // So we want to know if anything in `newGroup` selection cannot be fetched directly from the parent.
-    // For that, we first remove any of `newGroup` inputs from its selection: in most case, `newGroup`
-    // will just contain the key needed to jump back to its parent, and those would usually be the same
-    // as the inputs. And since by definition we know `newGroup`'s inputs are already fetched, we
-    // know they are not things that we need. Then, we check if what remains (often empty) can be
-    // directly fetched from the parent. If it can, then we can just merge `newGroup` into that parent.
-    // Otherwise, we will have to "keep it".
-    // Note: it is to be sure this test is not poluted by other things in `group` that we created `newGroup`.
-    newGroup.removeInputsFromSelection();
-    const newGroupIsUnneeded = parent.path && newGroup.selection.canRebaseOn(typeAtPath(parent.group.selection.parentType, parent.path));
-    const unmergedGroups = [];
-
-    if (newGroupIsUnneeded) {
-      // Up to this point, `newGroup` had no parent, so let's first merge `newGroup` to the parent, thus "rooting"
-      // its children to it. Note that we just checked that `newGroup` selection was just its inputs, so
-      // we know that merging it to the parent is mostly a no-op from that POV, except maybe for requesting
-      // a few additional `__typename` we didn't before (due to the exclusion of `__typename` in the `newGroupIsUnneeded` check)
-      parent.group.mergeChildIn(newGroup);
-
-      // Now, all created groups are going to be descendant of `parentGroup`. But some of them may actually be
-      // mergeable into it.
-      for (const created of createdGroups) {
-        // Note that `created` may not be a direct child of `parent.group`, but `canMergeChildIn` just return `false` in
-        // that case, yielding the behaviour we want (not trying to merge it in).
-        if (created.subgraphName === parent.group.subgraphName && parent.group.canMergeChildIn(created)) {
-          parent.group.mergeChildIn(created);
-        } else {
-          unmergedGroups.push(created);
-          // `created` cannot be merged into `parent.group`, which may typically be because they are not to the same
-          // subgraph. However, while `created` currently depend on `parent.group` (directly or indirectly), that
-          // dependency just come from the fact that `parent.group` is the parent of the group whose @require we're
-          // dealing with. And in practice, it could well be that some of the fetches needed for that require don't
-          // really depend on anything that parent fetches and could be done in parallel with it. If we detect that
-          // this is the case for `created`, we can move it "up the chain of dependency".
-          let currentParent: ParentRelation | undefined = parent;
-          while (currentParent
-            && !currentParent.group.isTopLevel
-            && created.isChildOfWithArtificialDependency(currentParent.group)
-          ) {
-            currentParent.group.removeChild(created);
-            const grandParents = currentParent.group.parents();
-            assert(grandParents.length > 0, `${currentParent.group} is not top-level, so it should have parents`);
-            for (const grandParent of grandParents) {
-              created.addParent({
-                group: grandParent.group,
-                path: concatPathsInParents(grandParent.path, currentParent.path),
-              });
-            }
-            // If we have more that 1 "grand parent", let's stop there as it would get more complicated
-            // and that's probably not needed. Otherwise, we can check if `created` may be able to move even
-            // further up.
-            currentParent = grandParents.length === 1 ? grandParents[0] : undefined;
-          }
-        }
-      }
-    } else {
-      // We cannot merge `newGroup` to the parent, either because there it fetches some things necessary to the
-      // @require, or because we had more than one parent and don't know how to handle this (unsure if the later
-      // can actually happen at this point tbh (?)). Bu not reason not to merge `newGroup` back to `group` so
-      // we do that first.
-      assert(group.canMergeSiblingIn(newGroup), () => `We should be able to merge ${newGroup} into ${group} by construction`);
-      group.mergeSiblingIn(newGroup);
-
-      // The created group depend on `group` and the dependency cannot be moved to the parent in
-      // this case. However, we might still be able to merge some created group directly in the
-      // parent. But for this to be true, we should essentially make sure that the dependency
-      // on `group` is not a "true" dependency. That is, if the created group inputs are the same
-      // as `group` inputs (and said created group is the same subgraph than the parent of
-      // `group`, then it means we're only depending on values that are already in the parent and
-      // can merge the group).
-      if (parent.path) {
-        for (const created of createdGroups) {
-          if (created.subgraphName === parent.group.subgraphName
-            && parent.group.canMergeGrandChildIn(created)
-            && sameMergeAt(created.mergeAt, group.mergeAt)
-            && group.inputs!.contains(created.inputs!)
-          ) {
-            parent.group.mergeGrandChildIn(created);
-          } else {
-            unmergedGroups.push(created);
-          }
-        }
-      }
-    }
-
-    // If we've merged all the created groups, then all the "requires" are handled _before_ we get to the
-    // current group, so we can "continue" with the current group.
-    if (unmergedGroups.length == 0) {
-      // We still need to add the stuffs we require though (but `group` already has a key in its inputs,
-      // we don't need one).
-      group.addInputs(inputsForRequire(dependencyGraph, entityType, edge, context, false).inputs);
-      return { group, path, createdGroups: [] };
-    }
-
-    // If we get here, it means that @require needs the information from `unmergedGroups` (plus whatever has
-    // been merged before) _and_ those rely on some information from the current `group` (if they hadn't, we
-    // would have been able to merge `newGroup` to `group`'s parent). So the group we should return, which
-    // is the group where the "post-@require" fields will be added, needs to a be a new group that depends
-    // on all those `unmergedGroups`.
     const postRequireGroup = dependencyGraph.newKeyFetchGroup({
       subgraphName: group.subgraphName,
       mergeAt: group.mergeAt!,
@@ -4853,10 +4738,8 @@ function handleRequires(
     postRequireGroup.addParents(unmergedGroups.map((group) => ({ group })));
     // That group also need, in general, to depend on the current `group`. That said, if we detected that the @require
     // didn't need anything of said `group` (if `newGroupIsUnneeded`), then we can depend on the parent instead.
-    if (newGroupIsUnneeded) {
-      postRequireGroup.addParent(parent);
-    } else {
-      postRequireGroup.addParent({ group, path: []});
+    if (result.extraParent) {
+      postRequireGroup.addParent(result.extraParent);
     }
 
     // Note(Sylvain): I'm not 100% sure about this assert in the sense that while I cannot think of a case where `parent.path` wouldn't
@@ -4878,28 +4761,9 @@ function handleRequires(
       group: postRequireGroup,
       path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
       createdGroups: unmergedGroups,
+      newGroupIsUnneeded,
     };
   } else {
-    // We're in the somewhat simpler case where a @require happens somewhere in the middle of a subgraph query (so, not
-    // just after having jumped to that subgraph). In that case, there isn't tons of optimisation we can do: we have to
-    // see what satisfying the @require necessitate, and if it needs anything from another subgraph, we have to stop the
-    // current subgraph fetch there, get the requirements from other subgraphs, and then resume the query of that particular subgraph.
-    const createdGroups = computeGroupsForTree({
-      dependencyGraph, 
-      pathTree: requiresConditions, 
-      startGroup: group, 
-      initialGroupPath: path, 
-      initialDeferContext: deferContextForConditions(deferContext)
-    });
-    // If we didn't created any group, that means the whole condition was fetched from the current group
-    // and we're good.
-    if (createdGroups.length == 0) {
-      return { group, path, createdGroups: []};
-    }
-
-    // We need to create a new group, on the same subgraph `group`, where we resume fetching the field for
-    // which we handle the @requires _after_ we've delt with the `requiresConditionsGroups`.
-    // Note that we know the conditions will include a key for our group so we can resume properly.
     const newGroup = dependencyGraph.newKeyFetchGroup({
       subgraphName: group.subgraphName,
       mergeAt: path.inResponse(),
@@ -4936,7 +4800,176 @@ function handleRequires(
       group: newGroup,
       path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
       createdGroups,
+      newGroupIsUnneeded,
     };
+  }
+}
+
+function handleRequiresTree(
+  dependencyGraph: FetchDependencyGraph,
+  requiresConditions: OpPathTree,
+  group: FetchGroup,
+  path: GroupPath,
+  deferContext: DeferContext,
+): {
+  group: FetchGroup,
+  path: GroupPath,
+  createdGroups: FetchGroup[],
+  unmergedGroups: FetchGroup[],
+  extraParent: ParentRelation | undefined,
+  newGroupIsUnneeded: boolean | undefined,
+} {
+  // In many case, we can optimize requires by merging the requirement to previously existing groups. However,
+  // we only do this when the current group has only a single parent (it's hard to reason about it otherwise).
+  // But the current could have multiple parents due to the graph lacking minimimality, and we don't want that
+  // to needlessly prevent us from this optimization. So we do a graph reduction first (which effectively
+  // just eliminate unecessary edges). To illustrate, we could be in a case like:
+  //     1
+  //   /  \
+  // 0 --- 2
+  // with current group 2. And while the group currently has 2 parents, the `reduce` step will ensure
+  // the edge `0 --- 2` is removed (since the dependency of 2 on 0 is already provide transitively through 1).
+  dependencyGraph.reduce();
+
+  const parents = group.parents();
+  
+  // In general, we should do like for an edge, and create a new group _for the current subgraph_
+  // that depends on the createdGroups and have the created groups depend on the current one.
+  // However, we can be more efficient in general (and this is expected by the user) because
+  // required fields will usually come just after a key edge (at the top of a fetch group).
+  // In that case (when the path is only typeCasts), we can put the created groups directly
+  // as dependency of the current group, avoiding to create a new one. Additionally, if the
+  // group we're coming from is our "direct parent", we can merge it to said direct parent (which
+  // effectively means that the parent group will collect the provides before taking the edge
+  // to our current group).
+  let groupCopy : FetchGroup | undefined;
+  if (parents.length === 1 && pathHasOnlyFragments(path.inGroup())) {
+    const parent = parents[0];
+
+    // We start by computing the groups for the conditions. We do this using a copy of the current
+    // group (with only the inputs) as that allows to modify this copy without modifying `group`.
+    groupCopy = dependencyGraph.newKeyFetchGroup({
+      subgraphName: group.subgraphName,
+      mergeAt: group.mergeAt!,
+      deferRef: group.deferRef
+    });
+    groupCopy.addParent(parent);
+    groupCopy.copyInputsOf(group);
+  }
+  
+  // Call computeGroupsForTree on the requiresConditions. The start group will either be group or the copy of group if we 
+  // expect to be able to optimize
+  const createdGroups = computeGroupsForTree({
+    dependencyGraph, 
+    pathTree: requiresConditions, 
+    startGroup: groupCopy ?? group, 
+    initialGroupPath: path, 
+    initialDeferContext: deferContextForConditions(deferContext)
+  });
+
+  if (createdGroups.length == 0) {
+    // All conditions were local. If we created a copy of the current group, merge it back in
+    if (groupCopy) {
+      assert(group.canMergeSiblingIn(groupCopy), () => `We should be able to merge ${groupCopy} into ${group} by construction`);
+      group.mergeSiblingIn(groupCopy);
+    }
+    return { group, path, createdGroups: [], unmergedGroups: [], extraParent: undefined, newGroupIsUnneeded: undefined };
+  }
+  
+  if (groupCopy) {
+    const parent = groupCopy.parents()[0];
+    // We know the @require needs createdGroups. We do want to know however if any of the conditions was
+    // fetched from our `groupCopy`. If not, then this means that the `createdGroups` don't really depend on
+    // the current `group` and can be dependencies of the parent (or even merged into this parent).
+    //
+    // So we want to know if anything in `groupCopy` selection cannot be fetched directly from the parent.
+    // For that, we first remove any of `groupCopy` inputs from its selection: in most case, `groupCopy`
+    // will just contain the key needed to jump back to its parent, and those would usually be the same
+    // as the inputs. And since by definition we know `groupCopy`'s inputs are already fetched, we
+    // know they are not things that we need. Then, we check if what remains (often empty) can be
+    // directly fetched from the parent. If it can, then we can just merge `groupCopy` into that parent.
+    // Otherwise, we will have to "keep it".
+    // Note: it is to be sure this test is not poluted by other things in `group` that we created `groupCopy`.
+    groupCopy.removeInputsFromSelection();
+    const newGroupIsUnneeded = parent.path && groupCopy.selection.canRebaseOn(typeAtPath(parent.group.selection.parentType, parent.path));
+    const unmergedGroups = [];
+
+    if (newGroupIsUnneeded) {
+      // Up to this point, `groupCopy` had no parent, so let's first merge `groupCopy` to the parent, thus "rooting"
+      // its children to it. Note that we just checked that `groupCopy` selection was just its inputs, so
+      // we know that merging it to the parent is mostly a no-op from that POV, except maybe for requesting
+      // a few additional `__typename` we didn't before (due to the exclusion of `__typename` in the `newGroupIsUnneeded` check)
+      parent.group.mergeChildIn(groupCopy);
+
+      // Now, all created groups are going to be descendant of `parentGroup`. But some of them may actually be
+      // mergeable into it.
+      for (const created of createdGroups) {
+        // Note that `created` may not be a direct child of `parent.group`, but `canMergeChildIn` just return `false` in
+        // that case, yielding the behaviour we want (not trying to merge it in).
+        if (created.subgraphName === parent.group.subgraphName && parent.group.canMergeChildIn(created)) {
+          parent.group.mergeChildIn(created);
+        } else {
+          unmergedGroups.push(created);
+          // `created` cannot be merged into `parent.group`, which may typically be because they are not to the same
+          // subgraph. However, while `created` currently depend on `parent.group` (directly or indirectly), that
+          // dependency just comes from the fact that `parent.group` is the parent of the group whose @require we're
+          // dealing with. And in practice, it could well be that some of the fetches needed for that require don't
+          // really depend on anything that parent fetches and could be done in parallel with it. If we detect that
+          // this is the case for `created`, we can move it "up the chain of dependency".
+          let currentParent: ParentRelation | undefined = parent;
+          while (currentParent
+            && !currentParent.group.isTopLevel
+            && created.isChildOfWithArtificialDependency(currentParent.group)
+          ) {
+            currentParent.group.removeChild(created);
+            const grandParents = currentParent.group.parents();
+            assert(grandParents.length > 0, `${currentParent.group} is not top-level, so it should have parents`);
+            for (const grandParent of grandParents) {
+              created.addParent({
+                group: grandParent.group,
+                path: concatPathsInParents(grandParent.path, currentParent.path),
+              });
+            }
+            // If we have more that 1 "grand parent", let's stop there as it would get more complicated
+            // and that's probably not needed. Otherwise, we can check if `created` may be able to move even
+            // further up.
+            currentParent = grandParents.length === 1 ? grandParents[0] : undefined;
+          }
+        }
+      }
+    } else {
+      // We cannot merge `groupCopy` to the parent, either because there it fetches some things necessary to the
+      // @require, or because we had more than one parent and don't know how to handle this (unsure if the later
+      // can actually happen at this point tbh (?)). Bu not reason not to merge `groupCopy` back to `group` so
+      // we do that first.
+      assert(group.canMergeSiblingIn(groupCopy), () => `We should be able to merge ${groupCopy} into ${group} by construction`);
+      group.mergeSiblingIn(groupCopy);
+
+      // The created group depends on `group` and the dependency cannot be moved to the parent in
+      // this case. However, we might still be able to merge some created group directly in the
+      // parent. But for this to be true, we should essentially make sure that the dependency
+      // on `group` is not a "true" dependency. That is, if the created group inputs are the same
+      // as `group` inputs (and said created group is the same subgraph than the parent of
+      // `group`, then it means we're only depending on values that are already in the parent and
+      // can merge the group).
+      if (parent.path) {
+        for (const created of createdGroups) {
+          if (created.subgraphName === parent.group.subgraphName
+            && parent.group.canMergeGrandChildIn(created)
+            && sameMergeAt(created.mergeAt, group.mergeAt)
+            && group.inputs!.contains(created.inputs!)
+          ) {
+            parent.group.mergeGrandChildIn(created);
+          } else {
+            unmergedGroups.push(created);
+          }
+        }
+      }
+    }
+
+    return { group, path, createdGroups, unmergedGroups, extraParent: newGroupIsUnneeded ? parent : { group, path: [] }, newGroupIsUnneeded};
+  } else {
+    return { group, path, createdGroups, unmergedGroups: [], extraParent: undefined, newGroupIsUnneeded: undefined };
   }
 }
 
@@ -4944,7 +4977,12 @@ function addPostRequireInputs(
   dependencyGraph: FetchDependencyGraph,
   requirePath: GroupPath,
   entityType: ObjectType,
-  edge: Edge,
+  edge: {
+    transition: Transition,
+    conditions: SelectionSet | undefined,
+    head: Vertex,
+    edgeString: () => string,
+  },
   context: PathContext,
   preRequireGroup: FetchGroup,
   postRequireGroup: FetchGroup,
@@ -4972,7 +5010,12 @@ function newCompositeTypeSelectionSet(type: CompositeType): MutableSelectionSet 
 function inputsForRequire(
   dependencyGraph: FetchDependencyGraph,
   entityType: ObjectType,
-  edge: Edge,
+  edge: {
+    transition: Transition,
+    conditions: SelectionSet | undefined,
+    head: Vertex,
+    edgeString: () => string,
+  },
   context: PathContext,
   includeKeyInputs: boolean = true
 ): {
@@ -4985,7 +5028,7 @@ function inputsForRequire(
   // up querying some fields in the @interfaceObject subgraph for entities that we know won't match a type
   // condition of the query.
   const isInterfaceObjectDownCast = edge.transition.kind === 'InterfaceObjectFakeDownCast';
-  const inputTypeName = isInterfaceObjectDownCast ? edge.transition.castedTypeName : entityType.name;
+  const inputTypeName = isInterfaceObjectDownCast ? (edge.transition as InterfaceObjectFakeDownCast).castedTypeName : entityType.name;
   const inputType = dependencyGraph.supergraphSchema.type(inputTypeName);
   assert(inputType && isCompositeType(inputType), () => `Type ${inputTypeName} should exist in the supergraph and be a composite type`);
 
@@ -4996,7 +5039,7 @@ function inputsForRequire(
   let keyInputs: MutableSelectionSet | undefined = undefined;
   if (includeKeyInputs) {
     const keyCondition = getLocallySatisfiableKey(dependencyGraph.federatedQueryGraph, edge.head);
-    assert(keyCondition, () => `Due to @require, validation should have required a key to be present for ${edge}`);
+    assert(keyCondition, () => `Due to @require, validation should have required a key to be present for ${edge.edgeString()}`);
     let keyConditionAsInput = keyCondition;
     if (isInterfaceObjectDownCast) {
       // This means that conditions parents are on the @interfaceObject type, but we actually want to select only the
