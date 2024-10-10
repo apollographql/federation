@@ -10124,3 +10124,128 @@ describe('@fromContext impacts on query planning', () => {
     ]);
   });
 });
+
+test('ensure we are removing all useless groups', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        foo: Foo!
+      }
+
+      type Foo {
+        item: I
+      }
+
+      type I @interfaceObject @key(fields: "id") {
+        id: ID!
+      }
+    `,
+  };
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      interface I @key(fields: "id") {
+        id: ID!
+        name: String!
+      }
+
+      type A implements I @key(fields: "id") {
+        id: ID!
+        name: String!
+        x: X!
+      }
+
+      type X {
+        id: ID!
+      }
+
+      type B implements I @key(fields: "id") {
+        id: ID!
+        name: String!
+        y: Y!
+      }
+
+      type Y {
+        id: ID!
+      }
+    `,
+  };
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        foo {
+          item {
+            __typename
+            id
+            ... on A {
+              __typename
+              id
+              x {
+                __typename
+                id
+              }
+            }
+            ... on B {
+              __typename
+              id
+              y {
+                __typename
+                id
+              }
+            }
+          }
+        }
+      }
+    `,
+  );
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              foo {
+                item {
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "foo.item") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on I {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on I {
+                  __typename
+                  ... on A {
+                    x {
+                      __typename
+                      id
+                    }
+                  }
+                  ... on B {
+                    y {
+                      __typename
+                      id
+                    }
+                  }
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+});
