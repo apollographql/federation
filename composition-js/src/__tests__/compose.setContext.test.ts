@@ -817,7 +817,7 @@ describe("setContext tests", () => {
     expect(result.schema).toBeUndefined();
     expect(result.errors?.length).toBe(1);
     expect(result.errors?.[0].message).toBe(
-      '[Subgraph1] Object "U" has no resolvable key but has an a field with a contextual argument.'
+      '[Subgraph1] Object "U" has no resolvable key but has a field with a contextual argument.'
     );
   });
 
