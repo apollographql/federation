@@ -5768,7 +5768,7 @@ describe('__typename handling', () => {
     let operation = operationFromDocument(
       api,
       gql`
-        query($v: Boolean!) {
+        query ($v: Boolean!) {
           t {
             __typename
             __typename @skip(if: $v)
@@ -5794,7 +5794,7 @@ describe('__typename handling', () => {
     operation = operationFromDocument(
       api,
       gql`
-        query($v: Boolean!) {
+        query ($v: Boolean!) {
           t {
             __typename @skip(if: $v)
             __typename
