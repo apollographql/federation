@@ -8908,8 +8908,10 @@ describe('handles operations with directives', () => {
       query testQuery__Subgraph1__0($some_var: String!) @withArgs(arg1: $some_var) {
         test
       }
-    `); // end of test
-  });
+    `);
+    // Make sure the `variableUsage` also captures the variable as well.
+    expect(fetch_nodes[0].variableUsages?.includes('some_var')).toBe(true);
+  }); // end of test
 }); // end of `describe`
 
 describe('@fromContext impacts on query planning', () => {
