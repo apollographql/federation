@@ -1193,6 +1193,11 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     }
   }
 
+  collectVariables(collector: VariableCollector) {
+    this.selectionSet.collectVariables(collector);
+    this.collectVariablesInAppliedDirectives(collector);
+  }
+
   toFragmentDefinitionNode() : FragmentDefinitionNode {
     return {
       kind: Kind.FRAGMENT_DEFINITION,
