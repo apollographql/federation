@@ -25,8 +25,8 @@
   "dependencies": {
     "chalk": "^4.1.0",
     "js-levenshtein": "^1.1.6",
-    "@types/uuid": "^9.0.0",
-    "uuid": "^9.0.0"
+    "@types/uuid": "^10.0.0",
+    "uuid": "^10.0.0"
   },
   "publishConfig": {
     "access": "public"
