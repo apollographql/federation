@@ -1586,7 +1586,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
           if (prevSubgraphVertex
             && (
               backToPreviousSubgraph
-              || hasValidDirectKeyEdge(toAdvance.graph, prevSubgraphVertex, edge.tail.source, conditionResolver, maxCost) != undefined
+              || hasValidDirectKeyEdge(toAdvance.graph, prevSubgraphVertex, edge.tail.source, conditionResolver, maxCost)
             )
           ) {
             debug.groupEnd(
