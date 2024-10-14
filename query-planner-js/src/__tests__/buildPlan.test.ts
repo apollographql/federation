@@ -5749,6 +5749,75 @@ describe('__typename handling', () => {
     `);
   });
 
+  it('preserves __typename with a directive', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    // Especially, when there are multiple __typename selections.
+    let operation = operationFromDocument(
+      api,
+      gql`
+        query ($v: Boolean!) {
+          t {
+            __typename
+            __typename @skip(if: $v)
+          }
+        }
+      `,
+    );
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              __typename @skip(if: $v)
+            }
+          }
+        },
+      }
+    `);
+
+    operation = operationFromDocument(
+      api,
+      gql`
+        query ($v: Boolean!) {
+          t {
+            __typename @skip(if: $v)
+            __typename
+          }
+        }
+      `,
+    );
+
+    plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              __typename @skip(if: $v)
+            }
+          }
+        },
+      }
+    `);
+  });
+
   it('does not needlessly consider options for __typename', () => {
     const subgraph1 = {
       name: 'Subgraph1',
