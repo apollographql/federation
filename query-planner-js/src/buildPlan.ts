@@ -1600,22 +1600,26 @@ class FetchGroup {
       );
     }
 
-    // collect all used variables in the selection and in used Fragments
-    const usedVariables = new Set(selection.usedVariables().map(v => v.name));
+    // collect all used variables in the selection and the used directives and fragments.
+    const collector = new VariableCollector();
+    // Note: The operation's selectionSet includes `representations` variable,
+    //       thus we use `selection` here instead.
+    selection.collectVariables(collector);
+    operation.collectVariablesInAppliedDirectives(collector);
     if (operation.fragments) {
       for (const namedFragment of operation.fragments.definitions()) {
-        namedFragment.selectionSet.usedVariables().forEach(v => {
-          usedVariables.add(v.name);  
-        });
+        namedFragment.collectVariables(collector);
       }
     }
+    const usedVariables = collector.variables();
+
     const operationDocument = operationToDocument(operation);
     const fetchNode: FetchNode = {
       kind: 'Fetch',
       id: this.id,
       serviceName: this.subgraphName,
       requires: inputNodes ? trimSelectionNodes(inputNodes.selections) : undefined,
-      variableUsages: Array.from(usedVariables),
+      variableUsages: usedVariables.map((v) => v.name),
       operation: stripIgnoredCharacters(print(operationDocument)),
       operationKind: schemaRootKindToOperationKind(operation.rootKind),
       operationName: operation.name,
