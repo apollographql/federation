@@ -1808,7 +1808,7 @@ export class FederationBlueprint extends SchemaBlueprint {
         const keyApplications = objectType.appliedDirectivesOf(keyDirective);
         if (!keyApplications.some(app => app.arguments().resolvable || app.arguments().resolvable === undefined)) {
           errorCollector.push(ERRORS.CONTEXT_NO_RESOLVABLE_KEY.err(
-            `Object "${objectType.coordinate}" has no resolvable key but has an a field with a contextual argument.`,
+            `Object "${objectType.coordinate}" has no resolvable key but has a field with a contextual argument.`,
             { nodes: sourceASTs(objectType) }
           ));
         }
