@@ -9263,6 +9263,10 @@ describe('@fromContext impacts on query planning', () => {
               t {
                 __typename
                 id
+                u {
+                  __typename
+                  id
+                }
               }
             }
           },
@@ -9281,20 +9285,17 @@ describe('@fromContext impacts on query planning', () => {
               }
             },
           },
-          Flatten(path: "t") {
+          Flatten(path: "t.u") {
             Fetch(service: "Subgraph1") {
               {
-                ... on T {
+                ... on U {
                   __typename
                   id
                 }
               } =>
               {
-                ... on T {
-                  u {
-                    id
-                    field(a: $contextualArgument_1_0)
-                  }
+                ... on U {
+                  field(a: $contextualArgument_1_0)
                 }
               }
             },
@@ -9305,7 +9306,7 @@ describe('@fromContext impacts on query planning', () => {
     expect((plan as any).node.nodes[2].node.contextRewrites).toEqual([
       {
         kind: 'KeyRenamer',
-        path: ['prop'],
+        path: ['..', '... on T', 'prop'],
         renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
@@ -10213,7 +10214,10 @@ describe('@fromContext impacts on query planning', () => {
                   __typename
                   id
                 }
-                id
+                u {
+                  __typename
+                  id
+                }
               }
             }
           },
@@ -10252,19 +10256,17 @@ describe('@fromContext impacts on query planning', () => {
               }
             },
           },
-          Flatten(path: "t") {
+          Flatten(path: "t.u") {
             Fetch(service: "Subgraph1") {
               {
-                ... on T {
+                ... on U {
                   __typename
                   id
                 }
               } =>
               {
-                ... on T {
-                  u {
-                    field(a: $contextualArgument_1_0)
-                  }
+                ... on U {
+                  field(a: $contextualArgument_1_0)
                 }
               }
             },
@@ -10275,7 +10277,7 @@ describe('@fromContext impacts on query planning', () => {
     expect((plan as any).node.nodes[3].node.contextRewrites).toEqual([
       {
         kind: 'KeyRenamer',
-        path: ['a', 'b', 'c', 'prop'],
+        path: ['..', '... on T', 'a', 'b', 'c', 'prop'],
         renameKeyTo: 'contextualArgument_1_0',
       },
     ]);
@@ -10568,7 +10570,6 @@ describe('@fromContext impacts on query planning', () => {
               } =>
               {
                 ... on Customer {
-                  __typename
                   accounts {
                     foo(ctx_id5: $contextualArgument_3_0, ctx_mid: $contextualArgument_3_1) {
                       id
