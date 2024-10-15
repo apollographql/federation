@@ -3074,6 +3074,94 @@ describe('@requires', () => {
       }
     `);
   });
+
+  it(`normalizes requires field set selection`, () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          a: A
+        }
+
+        type A {
+          a1: Int
+          a2: Int
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          a: A @external
+          b: Int @requires(fields: "a { ... on A { a1 a2 } a1 }")
+        }
+
+        type A @external {
+          a1: Int
+          a2: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            b
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+                a {
+                  a1
+                  a2
+                }
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                  a {
+                    a1
+                    a2
+                  }
+                }
+              } =>
+              {
+                ... on T {
+                  b
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 describe('fetch operation names', () => {
@@ -5742,6 +5830,75 @@ describe('__typename handling', () => {
               __typename
               foo: __typename
               x
+            }
+          }
+        },
+      }
+    `);
+  });
+
+  it('preserves __typename with a directive', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    // Especially, when there are multiple __typename selections.
+    let operation = operationFromDocument(
+      api,
+      gql`
+        query ($v: Boolean!) {
+          t {
+            __typename
+            __typename @skip(if: $v)
+          }
+        }
+      `,
+    );
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              __typename @skip(if: $v)
+            }
+          }
+        },
+      }
+    `);
+
+    operation = operationFromDocument(
+      api,
+      gql`
+        query ($v: Boolean!) {
+          t {
+            __typename @skip(if: $v)
+            __typename
+          }
+        }
+      `,
+    );
+
+    plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              __typename @skip(if: $v)
             }
           }
         },
@@ -8908,8 +9065,10 @@ describe('handles operations with directives', () => {
       query testQuery__Subgraph1__0($some_var: String!) @withArgs(arg1: $some_var) {
         test
       }
-    `); // end of test
-  });
+    `);
+    // Make sure the `variableUsage` also captures the variable as well.
+    expect(fetch_nodes[0].variableUsages?.includes('some_var')).toBe(true);
+  }); // end of test
 }); // end of `describe`
 
 describe('@fromContext impacts on query planning', () => {
@@ -10435,4 +10594,129 @@ describe('@fromContext impacts on query planning', () => {
       },
     ]);
   });
+});
+
+test('ensure we are removing all useless groups', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        foo: Foo!
+      }
+
+      type Foo {
+        item: I
+      }
+
+      type I @interfaceObject @key(fields: "id") {
+        id: ID!
+      }
+    `,
+  };
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      interface I @key(fields: "id") {
+        id: ID!
+        name: String!
+      }
+
+      type A implements I @key(fields: "id") {
+        id: ID!
+        name: String!
+        x: X!
+      }
+
+      type X {
+        id: ID!
+      }
+
+      type B implements I @key(fields: "id") {
+        id: ID!
+        name: String!
+        y: Y!
+      }
+
+      type Y {
+        id: ID!
+      }
+    `,
+  };
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        foo {
+          item {
+            __typename
+            id
+            ... on A {
+              __typename
+              id
+              x {
+                __typename
+                id
+              }
+            }
+            ... on B {
+              __typename
+              id
+              y {
+                __typename
+                id
+              }
+            }
+          }
+        }
+      }
+    `,
+  );
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              foo {
+                item {
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "foo.item") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on I {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on I {
+                  __typename
+                  ... on A {
+                    x {
+                      __typename
+                      id
+                    }
+                  }
+                  ... on B {
+                    y {
+                      __typename
+                      id
+                    }
+                  }
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
 });

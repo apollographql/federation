@@ -1600,22 +1600,26 @@ class FetchGroup {
       );
     }
 
-    // collect all used variables in the selection and in used Fragments
-    const usedVariables = new Set(selection.usedVariables().map(v => v.name));
+    // collect all used variables in the selection and the used directives and fragments.
+    const collector = new VariableCollector();
+    // Note: The operation's selectionSet includes `representations` variable,
+    //       thus we use `selection` here instead.
+    selection.collectVariables(collector);
+    operation.collectVariablesInAppliedDirectives(collector);
     if (operation.fragments) {
       for (const namedFragment of operation.fragments.definitions()) {
-        namedFragment.selectionSet.usedVariables().forEach(v => {
-          usedVariables.add(v.name);  
-        });
+        namedFragment.collectVariables(collector);
       }
     }
+    const usedVariables = collector.variables();
+
     const operationDocument = operationToDocument(operation);
     const fetchNode: FetchNode = {
       kind: 'Fetch',
       id: this.id,
       serviceName: this.subgraphName,
       requires: inputNodes ? trimSelectionNodes(inputNodes.selections) : undefined,
-      variableUsages: Array.from(usedVariables),
+      variableUsages: usedVariables.map((v) => v.name),
       operation: stripIgnoredCharacters(print(operationDocument)),
       operationKind: schemaRootKindToOperationKind(operation.rootKind),
       operationName: operation.name,
@@ -2612,8 +2616,12 @@ class FetchDependencyGraph {
   }
 
   private removeUselessGroups(group: FetchGroup) {
+    // Since we can potentially remove child in place, we need to
+    // explicitly copy the list of all children to ensure that we
+    // process ALL children
+    const children = group.children().concat();
     // Recursing first, this makes it a bit easier to reason about.
-    for (const child of group.children()) {
+    for (const child of children) {
       this.removeUselessGroups(child);
     }
 
@@ -3421,7 +3429,7 @@ export class QueryPlanner {
       if (
         !typenameSelection
         && selection.kind === 'FieldSelection'
-        && selection.element.name === typenameFieldName
+        && selection.isPlainTypenameField()
         && !parentMaybeInterfaceObject
       ) {
         // The reason we check for `!typenameSelection` is that due to aliasing, there can be more than one __typename selection
