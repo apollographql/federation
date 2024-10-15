@@ -1,5 +1,13 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.9.3
+
+### Patch Changes
+
+- Updated dependencies [[`345661c558773e4eb5d5f0b28464a8d1acdc2a2d`](https://github.com/apollographql/federation/commit/345661c558773e4eb5d5f0b28464a8d1acdc2a2d), [`e00e1c9892b48ac89823597113989830877966ef`](https://github.com/apollographql/federation/commit/e00e1c9892b48ac89823597113989830877966ef), [`cc4573471696ef78d04fa00c4cf8e5c50314ba9f`](https://github.com/apollographql/federation/commit/cc4573471696ef78d04fa00c4cf8e5c50314ba9f), [`062572b3253e8640b60a0bf58b83945094b76b6f`](https://github.com/apollographql/federation/commit/062572b3253e8640b60a0bf58b83945094b76b6f), [`df5eb3cb0e2b4802fcd425ab9c23714de2707db3`](https://github.com/apollographql/federation/commit/df5eb3cb0e2b4802fcd425ab9c23714de2707db3), [`1c99cb0dcc6c639ac351210932623ab0bd6907e4`](https://github.com/apollographql/federation/commit/1c99cb0dcc6c639ac351210932623ab0bd6907e4)]:
+  - @apollo/query-graphs@2.9.3
+  - @apollo/federation-internals@2.9.3
+
 ## 2.9.2
 
 ### Patch Changes

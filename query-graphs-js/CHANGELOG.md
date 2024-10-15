@@ -1,5 +1,20 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.9.3
+
+### Patch Changes
+
+- Fixes edge case where contextual arguments can yield inefficient query plans. Also fixes naming of query plan arguments which can be a problem when using contextual variables in multiple subgraphs ([#3140](https://github.com/apollographql/federation/pull/3140))
+
+- When eliminating suboptimal indirect paths during query planning, properly check for a direct `@key` edge at the end of the potential direct path. ([#3160](https://github.com/apollographql/federation/pull/3160))
+
+- Fixed missing referenced variables in the `variableUsages` field of fetch operations ([#3166](https://github.com/apollographql/federation/pull/3166))
+
+  Query variables used in fetch operation should be listed in the `variableUsages` field. However, there was a bug where variables referenced by query-level directives could be missing in the field.
+
+- Updated dependencies [[`cc4573471696ef78d04fa00c4cf8e5c50314ba9f`](https://github.com/apollographql/federation/commit/cc4573471696ef78d04fa00c4cf8e5c50314ba9f), [`062572b3253e8640b60a0bf58b83945094b76b6f`](https://github.com/apollographql/federation/commit/062572b3253e8640b60a0bf58b83945094b76b6f), [`df5eb3cb0e2b4802fcd425ab9c23714de2707db3`](https://github.com/apollographql/federation/commit/df5eb3cb0e2b4802fcd425ab9c23714de2707db3), [`1c99cb0dcc6c639ac351210932623ab0bd6907e4`](https://github.com/apollographql/federation/commit/1c99cb0dcc6c639ac351210932623ab0bd6907e4)]:
+  - @apollo/federation-internals@2.9.3
+
 ## 2.9.2
 
 ### Patch Changes
