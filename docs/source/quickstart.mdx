@@ -22,7 +22,7 @@ graph BT;
 
 Usually, each subgraph corresponds to a different service in your backend. The supergraph is then represented by a **gateway**, which routes each incoming query to the appropriate combination of subgraphs and returns the combined result.
 
-The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific directives. Each subgraph's schema can even reference and extend types that originate in a _different_ subgraph. (<a href="../entities" target="_blank">Learn more</a>)
+The supergraph's schema is the combination of each subgraph's schema, plus some special federation-specific directives. Each subgraph's schema can even reference and extend types that originate in a _different_ subgraph.
 
 This architecture enables clients to query data from multiple services simultaneously, just by querying the gateway.
 

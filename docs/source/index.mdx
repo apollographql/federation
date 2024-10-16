@@ -40,7 +40,7 @@ Like the rest of the Apollo platform, Apollo Federation can (and should) be
 adopted **incrementally**:
 
 * If you currently use a monolithic GraphQL server, you can break its functionality out one service at a time.
-* If you currently use a different federated architecture (such as schema stitching), you can [add federation support to your existing services one at a time](./migrating-from-stitching/).
+* If you currently use a different federated architecture (such as schema stitching), you can [add federation support to your existing services one at a time](/federation/migrating-from-stitching/).
 
 In both of these cases, all of your clients will continue to work throughout your incremental migration. In fact, clients have no way to distinguish between different graph implementations.
 
@@ -151,11 +151,11 @@ _another_ subgraph. For example, the `Review` type includes a
 subgraph. For example, the `reviews` subgraph extends the `User`
 type by adding a `reviews` field to it.
 
-* A subgraph must add the `@key` directive to an object type's definition in order for _other_ subgraphs to be able to reference or extend that type. This directive makes an object type an [entity](./entities/).
+* A subgraph must add the `@key` directive to an object type's definition in order for _other_ subgraphs to be able to reference or extend that type. This directive makes an object type an [entity](/federation/entities/).
 
 ### Supergraph schema
 
-To create our supergraph schema, we perform **composition** on our collection of [subgraph schemas](#subgraph-schemas). With [managed federation](./managed-federation/overview/), Apollo performs composition automatically whenever one of your subgraphs registers an updated schema.
+To create our supergraph schema, we perform **composition** on our collection of [subgraph schemas](#subgraph-schemas). With [managed federation](/federation/managed-federation/overview/), Apollo performs composition automatically whenever one of your subgraphs registers an updated schema.
 
 We can also perform composition manually with the Rover CLI:
 
@@ -316,9 +316,9 @@ This mode enables multiple teams working on a graph to coordinate when and how u
 
 Apollo Server supports Apollo Federation via two open-source extension libraries:
 
-* [`@apollo/subgraph`](./api/apollo-subgraph/) provides primitives that subgraphs use to make their individual GraphQL schemas composable.
-* [`@apollo/gateway`](./api/apollo-gateway) enables you to set up an instance of Apollo Server as a **gateway** that distributes incoming GraphQL operations across one or more subgraphs.
+* [`@apollo/subgraph`](/federation/v1/api/apollo-subgraph/) provides primitives that subgraphs use to make their individual GraphQL schemas composable.
+* [`@apollo/gateway`](/federation/v1/api/apollo-gateway) enables you to set up an instance of Apollo Server as a **gateway** that distributes incoming GraphQL operations across one or more subgraphs.
 
 ---
 
-Ready to try out Apollo Federation? Jump into the [Quickstart](./quickstart/)!
+Ready to try out Apollo Federation? Jump into the [Quickstart](/federation/quickstart/)!
