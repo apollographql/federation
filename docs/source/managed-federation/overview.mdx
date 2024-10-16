@@ -6,13 +6,13 @@ description: Use Apollo GraphOS to manage your supergraph including schema valid
 
 import ManagedFederationDiagram from '../../shared/diagrams/managed-federation.mdx';
 
-[Apollo GraphOS](/graphos/) provides managed federation support for graphs that use Apollo Federation.
+Apollo GraphOS provides managed federation support for graphs that use Apollo Federation.
 
 With managed federation, you maintain subgraphs and delegate GraphOS to manage CI/CD tasks including the validation, composition, and update of your supergraph:
 
-* Your subgraphs publish their schemas to GraphOS, which stores them in its schema registry. GraphOS then [validates](./federated-schema-checks) and [composes](../federated-schemas/composition/) them into a supergraph schema. 
+* Your subgraphs publish their schemas to GraphOS, which stores them in its schema registry. GraphOS then [validates](/graphos/platform/schema-management/checks) and [composes](/graphos/schema-design/federated-schemas/composition) them into a supergraph schema. 
 
-* Your routers can poll GraphOS&mdash;specifically, its [Apollo Uplink](./uplink) endpoint&mdash;to get the latest validated supergraph schema and other configurations.
+* Your routers can poll GraphOS&mdash;specifically, its [Apollo Uplink](/graphos/routing/uplink) endpoint&mdash;to get the latest validated supergraph schema and other configurations.
 
 <ManagedFederationDiagram />
 
@@ -38,4 +38,4 @@ By using a configuration manager that's external to your router, you help ensure
 
 <hr/>
 
-Ready to try it out? Continue to [Setup](./setup/).
+Ready to try it out? Continue to [Setup](/graphos/get-started/quickstart).

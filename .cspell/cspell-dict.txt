@@ -45,6 +45,7 @@ condiditions
 correcly
 cyclesf
 Cypher
+dariuszkuc
 dedented
 Dedupe
 defered
@@ -61,6 +62,7 @@ Didnt
 diretive
 doesn
 Dont
+dotansimha
 effecient
 elimiate
 elts
@@ -81,6 +83,7 @@ follwoing
 fooz
 Fragmentization
 fufilled
+ghostdogpr
 GHSA
 Gmsuh
 gqlgen
@@ -191,6 +194,7 @@ resovable
 Reviwed
 Rhai
 righ
+rmosolgo
 rulesof
 runtimes
 samee
@@ -273,6 +277,7 @@ upgader
 Upgrader
 upgrader
 uppper
+Urigo
 uuidv
 vals
 verison

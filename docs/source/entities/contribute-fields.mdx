@@ -33,9 +33,9 @@ type Product @key(fields: "id") {
 
 By default, each subgraph must contribute different fields, with the important exception of `@key` fields.
 If multiple subgraphs attempt to contribute the same field, a composition error occurs.
-To override this default behavior, see [Resolving another subgraph's field](./resolving-another-subgraphs-field).
+To override this default behavior, see [Resolving another subgraph's field](/graphos/schema-design/federated-schemas/entities/resolve-another-subgraphs-fields).
 
-Each subgraph that contributes fields to an entity must [define a reference resolver](./#2-define-a-reference-resolver) for that entity.
+Each subgraph that contributes fields to an entity must [define a reference resolver](/graphos/get-started/guides/federate-schemas/#2-define-a-reference-resolver) for that entity.
 
 ## Contributing computed entity fields
 
