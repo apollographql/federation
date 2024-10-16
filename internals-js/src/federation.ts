@@ -1808,7 +1808,7 @@ export class FederationBlueprint extends SchemaBlueprint {
         const keyApplications = objectType.appliedDirectivesOf(keyDirective);
         if (!keyApplications.some(app => app.arguments().resolvable || app.arguments().resolvable === undefined)) {
           errorCollector.push(ERRORS.CONTEXT_NO_RESOLVABLE_KEY.err(
-            `Object "${objectType.coordinate}" has no resolvable key but has an a field with a contextual argument.`,
+            `Object "${objectType.coordinate}" has no resolvable key but has a field with a contextual argument.`,
             { nodes: sourceASTs(objectType) }
           ));
         }
@@ -2280,12 +2280,14 @@ export function parseFieldSetArgument({
   fieldAccessor,
   validate,
   decorateValidationErrors = true,
+  normalize = false,
 }: {
   parentType: CompositeType,
   directive: Directive<SchemaElement<any, any>, {fields: any}>,
   fieldAccessor?: (type: CompositeType, fieldName: string) => FieldDefinition<any> | undefined,
   validate?: boolean,
   decorateValidationErrors?: boolean,
+  normalize?: boolean,
 }): SelectionSet {
   try {
     const selectionSet = parseSelectionSet({
@@ -2302,7 +2304,9 @@ export function parseFieldSetArgument({
         }
       });
     }
-    return selectionSet;
+    return normalize
+      ? selectionSet.normalize({ parentType, recursive: true })
+      : selectionSet;
   } catch (e) {
     if (!(e instanceof GraphQLError) || !decorateValidationErrors) {
       throw e;
