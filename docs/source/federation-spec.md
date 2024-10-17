@@ -51,7 +51,7 @@ Schema composition at the gateway requires having each service's schema, annotat
 
 > Note that the `_service` field is not exposed by the gateway; it is solely for internal use.
 
-The `_service` resolver should return the `_Service` type which has a single field called `sdl`. This SDL (schema definition language) is a printed version of the service's schema **including** the annotations of federation directives. This SDL does **not** include the additions of the federation spec above. Given an input like this:
+The `_service` resolver should return the `_Service` type which has a single field called `sdl`. This SDL (schema definition language) is a printed version of the service's schema **including** the federation directives usages (like `@key` or `@external` usages). This SDL **must not** include the federation directive definitions (like  `directive @external on FIELD_DEFINITION`), type definitions (like the `_Entity` or `_Any` type definitions) or federation fields (like `_service` or `_entities`). Given an input like this:
 
 ```graphql
 extend type Query {
