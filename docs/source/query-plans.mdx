@@ -419,7 +419,7 @@ Flatten(path: "hotels.@") {
 
 Instead of containing a GraphQL operation, this `Fetch` node contains two GraphQL fragments, separated by `=>`.
 
-- The first fragment is a representation of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](/graphos/get-started/guides/federate-schemas/#2-define-a-reference-resolver).
+- The first fragment is a representation of the entity being resolved (in this case, `Hotel`). [Learn more about entity representations](/graphos/schema-design/federated-schemas/entities/intro/#2-define-a-reference-resolver).
 - The second fragment contains the entity fields and subfields that the router needs the subgraph to resolve (in this case, `Hotel.reviews` and `Review.rating`).
 
 When the router sees this special `Fetch` syntax, it knows to query a subgraph's [`Query._entities` field](/graphos/reference/federation/subgraph-specific-fields/#query_entities). This field is what enables a subgraph to provide direct access to any available fields of an entity.
