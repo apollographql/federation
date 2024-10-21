@@ -10,8 +10,8 @@ Apollo Federation lets you declaratively combine multiple APIs into a single, fe
 
 A client makes a request to the federated GraphQL API's single entry point called the _router_. The router intelligently orchestrates and distributes the request across your APIs and returns a unified response. For a client, the request and response cycle of querying the router looks the same as querying any GraphQL server.
 
-<img src='../../img/get-started/federation.svg' class="dark:hidden"/>
-<img src='../../img/get-started/federation-dark.svg' class="hidden dark:block"/>
+<img src='../../../images/federation.svg' class="dark:hidden"/>
+<img src='../../../images/federation-dark.svg' class="hidden dark:block"/>
 
 <Note>
 
@@ -43,13 +43,13 @@ Apollo Federation lets API teams operate in a [microservices architecture](https
 A client may need to make multiple requests when interacting with multiple non-federated GraphQL APIs. This can happen when an organization adopting GraphQL  has multiple teams developing APIs independently. Each team sets up a GraphQL API that provides the data used by that team. For example, a travel app may have separate GraphQL APIs for users, flights, and hotels:
 
 
- <img src='../../img/get-started/federation-diag-2.svg' class="dark:hidden"/>
- <img src='../../img/get-started/federation-diag-2-dark.svg' class="hidden dark:block"/>
+ <img src='../../../images/federation-diag-2.svg' class="dark:hidden"/>
+ <img src='../../../images/federation-diag-2-dark.svg' class="hidden dark:block"/>
 
 With a single federated graph, you preserve a powerful advantage of GraphQL over traditional REST APIs: the ability to fetch all the data you need in a single request.
 
- <img src='../../img/get-started/federation-diag-3.svg' class="dark:hidden"/>
- <img src='../../img/get-started/federation-diag-3-dark.svg' class="hidden dark:block"/>
+ <img src='../../../images/federation-diag-3.svg' class="dark:hidden"/>
+ <img src='../../../images/federation-diag-3-dark.svg' class="hidden dark:block"/>
 
 
 The router intelligently calls all the APIs it needs to complete requests rather than simply forwarding them.
@@ -73,8 +73,8 @@ Before continuing, it's helpful to know some terminology:
 - When combining multiple GraphQL APIs, the single, federated graph is called a _supergraph_.
 - In a supergraph, the constituent APIs are called _subgraphs_.
 
-<img src='../../img/get-started/federation-diag-4.svg' class="dark:hidden"/>
-<img src='../../img/get-started/federation-diag-4-dark.svg' class="hidden dark:block"/>
+<img src='../../../images/federation-diag-4.svg' class="dark:hidden"/>
+<img src='../../../images/federation-diag-4-dark.svg' class="hidden dark:block"/>
 
 Different subgraphs in the same supergraph can use different server implementations and even different programming languages as long as they are [federation-compatible](../../reference/federation/compatible-subgraphs).
 
