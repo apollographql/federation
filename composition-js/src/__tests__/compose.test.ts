@@ -2444,6 +2444,47 @@ describe('composition', () => {
     });
   });
 
+  it('fed-393', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        type I1 @interfaceObject @key(fields: "id") {
+          id: ID!
+          f1: Int!
+        }
+
+        type I2 @interfaceObject @key(fields: "id") {
+          id: ID!
+          f2: Int!
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type Query {
+          AFromB: A
+        }
+
+        interface I1 @key(fields: "id") {
+          id: ID!
+        }
+
+        interface I2 @key(fields: "id") {
+          id: ID!
+        }
+
+        type A implements I1 & I2 @key(fields: "id") {
+          id: ID!
+        }
+      `,
+      name: 'subgraphB',
+    };
+
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    expect(result.errors).toBeUndefined();
+  });
+
   it('handles renamed federation directives', () => {
     const subgraphA = {
       typeDefs: gql`
