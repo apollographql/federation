@@ -491,7 +491,8 @@ You can view the query plan for a particular operation in any of the following w
 
 With [the Apollo Router Core](https://github.com/apollographql/router) v0.16.0+ and [`@apollo/gateway`](/apollo-server/using-federation/api/apollo-gateway/) v2.5.4+, you can pass the following headers to return the query plans in the GraphQL response extensions:
 
-- Including the `Apollo-Query-Plan-Experimental` header returns the query plan in the response extensions
+- When using the router, including the `Apollo-Expose-Query-Plan` header with a `true` value returns the query plan in the response extensions
+- And for the Apollo Gateway, the `Apollo-Query-Plan-Experimental` header with a `true` value returns the query plan in the response extensions
 - Additionally including the `Apollo-Query-Plan-Experimental-Format` header with one of the supported options changes the output format:
   - A value of `prettified` returns a human-readable string  of the query plan
   - A value of `internal` returns a JSON representation of the query plan
