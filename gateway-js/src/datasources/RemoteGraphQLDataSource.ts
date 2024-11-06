@@ -8,18 +8,22 @@ import { Headers as NodeFetchHeaders, Request as NodeFetchRequest } from 'node-f
 import { Fetcher, FetcherRequestInit, FetcherResponse } from '@apollo/utils.fetcher';
 import { GraphQLError, GraphQLErrorExtensions } from 'graphql';
 import { GatewayCacheHint, GatewayCachePolicy, GatewayGraphQLRequest, GatewayGraphQLRequestContext, GatewayGraphQLResponse } from '@apollo/server-gateway-interface';
+import {DocumentNode, Kind, parse} from "graphql/index";
 
 export class RemoteGraphQLDataSource<
-  TContext extends Record<string, any> = Record<string, any>,
+    TContext extends Record<string, any> = Record<string, any>,
 > implements GraphQLDataSource<TContext>
 {
   fetcher: Fetcher;
+  useDefaultNullValuesForConnectionErrors: boolean;
 
   constructor(
-    config?: Partial<RemoteGraphQLDataSource<TContext>> &
-      object &
-      ThisType<RemoteGraphQLDataSource<TContext>>,
+      config?: Partial<RemoteGraphQLDataSource<TContext>> &
+          object &
+          ThisType<RemoteGraphQLDataSource<TContext>>,
+      useDefaultNullValuesForConnectionErrors: boolean = false,
   ) {
+    this.useDefaultNullValuesForConnectionErrors = useDefaultNullValuesForConnectionErrors;
     this.fetcher = fetcher.defaults({
       // Allow an arbitrary number of sockets per subgraph. This is the default
       // behavior of Node's http.Agent as well as the npm package agentkeepalive
@@ -64,116 +68,189 @@ export class RemoteGraphQLDataSource<
    */
   honorSubgraphCacheControlHeader: boolean = true;
 
+
+
   async process(
-    options: GraphQLDataSourceProcessOptions<TContext>,
+      options: GraphQLDataSourceProcessOptions<TContext>,
   ): Promise<GatewayGraphQLResponse> {
-    const { request, context: originalContext } = options;
-    const pathInIncomingRequest =
-      options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION
-        ? options.pathInIncomingRequest
-        : undefined;
+    try {
+      const { request, context: originalContext } = options;
+      const pathInIncomingRequest =
+          options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION
+              ? options.pathInIncomingRequest
+              : undefined;
 
-    // Deal with a bit of a hairy situation in typings: when doing health checks
-    // and schema checks we always pass in `{}` as the context even though it's
-    // not really guaranteed to be a `TContext`, and then we pass it to various
-    // methods on this object. The reason this "works" is that the DataSourceMap
-    // and Service types aren't generic-ized on TContext at all (so `{}` is in
-    // practice always legal there)... ie, the genericness of this class is
-    // questionable in the first place.
-    const context = originalContext as TContext;
+      // Deal with a bit of a hairy situation in typings: when doing health checks
+      // and schema checks we always pass in `{}` as the context even though it's
+      // not really guaranteed to be a `TContext`, and then we pass it to various
+      // methods on this object. The reason this "works" is that the DataSourceMap
+      // and Service types aren't generic-ized on TContext at all (so `{}` is in
+      // practice always legal there)... ie, the genericness of this class is
+      // questionable in the first place.
+      const context = originalContext as TContext;
 
-    // Respect incoming http headers (eg, apollo-federation-include-trace).
-    const headers = new NodeFetchHeaders();
-    if (request.http?.headers) {
-      for (const [name, value] of request.http.headers) {
-        headers.append(name, value);
+      // Respect incoming http headers (eg, apollo-federation-include-trace).
+      const headers = new NodeFetchHeaders();
+      if (request.http?.headers) {
+        for (const [name, value] of request.http.headers) {
+          headers.append(name, value);
+        }
       }
-    }
-    headers.set('Content-Type', 'application/json');
+      headers.set('Content-Type', 'application/json');
 
-    request.http = {
-      method: 'POST',
-      url: this.url,
-      headers,
-    };
-
-    if (this.willSendRequest) {
-      await this.willSendRequest(options);
-    }
-
-    if (!request.query) {
-      throw new Error('Missing query');
-    }
-
-    const { query, ...requestWithoutQuery } = request;
-
-    // Special handling of cache-control headers in response. Requires
-    // Apollo Server 3, so we check to make sure the method we want is
-    // there.
-    const overallCachePolicy =
-      this.honorSubgraphCacheControlHeader &&
-      options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION &&
-      options.incomingRequestContext.overallCachePolicy &&
-      'restrict' in options.incomingRequestContext.overallCachePolicy
-        ? options.incomingRequestContext.overallCachePolicy
-        : null;
-
-    if (this.apq) {
-      const apqHash = createHash('sha256').update(request.query).digest('hex');
-
-      // Take the original extensions and extend them with
-      // the necessary "extensions" for APQ handshaking.
-      requestWithoutQuery.extensions = {
-        ...request.extensions,
-        persistedQuery: {
-          version: 1,
-          sha256Hash: apqHash,
-        },
+      request.http = {
+        method: 'POST',
+        url: this.url,
+        headers,
       };
 
-      const apqOptimisticResponse = await this.sendRequest(
-        requestWithoutQuery,
-        context,
-      );
+      if (this.willSendRequest) {
+        await this.willSendRequest(options);
+      }
 
-      // If we didn't receive notice to retry with APQ, then let's
-      // assume this is the best result we'll get and return it!
+      if (!request.query) {
+        throw new Error('Missing query');
+      }
+
+      const { query, ...requestWithoutQuery } = request;
+
+      // Special handling of cache-control headers in response. Requires
+      // Apollo Server 3, so we check to make sure the method we want is
+      // there.
+      const overallCachePolicy =
+          this.honorSubgraphCacheControlHeader &&
+          options.kind === GraphQLDataSourceRequestKind.INCOMING_OPERATION &&
+          options.incomingRequestContext.overallCachePolicy &&
+          'restrict' in options.incomingRequestContext.overallCachePolicy
+              ? options.incomingRequestContext.overallCachePolicy
+              : null;
+
+      if (this.apq) {
+        const apqHash = createHash('sha256').update(request.query).digest('hex');
+
+        // Take the original extensions and extend them with
+        // the necessary "extensions" for APQ handshaking.
+        requestWithoutQuery.extensions = {
+          ...request.extensions,
+          persistedQuery: {
+            version: 1,
+            sha256Hash: apqHash,
+          },
+        };
+
+        const apqOptimisticResponse = await this.sendRequest(
+            requestWithoutQuery,
+            context,
+        );
+
+        // If we didn't receive notice to retry with APQ, then let's
+        // assume this is the best result we'll get and return it!
+        if (
+            !apqOptimisticResponse.errors ||
+            !apqOptimisticResponse.errors.find(
+                (error) => error.message === 'PersistedQueryNotFound',
+            )
+        ) {
+          return this.respond({
+            response: apqOptimisticResponse,
+            request: requestWithoutQuery,
+            context,
+            overallCachePolicy,
+            pathInIncomingRequest
+          });
+        }
+      }
+
+      // If APQ was enabled, we'll run the same request again, but add in the
+      // previously omitted `query`.  If APQ was NOT enabled, this is the first
+      // request (non-APQ, all the way).
+      const requestWithQuery: GatewayGraphQLRequest = {
+        query,
+        ...requestWithoutQuery,
+      };
+      const response = await this.sendRequest(requestWithQuery, context);
+      return this.respond({
+        response,
+        request: requestWithQuery,
+        context,
+        overallCachePolicy,
+        pathInIncomingRequest
+      });
+    } catch (e) {
+      if (!this.useDefaultNullValuesForConnectionErrors || options.request.query === undefined) {
+        throw e;
+      }
+
+      let parsedQuery = parse(options.request.query);
+      let data = this.getNullDefaultValuesForCurrentQuery(options, parsedQuery);
+
+      let resp = {
+        errors: [
+          {
+            message:
+                'Error while connecting to service sending default null values- original error message is:' +
+                e.message,
+            extensions: {
+              code: 'INTERNAL_SERVER_ERROR',
+            },
+          },
+        ],
+        data: {},
+      };
+
+      if (data == null) {
+        throw e;
+      }
+      resp.data = data;
+      return resp;
+    }
+  }
+
+  private getNullDefaultValuesForCurrentQuery(
+      options: any,
+      parsedQuery: DocumentNode,
+  ): any {
+    let curMap: {[index: string]:any} = {};
+
+    if(parsedQuery.definitions[0].kind != Kind.OPERATION_DEFINITION) {
+      return null;
+    }
+    let entities = parsedQuery.definitions[0].selectionSet.selections[0];
+    if (
+        entities.kind == Kind.FIELD &&
+        entities.name.value == '_entities' &&
+        entities.selectionSet != null
+    ) {
+      let mainEntity = entities.selectionSet.selections[0];
       if (
-        !apqOptimisticResponse.errors ||
-        !apqOptimisticResponse.errors.find(
-          (error) => error.message === 'PersistedQueryNotFound',
-        )
+          mainEntity.kind == Kind.INLINE_FRAGMENT &&
+          mainEntity.typeCondition != null
       ) {
-        return this.respond({
-          response: apqOptimisticResponse,
-          request: requestWithoutQuery,
-          context,
-          overallCachePolicy,
-          pathInIncomingRequest
-        });
+        let entityName = mainEntity.typeCondition.name.value;
+        let entityTypeMap =
+            options.incomingRequestContext.schema._typeMap[entityName]._fields;
+        for (let i = 0; i < mainEntity.selectionSet.selections.length; i++) {
+          let item = mainEntity.selectionSet.selections[i];
+          if ('name' in item && item.name != null) {
+            let name: string = item.name.value;
+            curMap[name] = null;
+            if (entityTypeMap[name].type.toString().indexOf('!') > -1)
+              return null;
+          }
+        }
       }
     }
-
-    // If APQ was enabled, we'll run the same request again, but add in the
-    // previously omitted `query`.  If APQ was NOT enabled, this is the first
-    // request (non-APQ, all the way).
-    const requestWithQuery: GatewayGraphQLRequest = {
-      query,
-      ...requestWithoutQuery,
+    if (Object.keys(curMap).length === 0) {
+      return null;
+    }
+    return {
+      _entities: [curMap],
     };
-    const response = await this.sendRequest(requestWithQuery, context);
-    return this.respond({
-      response,
-      request: requestWithQuery,
-      context,
-      overallCachePolicy,
-      pathInIncomingRequest
-    });
   }
 
   private async sendRequest(
-    request: GatewayGraphQLRequest,
-    context: TContext,
+      request: GatewayGraphQLRequest,
+      context: TContext,
   ): Promise<GatewayGraphQLResponse> {
     // This would represent an internal programming error since this shouldn't
     // be possible in the way that this method is invoked right now.
@@ -226,16 +303,16 @@ export class RemoteGraphQLDataSource<
   }
 
   public willSendRequest?(
-    options: GraphQLDataSourceProcessOptions<TContext>,
+      options: GraphQLDataSourceProcessOptions<TContext>,
   ): void | Promise<void>;
 
   private async respond({
-    response,
-    request,
-    context,
-    overallCachePolicy,
-    pathInIncomingRequest
-  }: {
+                          response,
+                          request,
+                          context,
+                          overallCachePolicy,
+                          pathInIncomingRequest
+                        }: {
     response: GatewayGraphQLResponse;
     request: GatewayGraphQLRequest;
     context: TContext;
@@ -243,13 +320,13 @@ export class RemoteGraphQLDataSource<
     pathInIncomingRequest?: ResponsePath
   }): Promise<GatewayGraphQLResponse> {
     const processedResponse =
-      typeof this.didReceiveResponse === 'function'
-        ? await this.didReceiveResponse({ response, request, context, pathInIncomingRequest })
-        : response;
+        typeof this.didReceiveResponse === 'function'
+            ? await this.didReceiveResponse({ response, request, context, pathInIncomingRequest })
+            : response;
 
     if (overallCachePolicy) {
       const parsed = parseCacheControlHeader(
-        response.http?.headers.get('cache-control'),
+          response.http?.headers.get('cache-control'),
       );
 
       // If the subgraph does not specify a max-age, we assume its response (and
@@ -274,30 +351,30 @@ export class RemoteGraphQLDataSource<
   }
 
   public didReceiveResponse?(
-    requestContext: Required<
-      Pick<GatewayGraphQLRequestContext<TContext>, 'request' | 'response' | 'context'>
-    > & { pathInIncomingRequest?: ResponsePath }
+      requestContext: Required<
+          Pick<GatewayGraphQLRequestContext<TContext>, 'request' | 'response' | 'context'>
+      > & { pathInIncomingRequest?: ResponsePath }
   ): GatewayGraphQLResponse | Promise<GatewayGraphQLResponse>;
 
   public didEncounterError(
-    error: Error,
-    _fetchRequest: NodeFetchRequest,
-    _fetchResponse?: FetcherResponse,
-    _context?: TContext,
+      error: Error,
+      _fetchRequest: NodeFetchRequest,
+      _fetchResponse?: FetcherResponse,
+      _context?: TContext,
   ) {
     throw error;
   }
 
   public parseBody(
-    fetchResponse: FetcherResponse,
-    _fetchRequest?: NodeFetchRequest,
-    _context?: TContext,
+      fetchResponse: FetcherResponse,
+      _fetchRequest?: NodeFetchRequest,
+      _context?: TContext,
   ): Promise<object | string> {
     const contentType = fetchResponse.headers.get('Content-Type');
     if (
-      contentType &&
-      (contentType.startsWith('application/json') ||
-        contentType.startsWith('application/graphql-response+json'))
+        contentType &&
+        (contentType.startsWith('application/json') ||
+            contentType.startsWith('application/graphql-response+json'))
     ) {
       return fetchResponse.json();
     } else {
