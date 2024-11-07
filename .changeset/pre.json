@@ -11,6 +11,7 @@
     "@apollo/subgraph": "2.9.0"
   },
   "changesets": [
+    "twenty-parents-wait",
     "young-pigs-crash"
   ]
 }
