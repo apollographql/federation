@@ -11,11 +11,11 @@ You can configure your gateway, your individual subgraphs, or even a monolothic 
 
 Additionally, the `@apollo/gateway` library provides built-in OpenTelemetry instrumentation to emit [gateway-specific spans](#gateway-specific-spans) for operation traces.
 
-If you are using GraphOS Router, it comes [pre-built with support for OpenTelemetry](/router/configuration/telemetry/overview).
+If you are using GraphOS Router, it comes [pre-built with support for OpenTelemetry](/graphos/routing/observability/telemetry).
 
 <Note>
 
-GraphOS Studio does not currently consume OpenTelemetry-formatted data. To push trace data to Studio, see [Federated trace data](./metrics/).
+GraphOS Studio does not currently consume OpenTelemetry-formatted data. To push trace data to Studio, see [Federated trace data](/graphos/routing/observability/federated-trace-data).
 
 You should configure OpenTelemetry if you want to push trace data to an OpenTelemetry-compatible system, such as [Zipkin](https://zipkin.io/) or [Jaeger](https://www.jaegertracing.io/).
 

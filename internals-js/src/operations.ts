@@ -69,7 +69,7 @@ function haveSameDirectives<TElement extends OperationElement>(op1: TElement, op
 }
 
 abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> extends DirectiveTargetElement<T> {
-  private attachements?: Map<string, string>;
+  private attachments?: Map<string, string>;
 
   constructor(
     schema: Schema,
@@ -97,21 +97,21 @@ abstract class AbstractOperationElement<T extends AbstractOperationElement<T>> e
 
   protected abstract collectVariablesInElement(collector: VariableCollector): void;
 
-  addAttachement(key: string, value: string) {
-    if (!this.attachements) {
-      this.attachements = new Map();
+  addAttachment(key: string, value: string) {
+    if (!this.attachments) {
+      this.attachments = new Map();
     }
-    this.attachements.set(key, value);
+    this.attachments.set(key, value);
   }
 
-  getAttachement(key: string): string | undefined {
-    return this.attachements?.get(key);
+  getAttachment(key: string): string | undefined {
+    return this.attachments?.get(key);
   }
 
-  protected copyAttachementsTo(elt: AbstractOperationElement<any>) {
-    if (this.attachements) {
-      for (const [k, v] of this.attachements.entries()) {
-        elt.addAttachement(k, v);
+  protected copyAttachmentsTo(elt: AbstractOperationElement<any>) {
+    if (this.attachments) {
+      for (const [k, v] of this.attachments.entries()) {
+        elt.addAttachment(k, v);
       }
     }
   }
@@ -170,6 +170,17 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
   baseType(): NamedType {
     return baseType(this.definition.type!);
   }
+
+  copy(): Field<TArgs> {
+    const newField = new Field<TArgs>(
+      this.definition,
+      this.args,
+      this.appliedDirectives,
+      this.alias,
+    );
+    this.copyAttachmentsTo(newField);
+    return newField;
+  }
   
   withUpdatedArguments(newArgs: TArgs): Field<TArgs> {
     const newField = new Field<TArgs>(
@@ -178,7 +189,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       this.appliedDirectives,
       this.alias,
     );
-    this.copyAttachementsTo(newField);
+    this.copyAttachmentsTo(newField);
     return newField;
   }
 
@@ -189,7 +200,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       this.appliedDirectives,
       this.alias,
     );
-    this.copyAttachementsTo(newField);
+    this.copyAttachmentsTo(newField);
     return newField;
   }
 
@@ -200,7 +211,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       this.appliedDirectives,
       newAlias,
     );
-    this.copyAttachementsTo(newField);
+    this.copyAttachmentsTo(newField);
     return newField;
   }
 
@@ -211,7 +222,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
       newDirectives,
       this.alias,
     );
-    this.copyAttachementsTo(newField);
+    this.copyAttachmentsTo(newField);
     return newField;
   }
 
@@ -505,13 +516,13 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     // schema (typically, the supergraph) than `this.sourceType` (typically, a subgraph), then the new condition uses the
     // definition of the proper schema (the supergraph in such cases, instead of the subgraph).
     const newFragment = new FragmentElement(newSourceType, newCondition?.name, this.appliedDirectives);
-    this.copyAttachementsTo(newFragment);
+    this.copyAttachmentsTo(newFragment);
     return newFragment;
   }
 
   withUpdatedDirectives(newDirectives: Directive<OperationElement>[]): FragmentElement {
     const newFragment = new FragmentElement(this.sourceType, this.typeCondition, newDirectives);
-    this.copyAttachementsTo(newFragment);
+    this.copyAttachmentsTo(newFragment);
     return newFragment;
   }
 
@@ -590,7 +601,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
     }
 
     const updated = new FragmentElement(this.sourceType, this.typeCondition, updatedDirectives);
-    this.copyAttachementsTo(updated);
+    this.copyAttachmentsTo(updated);
     return updated;
   }
 
@@ -655,7 +666,7 @@ export class FragmentElement extends AbstractOperationElement<FragmentElement> {
       .concat(new Directive<FragmentElement>(deferDirective.name, newDeferArgs));
 
     const updated = new FragmentElement(this.sourceType, this.typeCondition, updatedDirectives);
-    this.copyAttachementsTo(updated);
+    this.copyAttachmentsTo(updated);
     return updated;
   }
 
@@ -1182,6 +1193,11 @@ export class NamedFragmentDefinition extends DirectiveTargetElement<NamedFragmen
     }
   }
 
+  collectVariables(collector: VariableCollector) {
+    this.selectionSet.collectVariables(collector);
+    this.collectVariablesInAppliedDirectives(collector);
+  }
+
   toFragmentDefinitionNode() : FragmentDefinitionNode {
     return {
       kind: Kind.FRAGMENT_DEFINITION,
@@ -1647,10 +1663,10 @@ export class SelectionSet {
         }
 
         return new FragmentSpreadSelection(this.parentType, namedFragments, fragmentDefinition, []);
-      } else if (selection.kind === 'FieldSelection') {
-        if (selection.selectionSet) {
-          selection = selection.withUpdatedSelectionSet(selection.selectionSet.minimizeSelectionSet(namedFragments, seenSelections)[0]);
-        }
+      }
+
+      if (selection.selectionSet) {
+        selection = selection.withUpdatedSelectionSet(selection.selectionSet.minimizeSelectionSet(namedFragments, seenSelections)[0]);
       }
       return selection;
     });
@@ -2103,10 +2119,10 @@ export class SelectionSet {
     // By default, we will print the selection the order in which things were added to it.
     // If __typename is selected however, we put it first. It's a detail but as __typename is a bit special it looks better,
     // and it happens to mimic prior behavior on the query plan side so it saves us from changing tests for no good reasons.
-    const isNonAliasedTypenameSelection = (s: Selection) => s.kind === 'FieldSelection' && !s.element.alias && s.element.name === typenameFieldName;
-    const typenameSelection = this._selections.find((s) => isNonAliasedTypenameSelection(s));
+    const isPlainTypenameSelection = (s: Selection) => s.kind === 'FieldSelection' && s.isPlainTypenameField();
+    const typenameSelection = this._selections.find((s) => isPlainTypenameSelection(s));
     if (typenameSelection) {
-      return [typenameSelection].concat(this.selections().filter(s => !isNonAliasedTypenameSelection(s)));
+      return [typenameSelection].concat(this.selections().filter(s => !isPlainTypenameSelection(s)));
     } else {
       return this._selections;
     }
@@ -3040,6 +3056,19 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
 
   isTypenameField(): boolean {
     return this.element.definition.name === typenameFieldName;
+  }
+
+  // Is this a plain simple __typename without any directive or alias?
+  isPlainTypenameField(): boolean {
+    return this.element.definition.name === typenameFieldName
+        && this.element.appliedDirectives.length == 0
+        && !this.element.alias;
+  }
+
+  withAttachment(key: string, value: string): FieldSelection {
+    const updatedField = this.element.copy();
+    updatedField.addAttachment(key, value);
+    return this.withUpdatedElement(updatedField);
   }
 
   withUpdatedComponents(field: Field<any>, selectionSet: SelectionSet | undefined): FieldSelection {

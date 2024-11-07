@@ -597,6 +597,36 @@ const CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS = makeCodeDefinition(
     { addedIn: '2.7.0' },
 );
 
+const COST_APPLIED_TO_INTERFACE_FIELD = makeCodeDefinition(
+  'COST_APPLIED_TO_INTERFACE_FIELD',
+  'The `@cost` directive must be applied to concrete types',
+  { addedIn: '2.9.2' },
+);
+
+const LIST_SIZE_APPLIED_TO_NON_LIST = makeCodeDefinition(
+  'LIST_SIZE_APPLIED_TO_NON_LIST',
+  'The `@listSize` directive must be applied to list types',
+  { addedIn: '2.9.2' },
+);
+
+const LIST_SIZE_INVALID_ASSUMED_SIZE = makeCodeDefinition(
+  'LIST_SIZE_INVALID_ASSUMED_SIZE',
+  'The `@listSize` directive assumed size cannot be negative',
+  { addedIn: '2.9.2' },
+);
+
+const LIST_SIZE_INVALID_SLICING_ARGUMENT = makeCodeDefinition(
+  'LIST_SIZE_INVALID_SLICING_ARGUMENT',
+  'The `@listSize` directive must have existing integer slicing arguments',
+  { addedIn: '2.9.2' },
+);
+
+const LIST_SIZE_INVALID_SIZED_FIELD = makeCodeDefinition(
+  'LIST_SIZE_INVALID_SIZED_FIELD',
+  'The `@listSize` directive must reference existing list fields as sized fields',
+  { addedIn: '2.9.2' },
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -690,7 +720,13 @@ export const ERRORS = {
   INTERFACE_OBJECT_USAGE_ERROR,
   INTERFACE_KEY_NOT_ON_IMPLEMENTATION,
   INTERFACE_KEY_MISSING_IMPLEMENTATION_TYPE,
-    CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS,
+  CONTEXTUAL_ARGUMENT_NOT_CONTEXTUAL_IN_ALL_SUBGRAPHS,
+  // Errors related to demand control
+  COST_APPLIED_TO_INTERFACE_FIELD,
+  LIST_SIZE_APPLIED_TO_NON_LIST,
+  LIST_SIZE_INVALID_ASSUMED_SIZE,
+  LIST_SIZE_INVALID_SIZED_FIELD,
+  LIST_SIZE_INVALID_SLICING_ARGUMENT,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

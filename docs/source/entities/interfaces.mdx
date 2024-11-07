@@ -5,7 +5,7 @@ description: Discover how to efficiently add polymorphic fields to GraphQL inter
 minVersion: 2.3
 ---
 
-Apollo Federation provides powerful extensions to GraphQL interfaces, specifically for use with your supergraph's [entities](../entities/):
+Apollo Federation provides powerful extensions to GraphQL interfaces, specifically for use with your supergraph's [entities](/graphos/get-started/guides/federate-schemas#entity-overview):
 
 1. Apply the `@key` directive to an `interface` definition to make it an _entity interface_.
 2. In other subgraphs, use the `@interfaceObject` directive to automatically add fields to every entity that implements your entity interface.
@@ -64,7 +64,7 @@ This example is short, but there's a lot to it. Let's break it down:
     - Subgraph B defines the new `Media.reviews` field.
     - Subgraph B will also be responsible for resolving the `reviews` field. To learn how, see [Resolving an `@interfaceObject`](#resolving-an-interfaceobject).
 
-When [composition](./composition/) runs for the above subgraph schemas, it identifies Subgraph B's `@interfaceObject`. It adds the new `reviews` field to the supergraph schema's `Media` interface, and it also adds that field to the implementing `Book` entity (along with any others):
+When composition runs for the above subgraph schemas, it identifies Subgraph B's `@interfaceObject`. It adds the new `reviews` field to the supergraph schema's `Media` interface, and it also adds that field to the implementing `Book` entity (along with any others):
 
 ```graphql title="Supergraph schema (simplified)"
 interface Media @key(fields: "id") {
@@ -84,7 +84,7 @@ type Review {
 }
 ```
 
-Subgraph B could have added `Book.reviews` by [contributing the field](../entities#contributing-entity-fields) directly to the entity as usual. However, what if we wanted to add `reviews` to a hundred different entity implementations of `Media`?
+Subgraph B could have added `Book.reviews` by [contributing the field](/graphos/schema-design/federated-schemas/entities/contribute-fields) directly to the entity as usual. However, what if we wanted to add `reviews` to a hundred different entity implementations of `Media`?
 
 By instead adding entity fields via `@interfaceObject`, we can avoid redefining a hundred entities in Subgraph B (not to mention adding more definitions whenever a new implementing entity is created). [Learn more.](#why-is-interfaceobject-necessary)
 
@@ -94,7 +94,7 @@ To use entity interfaces and `@interfaceObject`, your supergraph must adhere to 
 
 ### Enabling support
 
-- If they don't already, all of your subgraph schemas must use the [`@link` directive](./federated-directives/#importing-directives) to enable Federation 2 features.
+- If they don't already, all of your subgraph schemas must use the [`@link` directive](/graphos/reference/federation/directives/#importing-directives) to enable Federation 2 features.
 - Any subgraph schema that uses the `@interfaceObject` directive or applies `@key` to an `interface` must target v2.3 or later of the Apollo Federation specfication:
 
     ```graphql
@@ -107,7 +107,7 @@ To use entity interfaces and `@interfaceObject`, your supergraph must adhere to 
       )
     ```
 
-    Additionally, schemas that use `@interfaceObject` must include it in the [`@link` directive's](./federated-directives/#importing-directives) `import` array as shown above.
+    Additionally, schemas that use `@interfaceObject` must include it in the [`@link` directive's](/graphos/reference/federation/directives/#importing-directives) `import` array as shown above.
 
 ### Usage rules
 
@@ -183,11 +183,11 @@ interface Media @key(fields: "id") {
 }
 ```
 
-As it does with any [standard entity](../entities/#1-define-a-key), `@key` indicates "this subgraph can resolve any instance of this type if provided its `@key` fields." This means Subgraph A needs to define a reference resolver for `Media`, just as it would for any other entity.
+As it does with any [standard entity](/graphos/get-started/guides/federate-schemas/#1-define-a-key), `@key` indicates "this subgraph can resolve any instance of this type if provided its `@key` fields." This means Subgraph A needs to define a reference resolver for `Media`, just as it would for any other entity.
 
 <Note>
 
-The method for defining a reference resolver depends on which [subgraph library](../building-supergraphs/compatible-subgraphs/) you use. Some subgraph libraries might use a different term for this functionality. Consult your library's documentation for details.
+The method for defining a reference resolver depends on which [subgraph library](/graphos/reference/federation/compatible-subgraphs) you use. Some subgraph libraries might use a different term for this functionality. Consult your library's documentation for details.
 
 </Note>
 

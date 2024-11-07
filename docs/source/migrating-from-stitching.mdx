@@ -64,7 +64,7 @@ const server = new ApolloServer({
 
 ### Using a GraphQL server besides Apollo Server
 
-There are [several community-contributed packages](./building-supergraphs/supported-subgraphs/) that add federation support to other GraphQL runtimes.
+There are [several community-contributed packages](/federation/building-supergraphs/supported-subgraphs/) that add federation support to other GraphQL runtimes.
 
 ## Step 2: Register your schemas with a GraphQL registry
 
@@ -74,7 +74,7 @@ We strongly recommend that you register all of your GraphQL schemas with an [ext
 
 GraphOS can also provide [schema validation](/graphos/platform/schema-management/checks/) to ensure that all changes you make to your subgraphs are compatible with your complete graph.
 
-[Learn more about managed configuration.](./managed-federation/overview)
+[Learn more about managed configuration.](/federation/managed-federation/overview)
 
 ## Step 3: Start up an Apollo Server gateway
 
@@ -82,7 +82,7 @@ After you've registered your schemas, you can start exposing your subgraphs from
 
 We recommend setting up the Apollo Server gateway alongside your existing schema-stitching gateway. Depending on your infrastructure, you might even want to run both in the same process to support dynamically routing traffic through one gateway or the other.
 
-To enable managed configuration with GraphOS Studio, set the `APOLLO_KEY` and `APOLLO_GRAPH_REF` environment variables when you start up your Apollo Server gateway, and do not provide the `supergraphSDL` or `serviceList` constructor option to `ApolloGateway`. For details, see the [managed federation documentation](./managed-federation/overview).
+To enable managed configuration with GraphOS Studio, set the `APOLLO_KEY` and `APOLLO_GRAPH_REF` environment variables when you start up your Apollo Server gateway, and do not provide the `supergraphSDL` or `serviceList` constructor option to `ApolloGateway`. For details, see the [managed federation documentation](/federation/managed-federation/overview).
 
 After your gateway is set up, you can make direct queries to it that are routed to the correct subgraphs.
 
@@ -182,7 +182,7 @@ After you've fully migrated your graph and incoming traffic to use your federate
 You can now begin to modify your existing schema to take full advantage of the
 features that federation provides. These features include:
 
-* Greater flexibility with [federation core concepts](./)
-* [Metrics and analysis of query plans](./performance/monitoring/#metrics-and-observability)
-* [Gateway support for live schema updates](./managed-federation/deployment/#the-subgraph-publish-lifecycle)
-* [Validation of composition logic and usage traffic](./managed-federation/federated-schema-checks/)
+* Greater flexibility with [federation core concepts](/federation/)
+* [Metrics and analysis of query plans](/federation/performance/monitoring/#metrics-and-observability)
+* [Gateway support for live schema updates](/federation/managed-federation/deployment/#the-subgraph-publish-lifecycle)
+* [Validation of composition logic and usage traffic](/federation/managed-federation/federated-schema-checks/)

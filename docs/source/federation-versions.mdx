@@ -4,7 +4,7 @@ subtitle: Understand changes between Apollo Federation versions
 description: Understand changes between Apollo Federation major and minor versions.
 ---
 
-This article describes notable changes and additions introduced in each minor version release of Apollo Federation. Most of these changes involve additions or modifications to [federation-specific directives](./federated-schemas/federated-directives/).
+This article describes notable changes and additions introduced in each minor version release of Apollo Federation. Most of these changes involve additions or modifications to [federation-specific directives](/graphos/reference/federation/directives/).
 
 For a comprehensive changelog for Apollo Federation and its associated libraries, see [GitHub](https://github.com/apollographql/federation/blob/main/CHANGELOG.md).
 
@@ -20,11 +20,11 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 
     <Note>
     
-    Before you increment a subgraph's federation version, update your router and build pipeline. For details, see [Updating your graph safely](/graphos/graphs/updating/).
+    Before you increment a subgraph's federation version, update your router and build pipeline. For details, see [Updating your graph safely](/graphos/platform/graph-management/updates).
 
     </Note>
 
-- If you maintain a [subgraph-compatible library](./building-supergraphs/compatible-subgraphs/), consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](./subgraph-spec/#subgraph-schema-additions).
+- If you maintain a [subgraph-compatible library](/graphos/reference/federation/compatible-subgraphs), consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](/graphos/reference/federation/subgraph-spec/#subgraph-schema-additions).
 
 ## v2.9
 
@@ -34,17 +34,22 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 
 <div>
 
-First release
-
+First release<br/>
 **August 2024**
 
 </div>
 
 <div>
 
-Minimum router version
+Available in GraphOS?<br/>
+**Yes**
 
-**TBD**
+</div>
+
+<div>
+
+Minimum router version<br/>
+**`1.53.0`**
 
 </div>
 
@@ -71,7 +76,7 @@ Minimum router version
 </td>
 <td>
 
-Introduced. [Learn more](./federated-schemas/federated-directives/#cost).
+Introduced. [Learn more](/federation/federated-schemas/federated-directives#cost).
 
 ```graphql
 directive @cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
@@ -88,7 +93,7 @@ directive @cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION |
 </td>
 <td>
 
-Introduced. [Learn more](./federated-schemas/federated-directives/#listsize).
+Introduced. [Learn more](/federation/federated-schemas/federated-directives#listsize).
 
 ```graphql
 directive @listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
@@ -108,25 +113,22 @@ directive @listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: 
 
 <div>
 
-First release
-
+First release<br/>
 **May 2024**
 
 </div>
 
 <div>
 
-Available in GraphOS?
-
-**No**
+Available in GraphOS?<br/>
+**Yes**
 
 </div>
 
 <div>
 
-Minimum router version
-
-**1.48.0**
+Minimum router version<br/>
+**`1.48.0`**
 
 </div>
 
@@ -153,7 +155,7 @@ Minimum router version
 </td>
 <td>
 
-Introduced. [Learn more](./federated-schemas/federated-directives/#context).
+Introduced. [Learn more](/graphos/reference/federation/directives/#context).
 
 ```graphql
 directive @context(name: String!) on OBJECT | INTERFACE | UNION;
@@ -170,7 +172,7 @@ directive @context(name: String!) on OBJECT | INTERFACE | UNION;
 </td>
 <td>
 
-Introduced. [Learn more](./federated-schemas/federated-directives/#fromcontext).
+Introduced. [Learn more](/graphos/reference/federation/directives/#fromcontext).
 
 ```graphql
 scalar ContextFieldValue;
@@ -192,25 +194,22 @@ directive @fromContext(field: ContextFieldValue) on ARGUMENT_DEFINITION;
 
 <div>
 
-First release
-
+First release<br/>
 **February 2024**
 
 </div>
 
 <div>
 
-Available in GraphOS?
-
+Available in GraphOS?<br/>
 **Yes**
 
 </div>
 
 <div>
 
-Minimum router version
-
-**1.39.0**
+Minimum router version<br/>
+**`1.39.0`**
 
 </div>
 
@@ -237,7 +236,7 @@ Minimum router version
 </td>
 <td>
 
-Added progressive `@override`. [Learn more.](./federated-schemas/federated-directives/#progressive-override)
+Added progressive `@override`. [Learn more.](/graphos/reference/federation/directives/#progressive-override)
 
 ```graphql
 directive @override(from: String!, label: String) on FIELD_DEFINITION
@@ -257,25 +256,22 @@ directive @override(from: String!, label: String) on FIELD_DEFINITION
 
 <div>
 
-First release
-
+First release<br/>
 **November 2023**
 
 </div>
 
 <div>
 
-Available in GraphOS?
-
+Available in GraphOS?<br/>
 **Yes**
 
 </div>
 
 <div>
 
-Minimum router version
-
-**1.35.0**
+Minimum router version<br/>
+**`1.35.0`**
 
 </div>
 
@@ -303,7 +299,7 @@ Minimum router version
 <td>
 
 
-Introduced. [Learn more.](/router/configuration/authorization)
+Introduced. [Learn more.](/graphos/routing/security/authorization)
 
 ```graphql
 directive @policy(policies: [[federation__Policy!]!]!) on
@@ -354,24 +350,21 @@ Policy
 
 <div>
 
-First release
-
+First release<br/>
 **July 2023**
 
 </div>
 
 <div>
 
-Available in GraphOS?
-
+Available in GraphOS?<br/>
 **Yes**
 
 </div>
 
 <div>
 
-Minimum router version
-
+Minimum router version<br/>
 **`1.29.1`**
 
 </div>
@@ -400,7 +393,7 @@ Minimum router version
 <td>
 
 
-Introduced. [Learn more.](/router/configuration/authorization)
+Introduced. [Learn more.](/graphos/routing/security/authorization)
 
 ```graphql
 directive @authenticated on
@@ -423,7 +416,7 @@ directive @authenticated on
 <td>
 
 
-Introduced. [Learn more.](/router/configuration/authorization)
+Introduced. [Learn more.](/graphos/routing/security/authorization)
 
 ```graphql
 directive @requiresScopes(scopes: [[federation__Scope!]!]!) on
@@ -474,24 +467,21 @@ Scope
 
 <div>
 
-First release
-
+First release<br/>
 **March 2023**
 
 </div>
 
 <div>
 
-Available in GraphOS?
-
+Available in GraphOS?<br/>
 **Yes**
 
 </div>
 
 <div>
 
-Minimum router version
-
+Minimum router version<br/>
 **`1.13.1`**
 
 </div>
@@ -520,7 +510,7 @@ Subscriptions
 <td>
 
 - Composition now supports defining the `Subscription` type in subgraph schemas.
-- Use of GraphQL subscriptions with a federated graph requires a compatible version of the GraphOS Router. [See details.](/router/executing-operations/subscription-support/#prerequisites)
+- Use of GraphQL subscriptions with a federated graph requires a compatible version of the GraphOS Router. [See details.](/graphos/routing/operations/subscriptions/#prerequisites)
 
 </td>
 </tr>
@@ -535,24 +525,21 @@ Subscriptions
 
 <div>
 
-First release
-
-**February 2023**
+First release<br/>
+**February 2023**<br/>
 
 </div>
 
 <div>
 
-Available in GraphOS?
-
+Available in GraphOS?<br/>
 **Yes**
 
 </div>
 
 <div>
 
-Minimum router version
-
+Minimum router version<br/>
 **`1.10.2`**
 
 </div>
@@ -581,7 +568,7 @@ Minimum router version
 </td>
 <td>
 
-Introduced. [Learn more.](./entities/interfaces)
+Introduced. [Learn more.](/graphos/schema-design/federated-schemas/entities/interfaces)
 
 ```graphql
 directive @interfaceObject on OBJECT
@@ -598,7 +585,7 @@ directive @interfaceObject on OBJECT
 </td>
 <td>
 
-Can now be applied to interface definitions to support [entity interfaces](./entities/interfaces/).
+Can now be applied to interface definitions to support [entity interfaces](/graphos/schema-design/federated-schemas/entities/interfaces/).
 
 (Previous versions of composition threw an error if `@key` was applied to an interface definition.)
 
@@ -616,24 +603,21 @@ Can now be applied to interface definitions to support [entity interfaces](./ent
 
 <div>
 
-First release
-
+First release<br/><br/>
 **November 2022**
 
 </div>
 
 <div>
 
-Available in GraphOS?
-
+Available in GraphOS?<br/>
 **No**
 
 </div>
 
 <div>
 
-Minimum router version
-
+Minimum router version<br/>
 **`1.6.0`**
 
 </div>
@@ -683,24 +667,21 @@ Additionally, composition now throws an error if `@shareable` is applied to fiel
 
 <div>
 
-First release
-
+First release<br/>
 **August 2022**
 
 </div>
 
 <div>
 
-Available in GraphOS?
-
+Available in GraphOS?<br/>
 **Yes**
 
 </div>
 
 <div>
 
-Minimum router version
-
+Minimum router version<br/>
 **`1.0.0`**
 
 </div>
@@ -728,7 +709,7 @@ Minimum router version
 </td>
 <td>
 
-Introduced. [Learn more.](./federated-schemas/federated-directives#composedirective)
+Introduced. [Learn more.](/graphos/reference/federation/directives#composedirective)
 
 ```graphql
 directive @composeDirective(name: String!) repeatable on SCHEMA
@@ -745,7 +726,7 @@ directive @composeDirective(name: String!) repeatable on SCHEMA
 </td>
 <td>
 
-The `fields` argument can now include fields that themselves take arguments. [Learn more.](./entities/contribute-fields/#using-requires-with-fields-that-take-arguments)
+The `fields` argument can now include fields that themselves take arguments. [Learn more.](/graphos/schema-design/federated-schemas/entities/contribute-fields#using-requires-with-fields-that-take-arguments)
 
 (Functionality added in v2.1.2)
 
@@ -773,24 +754,21 @@ type Product @key(fields: "id") {
 
 <div>
 
-First release
-
+First release<br/>
 **April 2022**
 
 </div>
 
 <div>
 
-Available in GraphOS?
-
+Available in GraphOS?<br/>
 **Yes**
 
 </div>
 
 <div>
 
-Minimum router version
-
+Minimum router version<br/>
 **`1.0.0`**
 
 </div>
@@ -811,7 +789,7 @@ extend schema
 
 The `import` list of this definition must include each federation-specific directive that the subgraph schema uses. In the example above, the schema uses `@key` and `@shareable`.
 
-For details on these directives as defined in Federation 2, see [Federation-specific GraphQL directives](./federated-schemas/federated-directives/).
+For details on these directives as defined in Federation 2, see [Federation-specific GraphQL directives](/graphos/reference/federation/directives/).
 
 <table>
   <thead>
@@ -978,7 +956,7 @@ Value types
 <td>
 
 * To define a value type with shared fields across multiple subgraphs, those shared fields must be marked as `@shareable` in every subgraph that defines them.
-* Value type fields can differ across subgraphs (in certain ways). For details, see [Differing shared fields](./federated-schemas/sharing-types#differing-shared-fields).
+* Value type fields can differ across subgraphs (in certain ways). For details, see [Differing shared fields](/graphos/schema-design/federated-schemas/sharing-types#differing-shared-fields).
 
 </td>
 </tr>

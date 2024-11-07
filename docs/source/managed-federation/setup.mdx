@@ -4,17 +4,17 @@ subtitle: Connect your supergraph to Apollo GraphOS
 description: Learn how to connect your supergraph to the Apollo GraphOS platform for managed GraphQL federation.
 ---
 
-This article describes how to connect your supergraph to [Apollo GraphOS](/graphos/) to enable managed federation features.
+This article describes how to connect your supergraph to Apollo GraphOS to enable managed federation features.
 
 <Note>
 
-As with all changes, you should first set up managed federation in a non-production environment, such as staging. To support this, you can create multiple [variants](/graphos/graphs/#variants) of your supergraph in GraphOS Studio. Each variant represents a distinct version of the same graph for different environments.
+As with all changes, you should first set up managed federation in a non-production environment, such as staging. To support this, you can create multiple [variants](/graphos/get-started/concepts/graphs-and-variants#variants) of your supergraph in GraphOS Studio. Each variant represents a distinct version of the same graph for different environments.
 
 </Note>
 
 ## 1. Get started
 
-First, complete the **Set up Apollo tools** step from [this tutorial](/graphos/quickstart/self-hosted#1-set-up-apollo-tools), including:
+First, set up the tools required from [this tutorial](/graphos/get-started/quickstart), including:
 
 - Creating an Apollo account
 - Creating a graph in Studio
@@ -22,7 +22,7 @@ First, complete the **Set up Apollo tools** step from [this tutorial](/graphos/q
 
 ## 2. Publish all subgraph schemas
 
-In a supergraph architecture, each of your [subgraphs](../building-supergraphs/subgraphs-overview/) uses the Rover CLI to publish its schema to GraphOS:
+In a supergraph architecture, each of your subgraphs uses the Rover CLI to publish its schema to GraphOS:
 
 ```mermaid
 graph LR;
@@ -85,7 +85,7 @@ When running your gateway in an environment where outbound traffic to the intern
 
 </ExpansionPanel>
 
-If you've already set up Apollo Federation without connecting your router to GraphOS, you're probably passing the [`--supergraph` (or `-s`) option](/router/configuration/overview/#-s----supergraph) to the GraphOS Router's startup command:
+If you've already set up Apollo Federation without connecting your router to GraphOS, you're probably passing the [`--supergraph` (or `-s`) option](/graphos/reference/router/configuration#-s----supergraph) to the GraphOS Router's startup command:
 
 ```sh
 ./router --config ./router.yaml --supergraph ./your-local-supergraph.graphql
@@ -93,7 +93,7 @@ If you've already set up Apollo Federation without connecting your router to Gra
 
 The `--supergraph` option applies in scenarios where the router doesn't retrieve the supergraph schema by polling Apollo Uplink. These include:
 
-* **Enabling different deployment environments to refer to a single graph variant**, for example, for [blue-green deployment](./deployment/#example-blue-green-deployment): Use a workflow with the [Platform API](/graphos/platform-api/) to compose and retrieve the supergraph schema for each environment. This enables each environment's router to use the environment's supergraph schema, and then a single graph variant can capture and analyze the operations and traffic of either environment when deployed.
+* **Enabling different deployment environments to refer to a single graph variant**, for example, for [blue-green deployment](/federation/managed-federation/deployment/#example-blue-green-deployment): Use a workflow with the [Platform API](/graphos/reference/platform-api/) to compose and retrieve the supergraph schema for each environment. This enables each environment's router to use the environment's supergraph schema, and then a single graph variant can capture and analyze the operations and traffic of either environment when deployed.
 
 * **Unmanaged federation**: The Rover CLI composes the supergraph schema and passes the schema's file path to the router via the `--supergraph` option.
 
