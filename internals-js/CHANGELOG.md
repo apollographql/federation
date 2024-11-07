@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.10.0-alpha.3
+
+### Patch Changes
+
+- Incorporate changes from v2.9.3 ([#3179](https://github.com/apollographql/federation/pull/3179))
+
 ## 2.9.3
 
 ### Patch Changes
