@@ -84,7 +84,7 @@ type Bill @key(fields: "id") {
 ```
   -  Applying the `@override` directive tells the router to resolve the `amount` field in the Billing subgraph instead of the Payments subgraph.
 
-3. Publish the Billing subgraph's updated schema to GraphOS with [`rover subgraph publish`](/graphos/delivery/#subgraph-schemas).
+3. Publish the Billing subgraph's updated schema to GraphOS with [`rover subgraph publish`](/graphos/platform/schema-management/delivery/publish/#subgraph-schemas).
 
   When the router receives its updated supergraph schema, it immediately starts resolving the `Bill.amount` field from the Billing subgraph while continuing to resolve `Bill.payment` from the Payments subgraph.
 
@@ -189,7 +189,7 @@ type Bill @key(fields: "id") {
 
   - Adding a `label` argument to the `@override` directive sets the percentage of traffic to direct to the Billing subgraph. Start with a small percentage. Setting `label: "percent(1)"` means that 1 percent of the requests for `amount` are resolved by the Billing subgraph, while the remaining 99 percent are resolved by the Payments subgraph. 
 
-3. Publish the Billing subgraph's updated schema to GraphOS with [`rover subgraph publish`](/graphos/delivery/#subgraph-schemas).
+3. Publish the Billing subgraph's updated schema to GraphOS with [`rover subgraph publish`](/graphos/platform/schema-management/delivery/publish/#subgraph-schemas).
 
   When the router receives its updated supergraph schema, it starts resolving the `Bill.amount` field from the Billing subgraph approximately 1% of the time, while continuing to resolve it from the Payments subgraph the other 99%.
 
@@ -293,7 +293,7 @@ The router provides an interface for coprocessors and rhai scripts to resolve ar
 This lets you dial up or disable a label's rollout status without requiring a subgraph publish.
 A coprocessor or Rhai script that implements this should take the following steps:
 
-1. Implement the [`SupergraphService`](/router/customizations/rhai/#supergraphservice)
+1. Implement the [`SupergraphService`](/graphos/routing/customization/rhai/#supergraphservice)
 2. Inspect the `apollo_override::unresolved_labels` context key to determine which labels exist in the schema that haven't been resolved by the router.
 3. Resolve the labels using your feature flag service (or any other mechanism).
 4. Add the resolved labels to the `apollo_override::labels_to_override` context key.
@@ -322,7 +322,7 @@ For most use cases, Apollo recommends using the [`@override` method above](#incr
 </Caution>
 
 Using `@override` to migrate entity fields enables us to migrate fields incrementally with zero downtime. However, doing so requires three separate schema publishes.
-If you're using [manual composition](./federated-schemas/composition#manually-with-the-rover-cli), each schema change requires redeploying your router.
+If you're using [manual composition](/graphos/schema-design/federated-schemas/composition#manually-with-the-rover-cli), each schema change requires redeploying your router.
 With careful coordination, you can perform the same migration with only a single router redeploy.
 
 1. In the Billing subgraph, define the `Bill` entity, along with its corresponding resolvers. These new resolvers should behave identically to the Payment subgraph resolvers they're replacing.

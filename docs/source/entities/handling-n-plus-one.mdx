@@ -65,7 +65,7 @@ type Product @key(fields: "id") {
 </CodeColumns>
 
 
-Most subgraph implementations use _reference resolvers_ to returns the entity object corresponding to a key.
+Most subgraph implementations use _reference resolvers_ to return the entity object corresponding to a key.
 Although this pattern is straightforward, it can diminish performance when a client operation requests fields from many entities.
 Recall the `topReviews` query, now in the context of a federated graph:
 
@@ -162,8 +162,8 @@ QueryPlan {
 
 </ExpansionPanel>
 
-Most subgraph implementations (including [`@apollo/subgraph`](/apollo-server/using-federation/api/apollo-subgraph/)) don't write the [`Query._entities` resolver](./building-supergraphs/subgraphs-overview/#query_entities) directly.
-Instead, they use the [reference resolver API](./#2-define-a-reference-resolver) for resolving an individual entity reference:
+Most subgraph implementations (including [`@apollo/subgraph`](/apollo-server/using-federation/api/apollo-subgraph/)) don't write the [`Query._entities` resolver](/graphos/reference/federation/subgraph-specific-fields/#query_entities) directly.
+Instead, they use the [reference resolver API](/graphos/schema-design/federated-schemas/entities/intro/#2-define-a-reference-resolver) for resolving an individual entity reference:
 
 ```js
 const resolvers = {

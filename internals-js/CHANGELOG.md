@@ -1,5 +1,33 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.9.3
+
+### Patch Changes
+
+- fix: normalize field set selection sets ([#3162](https://github.com/apollographql/federation/pull/3162))
+
+  `FieldSet` scalar represents a selection set without outer braces. This means that users could potentially specify some selections that could be normalized (i.e. eliminate duplicate field selections, hoist/collapse unnecessary inline fragments, etc). Previously we were using `@requires` field set selection AS-IS for edge conditions. With this change we will now normalize the `FieldSet` selections before using them as fetch node conditions.
+
+- Fixed missing referenced variables in the `variableUsages` field of fetch operations ([#3166](https://github.com/apollographql/federation/pull/3166))
+
+  Query variables used in fetch operation should be listed in the `variableUsages` field. However, there was a bug where variables referenced by query-level directives could be missing in the field.
+
+- Fix fragment generation recursion logic to apply minification on all subselections. ([#3158](https://github.com/apollographql/federation/pull/3158))
+
+- Fixed a bug that `__typename` with applied directives gets lost in fetch operations. ([#3164](https://github.com/apollographql/federation/pull/3164))
+
+  The sibling typename optimization used by query planner simplifies operations by folding `__typename` selections into their sibling selections. However, that optimization does not account for directives or aliases. The bug was applying the optimization even if the `__typename` has directives on it, which caused the selection to lose its directives. Now, `__typename` with directives (or aliases) are excluded from the optimization.
+
+## 2.9.2
+
+### Patch Changes
+
+- Fixes handling of a `__typename` selection during query planning process. ([#3156](https://github.com/apollographql/federation/pull/3156))
+
+  When expanding fragments we were keeping references to the same `Field`s regardless where those fragments appeared in our original selection set. This was generally fine as in most cases we would have same inline fragment selection sets across whole operation but was causing problems when we were applying another optimization by collapsing those expanded inline fragments creating a new selection set. As a result, if any single field selection (within that fragment) would perform optimization around the usage of `__typename`, ALL occurrences of that field selection would get that optimization as well.
+
+- Add validations for demand control directive applications ([#3148](https://github.com/apollographql/federation/pull/3148))
+
 ## 2.9.1
 
 ### Patch Changes

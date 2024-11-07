@@ -106,6 +106,7 @@ import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig, validateQueryPla
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, SubscriptionNode, trimSelectionNodes } from "./QueryPlan";
 
+
 const debug = newDebugLogger('plan');
 
 // Somewhat random string used to optimise handling __typename in some cases. See usage for details. The concrete value
@@ -1599,22 +1600,26 @@ class FetchGroup {
       );
     }
 
-    // collect all used variables in the selection and in used Fragments
-    const usedVariables = new Set(selection.usedVariables().map(v => v.name));
+    // collect all used variables in the selection and the used directives and fragments.
+    const collector = new VariableCollector();
+    // Note: The operation's selectionSet includes `representations` variable,
+    //       thus we use `selection` here instead.
+    selection.collectVariables(collector);
+    operation.collectVariablesInAppliedDirectives(collector);
     if (operation.fragments) {
       for (const namedFragment of operation.fragments.definitions()) {
-        namedFragment.selectionSet.usedVariables().forEach(v => {
-          usedVariables.add(v.name);  
-        });
+        namedFragment.collectVariables(collector);
       }
     }
+    const usedVariables = collector.variables();
+
     const operationDocument = operationToDocument(operation);
     const fetchNode: FetchNode = {
       kind: 'Fetch',
       id: this.id,
       serviceName: this.subgraphName,
       requires: inputNodes ? trimSelectionNodes(inputNodes.selections) : undefined,
-      variableUsages: Array.from(usedVariables),
+      variableUsages: usedVariables.map((v) => v.name),
       operation: stripIgnoredCharacters(print(operationDocument)),
       operationKind: schemaRootKindToOperationKind(operation.rootKind),
       operationName: operation.name,
@@ -2611,8 +2616,12 @@ class FetchDependencyGraph {
   }
 
   private removeUselessGroups(group: FetchGroup) {
+    // Since we can potentially remove child in place, we need to
+    // explicitly copy the list of all children to ensure that we
+    // process ALL children
+    const children = group.children().concat();
     // Recursing first, this makes it a bit easier to reason about.
-    for (const child of group.children()) {
+    for (const child of children) {
       this.removeUselessGroups(child);
     }
 
@@ -3391,10 +3400,10 @@ export class QueryPlanner {
    * implements an alternative: to avoid the query planning spending time of exploring options for
    * __typename, we "remove" the __typename selections from the operation. But of course, we still
    * need to ensure that __typename is effectively queried, so as we do that removal, we also "tag"
-   * one of the "sibling" selection (using `addAttachement`) to remember that __typename needs to
+   * one of the "sibling" selection (using `addAttachment`) to remember that __typename needs to
    * be added back eventually. The core query planning algorithm will ignore that tag, and because
    * __typename has been otherwise removed, we'll save any related work. But as we build the final
-   * query plan, we'll check back for those "tags" (see `getAttachement` in `computeGroupsForTree`),
+   * query plan, we'll check back for those "tags" (see `getAttachment` in `computeGroupsForTree`),
    * and when we fine one, we'll add back the request to __typename. As this only happen after the
    * query planning algorithm has computed all choices, we achieve our goal of not considering useless
    * choices due to __typename. Do note that if __typename is the "only" selection of some selection
@@ -3413,13 +3422,14 @@ export class QueryPlanner {
     // (for instance, the fragment condition could be "less precise" than the parent type, in which case query planning
     // will ignore it) and tagging those could lose the tagging.
     let firstFieldSelection: FieldSelection | undefined = undefined;
+    let firstFieldIndex = -1;
     for (let i = 0; i < selections.length; i++) {
       const selection = selections[i];
       let updated: Selection | undefined;
       if (
         !typenameSelection
         && selection.kind === 'FieldSelection'
-        && selection.element.name === typenameFieldName
+        && selection.isPlainTypenameField()
         && !parentMaybeInterfaceObject
       ) {
         // The reason we check for `!typenameSelection` is that due to aliasing, there can be more than one __typename selection
@@ -3445,6 +3455,9 @@ export class QueryPlanner {
         }
         if (!firstFieldSelection && updated.kind === 'FieldSelection') {
           firstFieldSelection = updated;
+          firstFieldIndex = updatedSelections
+            ? updatedSelections.length
+            : i;
         }
       }
 
@@ -3473,7 +3486,7 @@ export class QueryPlanner {
     if (typenameSelection) {
       if (firstFieldSelection) {
         // Note that as we tag the element, we also record the alias used if any since that needs to be preserved.
-        firstFieldSelection.element.addAttachement(SIBLING_TYPENAME_KEY, typenameSelection.element.alias ? typenameSelection.element.alias : '');
+        updatedSelections[firstFieldIndex] = firstFieldSelection.withAttachment(SIBLING_TYPENAME_KEY, typenameSelection.element.alias ? typenameSelection.element.alias : '');
       } else {
         // If we have no other field selection, then we can't optimize __typename and we need to add
         // it back to the updated subselections (we add it first because that's usually where we
@@ -4222,7 +4235,7 @@ function computeGroupsForTree(
             });
             updateCreatedGroups(createdGroups, newGroup);
             newGroup.addParents(conditionsGroups.map((conditionGroup) => {
-              // If `conditionGroup` parent is `group`, that is the same as `newGroup` current parent, then we can infer the path of `newGroup` into
+              // If `conditionGroup` parent is `group`, that is the same as `groupCopy` current parent, then we can infer the path of `groupCopy` into
               // that condition `group` by looking at the paths of each to their common parent. But otherwise, we cannot have a proper
               // "path in parent".
               const conditionGroupParents = conditionGroup.parents();
@@ -4328,10 +4341,10 @@ function computeGroupsForTree(
 
           // We have a operation element, field or inline fragment. We first check if it's been "tagged" to remember that __typename
           // must be queried. See the comment on the `optimizeSiblingTypenames()` method to see why this exists.
-          const typenameAttachment = operation.getAttachement(SIBLING_TYPENAME_KEY);
+          const typenameAttachment = operation.getAttachment(SIBLING_TYPENAME_KEY);
           if (typenameAttachment !== undefined) {
             // We need to add the query __typename for the current type in the current group.
-            // Note that the value of the "attachement" is the alias or '' if there is no alias
+            // Note that the value of the "attachment" is the alias or '' if there is no alias
             const alias = typenameAttachment === '' ? undefined : typenameAttachment;
             const typenameField = new Field(operation.parentType.typenameField()!, undefined, undefined, alias);
             group.addAtPath(path.inGroup().concat(typenameField));
@@ -4358,57 +4371,53 @@ function computeGroupsForTree(
             contextToConditionsGroups,
           };
 
-          if (conditions && edge.conditions) {
-            // We have @requires or some other dependency to create groups for.
-            const requireResult = handleRequires(
+          if (conditions) {
+            // add __typename to site where we are retrieving context from
+            // this is necessary because the context rewrites path will start with a type condition
+            let addTypenameAtPath;
+            if (contextToSelection) {
+              assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
+              addTypenameAtPath = {
+                pathType: edge.head.type,
+              };
+            }
+            // We have @requires, an fake interface object downcast, or a @fromContext
+            // to create groups for.
+            const handleRequiresResult = handleRequiresTree(
               dependencyGraph,
-              edge,
               conditions,
               group,
               path,
-              context,
-              updatedDeferContext,
+              deferContext,
+              addTypenameAtPath,
             );
-            updated.group = requireResult.group;
-            updated.path = requireResult.path;
-
-            // add __typename to site where we are retrieving context from
-            // this is necessary because the context rewrites path will start with a type condition
-            if (contextToSelection) {
-              assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
-              updated.group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
-            }
+            updateCreatedGroups(createdGroups, ...handleRequiresResult.createdGroups);
 
             if (contextToSelection) {
               const newContextToConditionsGroups = new Map<string, FetchGroup[]>([...contextToConditionsGroups]);
               for (const context of contextToSelection) {
-                newContextToConditionsGroups.set(context, [group]);
+                newContextToConditionsGroups.set(context, [handleRequiresResult.conditionsMergeGroup, ...handleRequiresResult.createdGroups]);
               }
               updated.contextToConditionsGroups = newContextToConditionsGroups;
             }
-            updateCreatedGroups(createdGroups, ...requireResult.createdGroups);
-          } else if (conditions) {
-            // add __typename to site where we are retrieving context from
-            // this is necessary because the context rewrites path will start with a type condition
-            assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
-            group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
 
-            const conditionsGroups = computeGroupsForTree({
-              dependencyGraph, 
-              pathTree: conditions, 
-              startGroup: group, 
-              initialGroupPath: path, 
-              initialDeferContext: deferContextForConditions(deferContext),
-            });
-
-            if (contextToSelection) {
-              const newContextToConditionsGroups = new Map<string, FetchGroup[]>([...contextToConditionsGroups]);
-              for (const context of contextToSelection) {
-                newContextToConditionsGroups.set(context, [group, ...conditionsGroups]);
-              }
-              updated.contextToConditionsGroups = newContextToConditionsGroups;
+            if (edge.conditions) {
+              // This edge needs the conditions just fetched, to be provided via
+              // _entities (@requires or fake interface object downcast). So we
+              // create the post-@requires group, adding the subgraph jump (if
+              // needed).
+              const createPostRequiresResult = createPostRequiresGroup(
+                dependencyGraph,
+                edge,
+                group,
+                path,
+                context,
+                handleRequiresResult,
+              );
+              updated.group = createPostRequiresResult.group;
+              updated.path = createPostRequiresResult.path;
+              updateCreatedGroups(createdGroups, ...createPostRequiresResult.createdGroups);
             }
-            updateCreatedGroups(createdGroups, ...conditionsGroups);
           }
 
           // if we're going to start using context variables, every variable used must be set in a different parent
@@ -4427,7 +4436,7 @@ function computeGroupsForTree(
 
             assert(isCompositeType(edge.head.type), () => `Expected a composite type for ${edge.head.type}`);
             updated.group = dependencyGraph.getOrCreateKeyFetchGroup({
-              subgraphName: edge.tail.source,
+              subgraphName: edge.head.source,
               mergeAt: updated.path.inResponse(),
               type: edge.head.type,
               parent: { group: group, path: path.inGroup() },
@@ -4441,10 +4450,6 @@ function computeGroupsForTree(
             const keyInputs = newCompositeTypeSelectionSet(edge.head.type);
             keyInputs.updates().add(keyCondition);
             group.addAtPath(path.inGroup(), keyInputs.get());
-            
-            // We also ensure to get the __typename of the current type in the "original" group.
-            // TODO: It may be safe to remove this, but I'm not 100% convinced. Come back and take a look at some point
-            group.addAtPath(path.inGroup().concat(new Field(edge.head.type.typenameField()!)));
 
             const inputType = dependencyGraph.typeForFetchInputs(edge.head.type.name);
             const inputSelectionSet = newCompositeTypeSelectionSet(inputType);
@@ -4631,12 +4636,12 @@ function addTypenameFieldForAbstractTypes(selectionSet: SelectionSet, parentType
 function addBackTypenameInAttachments(selectionSet: SelectionSet): SelectionSet {
   return selectionSet.lazyMap((s) => {
     const updated = s.mapToSelectionSet((ss) => addBackTypenameInAttachments(ss));
-    const typenameAttachment = s.element.getAttachement(SIBLING_TYPENAME_KEY);
+    const typenameAttachment = s.element.getAttachment(SIBLING_TYPENAME_KEY);
     if (typenameAttachment === undefined) {
       return updated;
     } else {
       // We need to add the query __typename for the current type in the current group.
-      // Note that the value of the "attachement" is the alias or '' if there is no alias
+      // Note that the value of the "attachment" is the alias or '' if there is no alias
       const alias = typenameAttachment === '' ? undefined : typenameAttachment;
       const typenameField = new Field(s.element.parentType.typenameField()!, undefined, undefined, alias);
       return [
@@ -4667,22 +4672,133 @@ function typeAtPath(parentType: CompositeType, path: OperationPath): CompositeTy
   return type;
 }
 
-function handleRequires(
+function createPostRequiresGroup(
   dependencyGraph: FetchDependencyGraph,
   edge: Edge,
-  requiresConditions: OpPathTree,
   group: FetchGroup,
   path: GroupPath,
   context: PathContext,
-  deferContext: DeferContext,
+  result: {
+    fullyLocalRequires: boolean,
+    createdGroups: FetchGroup[],
+    requiresParent: ParentRelation | undefined,
+  }
 ): {
   group: FetchGroup,
   path: GroupPath,
   createdGroups: FetchGroup[],
 } {
-  // @requires should be on an entity type, and we only support object types right now
+  const { fullyLocalRequires, createdGroups } = result;
   const entityType = edge.head.type as ObjectType;
+  // if we never created any groups, all conditions were local
+  if (fullyLocalRequires) {
+    return { group, path, ...result };
+  }
+  const parents = group.parents();
+  const triedToMerge = parents.length === 1 && pathHasOnlyFragments(path.inGroup());
+  if (triedToMerge) {
+    const parent = parents[0];
+    if (createdGroups.length === 0) {
+      group.addInputs(
+        inputsForRequire(
+          dependencyGraph, 
+          entityType, 
+          edge,
+          context, false).inputs);
+      return { group, path, createdGroups: [] };
+    }
+    // If we get here, it means that @requires needs the information from `createdGroups` (plus whatever has
+    // been merged before) _and_ that relies on some information from the current `group` (if it hadn't, we
+    // would have been able to merge `groupCopy` to `group`'s parent). So the group we should return, which
+    // is the group where the "post-@require" fields will be added, needs to a be a new group that depends
+    // on all those `createdGroups`.
+    const postRequireGroup = dependencyGraph.newKeyFetchGroup({
+      subgraphName: group.subgraphName,
+      mergeAt: group.mergeAt!,
+      deferRef: group.deferRef
+    });
+    // Note that `postRequireGroup` cannot generally be merged into any of the `createdGroups`, so we don't provide a `path`.
+    postRequireGroup.addParents(createdGroups.map((group) => ({ group })));
+    // That group also needs, in general, to depend on the current `group`. That said, if we detected that the @requires
+    // didn't need anything of said `group` (if `newGroupIsUnneeded`), then we can depend on the parent instead.
+    if (result.requiresParent) {
+      postRequireGroup.addParent(result.requiresParent);
+    }
 
+    // Note(Sylvain): I'm not 100% sure about this assert in the sense that while I cannot think of a case where `parent.path` wouldn't
+    // exist, the code paths are complex enough that I'm not able to prove this easily and could easily be missing something. That said,
+    // we need the path here, so this will have to do for now, and if this ever breaks in practice, we'll at least have an example to
+    // guide us toward improving/fixing.
+    assert(parent.path, `Missing path-in-parent for @requires on ${edge} with group ${group} and parent ${parent}`);
+    addPostRequireInputs(
+      dependencyGraph,
+      path.forParentOfGroup(parent.path, parent.group.parentType.schema()),
+      entityType,
+      edge,
+      context,
+      parent.group,
+      postRequireGroup,
+    );
+    return {
+      group: postRequireGroup,
+      path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
+      createdGroups: [postRequireGroup],
+    };
+  } else {
+    const postRequireGroup = dependencyGraph.newKeyFetchGroup({
+      subgraphName: group.subgraphName,
+      mergeAt: path.inResponse(),
+    });
+    postRequireGroup.addParents(
+      createdGroups.map((group) => ({
+        group,
+        // Usually, computing the path of our new group into the created groups
+        // is not entirely trivial, but there is at least the relatively common
+        // case where the 2 groups we look at have:
+        // 1) the same `mergeAt`, and
+        // 2) the same parentType; in that case, we can basically infer those 2
+        //    groups apply at the same "place" and so the "path in parent" is
+        //    empty. TODO: it should probably be possible to generalize this by
+        //    checking the `mergeAt` plus analyzing the selection but that
+        //    warrants some reflection...
+        path: sameMergeAt(group.mergeAt, postRequireGroup.mergeAt)
+          && sameType(group.parentType, postRequireGroup.parentType)
+          ? []
+          : undefined,
+      })),
+    );
+    addPostRequireInputs(
+      dependencyGraph,
+      path,
+      entityType,
+      edge,
+      context,
+      group,
+      postRequireGroup,
+    );
+    return {
+      group: postRequireGroup,
+      path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
+      createdGroups: [postRequireGroup],
+    };
+  }
+}
+
+function handleRequiresTree(
+  dependencyGraph: FetchDependencyGraph,
+  requiresConditions: OpPathTree,
+  group: FetchGroup,
+  path: GroupPath,
+  deferContext: DeferContext,
+  addTypenameAtPath: {
+    pathType: CompositeType,
+  } | undefined,
+): {
+  fullyLocalRequires: boolean,
+  createdGroups: FetchGroup[],
+  requiresParent: ParentRelation | undefined,
+  conditionsMergeGroup: FetchGroup,
+} {
   // In many case, we can optimize requires by merging the requirement to previously existing groups. However,
   // we only do this when the current group has only a single parent (it's hard to reason about it otherwise).
   // But the current could have multiple parents due to the graph lacking minimimality, and we don't want that
@@ -4696,6 +4812,7 @@ function handleRequires(
   dependencyGraph.reduce();
 
   const parents = group.parents();
+  
   // In general, we should do like for an edge, and create a new group _for the current subgraph_
   // that depends on the createdGroups and have the created groups depend on the current one.
   // However, we can be more efficient in general (and this is expected by the user) because
@@ -4705,55 +4822,71 @@ function handleRequires(
   // group we're coming from is our "direct parent", we can merge it to said direct parent (which
   // effectively means that the parent group will collect the provides before taking the edge
   // to our current group).
+  let groupCopy : FetchGroup | undefined;
   if (parents.length === 1 && pathHasOnlyFragments(path.inGroup())) {
     const parent = parents[0];
 
     // We start by computing the groups for the conditions. We do this using a copy of the current
     // group (with only the inputs) as that allows to modify this copy without modifying `group`.
-    const newGroup = dependencyGraph.newKeyFetchGroup({
+    groupCopy = dependencyGraph.newKeyFetchGroup({
       subgraphName: group.subgraphName,
       mergeAt: group.mergeAt!,
       deferRef: group.deferRef
     });
-    newGroup.addParent(parent);
-    newGroup.copyInputsOf(group);
-    const createdGroups = computeGroupsForTree({
-      dependencyGraph, 
-      pathTree: requiresConditions, 
-      startGroup: newGroup, 
-      initialGroupPath: path, 
-      initialDeferContext: deferContextForConditions(deferContext)
-    });
-    if (createdGroups.length === 0) {
-      // All conditions were local. Just merge the newly created group back in the current group (we didn't need it)
-      // and continue.
-      assert(group.canMergeSiblingIn(newGroup), () => `We should be able to merge ${newGroup} into ${group} by construction`);
-      group.mergeSiblingIn(newGroup);
-      return {group, path, createdGroups: []};
+    groupCopy.addParent(parent);
+    groupCopy.copyInputsOf(group);
+    if (addTypenameAtPath) {
+      groupCopy.addAtPath(path.inGroup().concat(new Field(addTypenameAtPath.pathType.typenameField()!)));
     }
+  } else {
+    if (addTypenameAtPath) {
+      group.addAtPath(path.inGroup().concat(new Field(addTypenameAtPath.pathType.typenameField()!)));
+    }
+  }
+  
+  // Call computeGroupsForTree on the requiresConditions. The start group will either be group or the copy of group if we 
+  // expect to be able to optimize
+  const createdGroups = computeGroupsForTree({
+    dependencyGraph, 
+    pathTree: requiresConditions, 
+    startGroup: groupCopy ?? group, 
+    initialGroupPath: path, 
+    initialDeferContext: deferContextForConditions(deferContext)
+  });
 
+  if (createdGroups.length == 0) {
+    // All conditions were local. If we created a copy of the current group, merge it back in
+    if (groupCopy) {
+      assert(group.canMergeSiblingIn(groupCopy), () => `We should be able to merge ${groupCopy} into ${group} by construction`);
+      group.mergeSiblingIn(groupCopy);
+    }
+    return { fullyLocalRequires: true, createdGroups: [], requiresParent: undefined, conditionsMergeGroup: group };
+  }
+  
+  if (groupCopy) {
+    const parent = groupCopy.parents()[0];
     // We know the @require needs createdGroups. We do want to know however if any of the conditions was
-    // fetched from our `newGroup`. If not, then this means that the `createdGroups` don't really depend on
+    // fetched from our `groupCopy`. If not, then this means that the `createdGroups` don't really depend on
     // the current `group` and can be dependencies of the parent (or even merged into this parent).
     //
-    // So we want to know if anything in `newGroup` selection cannot be fetched directly from the parent.
-    // For that, we first remove any of `newGroup` inputs from its selection: in most case, `newGroup`
+    // So we want to know if anything in `groupCopy` selection cannot be fetched directly from the parent.
+    // For that, we first remove any of `groupCopy` inputs from its selection: in most case, `groupCopy`
     // will just contain the key needed to jump back to its parent, and those would usually be the same
-    // as the inputs. And since by definition we know `newGroup`'s inputs are already fetched, we
+    // as the inputs. And since by definition we know `groupCopy`'s inputs are already fetched, we
     // know they are not things that we need. Then, we check if what remains (often empty) can be
-    // directly fetched from the parent. If it can, then we can just merge `newGroup` into that parent.
+    // directly fetched from the parent. If it can, then we can just merge `groupCopy` into that parent.
     // Otherwise, we will have to "keep it".
-    // Note: it is to be sure this test is not poluted by other things in `group` that we created `newGroup`.
-    newGroup.removeInputsFromSelection();
-    const newGroupIsUnneeded = parent.path && newGroup.selection.canRebaseOn(typeAtPath(parent.group.selection.parentType, parent.path));
+    // Note: it is to be sure this test is not poluted by other things in `group` that we created `groupCopy`.
+    groupCopy.removeInputsFromSelection();
+    const newGroupIsUnneeded = parent.path && groupCopy.selection.canRebaseOn(typeAtPath(parent.group.selection.parentType, parent.path));
     const unmergedGroups = [];
 
     if (newGroupIsUnneeded) {
-      // Up to this point, `newGroup` had no parent, so let's first merge `newGroup` to the parent, thus "rooting"
-      // its children to it. Note that we just checked that `newGroup` selection was just its inputs, so
+      // Up to this point, `groupCopy` had no parent, so let's first merge `groupCopy` to the parent, thus "rooting"
+      // its children to it. Note that we just checked that `groupCopy` selection was just its inputs, so
       // we know that merging it to the parent is mostly a no-op from that POV, except maybe for requesting
       // a few additional `__typename` we didn't before (due to the exclusion of `__typename` in the `newGroupIsUnneeded` check)
-      parent.group.mergeChildIn(newGroup);
+      parent.group.mergeChildIn(groupCopy);
 
       // Now, all created groups are going to be descendant of `parentGroup`. But some of them may actually be
       // mergeable into it.
@@ -4766,7 +4899,7 @@ function handleRequires(
           unmergedGroups.push(created);
           // `created` cannot be merged into `parent.group`, which may typically be because they are not to the same
           // subgraph. However, while `created` currently depend on `parent.group` (directly or indirectly), that
-          // dependency just come from the fact that `parent.group` is the parent of the group whose @require we're
+          // dependency just comes from the fact that `parent.group` is the parent of the group whose @require we're
           // dealing with. And in practice, it could well be that some of the fetches needed for that require don't
           // really depend on anything that parent fetches and could be done in parallel with it. If we detect that
           // this is the case for `created`, we can move it "up the chain of dependency".
@@ -4792,14 +4925,14 @@ function handleRequires(
         }
       }
     } else {
-      // We cannot merge `newGroup` to the parent, either because there it fetches some things necessary to the
+      // We cannot merge `groupCopy` to the parent, either because there it fetches some things necessary to the
       // @require, or because we had more than one parent and don't know how to handle this (unsure if the later
-      // can actually happen at this point tbh (?)). Bu not reason not to merge `newGroup` back to `group` so
+      // can actually happen at this point tbh (?)). Bu not reason not to merge `groupCopy` back to `group` so
       // we do that first.
-      assert(group.canMergeSiblingIn(newGroup), () => `We should be able to merge ${newGroup} into ${group} by construction`);
-      group.mergeSiblingIn(newGroup);
+      assert(group.canMergeSiblingIn(groupCopy), () => `We should be able to merge ${groupCopy} into ${group} by construction`);
+      group.mergeSiblingIn(groupCopy);
 
-      // The created group depend on `group` and the dependency cannot be moved to the parent in
+      // The created group depends on `group` and the dependency cannot be moved to the parent in
       // this case. However, we might still be able to merge some created group directly in the
       // parent. But for this to be true, we should essentially make sure that the dependency
       // on `group` is not a "true" dependency. That is, if the created group inputs are the same
@@ -4821,112 +4954,18 @@ function handleRequires(
       }
     }
 
-    // If we've merged all the created groups, then all the "requires" are handled _before_ we get to the
-    // current group, so we can "continue" with the current group.
-    if (unmergedGroups.length == 0) {
-      // We still need to add the stuffs we require though (but `group` already has a key in its inputs,
-      // we don't need one).
-      group.addInputs(inputsForRequire(dependencyGraph, entityType, edge, context, false).inputs);
-      return { group, path, createdGroups: [] };
-    }
-
-    // If we get here, it means that @require needs the information from `unmergedGroups` (plus whatever has
-    // been merged before) _and_ those rely on some information from the current `group` (if they hadn't, we
-    // would have been able to merge `newGroup` to `group`'s parent). So the group we should return, which
-    // is the group where the "post-@require" fields will be added, needs to a be a new group that depends
-    // on all those `unmergedGroups`.
-    const postRequireGroup = dependencyGraph.newKeyFetchGroup({
-      subgraphName: group.subgraphName,
-      mergeAt: group.mergeAt!,
-      deferRef: group.deferRef
-    });
-    // Note that `postRequireGroup` cannot generally be merged in any of the `unmergedGroup` and we don't provide a `path`.
-    postRequireGroup.addParents(unmergedGroups.map((group) => ({ group })));
-    // That group also need, in general, to depend on the current `group`. That said, if we detected that the @require
-    // didn't need anything of said `group` (if `newGroupIsUnneeded`), then we can depend on the parent instead.
-    if (newGroupIsUnneeded) {
-      postRequireGroup.addParent(parent);
-    } else {
-      postRequireGroup.addParent({ group, path: []});
-    }
-
-    // Note(Sylvain): I'm not 100% sure about this assert in the sense that while I cannot think of a case where `parent.path` wouldn't
-    // exist, the code paths are complex enough that I'm not able to prove this easily and could easily be missing something. That said,
-    // we need the path here, so this will have to do for now, and if this ever breaks in practice, we'll at least have an example to
-    // guide us toward improving/fixing.
-    assert(parent.path, `Missing path-in-parent for @require on ${edge} with group ${group} and parent ${parent}`);
-    addPostRequireInputs(
-      dependencyGraph,
-      path.forParentOfGroup(parent.path, parent.group.parentType.schema()),
-      entityType,
-      edge,
-      context,
-      parent.group,
-      postRequireGroup,
-    );
-    updateCreatedGroups(unmergedGroups, postRequireGroup);
     return {
-      group: postRequireGroup,
-      path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
+      fullyLocalRequires: false,
       createdGroups: unmergedGroups,
+      requiresParent: newGroupIsUnneeded ? parent : { group, path: [] },
+      conditionsMergeGroup: newGroupIsUnneeded ? parent.group : group,
     };
   } else {
-    // We're in the somewhat simpler case where a @require happens somewhere in the middle of a subgraph query (so, not
-    // just after having jumped to that subgraph). In that case, there isn't tons of optimisation we can do: we have to
-    // see what satisfying the @require necessitate, and if it needs anything from another subgraph, we have to stop the
-    // current subgraph fetch there, get the requirements from other subgraphs, and then resume the query of that particular subgraph.
-    const createdGroups = computeGroupsForTree({
-      dependencyGraph, 
-      pathTree: requiresConditions, 
-      startGroup: group, 
-      initialGroupPath: path, 
-      initialDeferContext: deferContextForConditions(deferContext)
-    });
-    // If we didn't created any group, that means the whole condition was fetched from the current group
-    // and we're good.
-    if (createdGroups.length == 0) {
-      return { group, path, createdGroups: []};
-    }
-
-    // We need to create a new group, on the same subgraph `group`, where we resume fetching the field for
-    // which we handle the @requires _after_ we've delt with the `requiresConditionsGroups`.
-    // Note that we know the conditions will include a key for our group so we can resume properly.
-    const newGroup = dependencyGraph.newKeyFetchGroup({
-      subgraphName: group.subgraphName,
-      mergeAt: path.inResponse(),
-    });
-    newGroup.addParents(
-      createdGroups.map((group) => ({
-        group,
-        // Usually, computing the path of our new group into the created groups
-        // is not entirely trivial, but there is at least the relatively common
-        // case where the 2 groups we look at have:
-        // 1) the same `mergeAt`, and
-        // 2) the same parentType; in that case, we can basically infer those 2
-        //    groups apply at the same "place" and so the "path in parent" is
-        //    empty. TODO: it should probably be possible to generalize this by
-        //    checking the `mergeAt` plus analyzing the selection but that
-        //    warrants some reflection...
-        path: sameMergeAt(group.mergeAt, newGroup.mergeAt)
-          && sameType(group.parentType, newGroup.parentType)
-          ? []
-          : undefined,
-      })),
-    );
-    addPostRequireInputs(
-      dependencyGraph,
-      path,
-      entityType,
-      edge,
-      context,
-      group,
-      newGroup,
-    );
-    updateCreatedGroups(createdGroups, newGroup);
     return {
-      group: newGroup,
-      path: path.forNewKeyFetch(createFetchInitialPath(dependencyGraph.supergraphSchema, entityType, context)),
+      fullyLocalRequires: false,
       createdGroups,
+      requiresParent: undefined,
+      conditionsMergeGroup: group,
     };
   }
 }

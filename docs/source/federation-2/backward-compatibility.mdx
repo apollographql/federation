@@ -12,15 +12,15 @@ Yes. As of 15 November 2022, `@apollo/gateway` v0.x is officially deprecated, wi
 
 ## Do I need to modify my subgraph schemas to use Federation 2?
 
-Eventually. The process of [moving to Federation 2](./moving-to-federation-2/) has three steps:
+Eventually. The process of [moving to Federation 2](/graphos/reference/migration/to-federation-version-2/) has three steps:
 
-1. Upgrade your gateway to support Federation 2 (we recommend [moving to the GraphOS Router](/router/migrating-from-gateway/)).
+1. Upgrade your gateway to support Federation 2 (we recommend [moving to the GraphOS Router](/graphos/reference/migration/from-gateway/)).
 2. Begin composing your supergraph schema with Federation 2 composition logic.
 3. Update your individual subgraphs to use Federation 2 features and directives.
 
 Steps 1 and 2 usually require no changes to your subgraph schemas. Schemas that do require changes are schemas that should cause certain composition errors that Federation 1 fails to detect ([see below.](#breaking-changes)).
 
-Step 3 does require some changes to your subgraph schemas, described [here](./moving-to-federation-2/#step-3-update-individual-subgraphs).
+Step 3 does require some changes to your subgraph schemas, described [here](/graphos/reference/migration/to-federation-version-2/#step-3-update-individual-subgraphs).
 
 
 ### Breaking changes
@@ -186,11 +186,11 @@ The above `@provides` directives usage should break composition because it does 
 
 No, not after you [convert at least one subgraph schema](#do-i-need-to-modify-my-subgraph-schemas-to-use-federation-2) to a true Federation 2 schema.
 
-Federation 2 provides [more flexible composition rules](./new-in-federation-2/#more-flexible-composition) compared to Federation 1. After you modify your subgraph schemas to take advantage of this flexibility, your graph will no longer compose with Federation 1. You need to revert these changes to move back to Federation 1.
+Federation 2 provides more flexible composition rules compared to Federation 1. After you modify your subgraph schemas to take advantage of this flexibility, your graph will no longer compose with Federation 1. You need to revert these changes to move back to Federation 1.
 
 ## Does `@apollo/gateway` v2 support Federation 1?
 
-Yes. If you want, you can update your gateway's `@apollo/gateway` library to its latest `2.x` version before you're ready to [move your graph to Federation 2](./moving-to-federation-2/).
+Yes. If you want, you can update your gateway's `@apollo/gateway` library to its latest `2.x` version before you're ready to [move your graph to Federation 2](/graphos/reference/migration/to-federation-version-2/).
 
 Your plugins and customizations for `@apollo/gateway` `0.x` will continue to work as expected in `@apollo/gateway` `2.x`.
 
@@ -198,6 +198,6 @@ Your plugins and customizations for `@apollo/gateway` `0.x` will continue to wor
 
 | Router/Gateway version | Federation 1<br/>Composition | Federation 2<br/>Composition |
 |-|--------------|--------------|
-| [Apollo Router Core](https://www.apollographql.com/docs/router/) v1.x | 🟢 | 🟢 |
+| Apollo Router Core v1.x | 🟢 | 🟢 |
 | `@apollo/gateway` v2.x | 🟢 | 🟢 |
 | `@apollo/gateway` v0.x (deprecated) | 🟢 | ❌ |

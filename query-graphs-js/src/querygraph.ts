@@ -757,7 +757,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
           // an entity).
           assert(isInterfaceType(type) || isObjectType(type), () => `Invalid "@key" application on non Object || Interface type "${type}"`);
           const isInterfaceObject = subgraphMetadata.isInterfaceObjectType(type);
-          const conditions = parseFieldSetArgument({ parentType: type, directive: keyApplication });
+          const conditions = parseFieldSetArgument({ parentType: type, directive: keyApplication, normalize: true });
 
           // We'll look at adding edges from "other subgraphs" to the current type. So the tail of all the edges
           // we'll build in this branch is always going to be the same.
@@ -807,7 +807,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
                 const implemType = implemVertice.type;
                 assert(isCompositeType(implemType), () => `${implemType} should be composite since it implements ${typeInSupergraph} in the supergraph`);
                 try {
-                  const implConditions = parseFieldSetArgument({ parentType: implemType, directive: keyApplication, validate: false });
+                  const implConditions = parseFieldSetArgument({ parentType: implemType, directive: keyApplication, validate: false, normalize: true });
                   builder.addEdge(implemHead, tail, new KeyResolution(), implConditions);
                 } catch (e) {
                   // Ignored on purpose: it just means the key is not usable on this subgraph.
@@ -824,7 +824,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
           const field = e.transition.definition;
           assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const requiresApplication of field.appliedDirectivesOf(requireDirective)) {
-            const conditions = parseFieldSetArgument({ parentType: type, directive: requiresApplication });
+            const conditions = parseFieldSetArgument({ parentType: type, directive: requiresApplication, normalize: true });
             const head = copyPointers[i].copiedVertex(e.head);
             // We rely on the fact that the edge indexes will be the same in the copied builder. But there is no real reason for
             // this to not be the case at this point so...
@@ -934,17 +934,6 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
       }
     }
     
-    for (const [subgraphName, args] of subgraphToArgs) {
-      args.sort();
-      const argToIndex = new Map();
-      for (let idx=0; idx < args.length; idx++) {
-        argToIndex.set(args[idx], `contextualArgument_${i}_${idx}`);
-      }
-      subgraphToArgIndices.set(subgraphName, argToIndex);
-    }
-    
-    builder.setContextMaps(subgraphToArgs, subgraphToArgIndices);
-    
     simpleTraversal(
       subgraph,
       _v => { return undefined; },
@@ -965,6 +954,22 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
    
   }
 
+  // add contextual argument maps to builder
+  for (const [i, subgraph] of subgraphs.entries()) {
+    const subgraphName = subgraph.name;
+    const args = subgraphToArgs.get(subgraph.name);
+    if (args) {
+      args.sort();
+      const argToIndex = new Map();
+      for (let idx=0; idx < args.length; idx++) {
+        argToIndex.set(args[idx], `contextualArgument_${i+1}_${idx}`);
+      }
+      subgraphToArgIndices.set(subgraphName, argToIndex);
+    }
+  }
+  
+  builder.setContextMaps(subgraphToArgs, subgraphToArgIndices);
+      
   // Now we handle @provides
   let provideId = 0;
   for (const [i, subgraph] of subgraphs.entries()) {

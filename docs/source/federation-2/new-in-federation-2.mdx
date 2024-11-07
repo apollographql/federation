@@ -4,11 +4,11 @@ subtitle: Learn what's new in Apollo Federation 2
 description: Explore the improvements and changes from Apollo Federation 1 to Federation 2, enhancing flexibility and schema composition in GraphQL.
 ---
 
-Apollo Federation 2 provides developer experience improvements to the original specification for Apollo Federation (called _Federation 1_ in these docs). If your organization has an existing Federation 1 graph, this article summarizes the benefits of [moving to Federation 2](./moving-to-federation-2/).
+Apollo Federation 2 provides developer experience improvements to the original specification for Apollo Federation (called _Federation 1_ in these docs). If your organization has an existing Federation 1 graph, this article summarizes the benefits of [moving to Federation 2](/graphos/reference/migration/to-federation-version-2/).
 
 <Tip>
 
-If you're just getting started with Federation, check out the [Quickstart](../quickstart/setup/).
+If you're just getting started with Federation, check out the [Quickstart](/graphos/get-started/quickstart).
 
 </Tip>
 
@@ -17,11 +17,11 @@ If you're just getting started with Federation, check out the [Quickstart](../qu
 Before covering what's new, here's what isn't changing in Federation 2:
 
 * Most importantly, Federation 2 is backward compatible with most Federation 1 supergraphs. You can probably move your existing supergraph to use Federation 2 composition without making any changes.
-    * Graphs that do require changes are graphs that should cause composition errors, but Federation 1 fails to detect them. [Learn more.](./backward-compatibility/#do-i-need-to-modify-my-subgraph-schemas-to-use-federation-2)
-    * To take full advantage of Federation 2 features, you do need to make some changes to your subgraph schemas, but you can make these changes incrementally at your convenience. See [Moving to Apollo Federation 2](./moving-to-federation-2/).
+    * Graphs that do require changes are graphs that should cause composition errors, but Federation 1 fails to detect them. [Learn more.](/graphos/reference/migration/backward-compatibility#do-i-need-to-modify-my-subgraph-schemas-to-use-federation-2)
+    * To take full advantage of Federation 2 features, you do need to make some changes to your subgraph schemas, but you can make these changes incrementally at your convenience. See [Moving to Apollo Federation 2](/graphos/reference/migration/to-federation-version-2/).
 
-* Subgraph servers have no additional requirements. Any [subgraph-compatible library](../building-supergraphs/compatible-subgraphs/) is automatically compatible with Federation 2.
-    * Many subgraph-compatible libraries do not yet automatically define certain directives that are new in Federation 2, such as `@shareable`. You can [define these directives manually](./moving-to-federation-2/#add-directive-definitions-if-needed) to use them in your subgraph schemas.
+* Subgraph servers have no additional requirements. Any [subgraph-compatible library](/graphos/reference/federation/compatible-subgraphs) is automatically compatible with Federation 2.
+    * Many subgraph-compatible libraries do not yet automatically define certain directives that are new in Federation 2, such as `@shareable`. You can [define these directives manually](/graphos/reference/migration/to-federation-version-2/#add-directive-definitions-if-needed) to use them in your subgraph schemas.
 
 ## More flexible composition
 
@@ -55,7 +55,7 @@ type Book {
 
 In Federation 2, this "identical definition" constraint is removed. Value types and their fields can be shared across subgraphs, even if certain details differ between definitions.
 
-For details, see the sections below, along with [Value types](../federated-schemas/sharing-types/).
+For details, see the sections below, along with [Value types](/graphos/schema-design/federated-schemas/sharing-types/).
 
 ### Objects
 
@@ -82,7 +82,7 @@ type Book @shareable {
 
 </CodeColumns>
 
-The two `Book` type definitions above differ in terms of the fields they include and the nullability of those fields. Notice also the new [`@shareable`](../federated-schemas/sharing-types/#using-shareable) directive, which is required to indicate that a field can be resolved by multiple subgraphs.
+The two `Book` type definitions above differ in terms of the fields they include and the nullability of those fields. Notice also the new [`@shareable`](/graphos/schema-design/federated-schemas/sharing-types/#using-shareable) directive, which is required to indicate that a field can be resolved by multiple subgraphs.
 
 <Note>
 
@@ -95,17 +95,17 @@ This flexibility is especially helpful when an organization has multiple standal
 #### Valid shared field differences between subgraphs
 
 * The return type of a shared field can vary in nullability (`String` / `String!`).
-* Types can omit fields that are included in other subgraphs, as long as every field in your supergraph is always resolvable. (For details, see [Rules of composition](../federated-schemas/composition/#rules-of-composition).)
+* Types can omit fields that are included in other subgraphs, as long as every field in your supergraph is always resolvable. (For details, see [Rules of composition](/graphos/reference/federation/composition-rules).)
 
-For details on how these field differences are handled, see [Differing shared fields](../federated-schemas/sharing-types/#differing-shared-fields).
+For details on how these field differences are handled, see [Differing shared fields](/graphos/schema-design/federated-schemas/sharing-types/#differing-shared-fields).
 
 ### Enums, unions, and interfaces
 
-In Federation 2, `enum`, `union`, and `interface` definitions can differ between subgraphs. For details, see [Merging types from multiple subgraphs](../federated-schemas/composition/#merging-types-from-multiple-subgraphs).
+In Federation 2, `enum`, `union`, and `interface` definitions can differ between subgraphs. For details, see [Merging types from multiple subgraphs](/graphos/reference/federation/composition-rules#merging-types-from-multiple-subgraphs).
 
 ## Entities
 
-Federation 2 introduces subtle but powerful changes to [entities](../entities/).
+Federation 2 introduces subtle but powerful changes to [entities](/graphos/get-started/guides/federate-schemas#entity-overview).
 
 ### Originating subgraphs
 
@@ -155,7 +155,7 @@ type Product @key(fields: "id") {
 
 </CodeColumns>
 
-For details, see [Contributing entity fields](../entities/#contributing-entity-fields).
+For details, see [Contributing entity fields](/graphos/schema-design/federated-schemas/entities/contribute-fields).
 
 ### Shared entity fields
 
@@ -183,11 +183,11 @@ type Product @key(fields: "id") {
 
 </CodeColumns>
 
-For more information, see [Resolving another subgraph's field](../entities/resolve-another-subgraphs-fields).
+For more information, see [Resolving another subgraph's field](/graphos/schema-design/federated-schemas/entities/resolve-another-subgraphs-fields).
 
 ### Changes to `@key`
 
-Federation 2 adds a new optional argument to the `@key` directive: `resolvable`. You can set this argument to `false` to indicate that a particular subgraph doesn't define a [reference resolver](../entities/#2-define-a-reference-resolver) for that entity.
+Federation 2 adds a new optional argument to the `@key` directive: `resolvable`. You can set this argument to `false` to indicate that a particular subgraph doesn't define a [reference resolver](/graphos/schema-design/federated-schemas/entities/intro/#2-define-a-reference-resolver) for that entity.
 
 For example:
 
@@ -218,11 +218,11 @@ type Review {
 
 In this case, the Reviews subgraph references the `Product` entity by using it as the return type for `Review.product`. However, the subgraph doesn't contribute any unique fields to `Product`, so it doesn't need to define a reference resolver for it. Therefore, the "stub" definition of `Product` in the Reviews subgraph can include `resolvable: false`.
 
-For more information, see [Referencing an entity without contributing fields](../entities/#referencing-an-entity-without-contributing-fields).
+For more information, see [Referencing an entity without contributing fields](/graphos/schema-design/federated-schemas/entities/contribute-fields#contributing-computed-entity-fields).
 
 ### Migrating fields
 
-Federation 2 introduces the [`@override` directive](../federated-schemas/federated-directives/#override), which helps you safely migrate entity and root-level fields between subgraphs with managed federation:
+Federation 2 introduces the [`@override` directive](/graphos/reference/federation/directives/#override), which helps you safely migrate entity and root-level fields between subgraphs with managed federation:
 
 <CodeColumns>
 
@@ -246,7 +246,7 @@ type Bill @key(fields: "id") {
 
 </CodeColumns>
 
-For details, see [Entity migration](../entities/migrate-fields).
+For details, see [Entity migration](/graphos/schema-design/federated-schemas/entities/migrate-fields).
 
 ## Interfaces implementing interfaces
 

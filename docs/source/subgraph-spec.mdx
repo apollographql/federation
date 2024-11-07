@@ -4,7 +4,7 @@ subtitle: Subgraph specification reference for server library developers
 description: Learn about Apollo Federation 2 subgraph specifications, enhanced introspection, and entity field resolution for GraphQL server libraries.
 ---
 
-This content is provided for developers adding federated subgraph support to a GraphQL server library, and for anyone curious about the inner workings of federation. You do not need to read this if you're building a supergraph with existing [subgraph-compatible libraries](./building-supergraphs/compatible-subgraphs/), such as Apollo Server.
+This content is provided for developers adding federated subgraph support to a GraphQL server library, and for anyone curious about the inner workings of federation. You do not need to read this if you're building a supergraph with existing [subgraph-compatible libraries](/graphos/reference/federation/compatible-subgraphs), such as Apollo Server.
 
 Servers that are partially or fully compatible with this specification are tracked in Apollo's [subgraph compatibility repository](https://github.com/apollographql/apollo-federation-subgraph-compatibility).
 
@@ -105,7 +105,7 @@ Apollo strongly recommends against dynamic composition in the graph router. Dyna
 The "enhanced" introspection query above differs from [the GraphQL spec's built-in introspection query](https://spec.graphql.org/October2021/#sec-Schema-Introspection) in the following ways:
 
 - The returned schema representation is a string instead of a `__Schema` object.
-- The returned schema string includes all uses of [federation-specific directives](./federated-schemas/federated-directives/), such as `@key`.
+- The returned schema string includes all uses of [federation-specific directives](/graphos/reference/federation/directives/), such as `@key`.
     - The built-in introspection query's response does not include the uses of any directives.
     - The graph router requires these federation-specific directives to perform composition successfully.
 -  If a subgraph server "disables introspection", the enhanced introspection query is still available.
@@ -412,7 +412,7 @@ Your subgraph library does not need to use this reference resolver pattern. It j
 
 This section describes type and field definitions that a valid subgraph service must automatically add to its schema. These definitions are all listed above in [Subgraph schema additions](#subgraph-schema-additions).
 
-For descriptions of added directives, see [Federation-specific GraphQL directives](./federated-schemas/federated-directives/).
+For descriptions of added directives, see [Federation-specific GraphQL directives](/graphos/reference/federation/directives/).
 
 
 ### `Query` fields
@@ -488,4 +488,4 @@ This string-serialized scalar represents an authorization policy.
 
 ### Directives
 
-See [Federation-specific GraphQL directives](./federated-schemas/federated-directives/).
+See [Federation-specific GraphQL directives](/graphos/reference/federation/directives/).
