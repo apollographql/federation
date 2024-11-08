@@ -179,7 +179,6 @@ describe('Multi-service', () => {
         query:
           '{\n' +
           '  getTemp {\n' +
-          '    dep1\n' +
           '    dep2\n' +
           '    xfield\n' +
           '    id\n' +
@@ -189,10 +188,15 @@ describe('Multi-service', () => {
       });
 
       expect(unwrapSingleResultKind(result).data).toMatchInlineSnapshot(`
-              Object {
-                "getTemp": null,
-              }
-          `);
+        Object {
+          "getTemp": Object {
+            "dep2": 999,
+            "id": "123134431",
+            "myText": "this is a sample",
+            "xfield": null,
+          },
+        }
+      `);
       expect(unwrapSingleResultKind(result).errors).toMatchInlineSnapshot(`
               Array [
                 Object {
