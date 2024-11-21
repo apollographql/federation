@@ -1,0 +1,235 @@
+---
+title: Federated Schemas
+subtitle: Learn about the different types of GraphQL schemas
+description: Learn about subgraph, supergraph, and API schemas in federated GraphQL architectures.
+redirectFrom:
+  - /federation/federated-schemas/
+  - /federation/federated-types/
+---
+
+A federated supergraph uses multiple "types" of GraphQL schemas:
+
+```mermaid
+graph TB;
+  serviceA[Subgraph<br/>schema<br/>A];
+  serviceB[Subgraph<br/>schema<br/>B];
+  serviceC[Subgraph<br/>schema<br/>C];
+  composition[["🛠<br/>Composition "]];
+  supergraph{{"Supergraph schema<br/>(A + B + C + routing machinery)"}};
+  api(["API schema<br/>(A + B + C)"]);
+  serviceA & serviceB & serviceC --> composition;
+  composition -- "(Composition succeeds)" --> supergraph;
+  supergraph -- "(Remove routing machinery)" --> api;
+  class composition tertiary;
+```
+
+* **Subgraph schemas.** Each subgraph has a distinct schema that indicates which types and fields of your composed supergraph it can resolve.
+    * These are the only schemas that your teams define manually.
+* **Supergraph schema.** This schema combines all of the types and fields from your subgraph schemas, plus some federation-specific information that tells your router which subgraphs can resolve which fields.
+    * This schema is the result of performing [composition](/graphos/schema-design/federated-schemas/composition/) on your collection of subgraph schemas.
+* **API schema.** This schema is similar to the supergraph schema, but it omits federation-specific types, fields, and directives that are considered "machinery" and are not part of your public API.
+    * This is the schema that your router exposes to clients, which don't need to know internal implementation details about your graph.
+
+Let's look at an example!
+
+## Subgraph schemas
+
+Below are example schemas for three subgraphs in an e-commerce company's supergraph. Each subgraph is implemented as a separate GraphQL API:
+
+<CodeColumns>
+
+```graphql title="Users"
+type Query {
+  me: User
+}
+
+type User @key(fields: "id") {
+  id: ID!
+  username: String! @shareable
+}
+
+# (Subgraph schemas include
+# this to opt in to
+# Federation 2 features.)
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
+        import: ["@key", "@shareable"])
+```
+
+```graphql title="Products"
+type Query {
+  topProducts(first: Int = 5): [Product]
+}
+
+type Product @key(fields: "upc") {
+  upc: String!
+  name: String!
+  price: Int
+}
+
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
+        import: ["@key", "@shareable"])
+```
+
+</CodeColumns>
+
+<CodeColumns>
+
+```graphql title="Reviews"
+type Review {
+  body: String
+  author: User @provides(fields: "username")
+  product: Product
+}
+
+type User @key(fields: "id") {
+  id: ID!
+  username: String! @external
+  reviews: [Review]
+}
+
+type Product @key(fields: "upc") {
+  upc: String!
+  reviews: [Review]
+}
+
+# (This subgraph uses additional
+# federated directives)
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
+        import: ["@key", "@shareable", "@provides", "@external"])
+```
+
+</CodeColumns>
+
+As these schemas show, multiple subgraphs can contribute unique fields to a single type. For example, the Products subgraph and the Reviews subgraph both contribute fields to the `Product` type.
+
+## Supergraph schema
+
+The supergraph schema is the output of [schema composition](/graphos/schema-design/federated-schemas/composition/). It serves the following purposes:
+
+* It provides your router with the name and endpoint URL for each of your subgraphs.
+* It includes all types and fields defined by all of your subgraphs.
+* It tells your router which of your subgraphs can resolve which GraphQL fields.
+
+Here's the supergraph schema composed with [the subgraph schemas above](#subgraph-schemas):
+
+<ExpansionPanel title="Click to expand">
+
+```graphql
+schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+{
+  query: Query
+}
+
+directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+scalar join__FieldSet
+
+enum join__Graph {
+  PRODUCTS @join__graph(name: "products", url: "http://localhost:4002/graphql")
+  REVIEWS @join__graph(name: "reviews", url: "http://localhost:4003/graphql")
+  USERS @join__graph(name: "users", url: "http://localhost:4001/graphql")
+}
+
+scalar link__Import
+
+enum link__Purpose {
+  """
+  `SECURITY` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+
+  """
+  `EXECUTION` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
+}
+
+type Product
+  @join__type(graph: PRODUCTS, key: "upc")
+  @join__type(graph: REVIEWS, key: "upc")
+{
+  upc: String!
+  name: String! @join__field(graph: PRODUCTS)
+  price: Int @join__field(graph: PRODUCTS)
+  reviews: [Review] @join__field(graph: REVIEWS)
+}
+
+type Query
+  @join__type(graph: PRODUCTS)
+  @join__type(graph: REVIEWS)
+  @join__type(graph: USERS)
+{
+  topProducts(first: Int = 5): [Product] @join__field(graph: PRODUCTS)
+  me: User @join__field(graph: USERS)
+}
+
+type Review
+  @join__type(graph: REVIEWS)
+{
+  body: String
+  author: User @join__field(graph: REVIEWS, provides: "username")
+  product: Product
+}
+
+type User
+  @join__type(graph: REVIEWS, key: "id")
+  @join__type(graph: USERS, key: "id")
+{
+  id: ID!
+  username: String! @join__field(graph: REVIEWS, external: true) @join__field(graph: USERS)
+  reviews: [Review] @join__field(graph: REVIEWS)
+}
+```
+
+</ExpansionPanel>
+
+As you can see, the supergraph schema includes a lot of Federation-specific additions! These additions are used only by the router, and you'll never need to add them manually.
+
+## API schema
+
+The router uses its [supergraph schema](#supergraph-schema) to produce an **API schema**, which it exposes to clients as your actual GraphQL API. This schema cleanly and logically represents the combination of your [subgraph schemas](#subgraph-schemas):
+
+```graphql
+type Product {
+  name: String!
+  price: Int
+  reviews: [Review]
+  upc: String!
+}
+
+type Query {
+  me: User
+  topProducts(first: Int = 5): [Product]
+}
+
+type Review {
+  author: User
+  body: String
+  product: Product
+}
+
+type User {
+  id: ID!
+  reviews: [Review]
+  username: String!
+}
+```
+
+Unlike the supergraph schema, this schema hides the fact that your GraphQL API is composed of multiple distinct GraphQL APIs.

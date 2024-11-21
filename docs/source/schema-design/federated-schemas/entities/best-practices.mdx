@@ -1,0 +1,84 @@
+---
+title: Thinking in Entities
+subtitle: Best practices for designing your schema with entities
+description: Schema design best practices for entities, including when to define, reference and extend entities.
+published: 2023-01-09
+id: TN0026
+tags: [federation, schema-design]
+redirectFrom:
+    - /technotes/TN0026-thinking-in-entities/
+---
+
+<Tip>
+
+If you're an enterprise customer looking for more material on this topic, try the [Enterprise best practices: Schema design](https://www.apollographql.com/tutorials/schema-design-best-practices) course on Odyssey.
+
+Not an enterprise customer? [Learn about GraphOS for Enterprise.](https://www.apollographql.com/pricing)
+
+</Tip>
+
+Entities are the core building blocks of a federated graph, so the adoption of any schema design best practice must be approached with the unique role of entities in mind. While there's no requirement for subgraphs to define any entities at all with Apollo Federation, the federated schema design process often begins by thinking about what the initial entity types will be and how they will be referenced and extended throughout the graph to help preserve the separation of concerns between subgraphs both today and as the graph evolves in the future.
+
+## Define, reference, and extend entities as needed
+
+The [Apollo Federation specification](/graphos/reference/federation/subgraph-spec/) indicates that an Object or Interface type can be made into an entity by adding the `@key` directive to its definition in a subgraph schema. The `@key` directive defines a unique key for the entity and its `fields` argument will contain one or more of the type's fields. In the following example, the `Product` entity's primary key would be its `upc` field:
+
+```graphql title="Products Subgraph"
+type Product @key(fields: "upc") {
+  upc: String!
+  name: String!
+  description: String
+}
+```
+
+Setting the `upc` field as the key means that other subgraphs that want to use this entity will need to know at least that value for any product. The keys we define should be values that uniquely identify a resource. This is because we want to avoid scenarios where they are used to arbitrarily pass dynamic field data around query execution between subgraphs.
+
+After defining an entity in a schema, other subgraphs can reference that entity in their schemas. In order for the referencing subgraph's schema to be valid, it must define a stub of the entity in its schema. For example, we can reference a `Product` type defined in the products subgraph as the return type corresponding to a `product` field on a `Review` type defined in reviews subgraph:
+
+```graphql title="Reviews Subgraph"
+type Review {
+  rating: Int
+  product: Product
+}
+
+type Product @key(fields: "upc") {
+  upc: String!
+}
+```
+
+The `@key` directive indicates that the reviews subgraph will be able to identify a product by its UPC value and therefore be able to connect to a product based on its `upc` primary key field, but the reviews subgraph does not need to be aware of any other details about a given product.
+
+Referencing entities is a key feature of federation, but it's only half of the story. While an entity will be owned by a single subgraph, other subgraphs might wish to add additional fields to the entity's type to provide a more holistic representation of the entity in the graph. Doing so is a simple as adding the additional field to the extended type in a non-originating subgraph. For example, a reviews subgraph's schema might add a `reviews` field to the extended `Product` type that was originally defined in the products subgraph:
+
+```graphql title="Reviews Subgraph"
+type Review {
+  rating: Int
+  product: Product
+}
+
+type Product @key(fields: "upc") {
+  upc: String!
+  reviews: [Review]
+}
+```
+
+When extending entities, it's important to keep in mind that _the entity's originating subgraph will not be aware of the added fields_. Additionally, each field in an entity must only be defined once or the gateway will encounter schema composition errors.
+
+## Work from the entities outward
+
+When migrating from a client-only or monolithic GraphQL pattern, that work begins by identifying what entities will be exposed in the first subgraph extracted from the larger schema. When migrating from an architecture consisting of BFF-based GraphQL APIs or any other architecture of multiple overlapping graphs, the work of identifying entities (and determining new subgraph boundaries, in general) might be a bit more complex and involve some degree of negotiation with respect to type ownership, as well as a migration process to help account for any breaking changes that might result for clients.
+
+Whatever your architectural starting point, Apollo Federation was designed to allow the work of identifying entities and defining subgraph boundaries to be done in an incremental, non-disruptive fashion. Beginning to identify these entities is also the essential prerequisite for adopting the other schema design best practices that will follow.
+
+## `@defer` and entities
+
+Entities aren't just useful for connecting data across subgraphs. You can also use entities to enable the new [`@defer` directive for client-controlled prioritization of response data](https://github.com/graphql/graphql-wg/blob/main/rfcs/DeferStream.md). The GraphOS Router can [defer resolution of fields in entities](/graphos/routing/operations/defer) (and root fields) and handle sending data back to the client in prioritized chunks. By defining types as entities within your graph, clients can improve perceived user experience by adding a directive to their operations.
+
+## Next steps
+
+If you haven't already, follow the [Write Federated Schemas](/graphos/schema-design/federated-schemas/entities/intro) guide to learn how to define your first entity.
+
+To learn about more advanced ways of using entities, check out these guides:
+
+- [Define Advanced Keys](/graphos/schema-design/federated-schemas/entities/define-keys), including compound and nested key fields
+- [Contribute and Reference Entity Fields](/graphos/schema-design/federated-schemas/entities/contribute-fields), including computed fields
