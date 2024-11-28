@@ -92,7 +92,7 @@ export class RemoteGraphQLDataSource<
     headers.set('Content-Type', 'application/json');
 
     request.http = {
-      method: 'POST',
+      method: this.apq === true ? 'GET' : 'POST',
       url: this.url,
       headers,
     };
