@@ -125,6 +125,7 @@ describe("composition involving @override directive", () => {
         type A @key(fields: "id") {
           id: ID!
           b: B @override(from: "Subgraph2")
+          z: String! @shareable
         }
         type B @key(fields: "id") {
           id: ID!
@@ -143,11 +144,12 @@ describe("composition involving @override directive", () => {
       typeDefs: gql`
         type T @key(fields: "k") {
           k: ID
-          a: A @shareable @provides(fields: "b { v }")
+          a: A @shareable @provides(fields: "b { v } z")
         }
         type A @key(fields: "id") {
           id: ID!
           b: B
+          z: String! @external
         }
         type B @key(fields: "id") {
           id: ID!
@@ -168,6 +170,7 @@ describe("composition involving @override directive", () => {
       {
         id: ID!
         b: B @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\") @join__field(graph: SUBGRAPH2, usedOverridden: true)
+        z: String! @join__field(graph: SUBGRAPH1) @join__field(graph: SUBGRAPH2, external: true)
       }"
     `);
 
@@ -179,7 +182,7 @@ describe("composition involving @override directive", () => {
         @join__type(graph: SUBGRAPH2, key: \\"k\\")
       {
         k: ID
-        a: A @join__field(graph: SUBGRAPH1) @join__field(graph: SUBGRAPH2, provides: \\"b { v }\\")
+        a: A @join__field(graph: SUBGRAPH1) @join__field(graph: SUBGRAPH2, provides: \\"z\\")
       }"
     `);
   });

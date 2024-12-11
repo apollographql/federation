@@ -148,24 +148,6 @@ describe('fieldset-based directives', () => {
     ]);
   });
 
-  it('rejects unused @external', () => {
-    const subgraph = gql`
-      type Query {
-        t: T
-      }
-
-      type T {
-        f: Int @external
-      }
-    `;
-    expect(buildForErrors(subgraph)).toStrictEqual([
-      [
-        'EXTERNAL_UNUSED',
-        '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).',
-      ],
-    ]);
-  });
-
   it('rejects @provides on non-object fields', () => {
     const subgraph = gql`
       type Query {
@@ -220,10 +202,6 @@ describe('fieldset-based directives', () => {
         'PROVIDES_INVALID_FIELDS_TYPE',
         '[S] On field "Query.t", for @provides(fields: ["f"]): Invalid value for argument "fields": must be a string.',
       ],
-      [
-        'EXTERNAL_UNUSED',
-        '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).',
-      ],
     ]);
   });
 
@@ -245,10 +223,6 @@ describe('fieldset-based directives', () => {
       [
         'REQUIRES_INVALID_FIELDS_TYPE',
         '[S] On field "T.g", for @requires(fields: ["f"]): Invalid value for argument "fields": must be a string.',
-      ],
-      [
-        'EXTERNAL_UNUSED',
-        '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).',
       ],
     ]);
   });
@@ -293,10 +267,6 @@ describe('fieldset-based directives', () => {
         'PROVIDES_INVALID_FIELDS_TYPE',
         '[S] On field "Query.t", for @provides(fields: f): Invalid value for argument "fields": must be a string.',
       ],
-      [
-        'EXTERNAL_UNUSED',
-        '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).',
-      ],
     ]);
   });
 
@@ -320,10 +290,6 @@ describe('fieldset-based directives', () => {
       [
         'REQUIRES_INVALID_FIELDS_TYPE',
         '[S] On field "T.g", for @requires(fields: f): Invalid value for argument "fields": must be a string.',
-      ],
-      [
-        'EXTERNAL_UNUSED',
-        '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).',
       ],
     ]);
   });
@@ -360,10 +326,6 @@ describe('fieldset-based directives', () => {
       [
         'PROVIDES_INVALID_FIELDS',
         '[S] On field "Query.t", for @provides(fields: "{{f}}"): Syntax Error: Expected Name, found "{".',
-      ],
-      [
-        'EXTERNAL_UNUSED',
-        '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).',
       ],
     ]);
   });

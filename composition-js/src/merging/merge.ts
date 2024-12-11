@@ -83,6 +83,8 @@ import {
   FeatureDefinition,
   CoreImport,
   inaccessibleIdentity,
+  parseSelectionSet,
+  isUnionType,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -378,16 +380,16 @@ class Merger {
   private joinDirectiveIdentityURLs = new Set<string>();
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
   private fieldsWithFromContext: Set<string>;
-  private fieldsWithOverride: Set<string>;
+  private fieldsWithOverride: Map<string, number>; // map of field coordinate to index of overridden subgraph
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
+    this.names = subgraphs.names();
     this.latestFedVersionUsed = this.getLatestFederationVersionUsed();
     this.joinSpec = JOIN_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.linkSpec = LINK_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.fieldsWithFromContext = this.getFieldsWithFromContextDirective();
     this.fieldsWithOverride = this.getFieldsWithOverrideDirective();
     
-    this.names = subgraphs.names();
     this.composeDirectiveManager = new ComposeDirectiveManager(
       this.subgraphs,
       (error: GraphQLError) => { this.errors.push(error) },
@@ -399,6 +401,8 @@ class Merger {
       (hint: CompositionHint) => { this.hints.push(hint); },
     );
 
+    this.validateAllExternalFieldsUsed();
+    
     this.subgraphsSchema = subgraphs.values().map(({ schema }) => {
       if (!this.schemaToImportNameToFeatureUrl.has(schema)) {
         this.schemaToImportNameToFeatureUrl.set(
@@ -2045,10 +2049,16 @@ class Merger {
       const external = this.isExternal(idx, source);
       const sourceMeta = this.subgraphs.values()[idx].metadata();
       const name = this.joinSpecName(idx);
+      
+      // fields in this subgraph that are no longer viable because they've been overridden 
+      const overriddenFields = Array.from(this.fieldsWithOverride.entries())
+        .filter(([_, index]) => idx === index)
+        .map(([name, _]) => name);
+      const providesFieldSet = this.removeOverriddenFieldFromFieldSet(source, overriddenFields, sourceMeta);
       dest.applyDirective(joinFieldDirective, {
         graph: name,
         requires: this.getFieldSet(source, sourceMeta.requiresDirective()),
-        provides: this.getFieldSet(source, sourceMeta.providesDirective()),
+        provides: providesFieldSet,
         override: source.appliedDirectivesOf(sourceMeta.overrideDirective()).pop()?.arguments()?.from,
         type: allTypesEqual ? undefined : source.type?.toString(),
         external: external ? true : undefined,
@@ -2058,6 +2068,64 @@ class Merger {
       });
     }
   }
+  
+  private removeOverriddenFieldFromFieldSet <T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>(
+    source: T, 
+    overriddenCoordinates: string[], 
+    sourceMeta: FederationMetadata,
+  ) {
+    const providesDirective = sourceMeta.providesDirective();
+    const applications = source.appliedDirectivesOf(providesDirective);
+    assert(applications.length <= 1, () => `Found more than one application of ${providesDirective} on ${source}`);
+    if (applications.length === 0) {
+      return undefined;
+    }
+    const fields: string = applications[0].arguments().fields;
+    const parent = applications[0].parent;
+    const parentType = baseType(parent.type!);
+    if (!isCompositeType(parentType)) {
+      return undefined;
+    }
+    
+    // when we parse the selection set, we will have a list of selections. Anything that eventually goes to a overridden field 
+    // cannot be considered valid in the supgraph
+    let validSelectionsIndex: boolean[] = [];
+    
+    const selectionSet = parseSelectionSet({
+      parentType,
+      source: fields,
+      fieldAccessor: (t, f) => {
+        const field = t.field(f);
+        
+        // Every time we get back to to seeing the parentType, we know that it is a new selection. 
+        // Assume it's valid until we see a contradiction
+        if (t.name === parentType.name) {
+          validSelectionsIndex.push(true);
+        } else if (isInterfaceType(parentType)) {
+          if (parentType.allImplementations().find(member => member.name === t.name)) {
+            validSelectionsIndex.push(true);
+          }
+        } else if (isUnionType(parentType)) {
+          if (parentType.members().find(member => t.name === member.type.name)) {
+            validSelectionsIndex.push(true);
+          }
+        }
+        assert(field, 'field should exist on type');
+        if (overriddenCoordinates.includes(field.coordinate)) {
+          validSelectionsIndex[validSelectionsIndex.length-1] = false;
+        }
+        return field;
+      }
+    });
+    
+    // now we should have a SelectionSet with an array of _selections the same length as `validSelectionsIndex`
+    // We should be able to filter out the ones that are invalid and we'll be left with the valid selection string
+    const selections = selectionSet.selections();
+    assert(selections.length === validSelectionsIndex.length, 'selection parsing failed');
+    const filteredSelections = selections.filter((_, index) => validSelectionsIndex[index]);
+    return filteredSelections.length > 0 ? filteredSelections.map(selection => selection.toString()).join(' ') : undefined;
+  }
+  
   private getFieldSet(element: SchemaElement<any, any>, directive: DirectiveDefinition<{fields: string}>): string | undefined {
     const applications = element.appliedDirectivesOf(directive);
     assert(applications.length <= 1, () => `Found more than one application of ${directive} on ${element}`);
@@ -3531,15 +3599,23 @@ class Merger {
     );
   }
   
-  private getFieldsWithOverrideDirective(): Set<string> {
-    return this.getFieldsWithAppliedDirective(
-      (subgraph: Subgraph) => subgraph.metadata().overrideDirective(),
-      (application: Directive<SchemaElement<any,any>>) => {
-        const field = application.parent;
-        assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`); 
-        return field;
+  private getFieldsWithOverrideDirective(): Map<string, number> {
+    const fields = new Map<string, number>();
+    for (const subgraph of this.subgraphs) {
+      const directive = subgraph.metadata().overrideDirective();
+      if (isFederationDirectiveDefinedInSchema(directive)) {
+        for (const application of directive.applications()) {
+          const field = application.parent;
+          assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`); 
+          const coordinate = field.coordinate;
+          if (!fields.has(coordinate)) {
+            const fromSubgraphName = application.arguments()['from'];
+            fields.set(coordinate, this.names.indexOf(fromSubgraphName));
+          }
+        }
       }
-    );
+    }
+    return fields;
   }
   
   private getFieldsWithAppliedDirective(
@@ -3560,5 +3636,26 @@ class Merger {
       }
     }
     return fields;
+  }
+  
+  private validateAllExternalFieldsUsed(): void {
+    for (const subgraph of this.subgraphs) {
+      const metadata = subgraph.metadata();
+      for (const type of metadata.schema.types()) {
+        if (!isObjectType(type) && !isInterfaceType(type)) {
+          continue;
+        }
+        for (const field of type.fields()) {
+          if (!metadata.isFieldExternal(field) || metadata.isFieldUsed(field)) {
+            continue;
+          }
+          this.mismatchReporter.pushError(ERRORS.EXTERNAL_UNUSED.err(
+            `[${subgraph.name}] Field "${field.coordinate}" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
+            + ' the field declaration has no use and should be removed (or the field should not be @external).',
+            { nodes: field.sourceAST },
+          ));
+        }
+      }
+    }
   }
 }

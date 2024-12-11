@@ -5290,3 +5290,37 @@ describe('@source* directives', () => {
     assertCompositionSuccess(result);
   });
 });
+
+it('errors on unused @external', () => {
+  const subgraphA = {
+    name: 'S',
+    typeDefs: gql`
+      type Query {
+        T: T!
+      }
+
+      type T {
+        f: Int @external
+      }
+    `,
+  };
+  
+  const subgraphB = {
+    name: 'T',
+    typeDefs: gql`
+      type Query {
+        a: Int!
+      }
+
+      type T {
+        f: Int
+      }
+    `,
+  };
+  
+  const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+  expect(result.errors).toBeDefined();
+  expect(errors(result)).toStrictEqual([
+    ['EXTERNAL_UNUSED', '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).']
+  ]);
+});
