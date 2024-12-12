@@ -1431,7 +1431,9 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
   // For each source, we store the best path we find for that source with the score, or `null` if we can
   // decide that we should try going to that source (typically because we can prove that this create an
   // inefficient detour for which a more direct path exists and will be found).
-  const bestPathBySource = new Map<string, [GraphPath<TTrigger, V, TNullEdge>, number] | null>();
+  // Note: There may be multiple "best" paths if the tail implements multiple interfaces and target
+  //       subgraph also has multiple @interfaceObject implementing them.
+  const bestPathBySource = new Map<string, [GraphPath<TTrigger, V, TNullEdge>, number, GraphPath<TTrigger, V, TNullEdge>[]] | null>();
   const deadEndClosures: UnadvanceableClosure[] = [];
   const toTry: GraphPath<TTrigger, V, TNullEdge>[] = [ path ];
   while (toTry.length > 0) {
@@ -1503,7 +1505,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
 
       if (prevForSource
         && (prevForSource[0].size < toAdvance.size + 1
-          || (prevForSource[0].size == toAdvance.size + 1 && prevForSource[1] <= 1)
+          || (prevForSource[0].size == toAdvance.size + 1 && prevForSource[1] <= 1 && prevForSource[0].tail == edge.tail)
         )
       ) {
         // We've already found another path that gets us to the same subgraph than the edge we're
@@ -1515,9 +1517,17 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         // during composition validation where all costs are 0 to mean "we don't care about costs".
         // Meaning effectively that for validation, as soon as we have a path to a subgraph, we ignore
         // other options even if they may be "faster".
+        // Note: The "same size" rule only applies if both paths are reaching the same node, in which
+        //       case it doesn't matter which path is chosen. On the other hand, if paths are tied but
+        //       reaching different nodes, both should be kept. This can happen when the source subgraph
+        //       type implements multiple interfaces and the target subgraph has multiple @interfaceObject
+        //       implementing those interfaces.
         debug.groupEnd(() => `Ignored: a better (shorter) path to the same subgraph already added`);
         continue;
       }
+      // New path has the same size as the previous best and they are tied.
+      // (See the note above about the "same size" rule).
+      const is_tied = prevForSource && (prevForSource[0].size == toAdvance.size + 1 && prevForSource[1] <= 1 && prevForSource[0].tail != edge.tail);
 
       if (isConditionExcluded(edge.conditions, excludedConditions)) {
         debug.groupEnd(`Ignored: edge condition is excluded`);
@@ -1542,7 +1552,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
         // We _can_ get to `target.source` with that edge. But if we had already found another path to
         // the same subgraph, we want to replace it by this one only if either 1) it is shorter or 2) if
         // it's of equal size, only if the condition cost are lower than the previous one.
-        if (prevForSource && prevForSource[0].size === toAdvance.size + 1 && prevForSource[1] <= conditionResolution.cost) {
+        if (prevForSource && prevForSource[0].size === toAdvance.size + 1 && prevForSource[1] <= conditionResolution.cost && !is_tied) {
           debug.groupEnd('Ignored: a better (less costly) path to the same subgraph already added');
           continue;
         }
@@ -1620,7 +1630,11 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
 
         const updatedPath = toAdvance.add(convertTransitionWithCondition(edge.transition, context), edge, conditionResolution);
         debug.log(() => `Using edge, advance path: ${updatedPath}`);
-        bestPathBySource.set(target.source, [updatedPath, conditionResolution.cost]);
+        if (is_tied) {
+          prevForSource![2].push(updatedPath);
+        } else {
+          bestPathBySource.set(target.source, [updatedPath, conditionResolution.cost, [updatedPath]]);
+        }
         // It can be necessary to "chain" keys, because different subgraphs may have different keys exposed, and so we when we took
         // a key, we want to check if there is new key we can now take that take us to other subgraphs. For other 'non-collecting'
         // edges ('QueryResolution' and 'SubgraphEnteringTransition') however, chaining never give us additional value.
@@ -1652,7 +1666,7 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
     debug.groupEnd();
   }
   return {
-    paths: mapValues(bestPathBySource).filter(p => p !== null).map(b => b![0]),
+    paths: mapValues(bestPathBySource).filter(p => p !== null).flatMap(b => b![2]),
     deadEnds: new UnadvanceableClosures(deadEndClosures) as TDeadEnds
   }
 }
