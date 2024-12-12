@@ -380,7 +380,10 @@ class Merger {
   private joinDirectiveIdentityURLs = new Set<string>();
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
   private fieldsWithFromContext: Set<string>;
-  private fieldsWithOverride: Map<string, number>; // map of field coordinate to index of overridden subgraph
+
+  private fieldsWithOverride: Set<string>;
+  // a map from the subgraph index to a list of coordinates that are completely overridden by another subgraph
+  private completelyOverriddenFieldMap: Map<number, Set<string>>; 
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.names = subgraphs.names();
@@ -388,8 +391,11 @@ class Merger {
     this.joinSpec = JOIN_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.linkSpec = LINK_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.fieldsWithFromContext = this.getFieldsWithFromContextDirective();
-    this.fieldsWithOverride = this.getFieldsWithOverrideDirective();
-    
+
+    const { overriddenFieldMap, fieldsWithOverride } = this.getFieldsWithOverrideDirective();
+    this.fieldsWithOverride = fieldsWithOverride;
+    this.completelyOverriddenFieldMap = overriddenFieldMap;
+
     this.composeDirectiveManager = new ComposeDirectiveManager(
       this.subgraphs,
       (error: GraphQLError) => { this.errors.push(error) },
@@ -2051,9 +2057,7 @@ class Merger {
       const name = this.joinSpecName(idx);
       
       // fields in this subgraph that are no longer viable because they've been overridden 
-      const overriddenFields = Array.from(this.fieldsWithOverride.entries())
-        .filter(([_, index]) => idx === index)
-        .map(([name, _]) => name);
+      const overriddenFields = this.completelyOverriddenFieldMap.get(idx);
       const providesFieldSet = this.removeOverriddenFieldFromFieldSet(source, overriddenFields, sourceMeta);
       dest.applyDirective(joinFieldDirective, {
         graph: name,
@@ -2071,7 +2075,7 @@ class Merger {
   
   private removeOverriddenFieldFromFieldSet <T extends FieldDefinition<ObjectType | InterfaceType> | InputFieldDefinition>(
     source: T, 
-    overriddenCoordinates: string[], 
+    overriddenCoordinates: Set<string> | undefined, 
     sourceMeta: FederationMetadata,
   ) {
     const providesDirective = sourceMeta.providesDirective();
@@ -2083,6 +2087,11 @@ class Merger {
     const fields: string = applications[0].arguments().fields;
     const parent = applications[0].parent;
     const parentType = baseType(parent.type!);
+    
+    if (!overriddenCoordinates) {
+      return fields;
+    }
+
     if (!isCompositeType(parentType)) {
       return undefined;
     }
@@ -2111,7 +2120,7 @@ class Merger {
           }
         }
         assert(field, 'field should exist on type');
-        if (overriddenCoordinates.includes(field.coordinate)) {
+        if (overriddenCoordinates.has(field.coordinate)) {
           validSelectionsIndex[validSelectionsIndex.length-1] = false;
         }
         return field;
@@ -3599,8 +3608,9 @@ class Merger {
     );
   }
   
-  private getFieldsWithOverrideDirective(): Map<string, number> {
-    const fields = new Map<string, number>();
+  private getFieldsWithOverrideDirective(): { fieldsWithOverride: Set<string>, overriddenFieldMap: Map<number, Set<string>> } {
+    const overriddenFieldMap = new Map<number, Set<string>>();
+    const fieldsWithOverride = new Set<string>();
     for (const subgraph of this.subgraphs) {
       const directive = subgraph.metadata().overrideDirective();
       if (isFederationDirectiveDefinedInSchema(directive)) {
@@ -3608,14 +3618,24 @@ class Merger {
           const field = application.parent;
           assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`); 
           const coordinate = field.coordinate;
-          if (!fields.has(coordinate)) {
-            const fromSubgraphName = application.arguments()['from'];
-            fields.set(coordinate, this.names.indexOf(fromSubgraphName));
+          const { from: fromSubgraphName, label } = application.arguments();
+          fieldsWithOverride.add(coordinate);
+          
+          // we only want fields that are completely overridden (i.e. progressive overrides will have a label and we should ignore them)
+          if (!label) {
+            const fromSubgraphIndex = this.names.indexOf(fromSubgraphName);
+            if (!overriddenFieldMap.has(fromSubgraphIndex)) {
+              overriddenFieldMap.set(fromSubgraphIndex, new Set());
+            }
+            overriddenFieldMap.get(fromSubgraphIndex)?.add(coordinate);
           }
         }
       }
     }
-    return fields;
+    return {
+      fieldsWithOverride,
+      overriddenFieldMap,
+    };
   }
   
   private getFieldsWithAppliedDirective(
