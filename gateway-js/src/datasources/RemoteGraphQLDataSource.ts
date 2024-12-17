@@ -220,7 +220,7 @@ export class RemoteGraphQLDataSource<
         http: fetchResponse,
       };
     } catch (error) {
-      this.didEncounterError(error, fetchRequest, fetchResponse, context);
+      this.didEncounterError(error, fetchRequest, fetchResponse, context, request);
       throw error;
     }
   }
@@ -284,6 +284,7 @@ export class RemoteGraphQLDataSource<
     _fetchRequest: NodeFetchRequest,
     _fetchResponse?: FetcherResponse,
     _context?: TContext,
+    _request?: GatewayGraphQLRequest,
   ) {
     throw error;
   }
