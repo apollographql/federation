@@ -4,7 +4,7 @@ subtitle: Transfer entity fields from one subgraph to another
 description: Learn how to safely move parts of one subgraph to another subgraph in a federated GraphQL architecture using the @override directive.
 ---
 
-import ProgressiveOverrideEnterprise from '../../shared/progressive-override-enterprise.mdx';
+import ProgressiveOverrideEnterprise from '../../../../shared/progressive-override-enterprise.mdx';
 
 As your supergraph grows, you might want to move parts of one subgraph to another subgraph.
 For example, suppose your Payments subgraph defines a `Bill` entity:
@@ -286,10 +286,10 @@ A few strategies to mitigate this concern:
 
 ### Customizing progressive `@override` behavior with a feature flag service
 
-Out of the box, the router supports the `percent(x)` syntax for resolving labels based on a given percentage. Unfortunately, updating this number requires a subgraph publish and router redeploy.
+Out of the box, the router supports the `percent(x)` syntax for resolving labels based on a given percentage. Updating this number requires publishing the subgraph.
 To avoid this, you can use a feature flag service to dynamically update the label value.
 
-The router provides an interface for coprocessors and rhai scripts to resolve arbitrary labels.
+The router provides an interface for coprocessors and Rhai scripts to resolve arbitrary labels.
 This lets you dial up or disable a label's rollout status without requiring a subgraph publish.
 A coprocessor or Rhai script that implements this should take the following steps:
 

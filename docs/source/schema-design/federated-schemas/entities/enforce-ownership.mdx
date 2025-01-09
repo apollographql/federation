@@ -1,0 +1,279 @@
+---
+title: Enforcing Entity Ownership in Apollo Federation
+subtitle: Designating entity ownership in Apollo Federation 2
+description: Learn how to designate entity ownership and make "entity extension" a first-class concept in your Apollo Federation 2 supergraph.
+published: 2023-02-16
+id: TN0036
+tags: [federation]
+redirectFrom:
+    - /technotes/TN0036-owner-pattern/
+---
+
+In Federation 2, the notion of "extending" an entity type is strictly conceptual. All definitions of a type in different subgraphs are merged according to the "shareability" of fields. In the following example, neither subgraph really owns or extends the `Product` entity. Instead, they both contribute fields to it.
+
+<CodeColumns>
+
+```graphql title="subgraph-a.graphql"
+type Product @key(fields: "id") {
+  id: ID!
+  name: String
+}
+```
+
+```graphql title="subgraph-b.graphql"
+type Product @key(fields: "id") {
+  id: ID!
+  reviews: [Review]
+}
+```
+
+</CodeColumns>
+
+Federation 1 required that one of these definitions used the `extend` keyword or `@extends` directive. Federation 2 drops this requirement to improve the flexibility of composition and reduce the possibility of hard composition errors.
+
+However, in some situations you still might want to designate an "owner" of an entity and make "entity extension" a first-class concept in your supergraph.
+
+One example is the ability assert which subgraph is responsible for documenting an entity. If two subgraphs add different descriptions to a type, composition selects one of those descriptions and emits a hint informing you of the inconsistency:
+
+```
+HINT: [INCONSISTENT_DESCRIPTION]: Element "Product" has inconsistent
+descriptions across subgraphs. The supergraph will use description
+(from subgraph "one"):
+  """
+  The Product type.
+  """
+In subgraph "two", the description is:
+  """
+  This is my description of the Product type.
+  """
+```
+
+<Note>
+
+When a description is inconsistent across subgraphs, composition selects the description from the first subgraph alphabetically by name.
+
+</Note>
+
+A mechanism for deciding the "owner" of the type allows tools such as linters to catch these inconsistencies early in the development process.
+
+## Creating an `@owner` directive
+
+You can add an `@owner` directive to your supergraph using the [`@composeDirective`](/graphos/reference/federation/directives#composedirective) functionality introduced in Federation 2.2.
+
+```graphql title="subgraph-a.graphql"
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@composeDirective"])
+  @link(url: "https://graphql.mycompany.dev/owner/v1.0", import: ["@owner"])
+  @composeDirective(name: "@owner")
+
+directive @owner(team: String!) on OBJECT
+
+type Product @key(fields: "id") @owner(team: "subgraph-a") {
+  id: ID!
+  name: String
+}
+```
+
+The `@owner` directive now appears in the supergraph. Because we did not define the directive as `repeatable`, subgraphs cannot define it with different arguments.
+
+<ExpansionPanel title="Click to view the generated supergraph schema">
+
+```graphql title="supergraph.graphql" {69}
+schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+  @link(url: "https://graphql.mycompany.dev/owner/v1.0", import: ["@owner"]) {
+  query: Query
+}
+
+directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+directive @join__field(
+  graph: join__Graph
+  requires: join__FieldSet
+  provides: join__FieldSet
+  type: String
+  external: Boolean
+  override: String
+  usedOverridden: Boolean
+) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+directive @join__type(
+  graph: join__Graph!
+  key: join__FieldSet
+  extension: Boolean! = false
+  resolvable: Boolean! = true
+  isInterfaceObject: Boolean! = false
+) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+directive @owner(team: String!) on OBJECT
+
+scalar join__FieldSet
+
+enum join__Graph {
+  ONE @join__graph(name: "one", url: "http://localhost:4001")
+}
+
+scalar link__Import
+
+enum link__Purpose {
+  """
+  `SECURITY` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+
+  """
+  `EXECUTION` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
+}
+
+type Product @join__type(graph: ONE, key: "id") @owner(team: "subgraph-a") {
+  id: ID!
+  name: String
+}
+
+type Query @join__type(graph: ONE) {
+  products: [Product]
+}
+```
+
+</ExpansionPanel>
+
+## Writing a lint rule using the `@owner` directive
+
+Here's an example of a [`@graphql-eslint`](https://the-guild.dev/graphql/eslint/docs) rule for subgraph schemas that uses the `@owner` directive to determine if a description is required:
+
+<ExpansionPanel title="Click to expand">
+
+```js
+const { getDirective } = require("@graphql-tools/utils");
+const { buildSchema } = require("graphql");
+
+module.exports = {
+  rules: {
+    /** @type {import("@graphql-eslint/eslint-plugin").GraphQLESLintRule} */
+    "subgraph-owned-type-has-description": {
+      create(context) {
+        const schema = buildSchema(context.getSourceCode().text, {
+          assumeValidSDL: true, // subgraph schemas may not be valid on their own
+        });
+
+        return {
+          /**
+           * For each object type defintion, look for an `@owner` directive.
+           * If it exist, require a description.
+           * If it doesn't, disallow a description.
+           */
+          ObjectTypeDefinition(node) {
+            const type = schema.getType(node.name.value);
+            const owner = getDirective(schema, type, "owner");
+
+            if (owner && !node.description) {
+              context.report({
+                node,
+                message: "Description is required on owned types",
+              });
+            }
+
+            if (!owner && node.description) {
+              context.report({
+                node,
+                message: "Description not allowed on unowned types",
+              });
+            }
+          },
+        };
+      },
+    },
+  },
+};
+```
+
+</ExpansionPanel>
+
+## Using `@owner` to determine required approvers
+
+Another use case for the `@owner` directive is to determine required reviewers when a schema change affects a type owned by another team.
+
+The exact process depends on your source control and continuous integration systems. The following example steps assume you're using GitHub for both.
+
+1. Add a `pull_request` workflow:
+
+   ```yaml title=".github/workflows/add-reviewers.yaml"
+   name: Add required reviewers for owned GraphQL types
+   on: [pull_request]
+   ```
+
+2. Determine the affected types in the schema change:
+
+   ```js
+   import { diff } from "@graphql-inspector/core";
+   import { buildSchema } from "graphql";
+
+   const differences = diff(
+     buildSchema(schemaFromBaseRef, { assumeValidSDL: false }),
+     buildSchema(schemaFromCurrentRef, { assumeValidSDL: false })
+   );
+
+   /* Derive a list of affected types from the result:
+   [
+     {
+       "criticality": {
+         "level": "NON_BREAKING"
+       },
+       "type": "FIELD_ADDED",
+       "message": "Field 'newField' was added to object type 'Product'",
+       "path": "Product.newField"
+     }
+   ]
+   */
+   ```
+
+3. Obtain the supergraph schema.
+
+   You can use [`rover supergraph fetch`](https://www.apollographql.com/docs/rover/commands/supergraphs#supergraph-fetch) or retrieve it using the [Apollo Platform API](https://studio.apollographql.com/public/apollo-platform/explorer?explorerURLState=N4IgJg9gxgrgtgUwHYBcQC4QEcYIE4CeABAOIIoDKMADvgOZ4CG1AFgBQAkeCAZukQEkAIgEIAlEWAAdJESIA3RngCWjVG258iXXhOmy5RAPpGUBWkkaIZhogDoHRCLJJNWANSWrUkm7aIANowoCADOKACC1NR4EPIIYAAyjDBIUCy%2BBv5EAEYwygFgmdm23KEwASjFJbYmZhZWCH41cg52TrIAQvmFVFBQYaHVLYZQENwU6QhwjMMjo%2BMIQtDwyCjN8wC%2BGzXbWSV7uztEh4ane5sgm0A&variant=main).
+
+4. Extract the owners for the affected types:
+
+   ```js
+   import { getDirective } from "@graphql-tools/utils";
+
+   const supergraphSchema = buildSchema(supergraphSdl);
+   const affectedTeams = [];
+
+   for (const typeName of affectedTypes) {
+     const type = supergraphSchema.getType(typeName);
+
+     const owner = getDirective(schema, type, "owner")?.[0];
+
+     if (owner) {
+       affectedTeams.push(owner.team);
+     }
+   }
+   ```
+
+5. Add the team as reviewers on the pull request:
+
+   ```js
+   import { Octokit } from "@octokit/action";
+
+   const octokit = new Octokit();
+
+   const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+
+   await octokit.pulls.requestReviewers({
+     owner,
+     repo,
+     pull_number: pullNumber, // ${{ github.event.number }}
+     team_reviewers: affectedTeams,
+   });
+   ```
