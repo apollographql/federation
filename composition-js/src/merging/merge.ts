@@ -1098,11 +1098,14 @@ class Merger {
   private hintOnInconsistentEntity(sources: Sources<ObjectType>, dest: ObjectType): boolean {
     const sourceAsEntity: ObjectType[] = [];
     const sourceAsNonEntity: ObjectType[] = [];
-    for (const source of sources.values()) {
+    for (const [idx, source] of sources.entries()) {
       if (!source) {
         continue;
       }
-      if (source.hasAppliedDirective('key')) {
+      
+      const sourceMetadata = this.subgraphs.values()[idx].metadata();
+      const keyDirective = sourceMetadata.keyDirective();
+      if (source.hasAppliedDirective(keyDirective)) {
         sourceAsEntity.push(source);
       } else {
         sourceAsNonEntity.push(source);
