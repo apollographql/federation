@@ -4,6 +4,8 @@ subtitle: Subgraph specification reference for server library developers
 description: Learn about Apollo Federation 2 subgraph specifications, enhanced introspection, and entity field resolution for GraphQL server libraries.
 ---
 
+import LinkDirective from '../../../shared/link-directive.mdx';
+
 This content is provided for developers adding federated subgraph support to a GraphQL server library, and for anyone curious about the inner workings of federation. You do not need to read this if you're building a supergraph with existing [subgraph-compatible libraries](/graphos/reference/federation/compatible-subgraphs), such as Apollo Server.
 
 Servers that are partially or fully compatible with this specification are tracked in Apollo's [subgraph compatibility repository](https://github.com/apollographql/apollo-federation-subgraph-compatibility).
@@ -13,6 +15,7 @@ For a GraphQL service to operate as an Apollo Federation 2 subgraph, it must do 
 - Automatically extend its schema with all definitions listed in [Subgraph schema additions](#subgraph-schema-additions)
 - Correctly resolve the `Query._service` [enhanced introspection field](#fetch-service-capabilities)
 - Provide a mechanism for subgraph developers to resolve entity fields via the [`Query._entities` field](#resolving-entity-fields-with-query_entities)
+- Apply the [`@link` directive to the `schema` type](#apply-link-directive)
 
 Each of these requirements is described in the sections below.
 
@@ -407,6 +410,10 @@ The representation object passed to the reference resolver above might have the 
 For this reference resolver, the developer calls a `fetchProductByUPC` function, passing the `upc` from the representation. This function might query a database or a REST API to fetch the entity fields of `Product` that this subgraph knows about.
 
 Your subgraph library does not need to use this reference resolver pattern. It just needs to provide and document some pattern for defining entity-fetching logic.
+
+## Apply @link directive
+
+<LinkDirective />
 
 ## Glossary of schema additions
 

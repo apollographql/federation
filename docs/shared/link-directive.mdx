@@ -1,0 +1,13 @@
+Subgraph schemas "opt in" to Federation v2 features by applying the `@link` directive to the `schema` type. The `import` list of this definition must include each federation-specific directive that the subgraph schema uses. In the example below, the schema uses the `@key` and `@shareable` directives:
+
+```graphql
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable"])
+```
+
+<Tip>
+
+You can use `@link` to distinguish between Federation v1 (no `@link`) and Federation v2 (required `@link`) schemas.
+
+</Tip>
