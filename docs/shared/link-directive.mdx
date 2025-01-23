@@ -1,4 +1,4 @@
-Subgraph schemas "opt in" to Federation v2 features by applying the `@link` directive to the `schema` type. The `import` list of this definition must include each federation-specific directive that the subgraph schema uses. In the example below, the schema uses the `@key` and `@shareable` directives:
+Subgraph schemas opt in to Federation v2 features by applying the `@link` directive to the `schema` type. You can optionally add an `import` list to this definition to include each federation-specific directive that the subgraph schema uses. In the example below, the schema uses the `@key` and `@shareable` directives:
 
 ```graphql
 extend schema
