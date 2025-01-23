@@ -6,6 +6,7 @@ description: Reference for GraphQL federation directives including @key, @extend
 
 import ProgressiveOverrideEnterprise from '../../../shared/progressive-override-enterprise.mdx';
 import EnterpriseDirective from '../../../shared/enterprise-directive.mdx';
+import LinkDirective from '../../../shared/link-directive.mdx';
 
 Apollo Federation defines a collection of directives that you use in your subgraph schemas to enable certain features.
 
@@ -73,6 +74,8 @@ type Book @fed__shareable {
 
 As shown, custom namespace prefixes also end in two underscores.
 
+## Managing schemas
+
 <MinVersion version="2.0">
 
 ### The `@link` directive
@@ -89,6 +92,8 @@ directive @link(
 ```
 
 This directive links definitions from an external specification to this schema. Every Federation 2 subgraph uses the `@link` directive to import the other federation-specific directives described in this article (see the syntax in [Importing directives](#importing-directives)).
+
+<LinkDirective />
 
 For more information on `@link`, see the [official spec](https://specs.apollo.dev/link/v1.0/).
 
