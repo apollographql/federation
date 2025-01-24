@@ -380,8 +380,8 @@ class Merger {
   private joinDirectiveIdentityURLs = new Set<string>();
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
   private fieldsWithFromContext: Set<string>;
-
   private fieldsWithOverride: Set<string>;
+  
   // a map from the subgraph index to a list of coordinates that are completely overridden by another subgraph
   private completelyOverriddenFieldMap: Map<number, Set<string>>; 
 
@@ -406,7 +406,7 @@ class Merger {
       (error: GraphQLError) => { this.errors.push(error); },
       (hint: CompositionHint) => { this.hints.push(hint); },
     );
-    
+
     this.subgraphsSchema = subgraphs.values().map(({ schema }) => {
       if (!this.schemaToImportNameToFeatureUrl.has(schema)) {
         this.schemaToImportNameToFeatureUrl.set(
@@ -3657,4 +3657,4 @@ class Merger {
     }
     return fields;
   }
-  
+}
