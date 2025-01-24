@@ -44,6 +44,7 @@ export type JoinFieldDirectiveArguments = {
   graph?: string,
   requires?: string,
   provides?: string,
+  originalProvides?: string,
   override?: string,
   type?: string,
   external?: boolean,
@@ -176,6 +177,10 @@ export class JoinSpecDefinition extends FeatureDefinition {
 
       joinField.addArgument('contextArguments', new ListType(new NonNullType(contextArgumentsType)));
     }
+    
+    if (this.version.gte(new FeatureVersion(0, 6))) {
+      joinField.addArgument('originalProvides', schema.stringType());
+    }
 
     if (this.isV01()) {
       const joinOwner = this.addDirective(schema, 'owner').addLocations(DirectiveLocation.OBJECT);
@@ -289,6 +294,7 @@ export const JOIN_VERSIONS = new FeatureDefinitions<JoinSpecDefinition>(joinIden
   .add(new JoinSpecDefinition(new FeatureVersion(0, 2)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 3), new FeatureVersion(2, 0)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 4), new FeatureVersion(2, 7)))
-  .add(new JoinSpecDefinition(new FeatureVersion(0, 5), new FeatureVersion(2, 8)));
+  .add(new JoinSpecDefinition(new FeatureVersion(0, 5), new FeatureVersion(2, 8)))
+  .add(new JoinSpecDefinition(new FeatureVersion(0, 6), new FeatureVersion(2, 9)));
 
 registerKnownFeature(JOIN_VERSIONS);

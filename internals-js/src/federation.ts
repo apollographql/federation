@@ -919,6 +919,28 @@ function collectUsedFieldsForDirective<TParent extends SchemaElement<any, any>>(
   }
 }
 
+/**
+ * Checks that all fields marked @external is used in a federation directive (@key, @provides or @requires) _or_ to satisfy an
+ * interface implementation. Otherwise, the field declaration is somewhat useless.
+ */
+function validateAllExternalFieldsUsed(metadata: FederationMetadata, errorCollector: GraphQLError[]): void {
+  for (const type of metadata.schema.types()) {
+    if (!isObjectType(type) && !isInterfaceType(type)) {
+      continue;
+    }
+    for (const field of type.fields()) {
+      if (!metadata.isFieldExternal(field) || metadata.isFieldUsed(field)) {
+        continue;
+      }
+      errorCollector.push(ERRORS.EXTERNAL_UNUSED.err(
+        `Field "${field.coordinate}" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
+        + ' the field declaration has no use and should be removed (or the field should not be @external).',
+        { nodes: field.sourceAST },
+      ));
+    }
+  }
+}
+
 function validateNoExternalOnInterfaceFields(metadata: FederationMetadata, errorCollector: GraphQLError[]) {
   for (const itf of metadata.schema.interfaceTypes()) {
     for (const field of itf.fields()) {
@@ -1794,6 +1816,7 @@ export class FederationBlueprint extends SchemaBlueprint {
     }
 
     validateNoExternalOnInterfaceFields(metadata, errorCollector);
+    validateAllExternalFieldsUsed(metadata, errorCollector);
     validateKeyOnInterfacesAreAlsoOnAllImplementations(metadata, errorCollector);
     validateInterfaceObjectsAreOnEntities(metadata, errorCollector);
 

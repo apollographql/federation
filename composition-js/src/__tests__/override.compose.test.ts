@@ -190,9 +190,9 @@ describe("composition involving @override directive", () => {
         @join__type(graph: SUBGRAPH2, key: \\"k\\")
       {
         k: ID
-        a: A @join__field(graph: SUBGRAPH1) @join__field(graph: SUBGRAPH2, provides: \\"z\\")
-        a2: A @join__field(graph: SUBGRAPH2)
-        a3: A @join__field(graph: SUBGRAPH2, provides: \\"z z2\\")
+        a: A @join__field(graph: SUBGRAPH1) @join__field(graph: SUBGRAPH2, provides: \\"z\\", originalProvides: \\"b { v } z\\")
+        a2: A @join__field(graph: SUBGRAPH2, originalProvides: \\"b { v }\\")
+        a3: A @join__field(graph: SUBGRAPH2, provides: \\"z z2\\", originalProvides: \\"z b { v } z2\\")
       }"
     `);
   });
@@ -987,7 +987,7 @@ describe("composition involving @override directive", () => {
       expect(result.supergraphSdl).toMatchInlineSnapshot(`
         "schema
           @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
-          @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
+          @link(url: \\"https://specs.apollo.dev/join/v0.6\\", for: EXECUTION)
         {
           query: Query
         }
@@ -996,7 +996,7 @@ describe("composition involving @override directive", () => {
 
         directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-        directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+        directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!], originalProvides: String) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
         directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 

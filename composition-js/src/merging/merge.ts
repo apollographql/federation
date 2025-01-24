@@ -406,8 +406,6 @@ class Merger {
       (error: GraphQLError) => { this.errors.push(error); },
       (hint: CompositionHint) => { this.hints.push(hint); },
     );
-
-    this.validateAllExternalFieldsUsed();
     
     this.subgraphsSchema = subgraphs.values().map(({ schema }) => {
       if (!this.schemaToImportNameToFeatureUrl.has(schema)) {
@@ -2058,11 +2056,13 @@ class Merger {
       
       // fields in this subgraph that are no longer viable because they've been overridden 
       const overriddenFields = this.completelyOverriddenFieldMap.get(idx);
+      const originalProvides = this.getFieldSet(source, sourceMeta.providesDirective());
       const providesFieldSet = this.removeOverriddenFieldFromFieldSet(source, overriddenFields, sourceMeta);
       dest.applyDirective(joinFieldDirective, {
         graph: name,
         requires: this.getFieldSet(source, sourceMeta.requiresDirective()),
         provides: providesFieldSet,
+        originalProvides: providesFieldSet === originalProvides ? undefined : originalProvides,
         override: source.appliedDirectivesOf(sourceMeta.overrideDirective()).pop()?.arguments()?.from,
         type: allTypesEqual ? undefined : source.type?.toString(),
         external: external ? true : undefined,
@@ -3658,24 +3658,3 @@ class Merger {
     return fields;
   }
   
-  private validateAllExternalFieldsUsed(): void {
-    for (const subgraph of this.subgraphs) {
-      const metadata = subgraph.metadata();
-      for (const type of metadata.schema.types()) {
-        if (!isObjectType(type) && !isInterfaceType(type)) {
-          continue;
-        }
-        for (const field of type.fields()) {
-          if (!metadata.isFieldExternal(field) || metadata.isFieldUsed(field)) {
-            continue;
-          }
-          this.mismatchReporter.pushError(ERRORS.EXTERNAL_UNUSED.err(
-            `[${subgraph.name}] Field "${field.coordinate}" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface;`
-            + ' the field declaration has no use and should be removed (or the field should not be @external).',
-            { nodes: field.sourceAST },
-          ));
-        }
-      }
-    }
-  }
-}
