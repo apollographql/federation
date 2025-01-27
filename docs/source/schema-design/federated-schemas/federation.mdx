@@ -1,21 +1,19 @@
 ---
 title: Introduction to Apollo Federation
-subtitle: Learn how federation combines your GraphQL APIs into a unified supergraph
+subtitle: Learn how federation combines your APIs into a unified supergraph
 description: Learn how Apollo Federation helps you declaratively combine your services into a unified, federated GraphQL API using a microservices architecture that simplifies API orchestration
 redirectFrom:
     - /federation
 ---
 
-Apollo Federation enables you to declaratively combine multiple APIs into a single federated supergraph. A client makes a single request to this supergraph, and it orchestrates calls to multiple APIs to produce a single response. 
+Apollo Federation enables you to declaratively combine multiple APIs into a single federated graph. A client makes a single request to this federated graph, and it orchestrates calls to multiple APIs to produce a single response.  
 
-A client makes a request to a supergraph via the federated GraphQL API's single entry point called the _router_. The router intelligently orchestrates and distributes the request across your APIs and returns a unified response. For a client, the request and response cycle of querying the router looks the same as querying any GraphQL server.
+A client makes a request to the federated GraphQL API's single entry point called the _router_. The router intelligently orchestrates and distributes the request across your APIs and returns a unified response. For a client, the request and response cycle of querying the router looks the same as querying any GraphQL server.
 
 <img src='../../images/federation.svg' class="dark:hidden"/>
 <img src='../../images/federation-dark.svg' class="hidden dark:block"/>
 
-Your federated GraphQL API, or _graph_, can be made of GraphQL APIs, REST APIs, and other data sources.
-
-To jump into building a federated GraphQL with existing REST APIs, check out the [Apollo Connectors Quickstart](/graphos/get-started/guides/rest-quickstart).
+Your federated GraphQL API, or _graph_, can be made of GraphQL APIs, REST APIs, and other data sources. Federation is the foundation for Apollo Connectors, where you can integrate REST APIs into your supergraph simply by declaratively defining them in you GraphQL schema.
 
 <ExpansionPanel title="Watch the video overview">
 
@@ -72,11 +70,13 @@ Before continuing, it's helpful to know some terminology:
 
 Different subgraphs in the same supergraph can use different server implementations and even different programming languages as long as they are [federation-compatible](../../reference/federation/compatible-subgraphs).
 
+- _Apollo Connectors_ are a declarative programming model in GraphQL that uses federation to allow you to declaratively define REST API integrations in GraphQL schema.
+
 Ready to get started? 
 
-- Create and run a federated graph with the [Quickstart](/graphos/get-started/guides/quickstart).
-
 - Connect REST APIs to your graph using Apollo Connectors with the [REST quickstart](/graphos/get-started/guides/rest-quickstart).
+
+- Create and run a federated graph with the [Quickstart](/graphos/get-started/guides/quickstart).
 
 ### Additional resources
 
