@@ -1,27 +1,21 @@
 ---
 title: Introduction to Apollo Federation
 subtitle: Learn how federation combines your GraphQL APIs into a unified supergraph
-description: Learn how Apollo Federation can help you declaratively combine your services into a unified, federated GraphQL API using a microservices architecture.
+description: Learn how Apollo Federation helps you declaratively combine your services into a unified, federated GraphQL API using a microservices architecture that simplifies API orchestration
 redirectFrom:
     - /federation
 ---
 
-Apollo Federation lets you declaratively combine multiple APIs into a single, federated graph. This federated graph enables clients to interact with your APIs through a single request.
+Apollo Federation enables you to declaratively combine multiple APIs into a single federated supergraph. A client makes a single request to this supergraph, and it orchestrates calls to multiple APIs to produce a single response. 
 
-A client makes a request to the federated GraphQL API's single entry point called the _router_. The router intelligently orchestrates and distributes the request across your APIs and returns a unified response. For a client, the request and response cycle of querying the router looks the same as querying any GraphQL server.
+A client makes a request to a supergraph via the federated GraphQL API's single entry point called the _router_. The router intelligently orchestrates and distributes the request across your APIs and returns a unified response. For a client, the request and response cycle of querying the router looks the same as querying any GraphQL server.
 
 <img src='../../images/federation.svg' class="dark:hidden"/>
 <img src='../../images/federation-dark.svg' class="hidden dark:block"/>
 
-<Note>
+Your federated GraphQL API, or _graph_, can be made of GraphQL APIs, REST APIs, and other data sources.
 
-Your federated GraphQL API, or _graph_, can be made of GraphQL APIs and other data sources.
-[Learn how Apollo Connectors](../connectors/) simplify incorporating REST APIs into your graph.
-
-</Note>
-
-
-To jump into building a federated GraphQL API, check out the [Apollo GraphOS Quickstart](/graphos/get-started/guides/quickstart).
+To jump into building a federated GraphQL with existing REST APIs, check out the [Apollo Connectors Quickstart](/graphos/get-started/guides/rest-quickstart).
 
 <ExpansionPanel title="Watch the video overview">
 
