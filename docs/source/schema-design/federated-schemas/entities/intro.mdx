@@ -16,9 +16,9 @@ Before you get started, you may want to check out the [Introduction to Apollo Fe
 
 In Apollo Federation, federated data objects are represented as _entities_. Entities are objects that can be fetched with primary keys. Like a row in a database table, an entity contains fields of various types, and it can be uniquely identified by a key field or set of fields.
 
-Each subgraph can contribute different fields to the entity and is responsible for _resolving_ it—returning only the fields that it contributes. This enables subgraphs to adhere to the separation of concerns principle.
+Entities are defined in subgraph schemas. Each subgraph can contribute different fields to an entity it defines and is responsible for _resolving_ it—returning only the fields that it contributes. This enables subgraphs to adhere to the separation of concerns principle.
 
-Entities are defined in subgraph schemas. An _entity type_ is an object type that has been [defined as an entity](#defining-an-entity). Because an entity is keyed, an entity type's definition must have a `@key` directive. For example, this `Product` entity's fields are defined and resolved across two subgraphs:
+An _entity type_ is an object type that has been [defined as an entity](#defining-an-entity). Because an entity is keyed, an entity type's definition must have a `@key` directive. For example, this `Product` entity's fields are defined and resolved across two subgraphs:
 
 <CodeColumns>
 
