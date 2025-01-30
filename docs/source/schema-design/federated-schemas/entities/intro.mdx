@@ -1,24 +1,24 @@
 ---
 title: Introduction to Entities
-subtitle: Resolve federated types across multiple subgraphs
-description: Learn to define, contribute to, and reference object types that resolve their fields across multiple subgraphs in a federated GraphQL architecture.
+subtitle: Fundamental shared object type of federation
+description: Learn to define, contribute to, and reference entities, the fundamental object types of Apollo Federation that resolve their fields across one or more subgraphs.
 redirectFrom:
     - /federation/entities
 ---
 
-Federated schemas let multiple subgraphs collaboratively define and resolve fields for shared object types.
-This guide shows you how to define a shared object type called an _entity_.
+<Note>
 
 Before you get started, you may want to check out the [Introduction to Apollo Federation](/graphos/schema-design/federated-schemas/federation) for a conceptual overview.
 
+</Note>
+
 ## Entity overview
 
-_Entities_ are a fundamental aspect of federated schemas.
-In a supergraph, an entity is an object type that can resolve its fields across multiple subgraphs.
-Each subgraph can contribute different fields to the entity and is responsible for resolving only the fields that it contributes.
-This enables subgraphs to adhere to the separation of concerns principle.
+In Apollo Federation, federated data objects are represented as _entities_. Entities are objects that can be fetched with primary keys. Like a row in a database table, an entity contains fields of various types, and it can be uniquely identified by a key field or set of fields.
 
-For example, this `Product` entity's fields are defined and resolved across two subgraphs:
+Each subgraph can contribute different fields to the entity and is responsible for _resolving_ it—returning only the fields that it contributes. This enables subgraphs to adhere to the separation of concerns principle.
+
+Entities are defined in subgraph schemas. An _entity type_ is an object type that has been [defined as an entity](#defining-an-entity). Because an entity is keyed, an entity type's definition must have a `@key` directive. For example, this `Product` entity's fields are defined and resolved across two subgraphs:
 
 <CodeColumns>
 
@@ -45,7 +45,7 @@ Only object types can be entities.
 
 </Note>
 
-This guide goes over how to define entities in your subgraph schemas and code.
+The rest of this guide goes over how to define entities in your subgraph schemas and code.
 
 ## Defining an entity
 
@@ -53,6 +53,12 @@ To define an entity within a particular subgraph, you do the following:
 
 1. Apply the [`@key` directive](#1-define-a-key) to an object type.
 2. Define the object type's [reference resolver](#2-define-a-reference-resolver).
+
+<Tip>
+
+With Apollo Connectors, you add [connector directives](/graphos/schema-design/connectors/directives) instead of writing reference resolver code. 
+
+</Tip>
 
 <ExpansionPanel title="Watch the video overview">
 
@@ -117,12 +123,15 @@ Though not strictly required, it's best to use non-nullable fields for keys. If 
 
 ### 2. Define a reference resolver
 
-The `@key` directive effectively tells the router, "This subgraph can resolve an instance of this entity if you provide its unique key." For this to be true, the subgraph must define a _reference resolver_ for the entity.
+The `@key` directive effectively tells the router, "This subgraph can resolve an instance of this entity if you provide its unique key." For this to be true, the subgraph must have a _reference resolver_ for the entity.
 
 <Note>
 
 This section describes how to create reference resolvers in Apollo Server.
-If you're using another [subgraph-compatible library](/graphos/reference/federation/compatible-subgraphs), see its documentation for creating reference resolvers or the equivalent functionality.
+
+- If you're using Apollo Connectors, the [connectors directives](/graphos/schema-design/connectors/directives) declare which REST endpoints to use to  resolve entity fields, so you don't write any reference resolvers.
+
+- If you're using another [subgraph-compatible library](/graphos/reference/federation/compatible-subgraphs), see its documentation for creating reference resolvers or the equivalent functionality.
 
 </Note>
 
