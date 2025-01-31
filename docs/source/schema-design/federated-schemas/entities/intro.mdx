@@ -14,7 +14,7 @@ Before getting started with entities, you may want to check out the [Introductio
 
 ## Entity overview
 
-In Apollo Federation, federated data objects are represented as _entities_. Entities are objects that can be fetched with primary keys. Like a row in a database table, an entity contains fields of various types, and it can be uniquely identified by a key field or set of fields.
+In Apollo Federation, federated data objects are represented as _entities_. Entities are objects that can be fetched with one or more unique key fields. Like a row in a database table, an entity contains fields of various types, and it can be uniquely identified by a key field or set of fields.
 
 Entities are defined in subgraph schemas. Each subgraph can contribute different fields to an entity it defines and is responsible for _resolving_ it—returning only the fields that it contributes. This enables subgraphs to adhere to the separation of concerns principle.
 
@@ -57,6 +57,8 @@ To define an entity within a particular subgraph, you do the following:
 <Tip>
 
 With Apollo Connectors, you add [connector directives](/graphos/schema-design/connectors/directives) instead of writing reference resolver code. 
+
+You can [set `entity: true`](/graphos/schema-design/connectors/directives#rules-for-entity-true) for the `@connect` directive to provide an entity resolver for its fields.
 
 </Tip>
 
