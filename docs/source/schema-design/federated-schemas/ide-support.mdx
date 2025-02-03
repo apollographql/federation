@@ -15,25 +15,7 @@ Apollo's [VS Code Extension](https://marketplace.visualstudio.com/items?itemName
 
 ## JetBrains
 
-The [GraphQL Plugin for JetBrains](https://plugins.jetbrains.com/plugin/8097-graphql/) provides federation-specific development features, such as autocomplete for federation directives. However, you must enable this federation support after installing the plugin. Otherwise, your IDE might display unexpected errors while you're working with a subgraph schema.
-
-### Setup
-
-To enable federation support, do the following in your IDE after installing the plugin:
-
-1. Open your IDE's **Settings** window.
-2. Expand the **Languages & Frameworks** section.
-3. Click **GraphQL**.
-4. Check the **Federation** checkbox.
-
-<img
-    class="screenshot"
-    alt="An animation showing the process of enabling Apollo Federation support in the GraphQL plugin for JetBrains (described above)"
-    src="../../images/JetBrains-plugin.webp"
-    width="600"
-/>
-
-This plugin supports all IntelliJ-based IDEs, including:
+Apollo's [JetBrains Plugin](https://plugins.jetbrains.com/plugin/20645-apollo-graphql) provides federation-specific development features, such as autocomplete for federation directives. This plugin supports all IntelliJ-based IDEs, including:
 
 - IntelliJ IDEA
 - PyCharm
@@ -44,8 +26,10 @@ This plugin supports all IntelliJ-based IDEs, including:
 - Rider
 - GoLand
 
+You must enable the Rover integration after installing the plugin. Otherwise, your IDE might display unexpected errors while you're working with a subgraph schema. See this [the dedicated documentation page](/graphos/schema-design/connectors/jetbrains#configuration) for configuration details.
+
 ## Additional resources
 
-If your graph uses the Apollo Router, make sure to enable [router configuration awareness](/graphos/reference/router/configuration#configuration-awareness-in-your-text-editor) in your editor.
+If your graph uses the Apollo Router Core or GraphOS Router, make sure to enable [router configuration awareness](/graphos/reference/router/configuration#configuration-awareness-in-your-text-editor) in your editor.
 
-If you're developing with Apollo Connectors, refer to the connectors-specific [VS Code Extension](/graphos/schema-design/connectors/vs-code) and [Vim/NeoVim](/graphos/schema-design/connectors/vim) pages.
+If you're developing with Apollo Connectors, refer to the connectors-specific [VS Code Extension](/graphos/schema-design/connectors/vs-code), [JetBrains IDEs](/graphos/schema-design/connectors/jetbrains), and [Vim/NeoVim](/graphos/schema-design/connectors/vim) pages.
