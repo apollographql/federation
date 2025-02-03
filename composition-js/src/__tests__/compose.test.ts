@@ -70,7 +70,7 @@ describe('composition', () => {
     expect(result.supergraphSdl).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/join/v0.5", for: EXECUTION)
+        @link(url: "https://specs.apollo.dev/join/v0.6", for: EXECUTION)
       {
         query: Query
       }
@@ -79,7 +79,7 @@ describe('composition', () => {
 
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!], originalProvides: String) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
@@ -231,7 +231,7 @@ describe('composition', () => {
     expect(result.supergraphSdl).toMatchString(`
       schema
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://specs.apollo.dev/join/v0.5", for: EXECUTION)
+        @link(url: "https://specs.apollo.dev/join/v0.6", for: EXECUTION)
       {
         query: Query
       }
@@ -240,7 +240,7 @@ describe('composition', () => {
 
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!], originalProvides: String) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
       directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
@@ -5289,4 +5289,38 @@ describe('@source* directives', () => {
     const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
     assertCompositionSuccess(result);
   });
+});
+
+it('errors on unused @external', () => {
+  const subgraphA = {
+    name: 'S',
+    typeDefs: gql`
+      type Query {
+        T: T!
+      }
+
+      type T {
+        f: Int @external
+      }
+    `,
+  };
+  
+  const subgraphB = {
+    name: 'T',
+    typeDefs: gql`
+      type Query {
+        a: Int!
+      }
+
+      type T {
+        f: Int
+      }
+    `,
+  };
+  
+  const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+  expect(result.errors).toBeDefined();
+  expect(errors(result)).toStrictEqual([
+    ['EXTERNAL_UNUSED', '[S] Field "T.f" is marked @external but is not used in any federation directive (@key, @provides, @requires) or to satisfy an interface; the field declaration has no use and should be removed (or the field should not be @external).']
+  ]);
 });

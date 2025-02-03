@@ -706,7 +706,7 @@ function addSubgraphField({
     subgraphField.applyDirective(subgraph.metadata().requiresDirective(), {'fields': joinFieldArgs.requires});
   }
   if (joinFieldArgs?.provides) {
-    subgraphField.applyDirective(subgraph.metadata().providesDirective(), {'fields': joinFieldArgs.provides});
+    subgraphField.applyDirective(subgraph.metadata().providesDirective(), {'fields': joinFieldArgs.originalProvides ?? joinFieldArgs.provides});
   }
   if (joinFieldArgs?.contextArguments) {
     const fromContextDirective = subgraph.metadata().fromContextDirective();

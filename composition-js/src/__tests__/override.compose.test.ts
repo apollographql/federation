@@ -110,6 +110,8 @@ describe("composition involving @override directive", () => {
     `);
   });
 
+  // @provides may not provide a value when the field is completely overridden in the local subgraph
+  // when that happens, the selection should be removed from the field set
   it("override field in a @provides", () => {
     const subgraph1 = {
       name: "Subgraph1",
@@ -125,7 +127,10 @@ describe("composition involving @override directive", () => {
         type A @key(fields: "id") {
           id: ID!
           b: B @override(from: "Subgraph2")
+          z: String! @shareable
+          z2: String! @shareable
         }
+        
         type B @key(fields: "id") {
           id: ID!
           v: String @shareable
@@ -143,11 +148,15 @@ describe("composition involving @override directive", () => {
       typeDefs: gql`
         type T @key(fields: "k") {
           k: ID
-          a: A @shareable @provides(fields: "b { v }")
+          a: A @shareable @provides(fields: "b { v } z")
+          a2: A @shareable @provides(fields: "b { v }")
+          a3: A @shareable @provides(fields: "z b { v } z2")
         }
         type A @key(fields: "id") {
           id: ID!
           b: B
+          z: String! @external
+          z2: String! @external
         }
         type B @key(fields: "id") {
           id: ID!
@@ -168,6 +177,8 @@ describe("composition involving @override directive", () => {
       {
         id: ID!
         b: B @join__field(graph: SUBGRAPH1, override: \\"Subgraph2\\") @join__field(graph: SUBGRAPH2, usedOverridden: true)
+        z: String! @join__field(graph: SUBGRAPH1) @join__field(graph: SUBGRAPH2, external: true)
+        z2: String! @join__field(graph: SUBGRAPH1) @join__field(graph: SUBGRAPH2, external: true)
       }"
     `);
 
@@ -179,7 +190,9 @@ describe("composition involving @override directive", () => {
         @join__type(graph: SUBGRAPH2, key: \\"k\\")
       {
         k: ID
-        a: A @join__field(graph: SUBGRAPH1) @join__field(graph: SUBGRAPH2, provides: \\"b { v }\\")
+        a: A @join__field(graph: SUBGRAPH1) @join__field(graph: SUBGRAPH2, provides: \\"z\\", originalProvides: \\"b { v } z\\")
+        a2: A @join__field(graph: SUBGRAPH2, originalProvides: \\"b { v }\\")
+        a3: A @join__field(graph: SUBGRAPH2, provides: \\"z z2\\", originalProvides: \\"z b { v } z2\\")
       }"
     `);
   });
@@ -974,7 +987,7 @@ describe("composition involving @override directive", () => {
       expect(result.supergraphSdl).toMatchInlineSnapshot(`
         "schema
           @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
-          @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
+          @link(url: \\"https://specs.apollo.dev/join/v0.6\\", for: EXECUTION)
         {
           query: Query
         }
@@ -983,7 +996,7 @@ describe("composition involving @override directive", () => {
 
         directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-        directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+        directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!], originalProvides: String) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
         directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
