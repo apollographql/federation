@@ -1,7 +1,7 @@
 import { deprecate } from 'util';
 import { createHash } from '@apollo/utils.createhash';
 import type { Logger } from '@apollo/utils.logger';
-import { QueryPlanCache } from '@apollo/query-planner'
+import { QueryPlanCache } from '@apollo/query-planner';
 import { InMemoryLRUCache } from '@apollo/utils.keyvaluecache';
 import {
   GraphQLSchema,
@@ -47,7 +47,7 @@ import {
   requestContextSpanAttributes,
   operationContextSpanAttributes,
   recordExceptions,
-  OpenTelemetryAttributeNames
+  OpenTelemetryAttributeNames,
 } from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
@@ -141,6 +141,12 @@ export class ApolloGateway implements GatewayInterface {
       coreSupergraphSdl: string;
     }) => void
   >();
+  private onSchemaWillBeUsedListeners = new Set<
+    (schemaContext: {
+      apiSchema: GraphQLSchema;
+      coreSupergraphSdl: string;
+    }) => void
+  >();
   private warnedStates: WarnedStates = Object.create(null);
   private queryPlanner?: QueryPlanner;
   private supergraphSdl?: string;
@@ -198,8 +204,8 @@ export class ApolloGateway implements GatewayInterface {
   }
 
   private initQueryPlanStore(approximateQueryPlanStoreMiB?: number) {
-    if(this.config.queryPlannerConfig?.cache){
-      return this.config.queryPlannerConfig?.cache
+    if (this.config.queryPlannerConfig?.cache) {
+      return this.config.queryPlannerConfig?.cache;
     }
     // Create ~about~ a 30MiB InMemoryLRUCache (or 50MiB if the full operation ASTs are
     // enabled in query plans as this requires plans to use more memory). This is
@@ -569,6 +575,23 @@ export class ApolloGateway implements GatewayInterface {
     legacyDontNotifyOnSchemaChangeListeners: boolean = false,
   ): void {
     this.queryPlanStore.clear();
+
+    // Notify before use of new schema
+    this.onSchemaWillBeUsedListeners.forEach((listener) => {
+      try {
+        listener({
+          apiSchema: this.schema!,
+          coreSupergraphSdl: supergraphSdl,
+        });
+      } catch (e) {
+        this.logger.error(
+          "An error was thrown from an 'onSchemaWillBeUsed' listener. " +
+            'The schema will still update: ' +
+            ((e && e.message) || e),
+        );
+      }
+    });
+  
     this.apiSchema = supergraph.apiSchema();
     this.schema = addExtensions(this.apiSchema.toGraphQLJSSchema());
 
@@ -678,6 +701,19 @@ export class ApolloGateway implements GatewayInterface {
 
     return () => {
       this.onSchemaLoadOrUpdateListeners.delete(callback);
+    };
+  }
+
+  public onSchemaWillBeUsed(
+    callback: (schemaContext: {
+      apiSchema: GraphQLSchema;
+      coreSupergraphSdl: string;
+    }) => void,
+  ): GatewayUnsubscriber {
+    this.onSchemaWillBeUsedListeners.add(callback);
+
+    return () => {
+      this.onSchemaWillBeUsedListeners.delete(callback);
     };
   }
 
@@ -850,7 +886,7 @@ export class ApolloGateway implements GatewayInterface {
             operationContext,
             this.supergraphSchema!,
             this.apiSchema!,
-            this.config.telemetry
+            this.config.telemetry,
           );
 
           const shouldShowQueryPlan =
