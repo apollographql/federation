@@ -2,4 +2,4 @@
 "@apollo/gateway": minor
 ---
 
-feat: onSchema will be used new hook implementation
+feat: add onSchemaWillBeUsed hook. Consumers can use this new hook to trigger custom logic just before a new schema is passed to the Gateway executor
