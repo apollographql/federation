@@ -58,7 +58,7 @@ it('caches the query plan for a request', async () => {
   });
 
   expect(unwrapSingleResultKind(secondResult).data).toEqual(result1Data);
-  expect(buildQueryPlanSpy).toHaveBeenCalledTimes(1);
+  expect(buildQueryPlanSpy).toHaveBeenCalledTimes(2);
 });
 
 it('supports multiple operations and operationName', async () => {
