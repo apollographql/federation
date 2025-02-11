@@ -287,6 +287,10 @@ export class JoinSpecDefinition extends FeatureDefinition {
 export const JOIN_VERSIONS = new FeatureDefinitions<JoinSpecDefinition>(joinIdentity)
   .add(new JoinSpecDefinition(new FeatureVersion(0, 1)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 2)))
+  // Though join v0.2 supports federation v2.0 as mentioned above, we should
+  // still prefer join v0.3 as a minimum for all of federation v2.0-2.6 since
+  // v0.3 offers improvements around union members and enum values that we're
+  // interested in.
   .add(new JoinSpecDefinition(new FeatureVersion(0, 3), new FeatureVersion(2, 0)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 4), new FeatureVersion(2, 7)))
   .add(new JoinSpecDefinition(new FeatureVersion(0, 5), new FeatureVersion(2, 8)));
