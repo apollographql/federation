@@ -1,5 +1,11 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.10.0
+
+### Minor Changes
+
+- Release Federation 2.10.0
+
 ## 2.10.0-alpha.4
 
 ## 2.10.0-alpha.3
