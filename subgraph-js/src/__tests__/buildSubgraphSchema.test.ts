@@ -439,6 +439,112 @@ describe('buildSubgraphSchema', () => {
         }
       `);
     });
+
+    it('skips `resolveType` if `resolveReference` returns null', async () => {
+      const query = `#graphql
+        query Product {
+          _entities(representations: [{ __typename: "Product", key: "unknown" }]) {
+            __typename
+            ... on Product {
+              type
+              key
+            }
+          }
+        }
+      `;
+      const schema = buildSubgraphSchema([
+        {
+          typeDefs: gql`
+            extend schema
+              @link(
+                url: "https://specs.apollo.dev/federation/v2.8"
+                import: ["@key"]
+              )
+
+            enum ProductType {
+              A
+              B
+            }
+
+            interface Product @key(fields: "key") {
+              type: ProductType!
+              key: String!
+            }
+
+            type ProductA implements Product @key(fields: "key") {
+              type: ProductType!
+              key: String!
+            }
+
+            type ProductB implements Product @key(fields: "key") {
+              type: ProductType!
+              key: String!
+            }
+          `,
+          resolvers: {
+            Product: {
+              __resolveReference: async ({ key }: { key: string }) => {
+                if (key === 'a') {
+                  return {
+                    type: 'A',
+                    key,
+                  };
+                } else if (key === 'b') {
+                  return {
+                    type: 'B',
+                    key,
+                  };
+                } else {
+                  return null;
+                }
+              },
+              __resolveType: async (entity: { type: 'A' | 'B' }) => {
+                switch (entity.type) {
+                  case 'A':
+                    return 'ProductA';
+                  case 'B':
+                    return 'ProductB';
+                  default:
+                    throw new Error('Unknown type');
+                }
+              },
+            },
+            ProductA: {
+              __resolveReference: async ({ key }: { key: string }) => {
+                return {
+                  type: 'ProductA',
+                  key,
+                };
+              },
+            },
+            ProductB: {
+              __resolveReference: async ({ key }: { key: string }) => {
+                return {
+                  type: 'ProductB',
+                  key,
+                };
+              },
+            },
+          },
+        },
+      ]);
+
+      const { data, errors } = await graphql({
+        schema,
+        source: query,
+        rootValue: null,
+        contextValue: null,
+        variableValues: null,
+      });
+      expect(errors).toBeUndefined();
+      expect(data).toMatchInlineSnapshot(`
+        Object {
+          "_entities": Array [
+            null,
+          ],
+        }
+      `);
+    });
   });
 
   describe('_service root field', () => {

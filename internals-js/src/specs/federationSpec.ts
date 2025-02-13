@@ -18,7 +18,6 @@ import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
 import { AUTHENTICATED_VERSIONS } from "./authenticatedSpec";
 import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
 import { POLICY_VERSIONS } from './policySpec';
-import { SOURCE_VERSIONS } from './sourceSpec';
 import { CONTEXT_VERSIONS } from './contextSpec';
 import { COST_VERSIONS } from "./costSpec";
 
@@ -44,9 +43,6 @@ export enum FederationDirectiveName {
   AUTHENTICATED = 'authenticated',
   REQUIRES_SCOPES = 'requiresScopes',
   POLICY = 'policy',
-  SOURCE_API = 'sourceAPI',
-  SOURCE_TYPE = 'sourceType',
-  SOURCE_FIELD = 'sourceField',
   CONTEXT = 'context',
   FROM_CONTEXT = 'fromContext',
   COST = 'cost',
@@ -135,7 +131,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
 
     this.registerSubFeature(INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(version));
 
-    if (version >= (new FeatureVersion(2, 7))) {
+    if (version.gte(new FeatureVersion(2, 7))) {
       this.registerDirective(createDirectiveSpecification({
         name: FederationDirectiveName.OVERRIDE,
         locations: [DirectiveLocation.FIELD_DEFINITION],
@@ -178,10 +174,6 @@ export class FederationSpecDefinition extends FeatureDefinition {
       this.registerSubFeature(POLICY_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
 
-    if (version.gte(new FeatureVersion(2, 7))) {
-      this.registerSubFeature(SOURCE_VERSIONS.find(new FeatureVersion(0, 1))!);
-    }
-    
     if (version.gte(new FeatureVersion(2, 8))) {
       this.registerSubFeature(CONTEXT_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
@@ -202,6 +194,7 @@ export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefiniti
   .add(new FederationSpecDefinition(new FeatureVersion(2, 6)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 7)))
   .add(new FederationSpecDefinition(new FeatureVersion(2, 8)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 9)));
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 9)))
+  .add(new FederationSpecDefinition(new FeatureVersion(2, 10)));
 
 registerKnownFeature(FEDERATION_VERSIONS);

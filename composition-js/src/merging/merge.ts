@@ -69,7 +69,7 @@ import {
   FeatureVersion,
   FEDERATION_VERSIONS,
   LinkDirectiveArgs,
-  sourceIdentity,
+  connectIdentity,
   FeatureUrl,
   isFederationDirectiveDefinedInSchema,
   parseContext,
@@ -79,8 +79,9 @@ import {
   isNullableType,
   isFieldDefinition,
   Post20FederationDirectiveDefinition,
-  DirectiveCompositionSpecification,
+  coreFeatureDefinitionIfKnown,
   FeatureDefinition,
+  DirectiveCompositionSpecification,
   CoreImport,
   inaccessibleIdentity,
 } from "@apollo/federation-internals";
@@ -253,7 +254,7 @@ function copyTypeReference(source: Type, dest: Schema): Type {
   }
 }
 
-const NON_MERGED_CORE_FEATURES = [ federationIdentity, linkIdentity, coreIdentity ];
+const NON_MERGED_CORE_FEATURES = [ federationIdentity, linkIdentity, coreIdentity, connectIdentity ];
 
 function isMergedType(type: NamedType): boolean {
   if (type.isIntrospectionType() || FEDERATION_OPERATION_TYPES.map((s) => s.name).includes(type.name)) {
@@ -386,7 +387,7 @@ class Merger {
     this.linkSpec = LINK_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.fieldsWithFromContext = this.getFieldsWithFromContextDirective();
     this.fieldsWithOverride = this.getFieldsWithOverrideDirective();
-    
+
     this.names = subgraphs.names();
     this.composeDirectiveManager = new ComposeDirectiveManager(
       this.subgraphs,
@@ -414,7 +415,7 @@ class Merger {
 
     [ // Represent any applications of directives imported from these spec URLs
       // using @join__directive in the merged supergraph.
-      sourceIdentity,
+      connectIdentity,
     ].forEach(url => this.joinDirectiveIdentityURLs.add(url));
   }
 
@@ -441,7 +442,7 @@ class Merger {
       }
     }
     const impliedFederationVersion = FeatureVersion.max(versionsFromFeatures);
-    if (!impliedFederationVersion?.satisfies(linkedFederationVersion) || linkedFederationVersion >= impliedFederationVersion) {
+    if (!impliedFederationVersion?.satisfies(linkedFederationVersion) || linkedFederationVersion.gte(impliedFederationVersion)) {
       return linkedFederationVersion;
     }
 
@@ -2983,13 +2984,13 @@ class Merger {
     }
 
     const directiveInSupergraph = this.mergedFederationDirectiveInSupergraphByDirectiveName.get(name);
-    
+
     if (dest.schema().directive(name)?.repeatable) {
       // For repeatable directives, we simply include each application found but with exact duplicates removed
       while (perSource.length > 0) {
         const directive = perSource[0].directives[0];
         const subgraphIndex = perSource[0].subgraphIndex;
-        
+
         const transformedArgs = directiveInSupergraph && directiveInSupergraph.staticArgumentTransform && directiveInSupergraph.staticArgumentTransform(this.subgraphs.values()[subgraphIndex], directive.arguments(false));
         dest.applyDirective(directive.name, transformedArgs ?? directive.arguments(false));
         // We remove every instances of this particular application. That is we remove any other applicaiton with
@@ -3145,6 +3146,7 @@ class Merger {
         args: Record<string, any>;
       }>
     } = Object.create(null);
+    const linksToPersist = new Set<FeatureDefinition>();
 
     for (const [idx, source] of sources.entries()) {
       if (!source) continue;
@@ -3165,7 +3167,15 @@ class Merger {
           if (typeof url === 'string' && parsedUrl) {
             shouldIncludeAsJoinDirective =
               this.shouldUseJoinDirectiveForURL(parsedUrl);
+
+            if (shouldIncludeAsJoinDirective) {
+              const featureDefinition = coreFeatureDefinitionIfKnown(parsedUrl);
+              if (featureDefinition) {
+                linksToPersist.add(featureDefinition);
+              }
+            }
           }
+
         } else {
           // To be consistent with other code accessing
           // linkImportIdentityURLMap, we ensure directive names start with a
@@ -3195,6 +3205,15 @@ class Merger {
           }
         }
       }
+    }
+
+    const linkDirective = this.linkSpec.coreDirective(this.merged);
+    for (const link of linksToPersist) {
+      dest.applyDirective(linkDirective, {
+        url: link.toString(),
+        for: link.defaultCorePurpose,
+        feature: undefined
+      });
     }
 
     const joinDirective = this.joinSpec.directiveDirective(this.merged);
@@ -3519,29 +3538,29 @@ class Merger {
       ));
     }
   }
-  
+
   private getFieldsWithFromContextDirective(): Set<string> {
     return this.getFieldsWithAppliedDirective(
       (subgraph: Subgraph) => subgraph.metadata().fromContextDirective(),
       (application: Directive<SchemaElement<any,any>>) => {
         const field = application.parent.parent;
-        assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`); 
+        assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`);
         return field;
       },
     );
   }
-  
+
   private getFieldsWithOverrideDirective(): Set<string> {
     return this.getFieldsWithAppliedDirective(
       (subgraph: Subgraph) => subgraph.metadata().overrideDirective(),
       (application: Directive<SchemaElement<any,any>>) => {
         const field = application.parent;
-        assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`); 
+        assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`);
         return field;
       }
     );
   }
-  
+
   private getFieldsWithAppliedDirective(
     getDirective: (subgraph: Subgraph) => Post20FederationDirectiveDefinition<any>,
     getField: (application: Directive<SchemaElement<any, any>>) => FieldDefinition<any>,
