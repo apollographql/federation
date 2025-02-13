@@ -1,27 +1,5 @@
 # CHANGELOG for `@apollo/gateway`
 
-## 2.10.0-alpha.4
-
-### Minor Changes
-
-- Add request parameter to didEncounterError method ([#3199](https://github.com/apollographql/federation/pull/3199))
-
-### Patch Changes
-
-- Updated dependencies []:
-  - @apollo/composition@2.10.0-alpha.4
-  - @apollo/federation-internals@2.10.0-alpha.4
-  - @apollo/query-planner@2.10.0-alpha.4
-
-## 2.10.0-alpha.3
-
-### Patch Changes
-
-- Updated dependencies [[`a0359b0c9a2d9890e1e200d5dc530a1ca4e1d647`](https://github.com/apollographql/federation/commit/a0359b0c9a2d9890e1e200d5dc530a1ca4e1d647)]:
-  - @apollo/federation-internals@2.10.0-alpha.3
-  - @apollo/composition@2.10.0-alpha.3
-  - @apollo/query-planner@2.10.0-alpha.3
-
 ## 2.9.3
 
 ### Patch Changes
