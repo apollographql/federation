@@ -1,5 +1,11 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.10.0
+
+### Minor Changes
+
+- Adds the ability to compose and serialize directives for [Apollo Connectors](https://go.apollo.dev/connectors). To use Apollo Connectors, compose your supergraphs using [GraphOS](https://www.apollographql.com/docs/graphos/platform/schema-management) or [rover](https://www.apollographql.com/docs/rover/commands/dev), and run your supergraph in [Apollo Router](https://www.apollographql.com/docs/graphos/routing) 2.0.0 or higher. ([#3215](https://github.com/apollographql/federation/pull/3215))
+
 ## 2.9.3
 
 ## 2.9.2
