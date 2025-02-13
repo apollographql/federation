@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.10.0
+
+### Minor Changes
+
+- Adds the ability to compose and serialize directives for [Apollo Connectors](https://go.apollo.dev/connectors). To use Apollo Connectors, compose your supergraphs using [GraphOS](https://www.apollographql.com/docs/graphos/platform/schema-management) or [rover](https://www.apollographql.com/docs/rover/commands/dev), and run your supergraph in [Apollo Router](https://www.apollographql.com/docs/graphos/routing) 2.0.0 or higher. ([#3213](https://github.com/apollographql/federation/pull/3213))
+
+### Patch Changes
+
+- Updated dependencies [[`28d6c298c9a3d30afe6f923818740dce3f86f70a`](https://github.com/apollographql/federation/commit/28d6c298c9a3d30afe6f923818740dce3f86f70a), [`a0359b0c9a2d9890e1e200d5dc530a1ca4e1d647`](https://github.com/apollographql/federation/commit/a0359b0c9a2d9890e1e200d5dc530a1ca4e1d647)]:
+  - @apollo/query-graphs@2.10.0
+  - @apollo/federation-internals@2.10.0
+
 ## 2.10.0-alpha.4
 
 ### Patch Changes
