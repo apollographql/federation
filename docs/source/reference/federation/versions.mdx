@@ -46,9 +46,7 @@ directive @connect(
   http: ConnectHTTP!
   selection: JSONSelection!
   entity: Boolean
-) 
-on repeatable
-on FIELD_DEFINITION;
+) repeatable on FIELD_DEFINITION;
 
 ```
 
@@ -60,8 +58,7 @@ Introduced. [Learn more](/graphos/schema-design/connectors/directives#source).
 directive @source(
   name: String!
   http: SourceHTTP!
-)
-repeatable on SCHEMA;
+) repeatable on SCHEMA;
 ```
 
 ## v2.9
