@@ -34,6 +34,21 @@ The following errors might be raised during composition:
 <tr>
 <td>
 
+###### `ABSOLUTE_CONNECT_URL_WITH_SOURCE`
+
+Since v2.10.0
+
+</td>
+<td>
+
+The `@connect` is using a `source`, but the URL is absolute. This is not allowed because the `@source` URL is joined with the `@connect` URL, so the `@connect` URL should actually be a path only.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 ###### `DEFAULT_VALUE_USES_INACCESSIBLE`
 
 Since v2.0.0
@@ -104,6 +119,22 @@ Indicates an error in a subgraph service query during query execution in a feder
 
 </td>
 </tr>
+
+<tr>
+<td>
+
+###### `DUPLICATE_SOURCE_NAME`
+
+Since v2.10.0
+
+</td>
+<td>
+
+</td>
+</tr>
+
+Indicates two connector sources with the same name were created.
+
 <tr>
 <td>
 
@@ -132,6 +163,22 @@ An input object type has no field common to all the subgraphs that define the ty
 
 </td>
 </tr>
+
+<tr>
+<td>
+
+###### `EMPTY_SOURCE_NAME`
+
+Since v2.10.0
+
+</td>
+<td>
+
+No `name` was provided for a connector source.
+
+</td>
+</tr>
+
 <tr>
 <td>
 
@@ -318,6 +365,22 @@ Replaces [`VALUE_TYPE_FIELD_TYPE_MISMATCH`](#value-type-field-type-mismatch).
 
 </td>
 </tr>
+
+<tr>
+<td>
+
+###### `GRAPHQL_ERROR`
+
+Since v2.10.0
+
+</td>
+<td>
+
+A problem with GraphQL syntax or semantics was found. These will usually be caught before this validation process.
+
+</td>
+</tr>
+
 <tr>
 <td>
 
@@ -343,6 +406,46 @@ Since v2.0.0
 <td>
 
 An input field has a default value that is incompatible with other declarations of that field in other subgraphs.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `INVALID_SOURCE_NAME`
+
+Since v2.10.0
+
+</td>
+<td>
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `INVALID_URL`
+
+Since v2.10.0
+
+</td>
+<td>
+
+A URL provided to `@source` or `@connect` is not valid.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `INVALID_URL_SCHEME`
+
+Since v2.10.0
+
+</td>
+<td>
+
+A URL scheme provided to `@source` or `@connect` is not `http` or `https`
 
 </td>
 </tr>
@@ -615,6 +718,20 @@ In a subgraph, a field is both marked `@external` and has a merged directive app
 <tr>
 <td>
 
+###### `MUTATION_FIELD_MISSING_CONNECT`
+
+Since v2.10.0
+
+</td>
+<td>
+
+A mutation field is missing the `@connect` directive.
+
+</td>
+</tr>
+<tr>
+<td>
+
 ###### `NO_QUERIES`
 
 Since v2.0.0
@@ -808,6 +925,17 @@ A `@provides` directive is used on an interface, which is not (yet) supported.
 
 </td>
 </tr>
+###### `QUERY_FIELD_MISSING_CONNECT`
+
+Since v2.10.0
+
+</td>
+<td>
+
+A query field is missing the `@connect` directive.
+
+</td>
+</tr>
 <tr>
 <td>
 
@@ -833,6 +961,20 @@ Since v2.0.0
 <td>
 
 An element is marked as `@inaccessible` but is referenced by an element visible in the API schema.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `RELATIVE_CONNECT_URL_WITHOUT_SOURCE`
+
+Since v2.10.0
+
+</td>
+<td>
+
+The `@connect` directive is using a relative URL (path only) but does not define a `source`. This is a specific case of the [`INVALID_URL`](#invalid-url) error.
 
 </td>
 </tr>
@@ -1015,6 +1157,32 @@ Since v2.0.0
 <td>
 
 A shareable field return type has mismatched possible runtime types in the subgraphs in which the field is declared. As shared fields must resolve the same way in all subgraphs, this is almost surely a mistake.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `SOURCE_NAME_MISMATCH`
+
+Since v2.10.0
+
+</td>
+<td>
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `SUBSCRIPTION_IN_CONNECTORS`
+
+Since v2.10.0
+
+</td>
+<td>
+
+Connectors currently [don't support subscription operations](/graphos/schema-design/connectors/limitations#subscriptions-are-unsupported).
 
 </td>
 </tr>
