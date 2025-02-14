@@ -41,7 +41,7 @@ Since v2.10.0
 </td>
 <td>
 
-The `@connect` is using a `source`, but the URL is absolute. This is not allowed because the `@source` URL is joined with the `@connect` URL, so the `@connect` URL should actually be a path only.
+The `@connect` directive is using a `source`, but the URL is absolute. This is not allowed because the `@source` URL is joined with the `@connect` URL, so the `@connect` URL should only be a path.
 
 </td>
 </tr>
@@ -55,7 +55,7 @@ Since v2.10.0
 </td>
 <td>
 
-A [circular reference](/graphos/schema-design/connectors/limitations#circular-references-are-unsupported) was detected within a `@connect`'s `selection` argument.
+A [circular reference](graphos/schema-design/connectors/troubleshooting#circular-references) was detected in a `@connect`'s `selection` argument.
 
 </td>
 </tr>
@@ -83,7 +83,7 @@ Since v2.10.0
 </td>
 <td>
 
-Fields in the schema that aren't resolved by a connector.
+The schema includes fields that aren't resolved by a connector.
 
 </td>
 </tr>
@@ -111,7 +111,7 @@ Since v2.10.0
 </td>
 <td>
 
-Certain directives are not allowed when using connectors
+[Certain directives](/graphos/schema-design/connectors/limitations) are not allowed when using connectors.
 
 </td>
 </tr>
@@ -243,7 +243,7 @@ Since v2.10.0
 </td>
 <td>
 
-No `name` was provided for a connector source.
+No `name` was provided when creating a connector source with `@source`.
 
 </td>
 </tr>
@@ -475,7 +475,6 @@ Replaces [`VALUE_TYPE_FIELD_TYPE_MISMATCH`](#value-type-field-type-mismatch).
 
 </td>
 </tr>
-
 <tr>
 <td>
 
@@ -612,6 +611,8 @@ Since v2.10.0
 </td>
 <td>
 
+The `name` provided to a `@source` was invalid.
+
 </td>
 </tr>
 <tr>
@@ -624,7 +625,7 @@ Since v2.10.0
 </td>
 <td>
 
-A URL provided to `@source` or `@connect` is not valid.
+A URL provided to `@source` or `@connect` was not valid.
 
 </td>
 </tr>
@@ -638,7 +639,7 @@ Since v2.10.0
 </td>
 <td>
 
-A URL scheme provided to `@source` or `@connect` is not `http` or `https`
+A URL scheme provided to `@source` or `@connect` was not `http` or `https`.
 
 </td>
 </tr>
@@ -918,7 +919,7 @@ Since v2.10.0
 </td>
 <td>
 
-A `@key` is defined without a corresponding entity connector.
+A `@key` was defined without a corresponding entity connector.
 
 </td>
 </tr>
@@ -1002,7 +1003,7 @@ Since v2.10.0
 </td>
 <td>
 
-This is a specialization of [`SOURCE_NAME_MISMATCH`](#source_name_mismatch) error that indicates that no sources were defined.
+This is a specialization of [`SOURCE_NAME_MISMATCH`](#source_name_mismatch) error that indicates no sources were defined.
 
 </td>
 </tr>
@@ -1251,7 +1252,7 @@ Since v2.10.0
 </td>
 <td>
 
-The `@connect` directive is using a relative URL (path only) but does not define a `source`. This is a specific case of the [`INVALID_URL`](#invalid-url) error.
+The `@connect` directive is using a relative URL (path only) but does not define a `source`. This is a a specialization of [`INVALID_URL`](#invalid-url).
 
 </td>
 </tr>
@@ -1433,7 +1434,7 @@ Since v2.10.0
 </td>
 <td>
 
-A field included in a `@connect`s `selection` argument is not defined on the corresponding type.
+A field included in a `@connect` directive's `selection` argument is not defined on the corresponding type.
 
 </td>
 </tr>
@@ -1460,6 +1461,8 @@ Since v2.10.0
 
 </td>
 <td>
+
+The `source` argument used in a `@connect` directive doesn't match any named connecter sources created with `@source`.
 
 </td>
 </tr>
