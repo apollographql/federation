@@ -45,7 +45,76 @@ The `@connect` is using a `source`, but the URL is absolute. This is not allowed
 
 </td>
 </tr>
+<tr>
+<td>
 
+###### `CIRCULAR_REFERENCE`
+
+Since v2.10.0
+
+</td>
+<td>
+
+A [circular reference](/graphos/schema-design/connectors/limitations#circular-references-are-unsupported) was detected within a `@connect`'s `selection` argument.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `CONNECTORS_FIELD_WITH_ARGUMENTS`
+
+Since v2.10.0
+
+</td>
+<td>
+
+A field resolved by a connector has arguments defined.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `CONNECTORS_UNRESOLVED_FIELD`
+
+Since v2.10.0
+
+</td>
+<td>
+
+Fields in the schema that aren't resolved by a connector.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `CONNECTORS_UNSUPPORTED_ABSTRACT_TYPE`
+
+Since v2.10.0
+
+</td>
+<td>
+
+[Abstract types](/graphos/schema-design/connectors/limitations#abstract-schema-types-are-unsupported) are not allowed when using connectors.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `CONNECTORS_UNSUPPORTED_FEDERATION_DIRECTIVE`
+
+Since v2.10.0
+
+</td>
+<td>
+
+Certain directives are not allowed when using connectors
+
+</td>
+</tr>
 <tr>
 <td>
 
@@ -178,7 +247,48 @@ No `name` was provided for a connector source.
 
 </td>
 </tr>
+<tr>
+<td>
 
+###### `ENTITY_NOT_ON_ROOT_QUERY`
+
+Since v2.10.0
+
+</td>
+<td>
+
+The `@connect` directive's `entity` argument should only be used on the root `Query` field.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `ENTITY_RESOLVER_ARGUMENT_MISMATCH`
+
+Since v2.10.0
+
+</td>
+<td>
+
+The arguments for an entity reference resolver do not match the entity type.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `ENTITY_TYPE_INVALID`
+
+Since v2.10.0
+
+</td>
+<td>
+
+The `@connect` directive's `entity` argument should only be used with non-list, nullable, object types.
+
+</td>
+</tr>
 <tr>
 <td>
 
@@ -380,7 +490,48 @@ A problem with GraphQL syntax or semantics was found. These will usually be caug
 
 </td>
 </tr>
+<tr>
+<td>
 
+###### `GROUP_SELECTION_IS_NOT_OBJECT`
+
+Since v2.10.0
+
+</td>
+<td>
+
+A group selection mapping (`a { b }`) was used, but the field is not an object.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `GROUP_SELECTION_REQUIRED_FOR_OBJECT`
+
+Since v2.10.0
+
+</td>
+<td>
+
+Fields that return an object type must use a group selection mapping `{}`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `HTTP_HEADER_NAME_COLLISION`
+
+Since v2.10.0
+
+</td>
+<td>
+
+The `name` mapping must be unique for all headers.
+
+</td>
+</tr>
 <tr>
 <td>
 
@@ -406,6 +557,48 @@ Since v2.0.0
 <td>
 
 An input field has a default value that is incompatible with other declarations of that field in other subgraphs.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `INVALID_BODY`
+
+Since v2.10.0
+
+</td>
+<td>
+
+The `http.body` provided in `@connect` was not valid.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `INVALID_HEADER`
+
+Since v2.10.0
+
+</td>
+<td>
+
+A provided header in `@source` or `@connect` was not valid.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `INVALID_SELECTION`
+
+Since v2.10.0
+
+</td>
+<td>
+
+The provided selection mapping in a `@connect`s `selection` was not valid.
 
 </td>
 </tr>
@@ -718,6 +911,48 @@ In a subgraph, a field is both marked `@external` and has a merged directive app
 <tr>
 <td>
 
+###### `MISSING_ENTITY_CONNECTOR`
+
+Since v2.10.0
+
+</td>
+<td>
+
+A `@key` is defined without a corresponding entity connector.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `MISSING_HTTP_METHOD`
+
+Since v2.10.0
+
+</td>
+<td>
+
+The `@connect` directive is missing an HTTP method.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `MULTIPLE_HTTP_METHODS`
+
+Since v2.10.0
+
+</td>
+<td>
+
+The `@connect` directive has multiple HTTP methods when only one is allowed.
+
+</td>
+</tr>
+<tr>
+<td>
+
 ###### `MUTATION_FIELD_MISSING_CONNECT`
 
 Since v2.10.0
@@ -740,6 +975,48 @@ Since v2.0.0
 <td>
 
 None of the composed subgraphs expose any query.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `NO_SOURCE_IMPORT`
+
+Since v2.10.0
+
+</td>
+<td>
+
+The subgraph doesn't import the `@source` directive. This isn't necessarily a problem, but is likely a mistake.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `NO_SOURCES_DEFINED`
+
+Since v2.10.0
+
+</td>
+<td>
+
+This is a specialization of [`SOURCE_NAME_MISMATCH`](#source_name_mismatch) error that indicates that no sources were defined.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `NULLABILITY_MISMATCH`
+
+Since v2.10.0
+
+</td>
+<td>
+
+A variable is nullable in a location which requires non-null at runtime.
 
 </td>
 </tr>
@@ -1149,6 +1426,20 @@ Subgraphs can be merged, but the resulting supergraph API would have queries tha
 <tr>
 <td>
 
+###### `SELECTED_FIELD_NOT_FOUND`
+
+Since v2.10.0
+
+</td>
+<td>
+
+A field included in a `@connect`s `selection` argument is not defined on the corresponding type.
+
+</td>
+</tr>
+<tr>
+<td>
+
 ###### `SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES`
 
 Since v2.0.0
@@ -1233,6 +1524,48 @@ A Federation 1 schema has a composite type comprised only of unused external fie
 <tr>
 <td>
 
+###### `UNDEFINED_ARGUMENT`
+
+Since v2.10.0
+
+</td>
+<td>
+
+Part of the `@connect` refers to an `$args` which is not defined.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `UNDEFINED_FIELD`
+
+Since v2.10.0
+
+</td>
+<td>
+
+Part of the `@connect` refers to an `$this` which is not defined.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `UNKNOWN_CONNECTORS_VERSION`
+
+Since v2.10.0
+
+</td>
+<td>
+
+The version set in the connectors `@link` URL is not recognized.
+
+</td>
+</tr>
+<tr>
+<td>
+
 ###### `UNKNOWN_FEDERATION_LINK_VERSION`
 
 Since v2.0.0
@@ -1283,6 +1616,20 @@ Since v2.0.0
 <td>
 
 Indicates that a feature used in a `@link` is either unsupported or is used with unsupported options.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `UNSUPPORTED_VARIABLE_TYPE`
+
+Since v2.10.0
+
+</td>
+<td>
+
+A type used in a connector's variable is [not yet supported](/graphos/schema-design/connectors/limitations) (i.e., unions).
 
 </td>
 </tr>
