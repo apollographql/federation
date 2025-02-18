@@ -10,7 +10,7 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 
 - To use a feature introduced in a particular federation version, make sure your subgraph schema's `@link` directive targets that version (or higher):
 
-    ```graphql
+    ```graphql showLineNumbers=false disableCopy=true
     extend schema
       @link(url: "https://specs.apollo.dev/federation/v2.3", #highlight-line
             import: ["@key", "@shareable", "@interfaceObject"])
@@ -26,282 +26,141 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 
 - If you maintain a [subgraph-compatible library](/graphos/reference/federation/compatible-subgraphs), consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](/graphos/reference/federation/subgraph-spec/#subgraph-schema-additions).
 
+## v2.10
+
+<hr/>
+
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **February 2025** | **Yes** | **`2.0.0`** |
+
+#### Directive changes
+
+#### `@connect`
+
+Introduced. [Learn more](/graphos/schema-design/connectors/directives#connect).
+
+```graphql showLineNumbers=false disableCopy=true
+directive @connect(
+  source: String
+  http: ConnectHTTP!
+  selection: JSONSelection!
+  entity: Boolean
+) repeatable on FIELD_DEFINITION;
+
+```
+
+#### `@source`
+
+Introduced. [Learn more](/graphos/schema-design/connectors/directives#source).
+
+```graphql showLineNumbers=false disableCopy=true
+directive @source(
+  name: String!
+  http: SourceHTTP!
+) repeatable on SCHEMA;
+```
+
 ## v2.9
 
 <hr/>
 
-<CodeColumns cols="3">
-
-<div>
-
-First release<br/>
-**August 2024**
-
-</div>
-
-<div>
-
-Available in GraphOS?<br/>
-**Yes**
-
-</div>
-
-<div>
-
-Minimum router version<br/>
-**`1.53.0`**
-
-</div>
-
-</CodeColumns>
-
-<hr/>
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **August 2024** | **Yes** | **`1.53.0`** |
 
 #### Directive changes
 
-<table>
-  <thead>
-    <tr>
-      <th style={{ minWidth: 200 }}>Topic</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-
-<tbody>
-<tr>
-<td>
-
 #### `@cost`
-
-</td>
-<td>
 
 Introduced. [Learn more](/federation/federated-schemas/federated-directives#cost).
 
-```graphql
-directive @cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
+```graphql showLineNumbers=false disableCopy=true
+directive @cost(weight: Int!) on
+  | ARGUMENT_DEFINITION
+  | ENUM  
+  | FIELD_DEFINITION   
+  | INPUT_FIELD_DEFINITION  
+  | OBJECT   
+  | SCALAR;
 ```
-
-</td>
-</tr>
-
-<tr>
-<td>
 
 #### `@listSize`
 
-</td>
-<td>
-
 Introduced. [Learn more](/federation/federated-schemas/federated-directives#listsize).
 
-```graphql
-directive @listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
+```graphql showLineNumbers=false disableCopy=true
+directive @listSize(
+  assumedSize: Int
+  slicingArguments: [String!]
+  sizedFields: [String!]
+  requireOneSlicingArgument: Boolean = true
+)
+on FIELD_DEFINITION;
 ```
-
-</td>
-</tr>
-
-</tbody>
-</table>
 
 ## v2.8
 
 <hr/>
 
-<CodeColumns cols="3">
-
-<div>
-
-First release<br/>
-**May 2024**
-
-</div>
-
-<div>
-
-Available in GraphOS?<br/>
-**Yes**
-
-</div>
-
-<div>
-
-Minimum router version<br/>
-**`1.48.0`**
-
-</div>
-
-</CodeColumns>
-
-<hr/>
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **May 2024** | **Yes** | **`1.48.0`** |
 
 #### Directive changes
 
-<table>
-  <thead>
-    <tr>
-      <th style={{ minWidth: 200 }}>Topic</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-
-<tbody>
-<tr>
-<td>
-
 ##### `@context`
-
-</td>
-<td>
 
 Introduced. [Learn more](/graphos/reference/federation/directives/#context).
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @context(name: String!) on OBJECT | INTERFACE | UNION;
 ```
 
-</td>
-</tr>
-
-<tr>
-<td>
-
 ##### `@fromContext`
-
-</td>
-<td>
 
 Introduced. [Learn more](/graphos/reference/federation/directives/#fromcontext).
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 scalar ContextFieldValue;
 
 directive @fromContext(field: ContextFieldValue) on ARGUMENT_DEFINITION;
 ```
 
-</td>
-</tr>
-
-</tbody>
-</table>
-
 ## v2.7
 
 <hr/>
 
-<CodeColumns cols="3">
-
-<div>
-
-First release<br/>
-**February 2024**
-
-</div>
-
-<div>
-
-Available in GraphOS?<br/>
-**Yes**
-
-</div>
-
-<div>
-
-Minimum router version<br/>
-**`1.39.0`**
-
-</div>
-
-</CodeColumns>
-
-<hr/>
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **February 2024** | **Yes** | **`1.39.0`** |
 
 #### Directive changes
 
-<table>
-  <thead>
-    <tr>
-      <th style={{ minWidth: 200 }}>Topic</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-
-<tbody>
-<tr>
-<td>
-
 ##### Progressive `@override`
-
-</td>
-<td>
 
 Added progressive `@override`. [Learn more.](/graphos/reference/federation/directives/#progressive-override)
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @override(from: String!, label: String) on FIELD_DEFINITION
 ```
-
-</td>
-</tr>
-
-</tbody>
-</table>
 
 ## v2.6
 
 <hr/>
 
-<CodeColumns cols="3">
-
-<div>
-
-First release<br/>
-**November 2023**
-
-</div>
-
-<div>
-
-Available in GraphOS?<br/>
-**Yes**
-
-</div>
-
-<div>
-
-Minimum router version<br/>
-**`1.35.0`**
-
-</div>
-
-</CodeColumns>
-
-<hr/>
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **November 2023** | **Yes** | **`1.35.0`** |
 
 #### Directive changes
 
-<table>
-  <thead>
-    <tr>
-      <th style={{ minWidth: 200 }}>Topic</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-
-<tbody>
-<tr>
-<td>
-
 ##### `@policy`
-
-</td>
-<td>
 
 
 Introduced. [Learn more.](/graphos/routing/security/authorization)
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @policy(policies: [[federation__Policy!]!]!) on
   | FIELD_DEFINITION
   | OBJECT
@@ -309,14 +168,7 @@ directive @policy(policies: [[federation__Policy!]!]!) on
   | SCALAR
   | ENUM
 ```
-
-</td>
-</tr>
-
-</tbody>
-</table>
-
-#### Subgraph changes
+##### Subgraph changes
 
 <table>
   <thead>
@@ -346,56 +198,18 @@ Policy
 
 <hr/>
 
-<CodeColumns cols="3">
-
-<div>
-
-First release<br/>
-**July 2023**
-
-</div>
-
-<div>
-
-Available in GraphOS?<br/>
-**Yes**
-
-</div>
-
-<div>
-
-Minimum router version<br/>
-**`1.29.1`**
-
-</div>
-
-</CodeColumns>
-
-<hr/>
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **July 2023** | **Yes** | **`1.29.1`** |
 
 #### Directive changes
 
-<table>
-  <thead>
-    <tr>
-      <th style={{ minWidth: 200 }}>Topic</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-
-<tbody>
-<tr>
-<td>
-
 ##### `@authenticated`
-
-</td>
-<td>
 
 
 Introduced. [Learn more.](/graphos/routing/security/authorization)
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @authenticated on
     FIELD_DEFINITION
   | OBJECT
@@ -404,21 +218,12 @@ directive @authenticated on
   | ENUM
 ```
 
-</td>
-</tr>
-
-<tr>
-<td>
-
 ##### `@requiresScopes`
-
-</td>
-<td>
 
 
 Introduced. [Learn more.](/graphos/routing/security/authorization)
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @requiresScopes(scopes: [[federation__Scope!]!]!) on
     FIELD_DEFINITION
   | OBJECT
@@ -426,12 +231,6 @@ directive @requiresScopes(scopes: [[federation__Scope!]!]!) on
   | SCALAR
   | ENUM
 ```
-
-</td>
-</tr>
-
-</tbody>
-</table>
 
 #### Subgraph changes
 
@@ -463,32 +262,9 @@ Scope
 
 <hr/>
 
-<CodeColumns cols="3">
-
-<div>
-
-First release<br/>
-**March 2023**
-
-</div>
-
-<div>
-
-Available in GraphOS?<br/>
-**Yes**
-
-</div>
-
-<div>
-
-Minimum router version<br/>
-**`1.13.1`**
-
-</div>
-
-</CodeColumns>
-
-<hr/>
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **March 2023** | **Yes** | **`1.13.1`** |
 
 #### Subgraph changes
 
@@ -521,216 +297,72 @@ Subscriptions
 
 <hr/>
 
-<CodeColumns cols="3">
-
-<div>
-
-First release<br/>
-**February 2023**<br/>
-
-</div>
-
-<div>
-
-Available in GraphOS?<br/>
-**Yes**
-
-</div>
-
-<div>
-
-Minimum router version<br/>
-**`1.10.2`**
-
-</div>
-
-</CodeColumns>
-
-<hr/>
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **February 2023**| **Yes** | **`1.10.2`** |
 
 #### Directive changes
 
 
-<table>
-  <thead>
-    <tr>
-      <th style={{ minWidth: 200 }}>Topic</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-
-<tbody>
-<tr>
-<td>
-
 ##### `@interfaceObject`
-
-</td>
-<td>
 
 Introduced. [Learn more.](/graphos/schema-design/federated-schemas/entities/interfaces)
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @interfaceObject on OBJECT
 ```
 
-</td>
-</tr>
-
-<tr>
-<td>
-
 ##### `@key`
-
-</td>
-<td>
 
 Can now be applied to interface definitions to support [entity interfaces](/graphos/schema-design/federated-schemas/entities/interfaces/).
 
 (Previous versions of composition threw an error if `@key` was applied to an interface definition.)
 
-</td>
-</tr>
-
-</tbody>
-</table>
-
 ## v2.2
 
 <hr/>
 
-<CodeColumns cols="3">
-
-<div>
-
-First release<br/><br/>
-**November 2022**
-
-</div>
-
-<div>
-
-Available in GraphOS?<br/>
-**No**
-
-</div>
-
-<div>
-
-Minimum router version<br/>
-**`1.6.0`**
-
-</div>
-
-</CodeColumns>
-
-<hr/>
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **November 2022** | **No**| **`1.6.0`** |
 
 #### Directive changes
 
-<table>
-  <thead>
-    <tr>
-      <th style={{ minWidth: 200 }}>Topic</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-
-<tbody>
-<tr>
-<td>
-
 ##### `@shareable`
-
-</td>
-<td>
 
 Added `repeatable` to the directive definition.
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @shareable repeatable on OBJECT | FIELD_DEFINITION
 ```
 
 Additionally, composition now throws an error if `@shareable` is applied to fields of an `interface` definition.
 
-</td>
-</tr>
-
-</tbody>
-</table>
-
 ## v2.1
 
 <hr/>
 
-<CodeColumns cols="3">
-
-<div>
-
-First release<br/>
-**August 2022**
-
-</div>
-
-<div>
-
-Available in GraphOS?<br/>
-**Yes**
-
-</div>
-
-<div>
-
-Minimum router version<br/>
-**`1.0.0`**
-
-</div>
-
-</CodeColumns>
-
-<hr/>
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **August 2022** | **Yes** | **`1.0.0`** |
 
 #### Directive changes
 
-<table>
-  <thead>
-    <tr>
-      <th style={{ minWidth: 200 }}>Topic</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-
-<tbody>
-<tr>
-<td>
-
 ##### `@composeDirective`
-
-</td>
-<td>
 
 Introduced. [Learn more.](/graphos/reference/federation/directives#composedirective)
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @composeDirective(name: String!) repeatable on SCHEMA
 ```
 
-</td>
-</tr>
-
-<tr>
-<td>
-
 ##### `@requires`
-
-</td>
-<td>
 
 The `fields` argument can now include fields that themselves take arguments. [Learn more.](/graphos/schema-design/federated-schemas/entities/contribute-fields#using-requires-with-fields-that-take-arguments)
 
 (Functionality added in v2.1.2)
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 type Product @key(fields: "id") {
   id: ID!
   weight(units: String): Int! @external
@@ -740,48 +372,19 @@ type Product @key(fields: "id") {
 }
 ```
 
-</td>
-</tr>
-
-</tbody>
-</table>
-
 ## v2.0
 
 <hr/>
 
-<CodeColumns cols="3">
-
-<div>
-
-First release<br/>
-**April 2022**
-
-</div>
-
-<div>
-
-Available in GraphOS?<br/>
-**Yes**
-
-</div>
-
-<div>
-
-Minimum router version<br/>
-**`1.0.0`**
-
-</div>
-
-</CodeColumns>
-
-<hr/>
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **April 2022** | **Yes** | **`1.0.0`** |
 
 #### Directive changes
 
 Subgraph schemas "opt in" to Federation 2 features by applying the `@link` directive to the `schema` type, like so:
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 extend schema
   @link(url: "https://specs.apollo.dev/federation/v2.0",
         import: ["@key", "@shareable"])
@@ -791,63 +394,30 @@ The `import` list of this definition must include each federation-specific direc
 
 For details on these directives as defined in Federation 2, see [Federation-specific GraphQL directives](/graphos/reference/federation/directives/).
 
-<table>
-  <thead>
-    <tr>
-      <th style={{ minWidth: 200 }}>Topic</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-
-<tbody>
-<tr>
-<td>
-
 ##### `@key`
-
-</td>
-<td>
 
 Added optional `resolvable` argument.
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @key(
   fields: FieldSet!,
   resolvable: Boolean = true # highlight-line
 ) repeatable on OBJECT | INTERFACE
 ```
 
-</td>
-</tr>
-
-<tr>
-<td>
-
 ##### `@shareable`
-
-</td>
-<td>
 
 Introduced.
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @shareable on OBJECT | FIELD_DEFINITION
 ```
 
-</td>
-</tr>
-
-<tr>
-<td>
-
 ##### `@inaccessible`
-
-</td>
-<td>
 
 Introduced.
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @inaccessible on
   | FIELD_DEFINITION
   | OBJECT
@@ -861,37 +431,19 @@ directive @inaccessible on
   | INPUT_FIELD_DEFINITION
 ```
 
-</td>
-</tr>
-
-<tr>
-<td>
-
 ##### `@override`
-
-</td>
-<td>
 
 Introduced.
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @override(from: String!) on FIELD_DEFINITION
 ```
 
-</td>
-</tr>
-
-<tr>
-<td>
-
 ##### `@link`
-
-</td>
-<td>
 
 Introduced.
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @link(
   url: String,
   as: String,
@@ -900,24 +452,9 @@ directive @link(
 ) repeatable on SCHEMA
 ```
 
-</td>
-</tr>
-
-<tr>
-<td>
-
 ##### `@extends`, `@external`, `@provides`, `@requires`, `@tag`
 
-</td>
-<td>
-
 No changes.
-
-</td>
-</tr>
-
-</tbody>
-</table>
 
 #### Subgraph changes
 
@@ -978,7 +515,6 @@ Value types
 </tbody>
 </table>
 
-
 ## v1.1
 
 <Caution>
@@ -989,38 +525,17 @@ Apollo Router Core and GraphOS Router v1.60 and later don't support Federation v
 
 #### Directive changes
 
-<table>
-  <thead>
-    <tr>
-      <th style={{ minWidth: 200 }}>Topic</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-
-<tbody>
-<tr>
-<td>
-
 ##### `@tag`
-
-</td>
-<td>
 
 Introduced.
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @tag(name: String!) repeatable on
   | FIELD_DEFINITION
   | INTERFACE
   | OBJECT
   | UNION
 ```
-
-</td>
-</tr>
-
-</tbody>
-</table>
 
 ## v1.0
 
@@ -1034,102 +549,45 @@ Apollo Router Core and GraphOS Router v1.60 and later don't support Federation v
 
 For details on these directives as defined in Federation 1, see the [Federation 1 subgraph spec](/federation/v1/federation-spec).
 
-<table>
-  <thead>
-    <tr>
-      <th style={{ minWidth: 200 }}>Topic</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-
-<tbody>
-<tr>
-<td>
-
 ##### `@key`
-
-</td>
-<td>
 
 Introduced.
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
 ```
 
-</td>
-</tr>
-
-<tr>
-<td>
-
 ##### `@external`
-
-</td>
-<td>
 
 Introduced.
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @external on FIELD_DEFINITION
 ```
 
-</td>
-</tr>
-
-<tr>
-<td>
-
 ##### `@requires`
-
-</td>
-<td>
 
 Introduced.
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
 ```
 
-</td>
-</tr>
-
-<tr>
-<td>
-
 ##### `@provides`
-
-</td>
-<td>
 
 Introduced.
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
 ```
 
-</td>
-</tr>
-
-<tr>
-<td>
-
 ##### `@extends`
-
-</td>
-<td>
 
 Introduced.
 
-```graphql
+```graphql showLineNumbers=false disableCopy=true
 directive @extends on OBJECT | INTERFACE
 ```
-
-</td>
-</tr>
-
-</tbody>
-</table>
 
 #### Subgraph changes
 
