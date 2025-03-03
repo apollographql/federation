@@ -450,7 +450,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
 
   private handleOpenBranch(selection: Selection, options: SimultaneousPathsWithLazyIndirectPaths<RV>[]) {
     if (performance.now() > this.deadline) {
-      throw new Error('Query plan took too long to execute');
+      throw new Error('Query plan took too long to calculate');
     }
     const operation = selection.element;
     debug.group(() => `Handling open branch: ${operation}`);
