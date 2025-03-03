@@ -118,6 +118,11 @@ export type QueryPlannerConfig = {
    * If you aren't aware of this flag, you probably don't need it.
    */
     typeConditionedFetching?: boolean,
+    
+    /**
+     * The maximium time to wait for query planning to complete before giving up and throwing an exception. Defaults to 2 minutes
+     */
+    maxQueryPlanningTime?: number,
 }
 
 export function enforceQueryPlannerConfigDefaults(
@@ -143,6 +148,7 @@ export function enforceQueryPlannerConfigDefaults(
       ...config?.debug,
     },
     typeConditionedFetching: config?.typeConditionedFetching || false,
+    maxQueryPlanningTime: 2 * 60 * 1000, // two minutes
   };
 }
 

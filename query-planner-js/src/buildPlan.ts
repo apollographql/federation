@@ -105,6 +105,7 @@ import { Conditions, conditionsOfSelectionSet, isConstantCondition, mergeConditi
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig, validateQueryPlannerConfig } from "./config";
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, SubscriptionNode, trimSelectionNodes } from "./QueryPlan";
+import { performance } from 'perf_hooks';
 
 
 const debug = newDebugLogger('plan');
@@ -394,6 +395,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     readonly costFunction: CostFunction,
     initialContext: PathContext,
     typeConditionedFetching: boolean,
+    readonly deadline: number,
     excludedDestinations: ExcludedDestinations = [],
     excludedConditions: ExcludedConditions = [],
   ) {
@@ -445,6 +447,9 @@ class QueryPlanningTraversal<RV extends Vertex> {
   }
 
   private handleOpenBranch(selection: Selection, options: SimultaneousPathsWithLazyIndirectPaths<RV>[]) {
+    if (performance.now() > this.deadline) {
+      throw new Error('Query plan took too long to execute');
+    }
     const operation = selection.element;
     debug.group(() => `Handling open branch: ${operation}`);
     let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
@@ -771,6 +776,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       this.costFunction,
       context,
       this.typeConditionedFetching,
+      this.deadline,
       excludedDestinations,
       addConditionExclusion(excludedConditions, edge.conditions),
     ).findBestPlan();
@@ -3531,10 +3537,10 @@ function computePlanInternal({
   let main: PlanNode | undefined = undefined;
   let primarySelection: MutableSelectionSet | undefined = undefined;
   let deferred: DeferredNode[] = [];
-
-  const { operation, processor } = parameters;
+  const { operation, processor, config } = parameters;
+  const deadline = performance.now() + config.maxQueryPlanningTime;
   if (operation.rootKind === 'mutation') {
-    const dependencyGraphs = computeRootSerialDependencyGraph(parameters, hasDefers);
+    const dependencyGraphs = computeRootSerialDependencyGraph(parameters, hasDefers, deadline);
     for (const dependencyGraph of dependencyGraphs) {
       const { main: localMain, deferred: localDeferred } = dependencyGraph.process(processor, operation.rootKind);
       // Note that `reduceSequence` "flatten" sequence if needs be.
@@ -3554,6 +3560,7 @@ function computePlanInternal({
       parameters,
       0,
       hasDefers,
+      deadline,
     );
     ({ main, deferred } = dependencyGraph.process(processor, operation.rootKind));
     primarySelection = dependencyGraph.deferTracking.primarySelection;
@@ -3675,12 +3682,14 @@ function computeRootParallelDependencyGraph(
   parameters: PlanningParameters<RootVertex>,
   startFetchIdGen: number,
   hasDefer: boolean,
+  deadline: number,
 ): FetchDependencyGraph {
   return computeRootParallelBestPlan(
     parameters,
     parameters.operation.selectionSet,
     startFetchIdGen,
     hasDefer,
+    deadline,
   )[0];
 }
 
@@ -3689,6 +3698,7 @@ function computeRootParallelBestPlan(
   selection: SelectionSet,
   startFetchIdGen: number,
   hasDefers: boolean,
+  deadline: number,
 ): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
   const planningTraversal = new QueryPlanningTraversal(
     parameters,
@@ -3699,6 +3709,7 @@ function computeRootParallelBestPlan(
     defaultCostFunction,
     emptyContext,
     parameters.config.typeConditionedFetching,
+    deadline,
   );
   const plan = planningTraversal.findBestPlan();
   // Getting no plan means the query is essentially unsatisfiable (it's a valid query, but we can prove it will never return a result),
@@ -3726,6 +3737,7 @@ function onlyRootSubgraph(graph: FetchDependencyGraph): string {
 function computeRootSerialDependencyGraph(
   parameters: PlanningParameters<RootVertex>,
   hasDefers: boolean,
+  deadline: number,
 ): FetchDependencyGraph[] {
   const { supergraphSchema, federatedQueryGraph, operation, root } = parameters;
   const rootType = hasDefers ? supergraphSchema.schemaDefinition.rootType(root.rootKind) : undefined;
@@ -3733,10 +3745,10 @@ function computeRootSerialDependencyGraph(
   const splittedRoots = splitTopLevelFields(operation.selectionSet);
   const graphs: FetchDependencyGraph[] = [];
   let startingFetchId = 0;
-  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(parameters, splittedRoots[0], startingFetchId, hasDefers);
+  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(parameters, splittedRoots[0], startingFetchId, hasDefers, deadline);
   let prevSubgraph = onlyRootSubgraph(prevDepGraph);
   for (let i = 1; i < splittedRoots.length; i++) {
-    const [newDepGraph, newPaths] = computeRootParallelBestPlan(parameters, splittedRoots[i], prevDepGraph.nextFetchId(), hasDefers);
+    const [newDepGraph, newPaths] = computeRootParallelBestPlan(parameters, splittedRoots[i], prevDepGraph.nextFetchId(), hasDefers, deadline);
     const newSubgraph = onlyRootSubgraph(newDepGraph);
     if (prevSubgraph === newSubgraph) {
       // The new operation (think 'mutation' operation) is on the same subgraph than the previous one, so we can concat them in a single fetch
