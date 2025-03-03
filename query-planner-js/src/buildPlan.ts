@@ -395,6 +395,8 @@ class QueryPlanningTraversal<RV extends Vertex> {
     readonly costFunction: CostFunction,
     initialContext: PathContext,
     typeConditionedFetching: boolean,
+    
+    // time (calculated relative from performance.now) after which query plan calcuation may be aborted
     readonly deadline: number,
     excludedDestinations: ExcludedDestinations = [],
     excludedConditions: ExcludedConditions = [],
