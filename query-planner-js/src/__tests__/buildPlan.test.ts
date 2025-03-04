@@ -10789,10 +10789,10 @@ describe('`maxQueryPlanningTime` configuration', () => {
     expect(stats?.evaluatedPlanCount).toBe(16);
   });
 
-  test('maxQueryPlanningTime exceeded (500 microseconds)', () => {
+  test('maxQueryPlanningTime exceeded (10 microseconds)', () => {
     const config = {
       debug: { maxEvaluatedPlans: undefined },
-      maxQueryPlanningTime: 0.5,
+      maxQueryPlanningTime: 0.01,
     };
     const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
       subgraphs,
