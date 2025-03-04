@@ -396,7 +396,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     initialContext: PathContext,
     typeConditionedFetching: boolean,
     
-    // time (calculated relative from performance.now) after which query plan calcuation may be aborted
+    // time (calculated relative from performance.now) after which query plan calculation may be aborted
     readonly deadline: number,
     excludedDestinations: ExcludedDestinations = [],
     excludedConditions: ExcludedConditions = [],
