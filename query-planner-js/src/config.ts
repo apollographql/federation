@@ -133,6 +133,7 @@ export function enforceQueryPlannerConfigDefaults(
     reuseQueryFragments: true,
     generateQueryFragments: false,
     cache: new InMemoryLRUCache<QueryPlan>({maxSize: Math.pow(2, 20) * 50 }),
+    maxQueryPlanningTime: 2 * 60 * 1000, // two minutes
     ...config,
     incrementalDelivery: {
       enableDefer: false,
@@ -148,7 +149,6 @@ export function enforceQueryPlannerConfigDefaults(
       ...config?.debug,
     },
     typeConditionedFetching: config?.typeConditionedFetching || false,
-    maxQueryPlanningTime: 2 * 60 * 1000, // two minutes
   };
 }
 
