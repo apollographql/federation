@@ -457,6 +457,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     let newOptions: SimultaneousPathsWithLazyIndirectPaths<RV>[] = [];
     for (const option of options) {
       const followupForOption = advanceSimultaneousPathsWithOperation(
+        this.deadline,
         this.parameters.supergraphSchema,
         option,
         operation,

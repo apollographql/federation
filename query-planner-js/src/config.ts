@@ -120,7 +120,7 @@ export type QueryPlannerConfig = {
     typeConditionedFetching?: boolean,
     
     /**
-     * The maximum time to wait for query planning to complete before giving up and throwing an exception. Defaults to 2 minutes
+     * The maximum time (in milliseconds) to wait for query planning to complete before giving up and throwing an exception. Defaults to 2 minutes
      */
     maxQueryPlanningTime?: number,
 }
