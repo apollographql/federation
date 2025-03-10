@@ -118,6 +118,11 @@ export type QueryPlannerConfig = {
    * If you aren't aware of this flag, you probably don't need it.
    */
     typeConditionedFetching?: boolean,
+    
+    /**
+     * The maximum time (in milliseconds) to wait for query planning to complete before giving up and throwing an exception. Defaults to 2 minutes
+     */
+    maxQueryPlanningTime?: number,
 }
 
 export function enforceQueryPlannerConfigDefaults(
@@ -128,6 +133,7 @@ export function enforceQueryPlannerConfigDefaults(
     reuseQueryFragments: true,
     generateQueryFragments: false,
     cache: new InMemoryLRUCache<QueryPlan>({maxSize: Math.pow(2, 20) * 50 }),
+    maxQueryPlanningTime: 2 * 60 * 1000, // two minutes
     ...config,
     incrementalDelivery: {
       enableDefer: false,

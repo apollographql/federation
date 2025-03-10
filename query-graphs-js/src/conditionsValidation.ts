@@ -18,6 +18,8 @@ import { cachingConditionResolver } from "./conditionsCaching";
 
 class ConditionValidationState {
   constructor(
+    // deadline by which time we want the computation to abort
+    readonly deadline: number,
     // Selection that belongs to the condition we're validating.
     readonly selection: Selection,
     // All the possible "simultaneous paths" we could be in the subgraph when we reach this state selection.
@@ -28,6 +30,7 @@ class ConditionValidationState {
     const newOptions: SimultaneousPathsWithLazyIndirectPaths[] = [];
     for (const paths of this.subgraphOptions) {
       const pathsOptions = advanceSimultaneousPathsWithOperation(
+        this.deadline,
         supergraph,
         paths,
         this.selection.element,
@@ -50,6 +53,7 @@ class ConditionValidationState {
     }
     return this.selection.selectionSet ? this.selection.selectionSet.selections().map(
       s => new ConditionValidationState(
+        this.deadline,
         s,
         newOptions,
       )
@@ -69,10 +73,12 @@ class ConditionValidationState {
  * conditions are satisfied.
  */
 export function simpleValidationConditionResolver({
+  deadline,
   supergraph,
   queryGraph,
   withCaching,
 }: {
+  deadline: number,
   supergraph: Schema,
   queryGraph: QueryGraph,
   withCaching?: boolean,
@@ -92,7 +98,7 @@ export function simpleValidationConditionResolver({
       new SimultaneousPathsWithLazyIndirectPaths(
         [initialPath],
         context,
-        simpleValidationConditionResolver({ supergraph, queryGraph, withCaching }),
+        simpleValidationConditionResolver({ deadline, supergraph, queryGraph, withCaching }),
         excludedDestinations,
         excludedConditions,
         new Map(),
@@ -103,6 +109,7 @@ export function simpleValidationConditionResolver({
     for (const selection of conditions.selections()) {
       stack.push(
         new ConditionValidationState(
+          deadline,
           selection,
           initialOptions,
         ),

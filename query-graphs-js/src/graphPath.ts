@@ -42,6 +42,7 @@ import { Vertex, QueryGraph, Edge, RootVertex, isRootVertex, isFederatedGraphRoo
 import { DownCast, Transition } from "./transition";
 import { PathContext, emptyContext, isPathContext } from "./pathContext";
 import { v4 as uuidv4 } from 'uuid';
+import { performance } from 'perf_hooks';
 
 const debug = newDebugLogger('path');
 
@@ -2210,6 +2211,7 @@ function filterNonCollectingPathsForField<V extends Vertex>(
 // The lists of options can be empty, which has the special meaning that the operation is guaranteed to have no results (it corresponds to unsatisfiable conditions),
 // meaning that as far as query planning goes, we can just ignore the operation but otherwise continue.
 export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
+  deadline: number,
   supergraphSchema: Schema,
   subgraphSimultaneousPaths: SimultaneousPathsWithLazyIndirectPaths<V>,
   operation: OperationElement,
@@ -2228,6 +2230,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
     if (!shouldReenterSubgraph) {
       debug.group(() => `Direct options`);
       const { options: advanceOptions, hasOnlyTypeExplodedResults } = advanceWithOperation(
+        deadline,
         supergraphSchema,
         path,
         operation,
@@ -2275,6 +2278,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
         for (const pathWithNonCollecting of pathsWithNonCollecting.paths) {
           debug.group(() => `For indirect path ${pathWithNonCollecting}:`);
           const { options: pathWithOperation } = advanceWithOperation(
+            deadline,
             supergraphSchema,
             pathWithNonCollecting,
             operation,
@@ -2334,6 +2338,7 @@ export function advanceSimultaneousPathsWithOperation<V extends Vertex>(
     if (options.length === 0 && shouldReenterSubgraph) {
       debug.group(() => `Cannot defer (no indirect options); falling back to direct options`);
       const { options: advanceOptions } = advanceWithOperation(
+        deadline,
         supergraphSchema,
         path,
         operation,
@@ -2601,6 +2606,7 @@ function isProvidedEdge(edge: Edge): boolean {
 // We also actually need to return a set of options of simultaneous paths. Cause when we type explode, we create simultaneous paths, but
 // as a field might be resolve by multiple subgraphs, we may have options created.
 function advanceWithOperation<V extends Vertex>(
+  deadline: number,
   supergraphSchema: Schema,
   path: OpGraphPath<V>,
   operation: OperationElement,
@@ -2613,6 +2619,10 @@ function advanceWithOperation<V extends Vertex>(
 } {
   debug.group(() => `Trying to advance ${path} directly with ${operation}`);
 
+  if (performance.now() > deadline) {
+    throw new Error('Query plan took too long to calculate');
+  }
+  
   const currentType = path.tail.type;
   if (isFederatedGraphRootType(currentType)) {
     // We cannot advance any operation from there: we need to take the initial non-collecting edges first.
@@ -2725,6 +2735,7 @@ function advanceWithOperation<V extends Vertex>(
           const castOp = new FragmentElement(currentType, implemType.name);
           debug.group(() => `Handling implementation ${implemType}`);
           const implemOptions = advanceSimultaneousPathsWithOperation(
+            deadline,
             supergraphSchema,
             new SimultaneousPathsWithLazyIndirectPaths([path], context, conditionResolver, [], [], overrideConditions),
             castOp,
@@ -2748,6 +2759,7 @@ function advanceWithOperation<V extends Vertex>(
           for (const optPaths of implemOptions) {
             debug.group(() => `For ${simultaneousPathsToString(optPaths)}`);
             const withFieldOptions = advanceSimultaneousPathsWithOperation(
+              deadline,
               supergraphSchema,
               optPaths,
               operation,
@@ -2824,6 +2836,7 @@ function advanceWithOperation<V extends Vertex>(
           debug.group(() => `Trying ${tName}`);
           const castOp = new FragmentElement(currentType, tName, operation.appliedDirectives);
           const implemOptions = advanceSimultaneousPathsWithOperation(
+            deadline,
             supergraphSchema,
             new SimultaneousPathsWithLazyIndirectPaths([path], context, conditionResolver, [], [], overrideConditions),
             castOp,

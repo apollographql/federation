@@ -15,6 +15,9 @@ import {
 import { QueryGraph, Vertex, buildFederatedQueryGraph } from "../querygraph";
 import { emptyContext } from "../pathContext";
 import { simpleValidationConditionResolver } from "../conditionsValidation";
+import { performance } from 'perf_hooks';
+
+const FAR_FUTURE_DEADLINE = performance.now() + 1000 * 60 * 60 * 24;
 
 function parseSupergraph(subgraphs: number, schema: string): { supergraph: Schema, api: Schema, queryGraph: QueryGraph } {
   assert(subgraphs >= 1, 'Should have at least 1 subgraph');
@@ -68,7 +71,7 @@ function createOptions(supergraph: Schema, queryGraph: QueryGraph): Simultaneous
   return createInitialOptions(
     initialPath,
     emptyContext,
-    simpleValidationConditionResolver({ supergraph, queryGraph }),
+    simpleValidationConditionResolver({ deadline: FAR_FUTURE_DEADLINE, supergraph, queryGraph }),
     [],
     [],
     new Map(),
@@ -104,7 +107,7 @@ describe("advanceSimultaneousPathsWithOperation", () => {
     const initial = createOptions(supergraph, queryGraph)[0];
 
     // Then picking `t`, which should be just the one option of picking it in S1 at this point.
-    const allAfterT = advanceSimultaneousPathsWithOperation(supergraph, initial, field(api, "Query.t"), new Map());
+    const allAfterT = advanceSimultaneousPathsWithOperation(FAR_FUTURE_DEADLINE, supergraph, initial, field(api, "Query.t"), new Map());
     assert(allAfterT, 'Should have advanced correctly');
     expect(allAfterT).toHaveLength(1);
     const afterT = allAfterT[0];
@@ -118,7 +121,7 @@ describe("advanceSimultaneousPathsWithOperation", () => {
     expect(indirect.paths[0].toString()).toBe(`Query(S1) --[t]--> T(S1) --[{ otherId } ⊢ key()]--> T(S2) (types: [T])`);
     expect(indirect.paths[1].toString()).toBe(`Query(S1) --[t]--> T(S1) --[{ id } ⊢ key()]--> T(S3) (types: [T])`);
 
-    const allForId = advanceSimultaneousPathsWithOperation(supergraph, afterT, field(api, "T.id"), new Map());
+    const allForId = advanceSimultaneousPathsWithOperation(FAR_FUTURE_DEADLINE, supergraph, afterT, field(api, "T.id"), new Map());
     assert(allForId, 'Should have advanced correctly');
 
     // Here, `id` is a direct path from both of our indirect paths. However, it makes no sense to use the 2nd
@@ -156,7 +159,7 @@ describe("advanceSimultaneousPathsWithOperation", () => {
     const initial = createOptions(supergraph, queryGraph)[0];
 
     // Then picking `t`, which should be just the one option of picking it in S1 at this point.
-    const allAfterT = advanceSimultaneousPathsWithOperation(supergraph, initial, field(api, "Query.t"), new Map());
+    const allAfterT = advanceSimultaneousPathsWithOperation(FAR_FUTURE_DEADLINE, supergraph, initial, field(api, "Query.t"), new Map());
     assert(allAfterT, 'Should have advanced correctly');
     expect(allAfterT).toHaveLength(1);
     const afterT = allAfterT[0];
@@ -170,7 +173,7 @@ describe("advanceSimultaneousPathsWithOperation", () => {
     expect(indirect.paths[0].toString()).toBe(`Query(S1) --[t]--> T(S1) --[{ otherId } ⊢ key()]--> T(S2) (types: [T])`);
     expect(indirect.paths[1].toString()).toBe(`Query(S1) --[t]--> T(S1) --[{ id1 id2 } ⊢ key()]--> T(S3) (types: [T])`);
 
-    const allForId = advanceSimultaneousPathsWithOperation(supergraph, afterT, field(api, "T.id1"), new Map());
+    const allForId = advanceSimultaneousPathsWithOperation(FAR_FUTURE_DEADLINE, supergraph, afterT, field(api, "T.id1"), new Map());
     assert(allForId, 'Should have advanced correctly');
 
     // Here, `id1` is a direct path from both of our indirect paths. However, it makes no sense to use the 2nd
@@ -202,7 +205,7 @@ describe("advanceSimultaneousPathsWithOperation", () => {
     const initial = createOptions(supergraph, queryGraph)[0];
 
     // Then picking `t`, which should be just the one option of picking it in S1 at this point.
-    const allAfterT = advanceSimultaneousPathsWithOperation(supergraph, initial, field(api, "Query.t"), new Map());
+    const allAfterT = advanceSimultaneousPathsWithOperation(FAR_FUTURE_DEADLINE, supergraph, initial, field(api, "Query.t"), new Map());
     assert(allAfterT, 'Should have advanced correctly');
     expect(allAfterT).toHaveLength(1);
     const afterT = allAfterT[0];
