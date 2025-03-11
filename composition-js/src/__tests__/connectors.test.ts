@@ -124,7 +124,7 @@ describe("connect spec and join__directive", () => {
   it("composes v0.2", () => {
     const subgraphs = [
       {
-        name: "with-connectors",
+        name: "with-connectors-v0_2",
         typeDefs: parse(`
                     extend schema
                     @link(
@@ -148,6 +148,31 @@ describe("connect spec and join__directive", () => {
                     }
                 `),
       },
+      {
+        name: "with-connectors-v0_1",
+        typeDefs: parse(`
+                    extend schema
+                    @link(
+                        url: "https://specs.apollo.dev/federation/v2.10"
+                        import: ["@key"]
+                    )
+                    @link(
+                        url: "https://specs.apollo.dev/connect/v0.1"
+                        import: ["@connect", "@source"]
+                    )
+                    @source(name: "v1", http: { baseURL: "http://v1" })
+
+                    type Query {
+                        widgets: [Widget!]!
+                        @connect(source: "v1", http: { GET: "/widgets" }, selection: "")
+                    }
+
+                    type Widget @key(fields: "id") {
+                        id: ID!
+                        name: String!
+                    }
+                `),
+      },
     ];
 
     const result = composeServices(subgraphs);
@@ -158,8 +183,9 @@ describe("connect spec and join__directive", () => {
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
         @link(url: \\"https://specs.apollo.dev/connect/v0.2\\", for: EXECUTION)
-        @join__directive(graphs: [WITH_CONNECTORS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.2\\", import: [\\"@connect\\", \\"@source\\"]})
-        @join__directive(graphs: [WITH_CONNECTORS], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@connect\\", \\"@source\\"]})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.2\\", import: [\\"@connect\\", \\"@source\\"]})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_1_, WITH_CONNECTORS_V0_2_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
       {
         query: Query
       }
@@ -195,7 +221,8 @@ describe("connect spec and join__directive", () => {
       scalar link__Import
 
       enum join__Graph {
-        WITH_CONNECTORS @join__graph(name: \\"with-connectors\\", url: \\"\\")
+        WITH_CONNECTORS_V0_1_ @join__graph(name: \\"with-connectors-v0_1\\", url: \\"\\")
+        WITH_CONNECTORS_V0_2_ @join__graph(name: \\"with-connectors-v0_2\\", url: \\"\\")
       }
 
       scalar join__FieldSet
@@ -212,14 +239,23 @@ describe("connect spec and join__directive", () => {
       }
 
       type Query
-        @join__type(graph: WITH_CONNECTORS)
+        @join__type(graph: WITH_CONNECTORS_V0_1_)
+        @join__type(graph: WITH_CONNECTORS_V0_2_)
       {
-        resources: [Resource!]! @join__directive(graphs: [WITH_CONNECTORS], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\"}, selection: \\"\\"})
+        widgets: [Widget!]! @join__field(graph: WITH_CONNECTORS_V0_1_) @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/widgets\\"}, selection: \\"\\"})
+        resources: [Resource!]! @join__field(graph: WITH_CONNECTORS_V0_2_) @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\"}, selection: \\"\\"})
+      }
+
+      type Widget
+        @join__type(graph: WITH_CONNECTORS_V0_1_, key: \\"id\\")
+      {
+        id: ID!
+        name: String!
       }
 
       type Resource
-        @join__type(graph: WITH_CONNECTORS, key: \\"id\\")
-        @join__directive(graphs: [WITH_CONNECTORS], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\"}, selection: \\"\\"})
+        @join__type(graph: WITH_CONNECTORS_V0_2_, key: \\"id\\")
+        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\"}, selection: \\"\\"})
       {
         id: ID!
         name: String!
@@ -228,15 +264,21 @@ describe("connect spec and join__directive", () => {
 
     if (result.schema) {
       expect(printSchema(result.schema.toAPISchema())).toMatchInlineSnapshot(`
-                      "type Query {
-                        resources: [Resource!]!
-                      }
+        "type Query {
+          widgets: [Widget!]!
+          resources: [Resource!]!
+        }
 
-                      type Resource {
-                        id: ID!
-                        name: String!
-                      }"
-                  `);
+        type Widget {
+          id: ID!
+          name: String!
+        }
+
+        type Resource {
+          id: ID!
+          name: String!
+        }"
+      `);
     }
   });
 

@@ -1102,7 +1102,7 @@ class Merger {
       if (!source) {
         continue;
       }
-      
+
       const sourceMetadata = this.subgraphs.values()[idx].metadata();
       const keyDirective = sourceMetadata.keyDirective();
       if (source.hasAppliedDirective(keyDirective)) {
@@ -3208,7 +3208,22 @@ class Merger {
     }
 
     const linkDirective = this.linkSpec.coreDirective(this.merged);
-    for (const link of linksToPersist) {
+
+    // When persisting features as @link directives in the supergraph, we can't
+    // repeat features that have the same identity, but different versions. This
+    // chooses the highest version of each feature to persist.
+    //
+    // (The original feature version is still recorded in a @join__directive
+    // so we're not losing any information.)
+    const highestLinkByIdentity = [...linksToPersist].reduce((map, link) => {
+      const existing = map.get(link.identity);
+      if (!existing || existing.version.lt(link.version)) {
+        map.set(link.identity, link);
+      }
+      return map;
+    }, new Map<string, FeatureDefinition>());
+
+    for (const [_, link] of highestLinkByIdentity) {
       dest.applyDirective(linkDirective, {
         url: link.toString(),
         for: link.defaultCorePurpose,
