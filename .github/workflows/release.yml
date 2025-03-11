@@ -47,21 +47,6 @@ jobs:
         run: sleep 20
         shell: bash
 
-      - name: Kick off release in federation-rs
-        if: steps.changesets.outputs.published == 'true'
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.ACTION_PAT }}
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: 'apollographql',
-              repo: 'federation-rs',
-              workflow_id: '.github/workflows/release.yml',
-              ref: 'main',
-              inputs: {
-                version: "${{ env.FEDERATION_VERSION }}"
-              }
-            })
       - name: Write token to the NPM rc file (login)
         if: steps.changesets.outputs.published == 'true'
         # write token to the NPM rc file (npm login)
