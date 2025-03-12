@@ -1,5 +1,16 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.11.0-preview.0
+
+### Minor Changes
+
+- Add connect spec v0.2 ([#3228](https://github.com/apollographql/federation/pull/3228))
+
+### Patch Changes
+
+- Updated dependencies [[`e7e67579908d5cd2fa6fe558228dffe4808cd98d`](https://github.com/apollographql/federation/commit/e7e67579908d5cd2fa6fe558228dffe4808cd98d)]:
+  - @apollo/federation-internals@2.11.0-preview.0
+
 ## 2.10.0
 
 ### Minor Changes
