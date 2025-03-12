@@ -62,8 +62,9 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         selection: JSONSelection!
         entity: Boolean = false
       ) repeatable on FIELD_DEFINITION
+        | OBJECT # added in v0.2, validation enforced in rust
     */
-    const connect = this.addDirective(schema, CONNECT).addLocations(DirectiveLocation.FIELD_DEFINITION);
+    const connect = this.addDirective(schema, CONNECT).addLocations(DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT);
     connect.repeatable = true;
 
     connect.addArgument(SOURCE, schema.stringType());
@@ -143,6 +144,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
 }
 
 export const CONNECT_VERSIONS = new FeatureDefinitions<ConnectSpecDefinition>(connectIdentity)
-  .add(new ConnectSpecDefinition(new FeatureVersion(0, 1), new FeatureVersion(2, 10)));
+  .add(new ConnectSpecDefinition(new FeatureVersion(0, 1), new FeatureVersion(2, 10)))
+  .add(new ConnectSpecDefinition(new FeatureVersion(0, 2), new FeatureVersion(2, 11)));
 
 registerKnownFeature(CONNECT_VERSIONS);
