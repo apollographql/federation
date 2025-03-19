@@ -220,6 +220,7 @@ export interface MergeSuccess {
   supergraph: Schema;
   hints: CompositionHint[];
   errors?: undefined;
+  subgraphs?: Subgraphs,
 }
 
 export interface MergeFailure {
@@ -769,7 +770,8 @@ class Merger {
     } else {
       return {
         supergraph: this.merged,
-        hints: this.hints
+        hints: this.hints,
+        subgraphs: this.subgraphs,
       }
     }
   }

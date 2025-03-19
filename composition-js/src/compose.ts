@@ -11,6 +11,7 @@ import {
   SubtypingRule,
   assert,
   Supergraph,
+  UpgradeResult,
 } from "@apollo/federation-internals";
 import { GraphQLError } from "graphql";
 import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/query-graphs";
@@ -25,6 +26,7 @@ export interface CompositionFailure {
   schema?: undefined;
   supergraphSdl?: undefined;
   hints?: undefined;
+  subgraphSdl?: { [subgraph: string]: string}
 }
 
 export interface CompositionSuccess {
@@ -32,6 +34,7 @@ export interface CompositionSuccess {
   supergraphSdl: string;
   hints: CompositionHint[];
   errors?: undefined;
+  subgraphSdl?: { [subgraph: string]: string}
 }
 
 export interface CompositionOptions {
@@ -39,6 +42,14 @@ export interface CompositionOptions {
   allowedFieldTypeMergingSubtypingRules?: SubtypingRule[];
   /// Flag to toggle if satisfiability should be performed during composition
   runSatisfiability?: boolean;
+  
+  // note that pipeline options are temporary and will be removed in the future
+  pipelineOptions?: {
+    bypassUpgradeSubgraphs?: boolean;
+    bypassValidateSubgraphs?: boolean;
+    bypassComposition?: boolean;
+    outputUpgradedSubgraphs?: boolean;
+  }
 }
 
 function validateCompositionOptions(options: CompositionOptions) {
@@ -63,6 +74,24 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
   if (mergeResult.errors) {
     return { errors: mergeResult.errors };
   }
+  
+  let subgraphSdl: { [name: string]: string } | undefined = !!options.pipelineOptions?.outputUpgradedSubgraphs ? {} : undefined;
+  if (subgraphSdl !== undefined && mergeResult.subgraphs) {
+    for (const subgraph of mergeResult.subgraphs.values()) {
+      subgraphSdl[subgraph.name] = printSchema(subgraph.schema, sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions));
+    }
+  }
+
+  // if we don't have a supergraph, we're using the `bypassComposition` option.
+  if (!mergeResult.supergraph) {
+    return {
+      schema: undefined,
+      supergraphSdl: undefined,
+      hints: undefined,
+      subgraphSdl,
+      errors: [],
+    }
+  }
 
   let satisfiabilityResult;
   if (runSatisfiability) {
@@ -84,11 +113,12 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
   } catch (err) {
     return { errors: [err] };
   }
-
+  
   return {
     schema: mergeResult.supergraph,
     supergraphSdl,
     hints: [...mergeResult.hints, ...(satisfiabilityResult?.hints ?? [])],
+    subgraphSdl,
   };
 }
 
@@ -136,7 +166,7 @@ export function validateSatisfiability({ supergraphSchema, supergraphSdl} : Sati
   return validateGraphComposition(supergraph.schema, supergraph.subgraphNameToGraphEnumValue(), supergraphQueryGraph, federatedQueryGraph);
 }
 
-type ValidateSubgraphsAndMergeResult = MergeResult | { errors: GraphQLError[] };
+type ValidateSubgraphsAndMergeResult = MergeResult | { errors: GraphQLError[] } | { subgraphs: Subgraphs, errors?: undefined, supergraph?: undefined };
 
 /**
  * Upgrade subgraphs if necessary, then validates subgraphs before attempting to merge
@@ -144,17 +174,28 @@ type ValidateSubgraphsAndMergeResult = MergeResult | { errors: GraphQLError[] };
  * @param subgraphs
  * @returns ValidateSubgraphsAndMergeResult
  */
-function validateSubgraphsAndMerge(subgraphs: Subgraphs) : ValidateSubgraphsAndMergeResult {
-  const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
-  if (upgradeResult.errors) {
-    return { errors: upgradeResult.errors };
+function validateSubgraphsAndMerge(subgraphs: Subgraphs, options: CompositionOptions = {}) : ValidateSubgraphsAndMergeResult {
+  let toMerge: Subgraphs;
+    
+  if (!options.pipelineOptions?.bypassUpgradeSubgraphs) {
+    const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
+    if (upgradeResult.errors) {
+      return { errors: upgradeResult.errors };
+    }
+    toMerge = upgradeResult.subgraphs;
+  } else {
+    toMerge = subgraphs;
   }
 
-  const toMerge = upgradeResult.subgraphs;
-  const validationErrors = toMerge.validate();
-  if (validationErrors) {
-    return { errors: validationErrors };
+  if (!options.pipelineOptions?.bypassValidateSubgraphs) {
+    const validationErrors = toMerge.validate();
+    if (validationErrors) {
+      return { errors: validationErrors };
+    }
   }
-
+  
+  if (!options.pipelineOptions?.bypassComposition) {
+    return { subgraphs: toMerge };
+  }
   return mergeSubgraphs(toMerge);
 }
