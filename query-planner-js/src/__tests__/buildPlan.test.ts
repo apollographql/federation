@@ -10721,3 +10721,99 @@ test('ensure we are removing all useless groups', () => {
       }
     `);
 });
+
+describe('`maxQueryPlanningTime` configuration', () => {
+  // Simple schema that should still take longer the a millisecond to plan
+  const typeDefs = gql`
+    type Query {
+      t: T @shareable
+    }
+
+    type T @key(fields: "id") @shareable {
+      id: ID!
+      v1: Int
+      v2: Int
+      v3: Int
+      v4: Int
+    }
+  `;
+
+  const subgraphs = [
+    {
+      name: 'Subgraph1',
+      typeDefs,
+    },
+    {
+      name: 'Subgraph2',
+      typeDefs,
+    },
+  ];
+
+  test('maxQueryPlanningTime works when not set', () => {
+    const config = { debug: { maxEvaluatedPlans: undefined } };
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      subgraphs,
+      config,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v1
+            v2
+            v3
+            v4
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              v1
+              v2
+              v3
+              v4
+            }
+          }
+        },
+      }
+    `);
+
+    const stats = queryPlanner.lastGeneratedPlanStatistics();
+    expect(stats?.evaluatedPlanCount).toBe(16);
+  });
+
+  test('maxQueryPlanningTime exceeded (10 microseconds)', () => {
+    const config = {
+      debug: { maxEvaluatedPlans: undefined },
+      maxQueryPlanningTime: 0.01,
+    };
+    const [api, queryPlanner] = composeAndCreatePlannerWithOptions(
+      subgraphs,
+      config,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            v1
+            v2
+            v3
+            v4
+          }
+        }
+      `,
+    );
+
+    expect(() => queryPlanner.buildQueryPlan(operation)).toThrow(
+      'Query plan took too long to calculate',
+    );
+  });
+});

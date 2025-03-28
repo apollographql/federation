@@ -306,6 +306,7 @@ function generateWitnessValue(type: InputType): any {
  * @param federatedQueryGraph the (federated) `QueryGraph` corresponding the subgraphs having been composed to obtain `supergraphSchema`.
  */
 export function validateGraphComposition(
+  deadline: number,
   supergraphSchema: Schema,
   subgraphNameToGraphEnumValue: Map<string, string>,
   supergraphAPI: QueryGraph,
@@ -315,6 +316,7 @@ export function validateGraphComposition(
   hints? : CompositionHint[],
 } {
   const { errors, hints } = new ValidationTraversal(
+    deadline,
     supergraphSchema,
     subgraphNameToGraphEnumValue,
     supergraphAPI,
@@ -697,12 +699,14 @@ class ValidationTraversal {
   private readonly context: ValidationContext;
 
   constructor(
+    deadline: number,
     supergraphSchema: Schema,
     subgraphNameToGraphEnumValue: Map<string, string>,
     supergraphAPI: QueryGraph,
     federatedQueryGraph: QueryGraph,
   ) {
     this.conditionResolver = simpleValidationConditionResolver({
+      deadline,
       supergraph: supergraphSchema,
       queryGraph: federatedQueryGraph,
       withCaching: true,

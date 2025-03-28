@@ -17,6 +17,7 @@ import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/
 import { MergeResult, mergeSubgraphs } from "./merging";
 import { validateGraphComposition } from "./validate";
 import { CompositionHint } from "./hints";
+import { performance } from 'perf_hooks';
 
 export type CompositionResult = CompositionFailure | CompositionSuccess;
 
@@ -133,7 +134,10 @@ export function validateSatisfiability({ supergraphSchema, supergraphSdl} : Sati
   const supergraph = supergraphSchema ? new Supergraph(supergraphSchema, null) : Supergraph.build(supergraphSdl, { supportedFeatures: null });
   const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
   const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
-  return validateGraphComposition(supergraph.schema, supergraph.subgraphNameToGraphEnumValue(), supergraphQueryGraph, federatedQueryGraph);
+  
+  // for satisfiability, we don't want to really have a deadline here, so set it far into the future
+  const deadline = performance.now() + 1000 * 60 * 60 * 24; // 1 day
+  return validateGraphComposition(deadline, supergraph.schema, supergraph.subgraphNameToGraphEnumValue(), supergraphQueryGraph, federatedQueryGraph);
 }
 
 type ValidateSubgraphsAndMergeResult = MergeResult | { errors: GraphQLError[] };
