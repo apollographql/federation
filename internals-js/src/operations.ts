@@ -3650,7 +3650,7 @@ class InlineFragmentSelection extends FragmentSelection {
   }
 }
 
-class FragmentSpreadSelection extends FragmentSelection {
+export class FragmentSpreadSelection extends FragmentSelection {
   private computedKey: string | undefined;
 
   constructor(
