@@ -41,6 +41,7 @@ import {
 import { inspect } from 'util';
 import { DownCast, FieldCollection, subgraphEnteringTransition, SubgraphEnteringTransition, Transition, KeyResolution, RootTypeResolution, InterfaceObjectFakeDownCast } from './transition';
 import { preComputeNonTrivialFollowupEdges } from './nonTrivialEdgePrecomputing';
+import { NonLocalSelectionsMetadata } from './nonLocalSelectionsEstimation';
 
 // We use our federation reserved subgraph name to avoid risk of conflict with other subgraph names (wouldn't be a huge
 // deal, but safer that way). Using something short like `_` is also on purpose: it makes it stand out in debug messages
@@ -122,6 +123,14 @@ export function isRootVertex(vertex: Vertex): vertex is RootVertex {
 export interface OverrideCondition {
   label: string;
   condition: boolean;
+}
+
+export function checkOverrideCondition(
+  overrideCondition: OverrideCondition,
+  conditionsToCheck: Map<string, boolean>
+): boolean {
+  const { label, condition } = overrideCondition;
+  return conditionsToCheck.has(label) ? conditionsToCheck.get(label) === condition : false;
 }
 
 export type ContextCondition = {
@@ -271,8 +280,10 @@ export class Edge {
 
   satisfiesOverrideConditions(conditionsToCheck: Map<string, boolean>) {
     if (!this.overrideCondition) return true;
-    const { label, condition } = this.overrideCondition;
-    return conditionsToCheck.has(label) ? conditionsToCheck.get(label) === condition : false;
+    return checkOverrideCondition(
+      this.overrideCondition,
+      conditionsToCheck,
+    );
   }
 
   toString(): string {
@@ -329,6 +340,12 @@ export class QueryGraph {
    * composition (100+ subgraphs) from ~4 "minutes" to ~10 seconds.
    */
   readonly nonTrivialFollowupEdges: (edge: Edge) => readonly Edge[];
+  /**
+   * To speed up the estimation of counting non-local selections, we
+   * precompute specific metadata. We only computed this for federated query
+   * graphs used during query planning.
+   */
+  readonly nonLocalSelectionsMetadata: NonLocalSelectionsMetadata | null;
 
   /**
    * Creates a new query graph.
@@ -365,8 +382,13 @@ export class QueryGraph {
     readonly subgraphToArgIndices: Map<string, Map<string, string>>,
 
     readonly schema: Schema,
+
+    isFederatedAndForQueryPlanning?: boolean,
   ) {
     this.nonTrivialFollowupEdges = preComputeNonTrivialFollowupEdges(this);
+    this.nonLocalSelectionsMetadata = isFederatedAndForQueryPlanning
+     ? new NonLocalSelectionsMetadata(this)
+     : null;
   }
 
   /** The number of vertices in this query graph. */
@@ -446,6 +468,18 @@ export class QueryGraph {
    */
   outEdge(vertex: Vertex, edgeIndex: number): Edge | undefined {
     return this._outEdges[vertex.index][edgeIndex];
+  }
+
+  allVertices(): Iterable<Vertex> {
+    return this.vertices;
+  }
+
+  *allEdges(): Iterable<Edge> {
+    for (const vertexOutEdges of this._outEdges) {
+      for (const outEdge of vertexOutEdges) {
+        yield outEdge;
+      }
+    }
   }
 
   /**
@@ -671,7 +705,7 @@ export function buildFederatedQueryGraph(supergraph: Supergraph, forQueryPlannin
   for (const subgraph of subgraphs) {
     graphs.push(buildGraphInternal(subgraph.name, subgraph.schema, forQueryPlanning, supergraph.schema));
   }
-  return federateSubgraphs(supergraph.schema, graphs);
+  return federateSubgraphs(supergraph.schema, graphs, forQueryPlanning);
 }
 
 function federatedProperties(subgraphs: QueryGraph[]) : [number, Set<SchemaRootKind>, Schema[]] {
@@ -695,7 +729,11 @@ function resolvableKeyApplications(
   return applications.filter((application) => application.arguments().resolvable ?? true);
 }
 
-function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGraph {
+function federateSubgraphs(
+  supergraph: Schema,
+  subgraphs: QueryGraph[],
+  forQueryPlanning: boolean,
+): QueryGraph {
   const [verticesCount, rootKinds, schemas] = federatedProperties(subgraphs);
   const builder = new GraphBuilder(supergraph, verticesCount);
   rootKinds.forEach(k => builder.createRootVertex(
@@ -1061,7 +1099,7 @@ function federateSubgraphs(supergraph: Schema, subgraphs: QueryGraph[]): QueryGr
     }
   }
 
-  return builder.build(FEDERATED_GRAPH_ROOT_SOURCE);
+  return builder.build(FEDERATED_GRAPH_ROOT_SOURCE, forQueryPlanning);
 }
 
 function addProvidesEdges(schema: Schema, builder: GraphBuilder, from: Vertex, provided: SelectionSet, provideId: number) {
@@ -1306,7 +1344,7 @@ class GraphBuilder {
     return v;
   }
 
-  build(name: string): QueryGraph {
+  build(name: string, isFederatedAndForQueryPlanning?: boolean): QueryGraph {
     return new QueryGraph(
       name,
       this.vertices,
@@ -1317,6 +1355,7 @@ class GraphBuilder {
       this.subgraphToArgs,
       this.subgraphToArgIndices,
       this.schema,
+      isFederatedAndForQueryPlanning,
     );
   }
   

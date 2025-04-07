@@ -98,6 +98,8 @@ import {
   createInitialOptions,
   buildFederatedQueryGraph,
   FEDERATED_GRAPH_ROOT_SOURCE,
+  NonLocalSelectionsState,
+  NonLocalSelectionsMetadata,
 } from "@apollo/query-graphs";
 import { stripIgnoredCharacters, print, OperationTypeNode, SelectionSetNode, Kind } from "graphql";
 import { DeferredNode, FetchDataKeyRenamer, FetchDataRewrite } from ".";
@@ -105,6 +107,7 @@ import { Conditions, conditionsOfSelectionSet, isConstantCondition, mergeConditi
 import { enforceQueryPlannerConfigDefaults, QueryPlannerConfig, validateQueryPlannerConfig } from "./config";
 import { generateAllPlansAndFindBest } from "./generateAllPlans";
 import { QueryPlan, ResponsePath, SequenceNode, PlanNode, ParallelNode, FetchNode, SubscriptionNode, trimSelectionNodes } from "./QueryPlan";
+import { validateRecursiveSelections } from './recursiveSelectionsLimit';
 
 
 const debug = newDebugLogger('plan');
@@ -394,6 +397,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     readonly costFunction: CostFunction,
     initialContext: PathContext,
     typeConditionedFetching: boolean,
+    nonLocalSelectionsState: NonLocalSelectionsState | null,
     excludedDestinations: ExcludedDestinations = [],
     excludedConditions: ExcludedConditions = [],
   ) {
@@ -416,6 +420,24 @@ class QueryPlanningTraversal<RV extends Vertex> {
       parameters.overrideConditions,
     );
     this.stack = mapOptionsToSelections(selectionSet, initialOptions);
+    if (
+      this.parameters.federatedQueryGraph.nonLocalSelectionsMetadata
+        && nonLocalSelectionsState
+    ) {
+      if (this.parameters.federatedQueryGraph.nonLocalSelectionsMetadata
+        .checkNonLocalSelectionsLimitExceededAtRoot(
+          this.stack,
+          nonLocalSelectionsState,
+          this.parameters.supergraphSchema,
+          this.parameters.inconsistentAbstractTypesRuntimes,
+          this.parameters.overrideConditions,
+        )
+      ) {
+        throw Error(`Number of non-local selections exceeds limit of ${
+          NonLocalSelectionsMetadata.MAX_NON_LOCAL_SELECTIONS
+        }`);
+      }
+    }
   }
 
   private debugStack() {
@@ -771,6 +793,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       this.costFunction,
       context,
       this.typeConditionedFetching,
+      null,
       excludedDestinations,
       addConditionExclusion(excludedConditions, edge.conditions),
     ).findBestPlan();
@@ -3125,6 +3148,22 @@ interface BuildQueryPlanOptions {
    * progressive @override feature.
    */
   overrideConditions?: Map<string, boolean>,
+  /**
+   * Normally, we impose a limit on the number of recursive selections, which if
+   * high can cause poor query planner performance. Setting this flag to `true`
+   * will disable this limit check. This is not advised if gateway is being used
+   * to serve queries outside your control, as doing so will leave query planner
+   * susceptible to denial-of-service attacks.
+   */
+  recursiveSelectionsLimitDisabled?: boolean,
+  /**
+   * Normally, we impose a limit on the number of non-local selections, which if
+   * high can cause poor query planner performance. Setting this flag to `true`
+   * will disable this limit check. This is not advised if gateway is being used
+   * to serve queries outside your control, as doing so will leave query planner
+   * susceptible to denial-of-service attacks.
+   */
+  nonLocalSelectionsLimitDisabled?: boolean,
 }
 
 export class QueryPlanner {
@@ -3225,6 +3264,19 @@ export class QueryPlanner {
       return { kind: 'QueryPlan' };
     }
 
+    if (!options?.recursiveSelectionsLimitDisabled) {
+      // Before running anything that might expand named fragments recursively,
+      // we ensure that doing so won't generate too many selections.
+      //
+      // This is done before the single-subgraph bypass to avoid those subgraphs
+      // being sent such a query. For gateway, note that top-level introspection
+      // fields are not split off from the query given to query planning, and
+      // this allows the check below to also impose a limit on the introspection
+      // part of queries. (Which is important, since query plan execution in
+      // gateway expands introspection fragments at the moment.)
+      validateRecursiveSelections(operation);
+    }
+
     const isSubscription = operation.rootKind === 'subscription';
 
     const statistics: PlanningStatistics = {
@@ -3322,16 +3374,21 @@ export class QueryPlanner {
     }
 
     let rootNode: PlanNode | SubscriptionNode | undefined;
+    let nonLocalSelectionsState = options?.nonLocalSelectionsLimitDisabled
+      ? null
+      : new NonLocalSelectionsState();
     if (deferConditions && deferConditions.size > 0) {
       assert(hasDefers, 'Should not have defer conditions without @defer');
       rootNode = computePlanForDeferConditionals({
         parameters,
         deferConditions,
+        nonLocalSelectionsState,
       })
     } else {
       rootNode = computePlanInternal({
         parameters,
         hasDefers,
+        nonLocalSelectionsState,
       });
     }
 
@@ -3524,9 +3581,11 @@ export class QueryPlanner {
 function computePlanInternal({
   parameters,
   hasDefers,
+  nonLocalSelectionsState,
 }: {
   parameters: PlanningParameters<RootVertex>,
   hasDefers: boolean,
+  nonLocalSelectionsState: NonLocalSelectionsState | null,
 }): PlanNode | undefined {
   let main: PlanNode | undefined = undefined;
   let primarySelection: MutableSelectionSet | undefined = undefined;
@@ -3534,7 +3593,11 @@ function computePlanInternal({
 
   const { operation, processor } = parameters;
   if (operation.rootKind === 'mutation') {
-    const dependencyGraphs = computeRootSerialDependencyGraph(parameters, hasDefers);
+    const dependencyGraphs = computeRootSerialDependencyGraph(
+      parameters,
+      hasDefers,
+      nonLocalSelectionsState,
+    );
     for (const dependencyGraph of dependencyGraphs) {
       const { main: localMain, deferred: localDeferred } = dependencyGraph.process(processor, operation.rootKind);
       // Note that `reduceSequence` "flatten" sequence if needs be.
@@ -3554,6 +3617,7 @@ function computePlanInternal({
       parameters,
       0,
       hasDefers,
+      nonLocalSelectionsState,
     );
     ({ main, deferred } = dependencyGraph.process(processor, operation.rootKind));
     primarySelection = dependencyGraph.deferTracking.primarySelection;
@@ -3568,9 +3632,11 @@ function computePlanInternal({
 function computePlanForDeferConditionals({
   parameters,
   deferConditions,
+  nonLocalSelectionsState,
 }: {
   parameters: PlanningParameters<RootVertex>,
   deferConditions: SetMultiMap<string, string>,
+  nonLocalSelectionsState: NonLocalSelectionsState | null,
 }): PlanNode | undefined {
   return generateConditionNodes(
     parameters.operation,
@@ -3582,6 +3648,7 @@ function computePlanForDeferConditionals({
         operation: op,
       },
       hasDefers: true,
+      nonLocalSelectionsState,
     }),
   );
 }
@@ -3675,12 +3742,14 @@ function computeRootParallelDependencyGraph(
   parameters: PlanningParameters<RootVertex>,
   startFetchIdGen: number,
   hasDefer: boolean,
+  nonLocalSelectionsState: NonLocalSelectionsState | null,
 ): FetchDependencyGraph {
   return computeRootParallelBestPlan(
     parameters,
     parameters.operation.selectionSet,
     startFetchIdGen,
     hasDefer,
+    nonLocalSelectionsState,
   )[0];
 }
 
@@ -3689,6 +3758,7 @@ function computeRootParallelBestPlan(
   selection: SelectionSet,
   startFetchIdGen: number,
   hasDefers: boolean,
+  nonLocalSelectionsState: NonLocalSelectionsState | null,
 ): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
   const planningTraversal = new QueryPlanningTraversal(
     parameters,
@@ -3699,6 +3769,7 @@ function computeRootParallelBestPlan(
     defaultCostFunction,
     emptyContext,
     parameters.config.typeConditionedFetching,
+    nonLocalSelectionsState,
   );
   const plan = planningTraversal.findBestPlan();
   // Getting no plan means the query is essentially unsatisfiable (it's a valid query, but we can prove it will never return a result),
@@ -3726,6 +3797,7 @@ function onlyRootSubgraph(graph: FetchDependencyGraph): string {
 function computeRootSerialDependencyGraph(
   parameters: PlanningParameters<RootVertex>,
   hasDefers: boolean,
+  nonLocalSelectionsState: NonLocalSelectionsState | null,
 ): FetchDependencyGraph[] {
   const { supergraphSchema, federatedQueryGraph, operation, root } = parameters;
   const rootType = hasDefers ? supergraphSchema.schemaDefinition.rootType(root.rootKind) : undefined;
@@ -3733,10 +3805,22 @@ function computeRootSerialDependencyGraph(
   const splittedRoots = splitTopLevelFields(operation.selectionSet);
   const graphs: FetchDependencyGraph[] = [];
   let startingFetchId = 0;
-  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(parameters, splittedRoots[0], startingFetchId, hasDefers);
+  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(
+    parameters,
+    splittedRoots[0],
+    startingFetchId,
+    hasDefers,
+    nonLocalSelectionsState,
+  );
   let prevSubgraph = onlyRootSubgraph(prevDepGraph);
   for (let i = 1; i < splittedRoots.length; i++) {
-    const [newDepGraph, newPaths] = computeRootParallelBestPlan(parameters, splittedRoots[i], prevDepGraph.nextFetchId(), hasDefers);
+    const [newDepGraph, newPaths] = computeRootParallelBestPlan(
+      parameters,
+      splittedRoots[i],
+      prevDepGraph.nextFetchId(),
+      hasDefers,
+      nonLocalSelectionsState,
+    );
     const newSubgraph = onlyRootSubgraph(newDepGraph);
     if (prevSubgraph === newSubgraph) {
       // The new operation (think 'mutation' operation) is on the same subgraph than the previous one, so we can concat them in a single fetch

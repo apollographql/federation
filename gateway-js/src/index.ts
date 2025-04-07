@@ -155,6 +155,16 @@ export class ApolloGateway implements GatewayInterface {
   private experimental_didResolveQueryPlan?: Experimental_DidResolveQueryPlanCallback;
   // Used to communicate supergraph updates
   private experimental_didUpdateSupergraph?: Experimental_DidUpdateSupergraphCallback;
+  // Used to disable the recursive selections limit in query planner. Setting
+  // this to `true` is not advised if gateway is being used to serve queries
+  // outside your control, as doing so will leave query planner susceptible to
+  // denial-of-service attacks.
+  private recursiveSelectionsLimitDisabled: boolean;
+  // Used to disable the non-local selections limit in query planner. Setting
+  // this to `true` is not advised if gateway is being used to serve queries
+  // outside your control, as doing so will leave query planner susceptible to
+  // denial-of-service attacks.
+  private nonLocalSelectionsLimitDisabled: boolean;
   // how often service defs should be loaded/updated
   private pollIntervalInMs?: number;
   // Functions to call during gateway cleanup (when stop() is called)
@@ -179,6 +189,22 @@ export class ApolloGateway implements GatewayInterface {
       config?.experimental_didResolveQueryPlan;
     this.experimental_didUpdateSupergraph =
       config?.experimental_didUpdateSupergraph;
+
+    // Check environment variables to see whether the query planner's recursive
+    // selections limit should be disabled. Setting this variable to `true` is
+    // not advised if gateway is being used to serve queries outside your
+    // control, as doing so will leave query planner susceptible to
+    // denial-of-service attacks.
+    this.recursiveSelectionsLimitDisabled =
+      process.env.APOLLO_DISABLE_SECURITY_RECURSIVE_SELECTIONS_CHECK === 'true';
+
+    // Check environment variables to see whether the query planner's non-local
+    // selections limit should be disabled. Setting this variable to `true` is
+    // not advised if gateway is being used to serve queries outside your
+    // control, as doing so will leave query planner susceptible to
+    // denial-of-service attacks.
+    this.nonLocalSelectionsLimitDisabled =
+      process.env.APOLLO_DISABLE_SECURITY_NON_LOCAL_SELECTIONS_CHECK === 'true';
 
     if (isManagedConfig(this.config)) {
       this.pollIntervalInMs =
@@ -806,7 +832,12 @@ export class ApolloGateway implements GatewayInterface {
                     { operationName: request.operationName },
                   );
                   // TODO(#631): Can we be sure the query planner has been initialized here?
-                  return this.queryPlanner!.buildQueryPlan(operation);
+                  return this.queryPlanner!.buildQueryPlan(operation, {
+                    recursiveSelectionsLimitDisabled:
+                      this.recursiveSelectionsLimitDisabled,
+                    nonLocalSelectionsLimitDisabled:
+                      this.nonLocalSelectionsLimitDisabled,
+                  });
                 } catch (err) {
                   recordExceptions(span, [err], this.config.telemetry);
                   span.setStatus({ code: SpanStatusCode.ERROR });
