@@ -14,6 +14,23 @@ Apollo Federation acts as an API orchestration layer for your organization’s m
 
 When paired with the [Apollo Router](https://github.com/apollographql/router), Federation allows incoming requests to be intelligently routed to the appropriate services. The router orchestrates data fetching across services and assembles a unified response for the client. This keeps client complexity low and enables backend teams to evolve independently.
 
+Check out the [docs](https://www.apollographql.com/docs/graphos/schema-design/federated-schemas/federation) to learn more.
+
+## Who is Apollo?
+
+[Apollo](https://apollographql.com/) builds open-source tools and commercial services to make application development easier, better, and accessible to more people. We help you ship faster with:
+
+* [GraphOS](https://www.apollographql.com/graphos) - The platform for building, managing, and scaling a supergraph: a unified network of your organization's microservices and their data sources—all composed into a single distributed API.
+* [Apollo Federation](https://www.apollographql.com/federation) – The industry-standard open architecture for building a distributed graph.
+* [Apollo Router](https://github.com/apollographql/router) - The routing runtime for supergraphs. It determines a query plan, routes requests across your services, and provides detailed observability. 
+* [Apollo Connectors](https://www.apollographql.com/docs/graphos/schema-design/connectors) - A declarative way of plugging REST APIs into your graph built on the Apollo Router and Federation.
+* [Apollo Server](https://www.apollographql.com/docs/apollo-server/) – A production-ready JavaScript GraphQL server that connects to any microservice, API, or database. Compatible with all popular JavaScript frameworks and deployable in serverless environments.
+* [Apollo Client](https://github.com/apollographql/apollo-client) – The most popular GraphQL client for the web. Apollo also builds and maintains [Apollo iOS](https://github.com/apollographql/apollo-ios) and [Apollo Kotlin](https://github.com/apollographql/apollo-kotlin).
+
+## Learn how to build with Apollo
+
+Check out the [Odyssey](https://odyssey.apollographql.com/) learning platform, the perfect place to start your GraphQL journey with videos and interactive code challenges. Join the [Apollo Community](https://community.apollographql.com/) to interact with and get technical help from the GraphQL community.
+
 ## Contributing
 
 If this project seems like something to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://github.com/apollographql/.github/blob/HEAD/CODE_OF_CONDUCT.md) and then head on over to the [contributing guide](./CONTRIBUTING.md) to learn how to work on this project.
@@ -26,21 +43,6 @@ If you ever have any problems, questions, or ideas, the maintainers of this proj
 
 1. **Federation 2** is the current `main` branch. Installing `latest` from npm is the most recent published code from `main`.
 2. **Prior releases** are located under the `version-0.x` branch. This comprises all 0.x packages previously released. Installing `latest-1` from npm is the most recent published code from `version-0.x`.
-
-## Who is Apollo?
-
-[Apollo](https://apollographql.com/) builds open-source tools and commercial services to make application development easier, better, and accessible to more people. We help you ship faster with:
-
-* [GraphOS](https://www.apollographql.com/graphos) - The platform for building, managing, and scaling a supergraph: a unified network of your organization's microservices and their data sources—all composed into a single distributed API.
-* [Apollo Federation](https://www.apollographql.com/federation) – The industry-standard open architecture for building a distributed graph.
-* [Apollo Connectors](https://www.apollographql.com/docs/graphos/schema-design/connectors) are built on Federation.
-* Use the [Apollo Router](https://github.com/apollographql/router) to compose a unified graph from multiple subgraphs, determine a query plan, and route requests across your services.
-* [Apollo Client](https://github.com/apollographql/apollo-client) – The most popular GraphQL client for the web. Apollo also builds and maintains [Apollo iOS](https://github.com/apollographql/apollo-ios) and [Apollo Kotlin](https://github.com/apollographql/apollo-kotlin).
-* [Apollo Server](https://www.apollographql.com/docs/apollo-server/) – A production-ready JavaScript GraphQL server that connects to any microservice, API, or database. Compatible with all popular JavaScript frameworks and deployable in serverless environments.
-
-## Learn how to build with Apollo
-
-Check out the [Odyssey](https://odyssey.apollographql.com/) learning platform, the perfect place to start your GraphQL journey with videos and interactive code challenges. Join the [Apollo Community](https://community.apollographql.com/) to interact with and get technical help from the GraphQL community.
 
 ## Licensing
 
