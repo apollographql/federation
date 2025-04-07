@@ -1129,7 +1129,7 @@ interface NextVerticesInfo {
    */
   nextVertices: Set<Vertex>,
   /**
-   * Whether any cross-subgraph edges are reachable from any next vertces.
+   * Whether any cross-subgraph edges are reachable from any next vertices.
    */
   nextVerticesHaveReachableCrossSubgraphEdges: boolean,
   /**
