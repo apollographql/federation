@@ -1,8 +1,8 @@
 ---
-"@apollo/query-planner": minor
-"@apollo/query-graphs": minor
-"@apollo/federation-internals": minor
-"@apollo/gateway": minor
+"@apollo/query-planner": patch
+"@apollo/query-graphs": patch
+"@apollo/federation-internals": patch
+"@apollo/gateway": patch
 ---
 
 Corrects a set of denial-of-service (DOS) vulnerabilities that made it possible for an attacker to render gateway inoperable with certain simple query patterns due to uncontrolled resource consumption. All prior-released versions and configurations are vulnerable.
