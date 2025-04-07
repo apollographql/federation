@@ -7,3 +7,4 @@ export * from './pathContext';
 export * from './conditionsCaching';
 export * from './conditionsValidation';
 export * from './mermaid';
+export * from './nonLocalSelectionsEstimation';
