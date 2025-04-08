@@ -11,7 +11,6 @@ import {
   SubtypingRule,
   assert,
   Supergraph,
-  UpgradeResult,
 } from "@apollo/federation-internals";
 import { GraphQLError } from "graphql";
 import { buildFederatedQueryGraph, buildSupergraphAPIQueryGraph } from "@apollo/query-graphs";
@@ -45,9 +44,9 @@ export interface CompositionOptions {
   
   // note that pipeline options are temporary and will be removed in the future
   pipelineOptions?: {
-    bypassUpgradeSubgraphs?: boolean;
-    bypassValidateSubgraphs?: boolean;
-    bypassComposition?: boolean;
+    runUpgradeSubgraphs?: boolean;
+    runValidateSubgraphs?: boolean;
+    runComposition?: boolean;
     outputUpgradedSubgraphs?: boolean;
   }
 }
@@ -75,14 +74,14 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
     return { errors: mergeResult.errors };
   }
   
-  let subgraphSdl: { [name: string]: string } | undefined = !!options.pipelineOptions?.outputUpgradedSubgraphs ? {} : undefined;
+  const subgraphSdl: { [name: string]: string } | undefined = !!options.pipelineOptions?.outputUpgradedSubgraphs ? {} : undefined;
   if (subgraphSdl !== undefined && mergeResult.subgraphs) {
     for (const subgraph of mergeResult.subgraphs.values()) {
       subgraphSdl[subgraph.name] = printSchema(subgraph.schema, sdlPrintOptions ?? shallowOrderPrintedDefinitions(defaultPrintOptions));
     }
   }
 
-  // if we don't have a supergraph, we're using the `bypassComposition` option.
+  // if we don't have a supergraph, we're using the `runComposition`=false option.
   if (!mergeResult.supergraph) {
     return {
       schema: undefined,
@@ -177,7 +176,7 @@ type ValidateSubgraphsAndMergeResult = MergeResult | { errors: GraphQLError[] } 
 function validateSubgraphsAndMerge(subgraphs: Subgraphs, options: CompositionOptions = {}) : ValidateSubgraphsAndMergeResult {
   let toMerge: Subgraphs;
     
-  if (!options.pipelineOptions?.bypassUpgradeSubgraphs) {
+  if (options.pipelineOptions?.runUpgradeSubgraphs !== false) {
     const upgradeResult = upgradeSubgraphsIfNecessary(subgraphs);
     if (upgradeResult.errors) {
       return { errors: upgradeResult.errors };
@@ -187,15 +186,15 @@ function validateSubgraphsAndMerge(subgraphs: Subgraphs, options: CompositionOpt
     toMerge = subgraphs;
   }
 
-  if (!options.pipelineOptions?.bypassValidateSubgraphs) {
+  if (!options.pipelineOptions?.runValidateSubgraphs !== false) {
     const validationErrors = toMerge.validate();
     if (validationErrors) {
       return { errors: validationErrors };
     }
   }
   
-  if (!options.pipelineOptions?.bypassComposition) {
-    return { subgraphs: toMerge };
+  if (!options.pipelineOptions?.runComposition !== false) {
+    return mergeSubgraphs(toMerge);
   }
-  return mergeSubgraphs(toMerge);
+  return { subgraphs: toMerge };
 }
