@@ -10,7 +10,7 @@ Apollo Federation is an architecture for declaratively composing APIs into a uni
 
 ## What does Apollo Federation do?
 
-Apollo Federation acts as an API orchestration layer for your organization’s microservices. It enables you to compose multiple APIs—whether GraphQL, REST, or other sources—into a single, unified graph that clients can query just like any GraphQL API.
+When paired with the Apollo Router, Apollo Federation acts as an API orchestration layer for your organization’s microservices. It enables you to compose multiple APIs—whether GraphQL, REST, or other sources—into a single, unified graph that clients can query just like any GraphQL API.
 
 When paired with the [Apollo Router](https://github.com/apollographql/router), Federation allows incoming requests to be intelligently routed to the appropriate services. The router orchestrates data fetching across services and assembles a unified response for the client. This keeps client complexity low and enables backend teams to evolve independently.
 
