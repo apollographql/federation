@@ -1,5 +1,3 @@
-<img src="https://raw.githubusercontent.com/apollographql/space-kit/main/src/illustrations/svgs/rocket1.svg" width="100%" height="144">
-
 [![CircleCI](https://circleci.com/gh/apollographql/federation/tree/main.svg?style=shield)](https://circleci.com/gh/apollographql/federation/tree/main) [![Netlify Status](https://api.netlify.com/api/v1/badges/3a012f93-2d02-41f7-bb2b-848cf005b831/deploy-status)](https://app.netlify.com/sites/apollo-federation-docs/deploys)
 
 ---
@@ -11,8 +9,7 @@ Apollo Federation is an architecture for declaratively composing APIs into a uni
 ## What does Apollo Federation do?
 
 When paired with the Apollo Router, Apollo Federation acts as an API orchestration layer for your organization’s microservices. It enables you to compose multiple APIs—whether GraphQL, REST, or other sources—into a single, unified graph that clients can query just like any GraphQL API.
-
-When paired with the [Apollo Router](https://github.com/apollographql/router), Federation allows incoming requests to be intelligently routed to the appropriate services. The router orchestrates data fetching across services and assembles a unified response for the client. This keeps client complexity low and enables backend teams to evolve independently.
+The router handles incoming requests by routing them to the appropriate services and combining the results into a single response. This simplifies client logic and gives backend teams the flexibility to evolve independently.
 
 Check out the [docs](https://www.apollographql.com/docs/graphos/schema-design/federated-schemas/federation) to learn more.
 
@@ -36,8 +33,6 @@ Check out the [Odyssey](https://odyssey.apollographql.com/) learning platform, t
 If this project seems like something to which you want to contribute, first off **thank you**. We are so excited that you are excited about this project and we want to make sure contributing is a safe, fun, and fruitful experience for you. Please read our [code of conduct](https://github.com/apollographql/.github/blob/HEAD/CODE_OF_CONDUCT.md) and then head on over to the [contributing guide](./CONTRIBUTING.md) to learn how to work on this project.
 
 If you ever have any problems, questions, or ideas, the maintainers of this project are available to help.  Please open an issue for assistance!
-
-<img src="https://raw.githubusercontent.com/apollographql/space-kit/main/src/illustrations/svgs/telescope.svg" width="100%" height="144">
 
 ### Current branches
 
