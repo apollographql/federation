@@ -1120,7 +1120,7 @@ class Merger {
         supergraphElement: dest,
         subgraphElements: sources,
         // All we use the string of the next line for is to categorize source with a @key of the others.
-        elementToString: type => type.hasAppliedDirective('key') ? 'yes' : 'no',
+        elementToString: type => sourceAsEntity.find(entity => entity === type) ? 'yes' : 'no',
         // Note that the first callback is for element that are "like the supergraph". As the supergraph has no @key ...
         supergraphElementPrinter: (_, subgraphs) => `it has no @key in ${subgraphs}`,
         otherElementsPrinter: (_, subgraphs) => ` but has some @key in ${subgraphs}`,
