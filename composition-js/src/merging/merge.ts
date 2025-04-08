@@ -3117,14 +3117,19 @@ class Merger {
     // identity url in a Map, reachable from all its imported names.
     const map = new Map<string, FeatureUrl>();
     for (const linkDirective of schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')) {
-      const { url, import: imports } = linkDirective.arguments();
+      const { url, as, import: imports } = linkDirective.arguments();
       const parsedUrl = FeatureUrl.maybeParse(url);
-      if (parsedUrl && imports) {
-        for (const i of imports) {
-          if (typeof i === 'string') {
-            map.set(i, parsedUrl);
-          } else {
-            map.set(i.as ?? i.name, parsedUrl);
+
+      if (parsedUrl) {
+        // always add the main directive to the map, regardless of whether it is imported
+        map.set(`@${as ?? parsedUrl.name}`, parsedUrl);
+        if (imports) {
+          for (const i of imports) {
+            if (typeof i === 'string') {
+              map.set(i, parsedUrl);
+            } else {
+              map.set(i.as ?? i.name, parsedUrl);
+            }
           }
         }
       }
