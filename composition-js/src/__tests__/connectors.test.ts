@@ -372,14 +372,36 @@ describe("connect spec and join__directive", () => {
                         url: "https://specs.apollo.dev/connect/v0.2"
                         import: ["@connect", "@source"]
                     )
-                    @source(name: "v1", http: { baseURL: "http://v1" })
+                    @source(
+                      name: "v1"
+                      http: {
+                        baseURL: "http://v1"
+                        method: ""
+                        scheme: ""
+                        authority: ""
+                        path: ""
+                        query: ""
+                      }
+                    )
 
                     type Query {
                         resources: [Resource!]!
                         @connect(source: "v1", http: { GET: "/resources" }, selection: "")
                     }
 
-                    type Resource @key(fields: "id") @connect(source: "v1", http: { GET: "/resources" }, selection: "") {
+                    type Resource @key(fields: "id")
+                      @connect(
+                        source: "v1"
+                        http: {
+                          GET: "/resources"
+                          method: ""
+                          scheme: ""
+                          authority: ""
+                          path: ""
+                          query: ""
+                        }
+                        selection: ""
+                      ) {
                         id: ID!
                         name: String!
                     }
@@ -422,7 +444,8 @@ describe("connect spec and join__directive", () => {
         @link(url: \\"https://specs.apollo.dev/connect/v0.2\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.2\\", import: [\\"@connect\\", \\"@source\\"]})
-        @join__directive(graphs: [WITH_CONNECTORS_V0_1_, WITH_CONNECTORS_V0_2_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\", method: \\"\\", scheme: \\"\\", authority: \\"\\", path: \\"\\", query: \\"\\"}})
       {
         query: Query
       }
@@ -492,7 +515,7 @@ describe("connect spec and join__directive", () => {
 
       type Resource
         @join__type(graph: WITH_CONNECTORS_V0_2_, key: \\"id\\")
-        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\"}, selection: \\"\\"})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\", method: \\"\\", scheme: \\"\\", authority: \\"\\", path: \\"\\", query: \\"\\"}, selection: \\"\\"})
       {
         id: ID!
         name: String!

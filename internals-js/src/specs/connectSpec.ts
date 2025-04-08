@@ -64,7 +64,10 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       ) repeatable on FIELD_DEFINITION
         | OBJECT # added in v0.2, validation enforced in rust
     */
-    const connect = this.addDirective(schema, CONNECT).addLocations(DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT);
+    const connect = this.addDirective(schema, CONNECT).addLocations(
+      DirectiveLocation.FIELD_DEFINITION,
+      DirectiveLocation.OBJECT,
+    );
     connect.repeatable = true;
 
     connect.addArgument(SOURCE, schema.stringType());
@@ -76,7 +79,9 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         value: String
       }
     */
-    const HTTPHeaderMapping = schema.addType(new InputObjectType(this.typeNameInSchema(schema, HTTP_HEADER_MAPPING)!));
+    const HTTPHeaderMapping = schema.addType(
+      new InputObjectType(this.typeNameInSchema(schema, HTTP_HEADER_MAPPING)!),
+    );
     HTTPHeaderMapping.addField(new InputFieldDefinition('name')).type =
       new NonNullType(schema.stringType());
     HTTPHeaderMapping.addField(new InputFieldDefinition('from')).type =
@@ -93,17 +98,42 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         DELETE: URLPathTemplate
         body: JSONSelection
         headers: [HTTPHeaderMapping!]
+
+        # added in v0.2
+        method: JSONSelection
+        scheme: JSONSelection
+        authority: JSONSelection
+        path: JSONSelection
+        query: JSONSelection
       }
     */
-    const ConnectHTTP = schema.addType(new InputObjectType(this.typeNameInSchema(schema, CONNECT_HTTP)!));
-    ConnectHTTP.addField(new InputFieldDefinition('GET')).type = URLPathTemplate;
-    ConnectHTTP.addField(new InputFieldDefinition('POST')).type = URLPathTemplate;
-    ConnectHTTP.addField(new InputFieldDefinition('PUT')).type = URLPathTemplate;
-    ConnectHTTP.addField(new InputFieldDefinition('PATCH')).type = URLPathTemplate;
-    ConnectHTTP.addField(new InputFieldDefinition('DELETE')).type = URLPathTemplate;
+    const ConnectHTTP = schema.addType(
+      new InputObjectType(this.typeNameInSchema(schema, CONNECT_HTTP)!),
+    );
+    ConnectHTTP.addField(new InputFieldDefinition('GET')).type =
+      URLPathTemplate;
+    ConnectHTTP.addField(new InputFieldDefinition('POST')).type =
+      URLPathTemplate;
+    ConnectHTTP.addField(new InputFieldDefinition('PUT')).type =
+      URLPathTemplate;
+    ConnectHTTP.addField(new InputFieldDefinition('PATCH')).type =
+      URLPathTemplate;
+    ConnectHTTP.addField(new InputFieldDefinition('DELETE')).type =
+      URLPathTemplate;
     ConnectHTTP.addField(new InputFieldDefinition('body')).type = JSONSelection;
     ConnectHTTP.addField(new InputFieldDefinition('headers')).type =
       new ListType(new NonNullType(HTTPHeaderMapping));
+
+    ConnectHTTP.addField(new InputFieldDefinition('method')).type =
+      JSONSelection;
+    ConnectHTTP.addField(new InputFieldDefinition('scheme')).type =
+      JSONSelection;
+    ConnectHTTP.addField(new InputFieldDefinition('authority')).type =
+      JSONSelection;
+    ConnectHTTP.addField(new InputFieldDefinition('path')).type = JSONSelection;
+    ConnectHTTP.addField(new InputFieldDefinition('query')).type =
+      JSONSelection;
+
     connect.addArgument('http', new NonNullType(ConnectHTTP));
 
     connect.addArgument('selection', new NonNullType(JSONSelection));
@@ -125,13 +155,32 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       input SourceHTTP {
         baseURL: String!
         headers: [HTTPHeaderMapping!]
+
+        # added in v0.2
+        method: JSONSelection
+        scheme: JSONSelection
+        authority: JSONSelection
+        path: JSONSelection
+        query: JSONSelection
       }
     */
-    const SourceHTTP = schema.addType(new InputObjectType(this.typeNameInSchema(schema, SOURCE_HTTP)!));
+    const SourceHTTP = schema.addType(
+      new InputObjectType(this.typeNameInSchema(schema, SOURCE_HTTP)!),
+    );
     SourceHTTP.addField(new InputFieldDefinition('baseURL')).type =
       new NonNullType(schema.stringType());
     SourceHTTP.addField(new InputFieldDefinition('headers')).type =
       new ListType(new NonNullType(HTTPHeaderMapping));
+
+    SourceHTTP.addField(new InputFieldDefinition('method')).type =
+      JSONSelection;
+    SourceHTTP.addField(new InputFieldDefinition('scheme')).type =
+      JSONSelection;
+    SourceHTTP.addField(new InputFieldDefinition('authority')).type =
+      JSONSelection;
+    SourceHTTP.addField(new InputFieldDefinition('path')).type = JSONSelection;
+    SourceHTTP.addField(new InputFieldDefinition('query')).type =
+      JSONSelection;
 
     source.addArgument('http', new NonNullType(SourceHTTP));
 
