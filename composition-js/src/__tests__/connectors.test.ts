@@ -378,7 +378,10 @@ describe("connect spec and join__directive", () => {
                         baseURL: "http://v1"
                         method: ""
                         scheme: ""
-                        authority: ""
+                        host: ""
+                        port: ""
+                        user: ""
+                        password: ""
                         path: ""
                         query: ""
                       }
@@ -396,7 +399,10 @@ describe("connect spec and join__directive", () => {
                           GET: "/resources"
                           method: ""
                           scheme: ""
-                          authority: ""
+                          host: ""
+                          port: ""
+                          user: ""
+                          password: ""
                           path: ""
                           query: ""
                         }
@@ -445,7 +451,7 @@ describe("connect spec and join__directive", () => {
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.2\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
-        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\", method: \\"\\", scheme: \\"\\", authority: \\"\\", path: \\"\\", query: \\"\\"}})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\", method: \\"\\", scheme: \\"\\", host: \\"\\", port: \\"\\", user: \\"\\", password: \\"\\", path: \\"\\", query: \\"\\"}})
       {
         query: Query
       }
@@ -515,7 +521,7 @@ describe("connect spec and join__directive", () => {
 
       type Resource
         @join__type(graph: WITH_CONNECTORS_V0_2_, key: \\"id\\")
-        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\", method: \\"\\", scheme: \\"\\", authority: \\"\\", path: \\"\\", query: \\"\\"}, selection: \\"\\"})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\", method: \\"\\", scheme: \\"\\", host: \\"\\", port: \\"\\", user: \\"\\", password: \\"\\", path: \\"\\", query: \\"\\"}, selection: \\"\\"})
       {
         id: ID!
         name: String!

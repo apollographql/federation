@@ -1,5 +1,11 @@
-import {DirectiveLocation, GraphQLError} from 'graphql';
-import { CorePurpose, FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
+import { DirectiveLocation, GraphQLError } from 'graphql';
+import {
+  CorePurpose,
+  FeatureDefinition,
+  FeatureDefinitions,
+  FeatureUrl,
+  FeatureVersion,
+} from './coreSpec';
 import {
   Schema,
   NonNullType,
@@ -8,40 +14,55 @@ import {
   ListType,
 } from '../definitions';
 import { registerKnownFeature } from '../knownCoreFeatures';
-import { createDirectiveSpecification, createScalarTypeSpecification } from '../directiveAndTypeSpecification';
+import {
+  createDirectiveSpecification,
+  createScalarTypeSpecification,
+} from '../directiveAndTypeSpecification';
 
 export const connectIdentity = 'https://specs.apollo.dev/connect';
 
-const CONNECT = "connect";
-const SOURCE = "source";
-const URL_PATH_TEMPLATE = "URLPathTemplate";
-const JSON_SELECTION = "JSONSelection";
-const CONNECT_HTTP = "ConnectHTTP";
-const SOURCE_HTTP = "SourceHTTP";
-const HTTP_HEADER_MAPPING = "HTTPHeaderMapping";
+const CONNECT = 'connect';
+const SOURCE = 'source';
+const URL_PATH_TEMPLATE = 'URLPathTemplate';
+const JSON_SELECTION = 'JSONSelection';
+const CONNECT_HTTP = 'ConnectHTTP';
+const SOURCE_HTTP = 'SourceHTTP';
+const HTTP_HEADER_MAPPING = 'HTTPHeaderMapping';
 
 export class ConnectSpecDefinition extends FeatureDefinition {
-  constructor(version: FeatureVersion, readonly minimumFederationVersion: FeatureVersion) {
-    super(new FeatureUrl(connectIdentity, CONNECT, version), minimumFederationVersion);
+  constructor(
+    version: FeatureVersion,
+    readonly minimumFederationVersion: FeatureVersion,
+  ) {
+    super(
+      new FeatureUrl(connectIdentity, CONNECT, version),
+      minimumFederationVersion,
+    );
 
-    this.registerDirective(createDirectiveSpecification({
-      name: CONNECT,
-      locations: [DirectiveLocation.FIELD_DEFINITION],
-      repeatable: true,
-      // We "compose" these directives using the  `@join__directive` mechanism,
-      // so they do not need to be composed in the way passing `composes: true`
-      // here implies.
-      composes: false,
-    }));
+    this.registerDirective(
+      createDirectiveSpecification({
+        name: CONNECT,
+        locations: [DirectiveLocation.FIELD_DEFINITION],
+        repeatable: true,
+        // We "compose" these directives using the  `@join__directive` mechanism,
+        // so they do not need to be composed in the way passing `composes: true`
+        // here implies.
+        composes: false,
+      }),
+    );
 
-    this.registerDirective(createDirectiveSpecification({
-      name: SOURCE,
-      locations: [DirectiveLocation.SCHEMA],
-      repeatable: true,
-      composes: false,
-    }));
+    this.registerDirective(
+      createDirectiveSpecification({
+        name: SOURCE,
+        locations: [DirectiveLocation.SCHEMA],
+        repeatable: true,
+        composes: false,
+      }),
+    );
 
-    this.registerType(createScalarTypeSpecification({ name: URL_PATH_TEMPLATE }));
+    this.registerType(
+      createScalarTypeSpecification({ name: URL_PATH_TEMPLATE }),
+    );
     this.registerType(createScalarTypeSpecification({ name: JSON_SELECTION }));
     this.registerType({ name: CONNECT_HTTP, checkOrAdd: () => [] });
     this.registerType({ name: SOURCE_HTTP, checkOrAdd: () => [] });
@@ -128,7 +149,10 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       JSONSelection;
     ConnectHTTP.addField(new InputFieldDefinition('scheme')).type =
       JSONSelection;
-    ConnectHTTP.addField(new InputFieldDefinition('authority')).type =
+    ConnectHTTP.addField(new InputFieldDefinition('host')).type = JSONSelection;
+    ConnectHTTP.addField(new InputFieldDefinition('port')).type = JSONSelection;
+    ConnectHTTP.addField(new InputFieldDefinition('user')).type = JSONSelection;
+    ConnectHTTP.addField(new InputFieldDefinition('password')).type =
       JSONSelection;
     ConnectHTTP.addField(new InputFieldDefinition('path')).type = JSONSelection;
     ConnectHTTP.addField(new InputFieldDefinition('query')).type =
@@ -176,11 +200,13 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       JSONSelection;
     SourceHTTP.addField(new InputFieldDefinition('scheme')).type =
       JSONSelection;
-    SourceHTTP.addField(new InputFieldDefinition('authority')).type =
+    SourceHTTP.addField(new InputFieldDefinition('host')).type = JSONSelection;
+    SourceHTTP.addField(new InputFieldDefinition('port')).type = JSONSelection;
+    SourceHTTP.addField(new InputFieldDefinition('user')).type = JSONSelection;
+    SourceHTTP.addField(new InputFieldDefinition('password')).type =
       JSONSelection;
     SourceHTTP.addField(new InputFieldDefinition('path')).type = JSONSelection;
-    SourceHTTP.addField(new InputFieldDefinition('query')).type =
-      JSONSelection;
+    SourceHTTP.addField(new InputFieldDefinition('query')).type = JSONSelection;
 
     source.addArgument('http', new NonNullType(SourceHTTP));
 
@@ -192,8 +218,20 @@ export class ConnectSpecDefinition extends FeatureDefinition {
   }
 }
 
-export const CONNECT_VERSIONS = new FeatureDefinitions<ConnectSpecDefinition>(connectIdentity)
-  .add(new ConnectSpecDefinition(new FeatureVersion(0, 1), new FeatureVersion(2, 10)))
-  .add(new ConnectSpecDefinition(new FeatureVersion(0, 2), new FeatureVersion(2, 11)));
+export const CONNECT_VERSIONS = new FeatureDefinitions<ConnectSpecDefinition>(
+  connectIdentity,
+)
+  .add(
+    new ConnectSpecDefinition(
+      new FeatureVersion(0, 1),
+      new FeatureVersion(2, 10),
+    ),
+  )
+  .add(
+    new ConnectSpecDefinition(
+      new FeatureVersion(0, 2),
+      new FeatureVersion(2, 11),
+    ),
+  );
 
 registerKnownFeature(CONNECT_VERSIONS);
