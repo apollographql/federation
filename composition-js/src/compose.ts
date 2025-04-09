@@ -186,14 +186,14 @@ function validateSubgraphsAndMerge(subgraphs: Subgraphs, options: CompositionOpt
     toMerge = subgraphs;
   }
 
-  if (!options.pipelineOptions?.runValidateSubgraphs !== false) {
+  if (options.pipelineOptions?.runValidateSubgraphs !== false) {
     const validationErrors = toMerge.validate();
     if (validationErrors) {
       return { errors: validationErrors };
     }
   }
   
-  if (!options.pipelineOptions?.runComposition !== false) {
+  if (options.pipelineOptions?.runComposition !== false) {
     return mergeSubgraphs(toMerge);
   }
   return { subgraphs: toMerge };
