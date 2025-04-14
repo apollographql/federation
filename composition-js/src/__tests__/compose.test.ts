@@ -614,6 +614,47 @@ describe('composition', () => {
     `);
   });
 
+  it('merges default arguments when they are arrays', () => {
+    const subgraphA = {
+      name: 'subgraph-a',
+      typeDefs: gql`
+        type Query {
+          a: A @shareable
+        }
+
+        type A @key(fields: "id") {
+          id: ID
+          get(ids: [ID] = []): [B] @external
+          req: Int @requires(fields: "get { __typename }")
+        }
+
+        type B @key(fields: "id", resolvable: false) {
+          id: ID
+        }
+      `
+    };
+    const subgraphB = {
+      name: 'subgraph-b',
+      typeDefs: gql`
+        type Query {
+          a: A @shareable
+        }
+
+        type A @key(fields: "id") {
+          id: ID
+          get(ids: [ID] = []): [B]
+        }
+
+        type B @key(fields: "id") {
+          id: ID
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    assertCompositionSuccess(result);
+  });
+
   describe('merging of type references', () => {
     describe('for field types', () => {
       it('errors on incompatible types', () => {
