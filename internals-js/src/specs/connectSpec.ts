@@ -17,6 +17,7 @@ const SOURCE = "source";
 const URL_PATH_TEMPLATE = "URLPathTemplate";
 const JSON_SELECTION = "JSONSelection";
 const CONNECT_HTTP = "ConnectHTTP";
+const CONNECT_BATCH = "ConnectBatch";
 const SOURCE_HTTP = "SourceHTTP";
 const HTTP_HEADER_MAPPING = "HTTPHeaderMapping";
 
@@ -105,6 +106,10 @@ export class ConnectSpecDefinition extends FeatureDefinition {
     ConnectHTTP.addField(new InputFieldDefinition('headers')).type =
       new ListType(new NonNullType(HTTPHeaderMapping));
     connect.addArgument('http', new NonNullType(ConnectHTTP));
+
+    const ConnectBatch  = schema.addType(new InputObjectType(this.typeNameInSchema(schema, CONNECT_BATCH)!));
+    ConnectBatch.addField(new InputFieldDefinition('maxSize')).type = schema.intType();
+    connect.addArgument('batch', ConnectBatch);
 
     connect.addArgument('selection', new NonNullType(JSONSelection));
     connect.addArgument('entity', schema.booleanType(), false);
