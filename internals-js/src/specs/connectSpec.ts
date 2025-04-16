@@ -122,7 +122,6 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         headers: [HTTPHeaderMapping!]
 
         # added in v0.2
-        origin: JSONSelection
         path: JSONSelection
         query: JSONSelection
       }
@@ -144,7 +143,6 @@ export class ConnectSpecDefinition extends FeatureDefinition {
     ConnectHTTP.addField(new InputFieldDefinition('headers')).type =
       new ListType(new NonNullType(HTTPHeaderMapping));
 
-    ConnectHTTP.addField(new InputFieldDefinition('origin')).type = JSONSelection;
     ConnectHTTP.addField(new InputFieldDefinition('path')).type = JSONSelection;
     ConnectHTTP.addField(new InputFieldDefinition('queryParams')).type =
       JSONSelection;
@@ -176,7 +174,6 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         headers: [HTTPHeaderMapping!]
 
         # added in v0.2
-        origin: JSONSelection
         path: JSONSelection
         query: JSONSelection
       }
@@ -189,8 +186,6 @@ export class ConnectSpecDefinition extends FeatureDefinition {
     SourceHTTP.addField(new InputFieldDefinition('headers')).type =
       new ListType(new NonNullType(HTTPHeaderMapping));
 
-    SourceHTTP.addField(new InputFieldDefinition('origin')).type =
-      JSONSelection;
     SourceHTTP.addField(new InputFieldDefinition('path')).type = JSONSelection;
     SourceHTTP.addField(new InputFieldDefinition('queryParams')).type = JSONSelection;
 
