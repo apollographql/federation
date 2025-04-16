@@ -18,7 +18,9 @@ const URL_PATH_TEMPLATE = "URLPathTemplate";
 const JSON_SELECTION = "JSONSelection";
 const CONNECT_HTTP = "ConnectHTTP";
 const CONNECT_BATCH = "ConnectBatch";
+const CONNECT_ERRORS = "ConnectErrors";
 const SOURCE_HTTP = "SourceHTTP";
+const SOURCE_ERRORS = "SourceErrors";
 const HTTP_HEADER_MAPPING = "HTTPHeaderMapping";
 
 export class ConnectSpecDefinition extends FeatureDefinition {
@@ -111,6 +113,11 @@ export class ConnectSpecDefinition extends FeatureDefinition {
     ConnectBatch.addField(new InputFieldDefinition('maxSize')).type = schema.intType();
     connect.addArgument('batch', ConnectBatch);
 
+    const ConnectErrors  = schema.addType(new InputObjectType(this.typeNameInSchema(schema, CONNECT_ERRORS)!));
+    ConnectErrors.addField(new InputFieldDefinition('message')).type = JSONSelection;
+    ConnectErrors.addField(new InputFieldDefinition('extensions')).type = JSONSelection;
+    connect.addArgument('errors', ConnectErrors);
+
     connect.addArgument('selection', new NonNullType(JSONSelection));
     connect.addArgument('entity', schema.booleanType(), false);
 
@@ -139,6 +146,11 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       new ListType(new NonNullType(HTTPHeaderMapping));
 
     source.addArgument('http', new NonNullType(SourceHTTP));
+
+    const SourceErrors  = schema.addType(new InputObjectType(this.typeNameInSchema(schema, SOURCE_ERRORS)!));
+    SourceErrors.addField(new InputFieldDefinition('message')).type = JSONSelection;
+    SourceErrors.addField(new InputFieldDefinition('extensions')).type = JSONSelection;
+    source.addArgument('errors', SourceErrors);
 
     return [];
   }
