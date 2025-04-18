@@ -157,7 +157,7 @@ describe("connect spec and join__directive", () => {
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.1\\", for: EXECUTION)
+        @link(url: \\"https://specs.apollo.dev/connect/v0.2\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
       {
@@ -276,7 +276,7 @@ describe("connect spec and join__directive", () => {
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.1\\", for: EXECUTION)
+        @link(url: \\"https://specs.apollo.dev/connect/v0.2\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", as: \\"http\\", import: [\\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
       {
