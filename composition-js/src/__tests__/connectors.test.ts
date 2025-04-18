@@ -157,7 +157,7 @@ describe("connect spec and join__directive", () => {
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.1\\", for: EXECUTION)
+        @link(url: \\"https://specs.apollo.dev/connect/v0.2\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
       {
@@ -276,7 +276,7 @@ describe("connect spec and join__directive", () => {
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.1\\", for: EXECUTION)
+        @link(url: \\"https://specs.apollo.dev/connect/v0.2\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", as: \\"http\\", import: [\\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
       {
@@ -372,14 +372,31 @@ describe("connect spec and join__directive", () => {
                         url: "https://specs.apollo.dev/connect/v0.2"
                         import: ["@connect", "@source"]
                     )
-                    @source(name: "v1", http: { baseURL: "http://v1" })
+                    @source(
+                      name: "v1"
+                      http: {
+                        baseURL: "http://v1"
+                        path: ""
+                        queryParams: ""
+                      }
+                    )
 
                     type Query {
                         resources: [Resource!]!
                         @connect(source: "v1", http: { GET: "/resources" }, selection: "")
                     }
 
-                    type Resource @key(fields: "id") @connect(source: "v1", http: { GET: "/resources" }, batch: { maxSize: 5 } selection: "") {
+                    type Resource @key(fields: "id")
+                      @connect(
+                        source: "v1"
+                        http: {
+                          GET: "/resources"
+                          path: ""
+                          queryParams: ""
+                        }
+                        batch: { maxSize: 5 }
+                        selection: ""
+                      ) {
                         id: ID!
                         name: String!
                     }
@@ -422,7 +439,8 @@ describe("connect spec and join__directive", () => {
         @link(url: \\"https://specs.apollo.dev/connect/v0.2\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.2\\", import: [\\"@connect\\", \\"@source\\"]})
-        @join__directive(graphs: [WITH_CONNECTORS_V0_1_, WITH_CONNECTORS_V0_2_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\", path: \\"\\", queryParams: \\"\\"}})
       {
         query: Query
       }
@@ -492,7 +510,7 @@ describe("connect spec and join__directive", () => {
 
       type Resource
         @join__type(graph: WITH_CONNECTORS_V0_2_, key: \\"id\\")
-        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\"}, batch: {maxSize: 5}, selection: \\"\\"})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\", path: \\"\\", queryParams: \\"\\"}, batch: {maxSize: 5}, selection: \\"\\"})
       {
         id: ID!
         name: String!
