@@ -182,7 +182,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       new InputObjectType(this.typeNameInSchema(schema, SOURCE_HTTP)!),
     );
     SourceHTTP.addField(new InputFieldDefinition('baseURL')).type =
-      schema.stringType();
+      new NonNullType(schema.stringType());
     SourceHTTP.addField(new InputFieldDefinition('headers')).type =
       new ListType(new NonNullType(HTTPHeaderMapping));
 
