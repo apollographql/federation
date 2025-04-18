@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.11.0-preview.1
+
+### Patch Changes
+
+- Corrects a set of denial-of-service (DOS) vulnerabilities that made it possible for an attacker to render gateway inoperable with certain simple query patterns due to uncontrolled resource consumption. All prior-released versions and configurations are vulnerable. ([#3238](https://github.com/apollographql/federation/pull/3238))
+
+  See the associated GitHub Advisories [GHSA-q2f9-x4p4-7xmh](https://github.com/apollographql/federation/security/advisories/GHSA-q2f9-x4p4-7xmh) and [GHSA-p2q6-pwh5-m6jr](https://github.com/apollographql/federation/security/advisories/GHSA-p2q6-pwh5-m6jr) for more information.
+
+- Updated dependencies [[`1462c91879d41884c0a7e60551d8dd0d67c832d3`](https://github.com/apollographql/federation/commit/1462c91879d41884c0a7e60551d8dd0d67c832d3)]:
+  - @apollo/query-graphs@2.11.0-preview.1
+  - @apollo/federation-internals@2.11.0-preview.1
+
 ## 2.11.0-preview.0
 
 ### Minor Changes
