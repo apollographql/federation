@@ -34,32 +34,8 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 | ------------- | --------------------- | ---------------------- |
 | **February 2025** | **Yes** | **`2.0.0`** |
 
-#### Directive changes
-
-#### `@connect`
-
-Introduced. [Learn more](/graphos/schema-design/connectors/directives#connect).
-
-```graphql showLineNumbers=false disableCopy=true
-directive @connect(
-  source: String
-  http: ConnectHTTP!
-  selection: JSONSelection!
-  entity: Boolean
-) repeatable on FIELD_DEFINITION;
-
-```
-
-#### `@source`
-
-Introduced. [Learn more](/graphos/schema-design/connectors/directives#source).
-
-```graphql showLineNumbers=false disableCopy=true
-directive @source(
-  name: String!
-  http: SourceHTTP!
-) repeatable on SCHEMA;
-```
+Federation v2.10 is a prerequisite for the Connector specification that introduces the `@connect` and `@source` directives.
+[Learn more.](/graphos/schema-design/connectors/directives)
 
 ## v2.9
 
