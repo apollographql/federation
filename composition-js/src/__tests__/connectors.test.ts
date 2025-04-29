@@ -379,6 +379,7 @@ describe("connect spec and join__directive", () => {
                         path: ""
                         queryParams: ""
                       }
+                      errors: { message: "" extensions: "" }
                     )
 
                     type Query {
@@ -395,6 +396,7 @@ describe("connect spec and join__directive", () => {
                           queryParams: ""
                         }
                         batch: { maxSize: 5 }
+                        errors: { message: "" extensions: "" }
                         selection: ""
                       ) {
                         id: ID!
@@ -440,7 +442,7 @@ describe("connect spec and join__directive", () => {
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.2\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
-        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\", path: \\"\\", queryParams: \\"\\"}})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\", path: \\"\\", queryParams: \\"\\"}, errors: {message: \\"\\", extensions: \\"\\"}})
       {
         query: Query
       }
@@ -510,7 +512,7 @@ describe("connect spec and join__directive", () => {
 
       type Resource
         @join__type(graph: WITH_CONNECTORS_V0_2_, key: \\"id\\")
-        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\", path: \\"\\", queryParams: \\"\\"}, batch: {maxSize: 5}, selection: \\"\\"})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\", path: \\"\\", queryParams: \\"\\"}, batch: {maxSize: 5}, errors: {message: \\"\\", extensions: \\"\\"}, selection: \\"\\"})
       {
         id: ID!
         name: String!

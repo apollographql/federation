@@ -27,7 +27,8 @@ const URL_PATH_TEMPLATE = 'URLPathTemplate';
 const JSON_SELECTION = 'JSONSelection';
 const CONNECT_HTTP = 'ConnectHTTP';
 const CONNECT_BATCH = 'ConnectBatch';
-const SOURCE_HTTP = 'SourceHTTP';
+const CONNECTOR_ERRORS = "ConnectorErrors";
+const SOURCE_HTTP = "SourceHTTP";
 const HTTP_HEADER_MAPPING = 'HTTPHeaderMapping';
 
 export class ConnectSpecDefinition extends FeatureDefinition {
@@ -83,6 +84,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         http: ConnectHTTP
         selection: JSONSelection!
         entity: Boolean = false
+        errors: ConnectorErrors
       ) repeatable on FIELD_DEFINITION
         | OBJECT # added in v0.2, validation enforced in rust
     */
@@ -153,6 +155,11 @@ export class ConnectSpecDefinition extends FeatureDefinition {
     ConnectBatch.addField(new InputFieldDefinition('maxSize')).type = schema.intType();
     connect.addArgument('batch', ConnectBatch);
 
+    const ConnectorErrors  = schema.addType(new InputObjectType(this.typeNameInSchema(schema, CONNECTOR_ERRORS)!));
+    ConnectorErrors.addField(new InputFieldDefinition('message')).type = JSONSelection;
+    ConnectorErrors.addField(new InputFieldDefinition('extensions')).type = JSONSelection;
+    connect.addArgument('errors', ConnectorErrors);
+
     connect.addArgument('selection', new NonNullType(JSONSelection));
     connect.addArgument('entity', schema.booleanType(), false);
 
@@ -160,6 +167,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       directive @source(
         name: String!
         http: ConnectHTTP
+        errors: ConnectorErrors
       ) repeatable on SCHEMA
     */
     const source = this.addDirective(schema, SOURCE).addLocations(
@@ -190,6 +198,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
     SourceHTTP.addField(new InputFieldDefinition('queryParams')).type = JSONSelection;
 
     source.addArgument('http', new NonNullType(SourceHTTP));
+    source.addArgument('errors', ConnectorErrors);
 
     return [];
   }
