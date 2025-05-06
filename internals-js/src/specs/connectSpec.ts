@@ -220,7 +220,7 @@ export const CONNECT_VERSIONS = new FeatureDefinitions<ConnectSpecDefinition>(
   .add(
     new ConnectSpecDefinition(
       new FeatureVersion(0, 2),
-      new FeatureVersion(2, 11),
+      new FeatureVersion(2, 10),
     ),
   );
 
