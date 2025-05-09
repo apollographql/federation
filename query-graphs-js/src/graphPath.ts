@@ -1938,6 +1938,8 @@ export function getLocallySatisfiableKey(graph: QueryGraph, typeVertex: Vertex):
   return undefined;
 }
 
+type PreContextMapEntry = Pick<ContextMapEntry, 'levelsInDataPath' | 'levelsInQueryPath' | 'inboundEdge'>;
+
 function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null | never = never>(
   path: GraphPath<TTrigger, V, TNullEdge>,
   edge: Edge,
@@ -1956,81 +1958,138 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   const contextMap = new Map<string, ContextMapEntry>();
   
   if (requiredContexts.length > 0) {
-    // if one of the conditions fails to satisfy, it's ok to bail
-    let someSelectionUnsatisfied = false;
-    for (const cxt of requiredContexts) {
-      let levelsInQueryPath = 0;
-      let levelsInDataPath = 0;
-      for (const [e, trigger] of [...path].reverse()) {
-        const parentType = getFieldParentType(trigger);
-        levelsInQueryPath += 1;
-        if (parentType) {
-          levelsInDataPath += 1;
+    assert(edge.transition.kind === 'FieldCollection', () => `Expected edge to be a FieldCollection edge, got ${edge.transition.kind}`);
+
+    const unmatchedContexts = new Map<string, Set<string>>();
+    for (const ctx of requiredContexts) {
+      unmatchedContexts.set(ctx.context, ctx.typesWithContextSet);
+    }
+    const matchInProgressContexts = new Map<string, CompositeType>();
+    const matchedContexts = new Map<string, [CompositeType, PreContextMapEntry]>();
+
+    let levelsInQueryPath = 0;
+    let levelsInDataPath = 0;
+    for (const [e, trigger] of [...path].reverse()) {
+      // If all contexts have been matched, then there's no point in continuing
+      // to iterate.
+      if (unmatchedContexts.size === 0 && matchInProgressContexts.size === 0) {
+        break;
+      }
+
+      levelsInQueryPath += 1;
+      const parentType = getFieldParentType(trigger);
+      if (parentType) {
+        levelsInDataPath += 1;
+      }
+
+      // For any in-progress matches, if the current edge is a key or root type
+      // resolution edge, then the match is still considered in-progress, and
+      // the recorded match should be updated. If the edge is some other kind,
+      // then any in-progress matches are considered to have ended.
+      if (e !== null && (e.transition.kind === 'KeyResolution' || e.transition.kind === 'RootTypeResolution')) {
+        for (const [ctxName, matchType] of matchInProgressContexts) {
+          matchedContexts.set(ctxName, [matchType, {
+            levelsInDataPath,
+            levelsInQueryPath,
+            inboundEdge: e,
+          }]);
         }
-        if (e !== null && !contextMap.has(cxt.namedParameter) && !someSelectionUnsatisfied) {
-          const matches = Array.from(cxt.typesWithContextSet).some(t => {
-            if (parentType) {
-              const parentInSupergraph = path.graph.schema.type(parentType.name)!;
-              if (parentInSupergraph.name === t) {
+      } else {
+        matchInProgressContexts.clear();
+      }
+
+      // For any unmatched contexts, determine whether a match has occurred. If
+      // so, consider the match as in-progress, and record that a match has
+      // occurred.
+      if (parentType && e !== null) {
+        const parentInSupergraph = path.graph.schema.type(parentType.name)!;
+        assert(isCompositeType(parentInSupergraph), "Parent type should be composite type");
+        for (const [ctxName, typesWithContextSet] of unmatchedContexts) {
+          const isMatch = Array.from(typesWithContextSet).some(t => {
+            if (parentInSupergraph.name === t) {
+              return true;
+            }
+            if (isObjectType(parentInSupergraph) || isInterfaceType(parentInSupergraph)) {
+              if (parentInSupergraph.interfaces().some(i => i.name === t)) {
                 return true;
               }
-              if (isObjectType(parentInSupergraph) || isInterfaceType(parentInSupergraph)) {
-                if (parentInSupergraph.interfaces().some(i => i.name === t)) {
-                  return true;
-                }
-              }
-              const tInSupergraph = parentInSupergraph.schema().type(t);
-              if (tInSupergraph && isUnionType(tInSupergraph)) {
-                return tInSupergraph.types().some(t => t.name === parentType.name);              
-              }
+            }
+            const tInSupergraph = parentInSupergraph.schema().type(t);
+            if (tInSupergraph && isUnionType(tInSupergraph)) {
+              return tInSupergraph.types().some(m => m.name === parentType.name);
             }
             return false;
           });
-          if (parentType && matches) {
-            const parentInSupergraph = path.graph.schema.type(parentType.name)!;
-            assert(isCompositeType(parentInSupergraph), "Parent type should be composite type");
-            let selectionSet = parseSelectionSet({ parentType: parentInSupergraph, source: cxt.selection });
-            
-            // We want to ignore type conditions that are impossible/don't intersect with the parent type
-            selectionSet = selectionSet.lazyMap((selection): Selection | undefined => {
-              if (selection.kind === 'FragmentSelection') {
-                if (selection.element.typeCondition && isObjectType(selection.element.typeCondition)) {
-                  if (!possibleRuntimeTypes(parentInSupergraph).includes(selection.element.typeCondition)) {
-                    return undefined;
-                  }
-                }
-              }
-              return selection;
-            })
-            const resolution = conditionResolver(e, context, excludedEdges, excludedConditions, selectionSet);
-            assert(edge.transition.kind === 'FieldCollection', () => `Expected edge to be a FieldCollection edge, got ${edge.transition.kind}`);
-            
-            const argIndices = path.graph.subgraphToArgIndices.get(cxt.subgraphName);
-            assert(argIndices, () => `Expected to find arg indices for subgraph ${cxt.subgraphName}`);
-            
-            const id = argIndices.get(cxt.coordinate);
-            assert(id !== undefined, () => `Expected to find arg index for ${cxt.coordinate}`);
-            contextMap.set(cxt.namedParameter, { selectionSet, levelsInDataPath, levelsInQueryPath, inboundEdge: e, pathTree: resolution.pathTree, paramName: cxt.namedParameter, id, argType: cxt.argType });
-            someSelectionUnsatisfied = someSelectionUnsatisfied || !resolution.satisfied;
-            if (resolution.cost === -1 || totalCost === -1) {
-              totalCost = -1;
-            } else {
-              totalCost += resolution.cost;            
-            }
+          if (isMatch) {
+            matchInProgressContexts.set(ctxName, parentInSupergraph);
+            matchedContexts.set(ctxName, [parentInSupergraph, {
+              levelsInDataPath,
+              levelsInQueryPath,
+              inboundEdge: e,
+            }]);
+            unmatchedContexts.delete(ctxName);
           }
         }
       }
     }
-    
-    if (requiredContexts.some(c => !contextMap.has(c.namedParameter))) {
-      // in this case there is a context that is unsatisfied. Return no path.
+
+    if (unmatchedContexts.size > 0) {
+      // In this case, there is a context that is unsatisfied. Return no path.
       debug.groupEnd('@fromContext requires a context that is not set in graph path');
       return { ...unsatisfiedConditionsResolution, unsatisfiedConditionReason: UnsatisfiedConditionReason.NO_CONTEXT_SET };
     }
-    
-    if (someSelectionUnsatisfied) {
-      debug.groupEnd('@fromContext selection set is unsatisfied');
-      return { ...unsatisfiedConditionsResolution };
+
+    for (const ctx of requiredContexts) {
+      const [matchType, {
+        levelsInDataPath,
+        levelsInQueryPath,
+        inboundEdge,
+      }] = matchedContexts.get(ctx.context)!;
+
+      // Parse the selection against the matched type.
+      let selectionSet = parseSelectionSet({ parentType: matchType, source: ctx.selection });
+
+      // We want to ignore type conditions that are impossible/don't intersect with the matched type.
+      selectionSet = selectionSet.lazyMap((selection): Selection | undefined => {
+        if (selection.kind === 'FragmentSelection') {
+          if (selection.element.typeCondition && isObjectType(selection.element.typeCondition)) {
+            if (!possibleRuntimeTypes(matchType).includes(selection.element.typeCondition)) {
+              return undefined;
+            }
+          }
+        }
+        return selection;
+      });
+
+      // Resolve the selection set against the matched edge's head.
+      const resolution = conditionResolver(inboundEdge, context, excludedEdges, excludedConditions, selectionSet);
+      if (!resolution.satisfied) {
+        // If one of the conditions fails to satisfy, it's ok to bail.
+        debug.groupEnd('@fromContext selection set is unsatisfied');
+        return { ...unsatisfiedConditionsResolution };
+      }
+
+      // Record the resolution for the parameter/argument.
+      const argIndices = path.graph.subgraphToArgIndices.get(ctx.subgraphName);
+      assert(argIndices, () => `Expected to find arg indices for subgraph ${ctx.subgraphName}`);
+      const id = argIndices.get(ctx.coordinate);
+      assert(id !== undefined, () => `Expected to find arg index for ${ctx.coordinate}`);
+      contextMap.set(ctx.namedParameter, {
+        selectionSet,
+        levelsInDataPath,
+        levelsInQueryPath,
+        inboundEdge,
+        pathTree: resolution.pathTree,
+        paramName: ctx.namedParameter,
+        id,
+        argType: ctx.argType
+      });
+
+      if (resolution.cost === -1 || totalCost === -1) {
+        totalCost = -1;
+      } else {
+        totalCost += resolution.cost;
+      }
     }
     
     // it's possible that we will need to create a new fetch group at this point, in which case we'll need to collect the keys
