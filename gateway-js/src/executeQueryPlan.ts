@@ -519,7 +519,7 @@ async function executeFetch(
         }
 
 
-        for (let i = 0; i < entities.length; i++) {
+        for (let i = 0; i < receivedEntities.length; i++) {
           const receivedEntity = receivedEntities[i];
           const existingEntity = entities[representationToEntity[i]];
           if (receivedEntity && !receivedEntity["__typename"]) {
