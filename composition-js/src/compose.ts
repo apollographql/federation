@@ -39,6 +39,8 @@ export interface CompositionOptions {
   allowedFieldTypeMergingSubtypingRules?: SubtypingRule[];
   /// Flag to toggle if satisfiability should be performed during composition
   runSatisfiability?: boolean;
+  /// Maximum allowable number of outstanding subgraph paths to validate
+  maxValidationSubgraphPaths?: number;
 }
 
 function validateCompositionOptions(options: CompositionOptions) {
@@ -123,7 +125,7 @@ type SatisfiabilityArgs = {
  * @param args: SatisfiabilityArgs
  * @returns { errors? : GraphQLError[], hints? : CompositionHint[] }
  */
-export function validateSatisfiability({ supergraphSchema, supergraphSdl} : SatisfiabilityArgs) : {
+export function validateSatisfiability({ supergraphSchema, supergraphSdl} : SatisfiabilityArgs, options: CompositionOptions = {}) : {
   errors? : GraphQLError[],
   hints? : CompositionHint[],
 } {
@@ -133,7 +135,7 @@ export function validateSatisfiability({ supergraphSchema, supergraphSdl} : Sati
   const supergraph = supergraphSchema ? new Supergraph(supergraphSchema, null) : Supergraph.build(supergraphSdl, { supportedFeatures: null });
   const supergraphQueryGraph = buildSupergraphAPIQueryGraph(supergraph);
   const federatedQueryGraph = buildFederatedQueryGraph(supergraph, false);
-  return validateGraphComposition(supergraph.schema, supergraph.subgraphNameToGraphEnumValue(), supergraphQueryGraph, federatedQueryGraph);
+  return validateGraphComposition(supergraph.schema, supergraph.subgraphNameToGraphEnumValue(), supergraphQueryGraph, federatedQueryGraph, options);
 }
 
 type ValidateSubgraphsAndMergeResult = MergeResult | { errors: GraphQLError[] };
