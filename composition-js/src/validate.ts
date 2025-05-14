@@ -699,14 +699,19 @@ class ValidationTraversal {
 
   private readonly context: ValidationContext;
   private totalValidationSubgraphPaths = 0;
-
+  private maxValidationSubgraphPaths: number;
+  
+  private static DEFAULT_MAX_VALIDATION_SUBGRAPH_PATHS = 1000000;
+  
   constructor(
     supergraphSchema: Schema,
     subgraphNameToGraphEnumValue: Map<string, string>,
     supergraphAPI: QueryGraph,
     federatedQueryGraph: QueryGraph,
-    readonly compositionOptions: CompositionOptions,
+    compositionOptions: CompositionOptions,
   ) {
+    this.maxValidationSubgraphPaths = compositionOptions.maxValidationSubgraphPaths ?? ValidationTraversal.DEFAULT_MAX_VALIDATION_SUBGRAPH_PATHS;
+    
     this.conditionResolver = simpleValidationConditionResolver({
       supergraph: supergraphSchema,
       queryGraph: federatedQueryGraph,
@@ -729,8 +734,7 @@ class ValidationTraversal {
   pushStack(state: ValidationState) {
     this.totalValidationSubgraphPaths += state.subgraphPathInfos.length;
     this.stack.push(state);
-    console.log(`totalValidationSubgraphPaths ${this.totalValidationSubgraphPaths}`);
-    if (this.compositionOptions.maxValidationSubgraphPaths && this.totalValidationSubgraphPaths > this.compositionOptions.maxValidationSubgraphPaths) {
+    if (this.totalValidationSubgraphPaths > this.maxValidationSubgraphPaths) {
       throw ERRORS.MAX_VALIDATION_SUBGRAPH_PATHS_EXCEEDED.err(`Maximum number of validation subgraph paths exceeded: ${this.totalValidationSubgraphPaths}`);
     }
   }
