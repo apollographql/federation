@@ -61,6 +61,7 @@ import {
   isUnadvanceableClosures,
 } from "@apollo/query-graphs";
 import { CompositionHint, HINTS } from "./hints";
+import FastPriorityQueue from "fastpriorityqueue";
 import { ASTNode, GraphQLError, print } from "graphql";
 
 const debug = newDebugLogger('validation');
@@ -684,8 +685,19 @@ interface VertexVisit {
 
 class ValidationTraversal {
   private readonly conditionResolver: ConditionResolver;
-  // The stack contains all states that aren't terminal.
-  private readonly stack: ValidationState[] = [];
+  // The queue contains all states that aren't terminal. We use a priority queue
+  // where states with less possible subgraph paths are processed earlier. This
+  // is because supergraphs with high connectivity can lead to states with many
+  // possible subgraph paths for a supergraph path, and repeatedly processing
+  // such states can cause an explosion in possible subgraph paths in the worst
+  // case. To avoid this explosion, we prioritize supergraph paths with fewer
+  // possible subgraph paths, and this helps us reach more types using smaller
+  // states in practice. Loop detection then prevents us from having to consider
+  // the larger states to begin with.
+  private readonly queue: FastPriorityQueue<ValidationState> =
+    new FastPriorityQueue((s1, s2) =>
+      s1.subgraphPathInfos.length < s2.subgraphPathInfos.length
+    );
 
   // For each vertex in the supergraph, records if we've already visited that vertex and in which subgraphs we were.
   // For a vertex, we may have multiple "sets of subgraphs", hence the double-array.
@@ -707,7 +719,7 @@ class ValidationTraversal {
       queryGraph: federatedQueryGraph,
       withCaching: true,
     });
-    supergraphAPI.rootKinds().forEach((kind) => this.stack.push(ValidationState.initial({
+    supergraphAPI.rootKinds().forEach((kind) => this.queue.add(ValidationState.initial({
       supergraphAPI,
       kind,
       federatedQueryGraph,
@@ -725,14 +737,14 @@ class ValidationTraversal {
     errors: GraphQLError[],
     hints: CompositionHint[],
   } {
-    while (this.stack.length > 0) {
-      this.handleState(this.stack.pop()!);
+    while (!this.queue.isEmpty()) {
+      this.handleState(this.queue.poll()!);
     }
     return { errors: this.validationErrors, hints: this.validationHints };
   }
 
   private handleState(state: ValidationState) {
-    debug.group(() => `Validation: ${this.stack.length + 1} open states. Validating ${state}`);
+    debug.group(() => `Validation: ${this.queue.size + 1} open states. Validating ${state}`);
     const vertex = state.supergraphPath.tail;
 
     const currentVertexVisit: VertexVisit = {
@@ -796,10 +808,10 @@ class ValidationTraversal {
       }
 
       // The check for `isTerminal` is not strictly necessary as if we add a terminal
-      // state to the stack this method, `handleState`, will do nothing later. But it's
+      // state to the queue this method, `handleState`, will do nothing later. But it's
       // worth checking it now and save some memory/cycles.
       if (newState && !newState.supergraphPath.isTerminal()) {
-        this.stack.push(newState);
+        this.queue.add(newState);
         debug.groupEnd(() => `Reached new state ${newState}`);
       } else {
         debug.groupEnd(`Reached terminal vertex/cycle`);
