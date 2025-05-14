@@ -412,3 +412,80 @@ describe('when shared field has non-intersecting runtime types in different subg
     ]);
   });
 });
+
+describe('other validation errors', () => {
+  
+  it('errors when maxValidationSubgraphPaths is exceeded', () => {
+    const subgraphA = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          a: A
+        }
+
+        type A @key(fields: "id") {
+          id: ID!
+          b: B
+          c: C
+          d: D
+        }
+
+        type B @key(fields: "id") {
+          id: ID!
+          a: A @shareable
+          b: Int @shareable
+          c: C @shareable
+          d: D @shareable
+        }
+
+        type C @key(fields: "id") {
+          id: ID!
+          a: A @shareable
+          b: B @shareable
+          c: Int @shareable
+          d: D @shareable
+        }
+
+        type D @key(fields: "id") {
+          id: ID!
+          a: A @shareable
+          b: B @shareable
+          c: C @shareable
+          d: Int @shareable
+        }
+      `
+    };
+    const subgraphB = {
+      name: 'B',
+      typeDefs: gql`
+        type B @key(fields: "id") {
+          id: ID!
+          b: Int @shareable
+          c: C @shareable
+          d: D @shareable
+        }
+
+        type C @key(fields: "id") {
+          id: ID!
+          b: B @shareable
+          c: Int @shareable
+          d: D @shareable
+        }
+
+        type D @key(fields: "id") {
+          id: ID!
+          b: B @shareable
+          c: C @shareable
+          d: Int @shareable
+        }
+      `
+    };
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB], { maxValidationSubgraphPaths: 10 });
+    expect(result.errors).toBeDefined();
+    expect(errorMessages(result)).toMatchStringArray([
+      `
+      Maximum number of validation subgraph paths exceeded: 12
+      `
+    ]);
+  });
+});

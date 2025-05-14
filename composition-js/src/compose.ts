@@ -57,7 +57,7 @@ function validateCompositionOptions(options: CompositionOptions) {
  * @param options CompositionOptions
  */
 export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}): CompositionResult {
-  const { runSatisfiability = true, sdlPrintOptions } = options;
+  const { runSatisfiability = true, sdlPrintOptions, maxValidationSubgraphPaths } = options;
 
   validateCompositionOptions(options);
 
@@ -68,11 +68,15 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
 
   let satisfiabilityResult;
   if (runSatisfiability) {
-    satisfiabilityResult = validateSatisfiability({
-      supergraphSchema: mergeResult.supergraph
-    });
-    if (satisfiabilityResult.errors) {
-      return { errors: satisfiabilityResult.errors };
+    try {
+      satisfiabilityResult = validateSatisfiability({
+        supergraphSchema: mergeResult.supergraph,
+      }, { maxValidationSubgraphPaths });
+      if (satisfiabilityResult.errors) {
+        return { errors: satisfiabilityResult.errors };
+      }
+    } catch (err) {
+      return { errors: [err] };
     }
   }
 
