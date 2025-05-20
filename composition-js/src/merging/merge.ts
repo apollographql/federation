@@ -84,6 +84,8 @@ import {
   DirectiveCompositionSpecification,
   CoreImport,
   inaccessibleIdentity,
+  FeatureDefinitions,
+  CONNECT_VERSIONS,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -376,7 +378,7 @@ class Merger {
   private linkSpec: CoreSpecDefinition;
   private inaccessibleDirectiveInSupergraph?: DirectiveDefinition;
   private latestFedVersionUsed: FeatureVersion;
-  private joinDirectiveIdentityURLs = new Set<string>();
+  private joinDirectiveFeatureDefinitionsByIdentity = new Map<string, FeatureDefinitions>();
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
   private fieldsWithFromContext: Set<string>;
   private fieldsWithOverride: Set<string>;
@@ -413,10 +415,9 @@ class Merger {
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
     this.appliedDirectivesToMerge = [];
 
-    [ // Represent any applications of directives imported from these spec URLs
-      // using @join__directive in the merged supergraph.
-      connectIdentity,
-    ].forEach(url => this.joinDirectiveIdentityURLs.add(url));
+    // Represent any applications of directives imported from these spec URLs
+    // using @join__directive in the merged supergraph.
+    this.joinDirectiveFeatureDefinitionsByIdentity.set(CONNECT_VERSIONS.identity, CONNECT_VERSIONS);
   }
 
   private getLatestFederationVersionUsed(): FeatureVersion {
@@ -1098,11 +1099,13 @@ class Merger {
   private hintOnInconsistentEntity(sources: Sources<ObjectType>, dest: ObjectType): boolean {
     const sourceAsEntity: ObjectType[] = [];
     const sourceAsNonEntity: ObjectType[] = [];
-    for (const source of sources.values()) {
+    for (const [idx, source] of sources.entries()) {
       if (!source) {
         continue;
       }
-      if (source.hasAppliedDirective('key')) {
+      const sourceMetadata = this.subgraphs.values()[idx].metadata();
+      const keyDirective = sourceMetadata.keyDirective();
+      if (source.hasAppliedDirective(keyDirective)) {
         sourceAsEntity.push(source);
       } else {
         sourceAsNonEntity.push(source);
@@ -1115,7 +1118,7 @@ class Merger {
         supergraphElement: dest,
         subgraphElements: sources,
         // All we use the string of the next line for is to categorize source with a @key of the others.
-        elementToString: type => type.hasAppliedDirective('key') ? 'yes' : 'no',
+        elementToString: type => sourceAsEntity.find(entity => entity === type) ? 'yes' : 'no',
         // Note that the first callback is for element that are "like the supergraph". As the supergraph has no @key ...
         supergraphElementPrinter: (_, subgraphs) => `it has no @key in ${subgraphs}`,
         otherElementsPrinter: (_, subgraphs) => ` but has some @key in ${subgraphs}`,
@@ -3102,10 +3105,7 @@ class Merger {
   }
 
   private shouldUseJoinDirectiveForURL(url: FeatureUrl | undefined): boolean {
-    return Boolean(
-      url &&
-      this.joinDirectiveIdentityURLs.has(url.identity)
-    );
+    return Boolean(url && this.joinDirectiveFeatureDefinitionsByIdentity.has(url.identity));
   }
 
   private computeMapFromImportNameToIdentityUrl(
@@ -3115,14 +3115,19 @@ class Merger {
     // identity url in a Map, reachable from all its imported names.
     const map = new Map<string, FeatureUrl>();
     for (const linkDirective of schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')) {
-      const { url, import: imports } = linkDirective.arguments();
+      const { url, as, import: imports } = linkDirective.arguments();
       const parsedUrl = FeatureUrl.maybeParse(url);
-      if (parsedUrl && imports) {
-        for (const i of imports) {
-          if (typeof i === 'string') {
-            map.set(i, parsedUrl);
-          } else {
-            map.set(i.as ?? i.name, parsedUrl);
+
+      if (parsedUrl) {
+        // always add the main directive to the map, regardless of whether it is imported
+        map.set(`@${as ?? parsedUrl.name}`, parsedUrl);
+        if (imports) {
+          for (const i of imports) {
+            if (typeof i === 'string') {
+              map.set(i, parsedUrl);
+            } else {
+              map.set(i.as ?? i.name, parsedUrl);
+            }
           }
         }
       }
@@ -3205,7 +3210,30 @@ class Merger {
     }
 
     const linkDirective = this.linkSpec.coreDirective(this.merged);
-    for (const link of linksToPersist) {
+
+    // When persisting features as @link directives in the supergraph, we have
+    // to pick a single version. For these features, we've decided to always
+    // pick the latest known version, regardless of what version is use in
+    // subgraphs. This means that a composition version change will change the
+    // output, even if the subgraphs don't change, requiring a newer version of
+    // the router. We made this decision because these features are pre-1.0 and
+    // change more frequently than federation features.
+    //
+    // (The original feature version is still recorded in a @join__directive
+    // so we're not losing any information.)
+    const latestOrHighestLinkByIdentity = [...linksToPersist].reduce((map, link) => {
+      let latest = this.joinDirectiveFeatureDefinitionsByIdentity.get(link.identity)?.latest();
+
+      const existing = map.get(link.identity) ?? link;
+      if (!latest || existing?.version.gt(latest.version)) {
+        latest = existing;
+      }
+
+      map.set(link.identity, latest);
+      return map;
+    }, new Map<string, FeatureDefinition>());
+
+    for (const [_, link] of latestOrHighestLinkByIdentity) {
       dest.applyDirective(linkDirective, {
         url: link.toString(),
         for: link.defaultCorePurpose,

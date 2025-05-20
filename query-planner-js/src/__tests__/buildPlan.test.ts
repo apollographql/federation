@@ -1281,6 +1281,94 @@ describe('@provides', () => {
 });
 
 describe('@requires', () => {
+  it('basic handle requires', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          k: K
+        }
+
+        type K @key(fields: "id") {
+          id: ID!
+          r: String! @external
+          f: Int! @requires(fields: "r")
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type K @key(fields: "id") {
+          id: ID!
+          r: String!
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          k {
+            f
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // The main goal of this test is to show that the 2 @requires for `f` gets handled seemlessly
+    // into the same fetch group. But note that because the type for `f` differs, the 2nd instance
+    // gets aliased (or the fetch would be invalid graphQL).
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              k {
+                __typename
+                id
+              }
+            }
+          },
+          Flatten(path: "k") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on K {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on K {
+                  r
+                }
+              }
+            },
+          },
+          Flatten(path: "k") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on K {
+                  __typename
+                  r
+                  id
+                }
+              } =>
+              {
+                ... on K {
+                  f
+                }
+              }
+            },
+          },
+        },
+      }
+      `);
+  });
   it('handles multiple requires within the same entity fetch', () => {
     const subgraph1 = {
       name: 'Subgraph1',
@@ -2978,6 +3066,94 @@ describe('@requires', () => {
               {
                 ... on T {
                   v
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  it(`normalizes requires field set selection`, () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          a: A
+        }
+
+        type A {
+          a1: Int
+          a2: Int
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type T @key(fields: "id") {
+          id: ID!
+          a: A @external
+          b: Int @requires(fields: "a { ... on A { a1 a2 } a1 }")
+        }
+
+        type A @external {
+          a1: Int
+          a2: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            b
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              t {
+                __typename
+                id
+                a {
+                  a1
+                  a2
+                }
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on T {
+                  __typename
+                  id
+                  a {
+                    a1
+                    a2
+                  }
+                }
+              } =>
+              {
+                ... on T {
+                  b
                 }
               }
             },
@@ -5654,6 +5830,75 @@ describe('__typename handling', () => {
               __typename
               foo: __typename
               x
+            }
+          }
+        },
+      }
+    `);
+  });
+
+  it('preserves __typename with a directive', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1);
+    // Especially, when there are multiple __typename selections.
+    let operation = operationFromDocument(
+      api,
+      gql`
+        query ($v: Boolean!) {
+          t {
+            __typename
+            __typename @skip(if: $v)
+          }
+        }
+      `,
+    );
+
+    let plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              __typename @skip(if: $v)
+            }
+          }
+        },
+      }
+    `);
+
+    operation = operationFromDocument(
+      api,
+      gql`
+        query ($v: Boolean!) {
+          t {
+            __typename @skip(if: $v)
+            __typename
+          }
+        }
+      `,
+    );
+
+    plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Fetch(service: "Subgraph1") {
+          {
+            t {
+              __typename
+              __typename @skip(if: $v)
             }
           }
         },
@@ -8820,8 +9065,10 @@ describe('handles operations with directives', () => {
       query testQuery__Subgraph1__0($some_var: String!) @withArgs(arg1: $some_var) {
         test
       }
-    `); // end of test
-  });
+    `);
+    // Make sure the `variableUsage` also captures the variable as well.
+    expect(fetch_nodes[0].variableUsages?.includes('some_var')).toBe(true);
+  }); // end of test
 }); // end of `describe`
 
 describe('@fromContext impacts on query planning', () => {
@@ -9164,7 +9411,7 @@ describe('@fromContext impacts on query planning', () => {
               } =>
               {
                 ... on U {
-                  field(a: $contextualArgument_1_0)
+                  field(a: $contextualArgument_2_0)
                 }
               }
             },
@@ -9176,7 +9423,7 @@ describe('@fromContext impacts on query planning', () => {
       {
         kind: 'KeyRenamer',
         path: ['..', '... on T', 'prop'],
-        renameKeyTo: 'contextualArgument_1_0',
+        renameKeyTo: 'contextualArgument_2_0',
       },
     ]);
   });
@@ -10035,4 +10282,442 @@ describe('@fromContext impacts on query planning', () => {
       },
     ]);
   });
+
+  it('fromContext before key resolution transition', () => {
+    const subgraph1 = {
+      name: 'subgraph1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Query {
+          customer: Customer!
+        }
+
+        type Identifiers @key(fields: "id") {
+          id: ID!
+          legacyUserId: ID!
+        }
+
+        type Customer @key(fields: "id") {
+          id: ID!
+          child: Child!
+          identifiers: Identifiers!
+        }
+
+        type Child @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'subgraph2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Customer @key(fields: "id") @context(name: "ctx") {
+          id: ID!
+          identifiers: Identifiers! @external
+        }
+
+        type Identifiers @key(fields: "id") {
+          id: ID!
+          legacyUserId: ID! @external
+        }
+
+        type Child @key(fields: "id") {
+          id: ID!
+          prop(
+            legacyUserId: ID
+              @fromContext(field: "$ctx { identifiers { legacyUserId } }")
+          ): String
+        }
+      `,
+    };
+
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          customer {
+            child {
+              id
+              prop
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "subgraph1") {
+            {
+              customer {
+                __typename
+                identifiers {
+                  legacyUserId
+                }
+                child {
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "customer.child") {
+            Fetch(service: "subgraph2") {
+              {
+                ... on Child {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on Child {
+                  prop(legacyUserId: $contextualArgument_2_0)
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  it('fromContext efficiently merge fetch groups', () => {
+    const subgraph1 = {
+      name: 'sg1',
+      url: 'https://Subgraph1',
+      typeDefs: gql`
+        type Identifiers @key(fields: "id") {
+          id: ID!
+          id2: ID @external
+          id3: ID @external
+          wid: ID @requires(fields: "id2 id3")
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'sg2',
+      url: 'https://Subgraph2',
+      typeDefs: gql`
+        type Query {
+          customer: Customer
+        }
+
+        type Customer @key(fields: "id") {
+          id: ID!
+          identifiers: Identifiers
+          mid: ID
+        }
+
+        type Identifiers @key(fields: "id") {
+          id: ID!
+          id2: ID
+          id3: ID
+          id5: ID
+        }
+      `,
+    };
+
+    const subgraph3 = {
+      name: 'sg3',
+      url: 'https://Subgraph3',
+      typeDefs: gql`
+        type Customer @key(fields: "id") @context(name: "retailCtx") {
+          accounts: Accounts @shareable
+          id: ID!
+          mid: ID @external
+          identifiers: Identifiers @external
+        }
+
+        type Identifiers @key(fields: "id") {
+          id: ID!
+          id5: ID @external
+        }
+        type Accounts @key(fields: "id") {
+          foo(
+            randomInput: String
+            ctx_id5: ID
+              @fromContext(field: "$retailCtx { identifiers { id5 } }")
+            ctx_mid: ID @fromContext(field: "$retailCtx { mid }")
+          ): Foo
+          id: ID!
+        }
+
+        type Foo {
+          id: ID
+        }
+      `,
+    };
+
+    const subgraph4 = {
+      name: 'sg4',
+      url: 'https://Subgraph4',
+      typeDefs: gql`
+        type Customer
+          @key(fields: "id", resolvable: false)
+          @context(name: "widCtx") {
+          accounts: Accounts @shareable
+          id: ID!
+          identifiers: Identifiers @external
+        }
+
+        type Identifiers @key(fields: "id", resolvable: false) {
+          id: ID!
+          wid: ID @external # @requires(fields: "id2 id3")
+        }
+
+        type Accounts @key(fields: "id") {
+          bar(
+            ctx_wid: ID @fromContext(field: "$widCtx { identifiers { wid } }")
+          ): Bar
+
+          id: ID!
+        }
+
+        type Bar {
+          id: ID
+        }
+      `,
+    };
+
+    const asFed2Service = (service: ServiceDefinition) => {
+      return {
+        ...service,
+        typeDefs: asFed2SubgraphDocument(service.typeDefs, {
+          includeAllImports: true,
+        }),
+      };
+    };
+
+    const composeAsFed2Subgraphs = (services: ServiceDefinition[]) => {
+      return composeServices(services.map((s) => asFed2Service(s)));
+    };
+
+    const result = composeAsFed2Subgraphs([
+      subgraph1,
+      subgraph2,
+      subgraph3,
+      subgraph4,
+    ]);
+    expect(result.errors).toBeUndefined();
+    const [api, queryPlanner] = [
+      result.schema!.toAPISchema(),
+      new QueryPlanner(Supergraph.buildForTests(result.supergraphSdl!)),
+    ];
+    // const [api, queryPlanner] = composeFed2SubgraphsAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        query {
+          customer {
+            accounts {
+              foo {
+                id
+              }
+            }
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "sg2") {
+            {
+              customer {
+                __typename
+                id
+                identifiers {
+                  id5
+                }
+                mid
+              }
+            }
+          },
+          Flatten(path: "customer") {
+            Fetch(service: "sg3") {
+              {
+                ... on Customer {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on Customer {
+                  accounts {
+                    foo(ctx_id5: $contextualArgument_3_0, ctx_mid: $contextualArgument_3_1) {
+                      id
+                    }
+                  }
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+    expect((plan as any).node.nodes[1].node.contextRewrites).toEqual([
+      {
+        kind: 'KeyRenamer',
+        path: ['identifiers', 'id5'],
+        renameKeyTo: 'contextualArgument_3_0',
+      },
+      {
+        kind: 'KeyRenamer',
+        path: ['mid'],
+        renameKeyTo: 'contextualArgument_3_1',
+      },
+    ]);
+  });
+});
+
+test('ensure we are removing all useless groups', () => {
+  const subgraph1 = {
+    name: 'Subgraph1',
+    typeDefs: gql`
+      type Query {
+        foo: Foo!
+      }
+
+      type Foo {
+        item: I
+      }
+
+      type I @interfaceObject @key(fields: "id") {
+        id: ID!
+      }
+    `,
+  };
+
+  const subgraph2 = {
+    name: 'Subgraph2',
+    typeDefs: gql`
+      interface I @key(fields: "id") {
+        id: ID!
+        name: String!
+      }
+
+      type A implements I @key(fields: "id") {
+        id: ID!
+        name: String!
+        x: X!
+      }
+
+      type X {
+        id: ID!
+      }
+
+      type B implements I @key(fields: "id") {
+        id: ID!
+        name: String!
+        y: Y!
+      }
+
+      type Y {
+        id: ID!
+      }
+    `,
+  };
+
+  const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+  const operation = operationFromDocument(
+    api,
+    gql`
+      {
+        foo {
+          item {
+            __typename
+            id
+            ... on A {
+              __typename
+              id
+              x {
+                __typename
+                id
+              }
+            }
+            ... on B {
+              __typename
+              id
+              y {
+                __typename
+                id
+              }
+            }
+          }
+        }
+      }
+    `,
+  );
+
+  const plan = queryPlanner.buildQueryPlan(operation);
+  expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph1") {
+            {
+              foo {
+                item {
+                  __typename
+                  id
+                }
+              }
+            }
+          },
+          Flatten(path: "foo.item") {
+            Fetch(service: "Subgraph2") {
+              {
+                ... on I {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on I {
+                  __typename
+                  ... on A {
+                    x {
+                      __typename
+                      id
+                    }
+                  }
+                  ... on B {
+                    y {
+                      __typename
+                      id
+                    }
+                  }
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
 });

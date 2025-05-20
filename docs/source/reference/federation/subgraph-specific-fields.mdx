@@ -1,0 +1,84 @@
+---
+title: Subgraph Specific Fields
+subtitle: Learn fields automatically added to subgraph schemas
+description: Subgraph-compatible server libraries automatically add some federation-specific definitions to your subgraph schema such as Query._service and Query._entities.
+---
+
+Subgraph-compatible server libraries automatically add some federation-specific definitions to your subgraph schema. In addition to directive definitions like `@key`, the most useful of these definitions for debugging are two fields of the `Query` type: `_service` and `_entities`:
+
+```graphql
+type Query {
+  # ...your field definitions...
+
+  # Added automatically
+  _service: _Service!
+  _entities(representations: [_Any!]!): [_Entity]!
+}
+```
+
+## `Query._entities`
+
+<Tip>
+
+[Learn about entities](/graphos/get-started/guides/federate-schemas#entity-overview) if you haven't yet.
+
+</Tip>
+
+This field takes a list of _entity representations_ and returns a list of corresponding entities.
+
+Whenever one subgraph references another subgraph's entity, it uses an entity representation to do so. An entity representation is an object that includes only the entity's `__typename` and the fields in the entity's `@key`.
+
+```graphql
+_entities(representations: [_Any!]!): [_Entity]!
+```
+
+- The `_Any` type is a special scalar that enables you to provide entity representations of any valid shape.
+- The `_Entity` type is a generated [union type](/apollo-server/schema/unions-interfaces/#union-type) that includes every entity defined in your subgraph's schema.
+
+You can query this field like so, providing a value for the `$representations` variable as shown:
+
+```graphql title="Query"
+query ($representations: [_Any!]!) {
+  _entities(representations: $representations) {
+    ... on User {
+      id
+      username
+    }
+  }
+}
+```
+
+```json title="Variable"
+{
+  "representations": [
+    {
+      "__typename": "User",
+      "id": "5"
+    }
+  ]
+}
+```
+
+### Using in tests and debugging
+
+If you're writing integration tests for your subgraph, you can test the return value of the `_entities` field for various entity representations that your other subgraphs use.
+
+If you're developing your subgraph in your local environment, you can [mock the return value](/apollo-server/testing/mocking/) of the `_entities` field for your other subgraphs so you don't have to connect those subgraphs to their respective data stores.
+
+
+## `Query._service`
+
+This field returns a `_Service` object with one field of its own: `sdl`. You can query it like so:
+
+```graphql
+query GetSubgraphSchema {
+  _service {
+    sdl
+  }
+}
+```
+
+The `sdl` field returns your subgraph's schema as an SDL string. This field has a couple of important differences from a standard [introspection query](https://graphql.org/learn/introspection/) that a tool like Apollo Sandbox uses:
+
+- Unlike introspection, the `sdl` field is not disabled by default in production environments (this is safe if you properly [secure your subgraph](#securing-your-subgraphs)).
+- Unlike introspection, the `sdl` field's returned string includes federation-specific directives like `@key`.

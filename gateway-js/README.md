@@ -4,7 +4,7 @@ This package provides utilities for combining multiple GraphQL microservices int
 
 Each microservice should implement the [federation schema specification](https://www.apollographql.com/docs/apollo-server/federation/subgraph-spec/). This can be done either through [Apollo Federation](https://github.com/apollographql/federation/tree/HEAD/subgraph-js) or a variety of other open source products.
 
-For complete documentation, see the [Apollo Gateway API reference](https://www.apollographql.com/docs/apollo-server/api/apollo-gateway/).
+For complete documentation, see the [Apollo Gateway API reference](/apollo-server/using-federation/api/apollo-gateway).
 
 ## Usage
 

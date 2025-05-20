@@ -1,0 +1,649 @@
+---
+title: Apollo Federation Changelog
+subtitle: Understand changes between Apollo Federation versions
+description: Understand changes between Apollo Federation major and minor versions.
+---
+
+This article describes notable changes and additions introduced in each minor version release of Apollo Federation. Most of these changes involve additions or modifications to [federation-specific directives](/graphos/reference/federation/directives/).
+
+For a comprehensive changelog for Apollo Federation and its associated libraries, see [GitHub](https://github.com/apollographql/federation/blob/main/CHANGELOG.md).
+
+- To use a feature introduced in a particular federation version, make sure your subgraph schema's `@link` directive targets that version (or higher):
+
+    ```graphql showLineNumbers=false disableCopy=true
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.3", #highlight-line
+            import: ["@key", "@shareable", "@interfaceObject"])
+    ```
+
+    The example above must target at least Federation v2.3, because the `@interfaceObject` directive was introduced in that version.
+
+    <Note>
+    
+    Before you increment a subgraph's federation version, update your router and build pipeline. For details, see [Updating your graph safely](/graphos/platform/graph-management/updates).
+
+    </Note>
+
+- If you maintain a [subgraph-compatible library](/graphos/reference/federation/compatible-subgraphs), consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](/graphos/reference/federation/subgraph-spec/#subgraph-schema-additions).
+
+## v2.10
+
+<hr/>
+
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **February 2025** | **Yes** | **`2.0.0`** |
+
+#### Directive changes
+
+#### `@connect`
+
+Introduced. [Learn more](/graphos/schema-design/connectors/directives#connect).
+
+```graphql showLineNumbers=false disableCopy=true
+directive @connect(
+  source: String
+  http: ConnectHTTP!
+  selection: JSONSelection!
+  entity: Boolean
+) repeatable on FIELD_DEFINITION;
+
+```
+
+#### `@source`
+
+Introduced. [Learn more](/graphos/schema-design/connectors/directives#source).
+
+```graphql showLineNumbers=false disableCopy=true
+directive @source(
+  name: String!
+  http: SourceHTTP!
+) repeatable on SCHEMA;
+```
+
+## v2.9
+
+<hr/>
+
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **August 2024** | **Yes** | **`1.53.0`** |
+
+#### Directive changes
+
+#### `@cost`
+
+Introduced. [Learn more](/federation/federated-schemas/federated-directives#cost).
+
+```graphql showLineNumbers=false disableCopy=true
+directive @cost(weight: Int!) on
+  | ARGUMENT_DEFINITION
+  | ENUM  
+  | FIELD_DEFINITION   
+  | INPUT_FIELD_DEFINITION  
+  | OBJECT   
+  | SCALAR;
+```
+
+#### `@listSize`
+
+Introduced. [Learn more](/federation/federated-schemas/federated-directives#listsize).
+
+```graphql showLineNumbers=false disableCopy=true
+directive @listSize(
+  assumedSize: Int
+  slicingArguments: [String!]
+  sizedFields: [String!]
+  requireOneSlicingArgument: Boolean = true
+)
+on FIELD_DEFINITION;
+```
+
+## v2.8
+
+<hr/>
+
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **May 2024** | **Yes** | **`1.48.0`** |
+
+#### Directive changes
+
+##### `@context`
+
+Introduced. [Learn more](/graphos/reference/federation/directives/#context).
+
+```graphql showLineNumbers=false disableCopy=true
+directive @context(name: String!) on OBJECT | INTERFACE | UNION;
+```
+
+##### `@fromContext`
+
+Introduced. [Learn more](/graphos/reference/federation/directives/#fromcontext).
+
+```graphql showLineNumbers=false disableCopy=true
+scalar ContextFieldValue;
+
+directive @fromContext(field: ContextFieldValue) on ARGUMENT_DEFINITION;
+```
+
+## v2.7
+
+<hr/>
+
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **February 2024** | **Yes** | **`1.39.0`** |
+
+#### Directive changes
+
+##### Progressive `@override`
+
+Added progressive `@override`. [Learn more.](/graphos/reference/federation/directives/#progressive-override)
+
+```graphql showLineNumbers=false disableCopy=true
+directive @override(from: String!, label: String) on FIELD_DEFINITION
+```
+
+## v2.6
+
+<hr/>
+
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **November 2023** | **Yes** | **`1.35.0`** |
+
+#### Directive changes
+
+##### `@policy`
+
+
+Introduced. [Learn more.](/graphos/routing/security/authorization)
+
+```graphql showLineNumbers=false disableCopy=true
+directive @policy(policies: [[federation__Policy!]!]!) on
+  | FIELD_DEFINITION
+  | OBJECT
+  | INTERFACE
+  | SCALAR
+  | ENUM
+```
+##### Subgraph changes
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ minWidth: 200 }}>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+Policy
+
+</td>
+<td>
+
+- Custom scalar representing an authorization policy. Used by new `@policy` directive.
+
+</td>
+</tr>
+</tbody>
+</table>
+
+## v2.5
+
+<hr/>
+
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **July 2023** | **Yes** | **`1.29.1`** |
+
+#### Directive changes
+
+##### `@authenticated`
+
+
+Introduced. [Learn more.](/graphos/routing/security/authorization)
+
+```graphql showLineNumbers=false disableCopy=true
+directive @authenticated on
+    FIELD_DEFINITION
+  | OBJECT
+  | INTERFACE
+  | SCALAR
+  | ENUM
+```
+
+##### `@requiresScopes`
+
+
+Introduced. [Learn more.](/graphos/routing/security/authorization)
+
+```graphql showLineNumbers=false disableCopy=true
+directive @requiresScopes(scopes: [[federation__Scope!]!]!) on
+    FIELD_DEFINITION
+  | OBJECT
+  | INTERFACE
+  | SCALAR
+  | ENUM
+```
+
+#### Subgraph changes
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ minWidth: 200 }}>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+Scope
+
+</td>
+<td>
+
+- Custom scalar representing a JWT scope. Used by new `@requiresScopes` directive.
+
+</td>
+</tr>
+</tbody>
+</table>
+
+## v2.4
+
+<hr/>
+
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **March 2023** | **Yes** | **`1.13.1`** |
+
+#### Subgraph changes
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ minWidth: 200 }}>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+Subscriptions
+
+</td>
+<td>
+
+- Composition now supports defining the `Subscription` type in subgraph schemas.
+- Use of GraphQL subscriptions with a federated graph requires a compatible version of the GraphOS Router. [See details.](/graphos/routing/operations/subscriptions/#prerequisites)
+
+</td>
+</tr>
+</tbody>
+</table>
+
+## v2.3
+
+<hr/>
+
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **February 2023**| **Yes** | **`1.10.2`** |
+
+#### Directive changes
+
+
+##### `@interfaceObject`
+
+Introduced. [Learn more.](/graphos/schema-design/federated-schemas/entities/interfaces)
+
+```graphql showLineNumbers=false disableCopy=true
+directive @interfaceObject on OBJECT
+```
+
+##### `@key`
+
+Can now be applied to interface definitions to support [entity interfaces](/graphos/schema-design/federated-schemas/entities/interfaces/).
+
+(Previous versions of composition threw an error if `@key` was applied to an interface definition.)
+
+## v2.2
+
+<hr/>
+
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **November 2022** | **No**| **`1.6.0`** |
+
+#### Directive changes
+
+##### `@shareable`
+
+Added `repeatable` to the directive definition.
+
+```graphql showLineNumbers=false disableCopy=true
+directive @shareable repeatable on OBJECT | FIELD_DEFINITION
+```
+
+Additionally, composition now throws an error if `@shareable` is applied to fields of an `interface` definition.
+
+## v2.1
+
+<hr/>
+
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **August 2022** | **Yes** | **`1.0.0`** |
+
+#### Directive changes
+
+##### `@composeDirective`
+
+Introduced. [Learn more.](/graphos/reference/federation/directives#composedirective)
+
+```graphql showLineNumbers=false disableCopy=true
+directive @composeDirective(name: String!) repeatable on SCHEMA
+```
+
+##### `@requires`
+
+The `fields` argument can now include fields that themselves take arguments. [Learn more.](/graphos/schema-design/federated-schemas/entities/contribute-fields#using-requires-with-fields-that-take-arguments)
+
+(Functionality added in v2.1.2)
+
+```graphql showLineNumbers=false disableCopy=true
+type Product @key(fields: "id") {
+  id: ID!
+  weight(units: String): Int! @external
+  #highlight-start
+  shippingEstimate: Int! @requires(fields: "weight(units: \"KILOGRAMS\")")
+  #highlight-end
+}
+```
+
+## v2.0
+
+<hr/>
+
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **April 2022** | **Yes** | **`1.0.0`** |
+
+#### Directive changes
+
+Subgraph schemas "opt in" to Federation 2 features by applying the `@link` directive to the `schema` type, like so:
+
+```graphql showLineNumbers=false disableCopy=true
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.0",
+        import: ["@key", "@shareable"])
+```
+
+The `import` list of this definition must include each federation-specific directive that the subgraph schema uses. In the example above, the schema uses `@key` and `@shareable`.
+
+For details on these directives as defined in Federation 2, see [Federation-specific GraphQL directives](/graphos/reference/federation/directives/).
+
+##### `@key`
+
+Added optional `resolvable` argument.
+
+```graphql showLineNumbers=false disableCopy=true
+directive @key(
+  fields: FieldSet!,
+  resolvable: Boolean = true # highlight-line
+) repeatable on OBJECT | INTERFACE
+```
+
+##### `@shareable`
+
+Introduced.
+
+```graphql showLineNumbers=false disableCopy=true
+directive @shareable on OBJECT | FIELD_DEFINITION
+```
+
+##### `@inaccessible`
+
+Introduced.
+
+```graphql showLineNumbers=false disableCopy=true
+directive @inaccessible on
+  | FIELD_DEFINITION
+  | OBJECT
+  | INTERFACE
+  | UNION
+  | ARGUMENT_DEFINITION
+  | SCALAR
+  | ENUM
+  | ENUM_VALUE
+  | INPUT_OBJECT
+  | INPUT_FIELD_DEFINITION
+```
+
+##### `@override`
+
+Introduced.
+
+```graphql showLineNumbers=false disableCopy=true
+directive @override(from: String!) on FIELD_DEFINITION
+```
+
+##### `@link`
+
+Introduced.
+
+```graphql showLineNumbers=false disableCopy=true
+directive @link(
+  url: String,
+  as: String,
+  for: link__Purpose,
+  import: [link__Import]
+) repeatable on SCHEMA
+```
+
+##### `@extends`, `@external`, `@provides`, `@requires`, `@tag`
+
+No changes.
+
+#### Subgraph changes
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ minWidth: 200 }}>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+Entities
+
+</td>
+<td>
+
+* Entities no longer originate in a subgraph. Instead, any number of subgraphs can define the same entity and contribute fields to it.
+* Multiple subgraphs can contribute the same field to an entity, if that field is marked as `@shareable` in every subgraph that defines it.
+* Subgraphs no longer need to `extend` (or `@extends`) an entity whenever another subgraph already defines that entity.
+* Each subgraph can apply any number of `@key` directives to an entity.
+* Subgraphs must no longer apply the `@external` directive to their `@key` fields.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+Value types
+
+</td>
+<td>
+
+* To define a value type with shared fields across multiple subgraphs, those shared fields must be marked as `@shareable` in every subgraph that defines them.
+* Value type fields can differ across subgraphs (in certain ways). For details, see [Differing shared fields](/graphos/schema-design/federated-schemas/sharing-types#differing-shared-fields).
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`Query` and `Mutation`
+
+</td>
+<td>
+
+* More than one subgraph can define the same field of the `Query` or `Mutation` type, if that field is marked as `@shareable` in every subgraph that defines it.
+* Subgraphs no longer need to apply the `extend` keyword (or the `@extends` directive) to the `Query` and `Mutation` types.
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+## v1.1
+
+<Caution>
+
+Apollo Router Core and GraphOS Router v1.60 and later don't support Federation v1.x supergraphs.
+
+</Caution>
+
+#### Directive changes
+
+##### `@tag`
+
+Introduced.
+
+```graphql showLineNumbers=false disableCopy=true
+directive @tag(name: String!) repeatable on
+  | FIELD_DEFINITION
+  | INTERFACE
+  | OBJECT
+  | UNION
+```
+
+## v1.0
+
+<Caution>
+
+Apollo Router Core and GraphOS Router v1.60 and later don't support Federation v1.x supergraphs.
+
+</Caution>
+
+#### Directive changes
+
+For details on these directives as defined in Federation 1, see the [Federation 1 subgraph spec](/federation/v1/federation-spec).
+
+##### `@key`
+
+Introduced.
+
+```graphql showLineNumbers=false disableCopy=true
+directive @key(fields: _FieldSet!) repeatable on OBJECT | INTERFACE
+```
+
+##### `@external`
+
+Introduced.
+
+```graphql showLineNumbers=false disableCopy=true
+directive @external on FIELD_DEFINITION
+```
+
+##### `@requires`
+
+Introduced.
+
+```graphql showLineNumbers=false disableCopy=true
+directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
+```
+
+##### `@provides`
+
+Introduced.
+
+```graphql showLineNumbers=false disableCopy=true
+directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
+```
+
+##### `@extends`
+
+Introduced.
+
+```graphql showLineNumbers=false disableCopy=true
+directive @extends on OBJECT | INTERFACE
+```
+
+#### Subgraph changes
+
+<table>
+  <thead>
+    <tr>
+      <th style={{ minWidth: 200 }}>Topic</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+<tr>
+<td>
+
+Entities
+
+</td>
+<td>
+
+* Each entity originates in exactly one subgraph and can be extended in other subgraphs.
+* An entity's originating subgraph must apply at least one `@key` directive to the entity definition.
+* An extending subgraph must use the `extend` keyword (or the `@extends` directive) when defining another subgraph's entity.
+* An extending subgraph must apply exactly one `@key` directive to any entity it extends. The `fields` of that `@key` must match a `@key` that's defined by the entity's originating subgraph.
+* An extending subgraph must apply the `@external` directive to all `@key` fields of an entity it extends.
+* If an entity field is defined in more than one subgraph, it must be marked as `@external` in all but one subgraph.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+Value types
+
+</td>
+<td>
+
+* Each subgraph that defines a value type must define that value type identically.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`Query` and `Mutation`
+
+</td>
+<td>
+
+* More than one subgraph cannot define the same field of the `Query` or `Mutation` type.
+* Every subgraph must apply the `extend` keyword (or the `@extends` directive) to the `Query` and `Mutation` types.
+
+</td>
+</tr>
+
+</tbody>
+</table>

@@ -1,5 +1,71 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.11.0-preview.2
+
+### Patch Changes
+
+- Preparing preview.2 release ([#3255](https://github.com/apollographql/federation/pull/3255))
+
+- Updated dependencies [[`3e2b0a8569a9fe46726182887ed0b4bfc0b52468`](https://github.com/apollographql/federation/commit/3e2b0a8569a9fe46726182887ed0b4bfc0b52468)]:
+  - @apollo/federation-internals@2.11.0-preview.2
+
+## 2.11.0-preview.1
+
+### Patch Changes
+
+- Corrects a set of denial-of-service (DOS) vulnerabilities that made it possible for an attacker to render gateway inoperable with certain simple query patterns due to uncontrolled resource consumption. All prior-released versions and configurations are vulnerable. ([#3238](https://github.com/apollographql/federation/pull/3238))
+
+  See the associated GitHub Advisories [GHSA-q2f9-x4p4-7xmh](https://github.com/apollographql/federation/security/advisories/GHSA-q2f9-x4p4-7xmh) and [GHSA-p2q6-pwh5-m6jr](https://github.com/apollographql/federation/security/advisories/GHSA-p2q6-pwh5-m6jr) for more information.
+
+- Updated dependencies [[`1462c91879d41884c0a7e60551d8dd0d67c832d3`](https://github.com/apollographql/federation/commit/1462c91879d41884c0a7e60551d8dd0d67c832d3)]:
+  - @apollo/federation-internals@2.11.0-preview.1
+
+## 2.11.0-preview.0
+
+### Minor Changes
+
+- Add connect spec v0.2 ([#3228](https://github.com/apollographql/federation/pull/3228))
+
+### Patch Changes
+
+- Updated dependencies [[`e7e67579908d5cd2fa6fe558228dffe4808cd98d`](https://github.com/apollographql/federation/commit/e7e67579908d5cd2fa6fe558228dffe4808cd98d)]:
+  - @apollo/federation-internals@2.11.0-preview.0
+
+## 2.10.0
+
+### Minor Changes
+
+- Adds the ability to compose and serialize directives for [Apollo Connectors](https://go.apollo.dev/connectors). To use Apollo Connectors, compose your supergraphs using [GraphOS](https://www.apollographql.com/docs/graphos/platform/schema-management) or [rover](https://www.apollographql.com/docs/rover/commands/dev), and run your supergraph in [Apollo Router](https://www.apollographql.com/docs/graphos/routing) 2.0.0 or higher. ([#3215](https://github.com/apollographql/federation/pull/3215))
+
+### Patch Changes
+
+- Updated dependencies [[`8927e315ab0e865ef3ff12320f265ee95588b899`](https://github.com/apollographql/federation/commit/8927e315ab0e865ef3ff12320f265ee95588b899), [`8927e315ab0e865ef3ff12320f265ee95588b899`](https://github.com/apollographql/federation/commit/8927e315ab0e865ef3ff12320f265ee95588b899)]:
+  - @apollo/federation-internals@2.10.0
+
+## 2.9.3
+
+### Patch Changes
+
+- Fixes edge case where contextual arguments can yield inefficient query plans. Also fixes naming of query plan arguments which can be a problem when using contextual variables in multiple subgraphs ([#3140](https://github.com/apollographql/federation/pull/3140))
+
+- When eliminating suboptimal indirect paths during query planning, properly check for a direct `@key` edge at the end of the potential direct path. ([#3160](https://github.com/apollographql/federation/pull/3160))
+
+- Fixed missing referenced variables in the `variableUsages` field of fetch operations ([#3166](https://github.com/apollographql/federation/pull/3166))
+
+  Query variables used in fetch operation should be listed in the `variableUsages` field. However, there was a bug where variables referenced by query-level directives could be missing in the field.
+
+- Updated dependencies [[`cc4573471696ef78d04fa00c4cf8e5c50314ba9f`](https://github.com/apollographql/federation/commit/cc4573471696ef78d04fa00c4cf8e5c50314ba9f), [`062572b3253e8640b60a0bf58b83945094b76b6f`](https://github.com/apollographql/federation/commit/062572b3253e8640b60a0bf58b83945094b76b6f), [`df5eb3cb0e2b4802fcd425ab9c23714de2707db3`](https://github.com/apollographql/federation/commit/df5eb3cb0e2b4802fcd425ab9c23714de2707db3), [`1c99cb0dcc6c639ac351210932623ab0bd6907e4`](https://github.com/apollographql/federation/commit/1c99cb0dcc6c639ac351210932623ab0bd6907e4)]:
+  - @apollo/federation-internals@2.9.3
+
+## 2.9.2
+
+### Patch Changes
+
+- Fixes issue where contextual parameters can have naming collisions if used in multiple subgraphs ([#3155](https://github.com/apollographql/federation/pull/3155))
+
+- Updated dependencies [[`2192f355f50db33fe0807d16153f357696b9f190`](https://github.com/apollographql/federation/commit/2192f355f50db33fe0807d16153f357696b9f190), [`5ac01b534318105e904c1e6598070f753add3bb1`](https://github.com/apollographql/federation/commit/5ac01b534318105e904c1e6598070f753add3bb1)]:
+  - @apollo/federation-internals@2.9.2
+
 ## 2.9.1
 
 ### Patch Changes

@@ -302,7 +302,51 @@ test('hints on field of object value type not being in all subgraphs', () => {
     + '"T.b" is defined in subgraph "Subgraph1" but not in subgraph "Subgraph2".',
     'T'
   );
-})
+});
+
+test('use of federation__key does not raise hint', () => {
+  const subgraph1 = gql`
+  extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.7")
+
+    type Query {
+      a: Int
+    }
+
+    union U = T
+    
+    type T @federation__key(fields:"id") {
+      id: ID!
+      b: Int
+    }
+  `;
+  
+  const subgraph2 = gql`
+  extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.7")
+
+    type Query {
+      b: Int
+    }
+    
+    type T @federation__key(fields:"id") {
+      id: ID!
+      c: Int
+    }
+  `;
+  const result = composeServices([
+      {
+        name: 'subgraph1',
+        typeDefs: subgraph1,
+      },
+      {
+        name: 'subgraph2',
+        typeDefs: subgraph2,
+      },
+    ]);
+  assertCompositionSuccess(result);
+  expect(result).toNotRaiseHints();
+});
 
 test('hints on field of interface value type not being in all subgraphs', () => {
   const subgraph1 = gql`

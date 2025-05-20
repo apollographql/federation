@@ -39,6 +39,7 @@ overrides:
     ignoreRegExpList:
       - "\\]\\([^)]+\\)"
       - "youTubeID=.+/>"
+      - "WistiaId=.+/>"
   # Ignore user and repo names in GitHub links to supported subgraph libraries.
   - filename: '**/compatible-subgraphs.md'
     ignoreRegExpList:

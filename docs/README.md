@@ -2,8 +2,8 @@
 
 This is the documentation **source** for this repository.
 
-The **deployed** version of the documentation for this repository is available at:
+Pages from this directory are deployed in the following documentation sections:
 
-* https://www.apollographql.com/docs/federation/
-
-See the [docs site README](https://github.com/apollographql/docs) for local installation and development.
+* https://www.apollographql.com/docs/graphos/schema-design/federated-schemas/federation
+* https://www.apollographql.com/docs/graphos/reference/federation/versions
+* https://www.apollographql.com/docs/graphos/reference/migration/to-federation-version-2

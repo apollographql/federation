@@ -1,5 +1,69 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.11.0-preview.2
+
+### Patch Changes
+
+- Preparing preview.2 release ([#3255](https://github.com/apollographql/federation/pull/3255))
+
+- Updated dependencies [[`3e2b0a8569a9fe46726182887ed0b4bfc0b52468`](https://github.com/apollographql/federation/commit/3e2b0a8569a9fe46726182887ed0b4bfc0b52468)]:
+  - @apollo/query-planner@2.11.0-preview.2
+  - @apollo/composition@2.11.0-preview.2
+  - @apollo/federation-internals@2.11.0-preview.2
+
+## 2.11.0-preview.1
+
+### Patch Changes
+
+- Corrects a set of denial-of-service (DOS) vulnerabilities that made it possible for an attacker to render gateway inoperable with certain simple query patterns due to uncontrolled resource consumption. All prior-released versions and configurations are vulnerable. ([#3238](https://github.com/apollographql/federation/pull/3238))
+
+  See the associated GitHub Advisories [GHSA-q2f9-x4p4-7xmh](https://github.com/apollographql/federation/security/advisories/GHSA-q2f9-x4p4-7xmh) and [GHSA-p2q6-pwh5-m6jr](https://github.com/apollographql/federation/security/advisories/GHSA-p2q6-pwh5-m6jr) for more information.
+
+- Updated dependencies [[`1462c91879d41884c0a7e60551d8dd0d67c832d3`](https://github.com/apollographql/federation/commit/1462c91879d41884c0a7e60551d8dd0d67c832d3)]:
+  - @apollo/query-planner@2.11.0-preview.1
+  - @apollo/federation-internals@2.11.0-preview.1
+  - @apollo/composition@2.11.0-preview.1
+
+## 2.11.0-preview.0
+
+### Minor Changes
+
+- Add connect spec v0.2 ([#3228](https://github.com/apollographql/federation/pull/3228))
+
+### Patch Changes
+
+- Updated dependencies [[`e7e67579908d5cd2fa6fe558228dffe4808cd98d`](https://github.com/apollographql/federation/commit/e7e67579908d5cd2fa6fe558228dffe4808cd98d)]:
+  - @apollo/composition@2.11.0-preview.0
+  - @apollo/federation-internals@2.11.0-preview.0
+  - @apollo/query-planner@2.11.0-preview.0
+
+## 2.10.0
+
+### Patch Changes
+
+- Updated dependencies [[`8927e315ab0e865ef3ff12320f265ee95588b899`](https://github.com/apollographql/federation/commit/8927e315ab0e865ef3ff12320f265ee95588b899), [`8927e315ab0e865ef3ff12320f265ee95588b899`](https://github.com/apollographql/federation/commit/8927e315ab0e865ef3ff12320f265ee95588b899)]:
+  - @apollo/query-planner@2.10.0
+  - @apollo/composition@2.10.0
+  - @apollo/federation-internals@2.10.0
+
+## 2.9.3
+
+### Patch Changes
+
+- Updated dependencies [[`345661c558773e4eb5d5f0b28464a8d1acdc2a2d`](https://github.com/apollographql/federation/commit/345661c558773e4eb5d5f0b28464a8d1acdc2a2d), [`7fe1465cf35c2efe37ac5c73fac2b7ea04173318`](https://github.com/apollographql/federation/commit/7fe1465cf35c2efe37ac5c73fac2b7ea04173318), [`cc4573471696ef78d04fa00c4cf8e5c50314ba9f`](https://github.com/apollographql/federation/commit/cc4573471696ef78d04fa00c4cf8e5c50314ba9f), [`062572b3253e8640b60a0bf58b83945094b76b6f`](https://github.com/apollographql/federation/commit/062572b3253e8640b60a0bf58b83945094b76b6f), [`df5eb3cb0e2b4802fcd425ab9c23714de2707db3`](https://github.com/apollographql/federation/commit/df5eb3cb0e2b4802fcd425ab9c23714de2707db3), [`1c99cb0dcc6c639ac351210932623ab0bd6907e4`](https://github.com/apollographql/federation/commit/1c99cb0dcc6c639ac351210932623ab0bd6907e4)]:
+  - @apollo/query-planner@2.9.3
+  - @apollo/federation-internals@2.9.3
+  - @apollo/composition@2.9.3
+
+## 2.9.2
+
+### Patch Changes
+
+- Updated dependencies [[`2192f355f50db33fe0807d16153f357696b9f190`](https://github.com/apollographql/federation/commit/2192f355f50db33fe0807d16153f357696b9f190), [`e1e2605b30efc488b57f62ba43436606a38a3607`](https://github.com/apollographql/federation/commit/e1e2605b30efc488b57f62ba43436606a38a3607), [`5ac01b534318105e904c1e6598070f753add3bb1`](https://github.com/apollographql/federation/commit/5ac01b534318105e904c1e6598070f753add3bb1)]:
+  - @apollo/query-planner@2.9.2
+  - @apollo/federation-internals@2.9.2
+  - @apollo/composition@2.9.2
+
 ## 2.9.1
 
 ### Patch Changes
