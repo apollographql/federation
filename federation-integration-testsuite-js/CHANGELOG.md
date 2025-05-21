@@ -1,5 +1,7 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.11.0-preview.3
+
 ## 2.11.0-preview.2
 
 ### Patch Changes

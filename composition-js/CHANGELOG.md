@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.11.0-preview.3
+
+### Patch Changes
+
+- Allow merging external types when using arrays as default arguments. ([#3096](https://github.com/apollographql/federation/pull/3096))
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.11.0-preview.3
+  - @apollo/query-graphs@2.11.0-preview.3
+
 ## 2.11.0-preview.2
 
 ### Patch Changes
