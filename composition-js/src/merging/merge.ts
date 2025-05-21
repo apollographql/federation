@@ -1874,7 +1874,7 @@ class Merger {
         if (!sameType(destArg.type!, arg.type!) && !this.isStrictSubtype(arg.type!, destArg.type!)) {
           invalidArgsTypes.add(name);
         }
-        if (destArg.defaultValue !== arg.defaultValue) {
+        if (!valueEquals(destArg.defaultValue, arg.defaultValue)) {
           invalidArgsDefaults.add(name);
         }
       }
