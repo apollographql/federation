@@ -68,15 +68,11 @@ export function compose(subgraphs: Subgraphs, options: CompositionOptions = {}):
 
   let satisfiabilityResult;
   if (runSatisfiability) {
-    try {
-      satisfiabilityResult = validateSatisfiability({
-        supergraphSchema: mergeResult.supergraph,
-      }, { maxValidationSubgraphPaths });
-      if (satisfiabilityResult.errors) {
-        return { errors: satisfiabilityResult.errors };
-      }
-    } catch (err) {
-      return { errors: [err] };
+    satisfiabilityResult = validateSatisfiability({
+      supergraphSchema: mergeResult.supergraph,
+    }, { maxValidationSubgraphPaths });
+    if (satisfiabilityResult.errors) {
+      return { errors: satisfiabilityResult.errors };
     }
   }
 

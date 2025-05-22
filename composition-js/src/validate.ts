@@ -731,12 +731,13 @@ class ValidationTraversal {
     );
   }
   
-  pushStack(state: ValidationState) {
+  pushStack(state: ValidationState): { error?: GraphQLError } {
     this.totalValidationSubgraphPaths += state.subgraphPathInfos.length;
     this.stack.push(state);
     if (this.totalValidationSubgraphPaths > this.maxValidationSubgraphPaths) {
-      throw ERRORS.MAX_VALIDATION_SUBGRAPH_PATHS_EXCEEDED.err(`Maximum number of validation subgraph paths exceeded: ${this.totalValidationSubgraphPaths}`);
+      return { error: ERRORS.MAX_VALIDATION_SUBGRAPH_PATHS_EXCEEDED.err(`Maximum number of validation subgraph paths exceeded: ${this.totalValidationSubgraphPaths}`) };
     }
+    return {};
   }
   
   popStack() {
@@ -752,12 +753,15 @@ class ValidationTraversal {
     hints: CompositionHint[],
   } {
     while (this.stack.length > 0) {
-      this.handleState(this.popStack()!);
+      const { error } = this.handleState(this.popStack()!);
+      if (error) {
+        return { errors: [error], hints: this.validationHints };
+      }
     }
     return { errors: this.validationErrors, hints: this.validationHints };
   }
 
-  private handleState(state: ValidationState) {
+  private handleState(state: ValidationState): { error?: GraphQLError } {
     debug.group(() => `Validation: ${this.stack.length + 1} open states. Validating ${state}`);
     const vertex = state.supergraphPath.tail;
 
@@ -774,7 +778,7 @@ class ValidationTraversal {
           // type, and have strictly more options regarding subgraphs. So whatever comes next, we can handle in the exact
           // same way we did previously, and there is thus no way to bother.
           debug.groupEnd(`Has already validated this vertex.`);
-          return;
+          return {};
         }
       }
       // We're gonna have to validate, but we can save the new set of sources here to hopefully save work later.
@@ -825,12 +829,16 @@ class ValidationTraversal {
       // state to the stack this method, `handleState`, will do nothing later. But it's
       // worth checking it now and save some memory/cycles.
       if (newState && !newState.supergraphPath.isTerminal()) {
-        this.pushStack(newState);
+        const { error } = this.pushStack(newState);
+        if (error) {
+          return { error };
+        }
         debug.groupEnd(() => `Reached new state ${newState}`);
       } else {
         debug.groupEnd(`Reached terminal vertex/cycle`);
       }
     }
     debug.groupEnd();
+    return {};
   }
 }
