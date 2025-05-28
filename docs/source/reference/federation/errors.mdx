@@ -62,6 +62,48 @@ A [circular reference](graphos/schema-design/connectors/troubleshooting#circular
 <tr>
 <td>
 
+##### `CONNECT_BATCH_AND_THIS`
+
+Since v2.11.0<sup>\*\*</sup>
+
+</td>
+<td>
+
+Using both [`$batch`](/graphos/connectors/mapping/variables#batch) and [`$this`](/graphos/connectors/mapping/variables#this) in a mapping is not allowed.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `CONNECTORS_BATCH_KEY_NOT_IN_SELECTION`
+
+Since v2.11.0<sup>\*\*</sup>
+
+</td>
+<td>
+
+`$batch` key is not reflected in the output selection of connector.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `CONNECTORS_CANNOT_RESOLVE_KEY`
+
+Since v2.11.0<sup>\*\*</sup>
+
+</td>
+<td>
+
+A `@key` could not be resolved for the given combination of variables.
+
+</td>
+</tr>
+<tr>
+<td>
+
 ###### `CONNECTORS_FIELD_WITH_ARGUMENTS`
 
 Since v2.10.0<sup>\*\*</sup>
@@ -69,7 +111,37 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-A field resolved by a connector has arguments defined.
+A field resolved by a [connector](/graphos/connectors) has arguments defined.
+
+</td>
+</tr>
+<tr>
+<td>
+
+###### `CONNECTORS_NON_ROOT_BATCH_KEY`
+
+Since v2.11.0<sup>\*\*</sup>
+
+
+</td>
+<td>
+
+ Connector `$batch` key cannot be derived from a non-root variable such as `$this` or `$context`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+
+###### `CONNECT_ON_ROOT`
+
+Since v2.11.0<sup>\*\*</sup>
+
+</td>
+<td>
+
+`@connect` cannot be applied to a query, mutation, or subscription root type
 
 </td>
 </tr>
@@ -83,7 +155,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-The schema includes fields that aren't resolved by a connector.
+The schema includes fields that aren't resolved by a [connector](/graphos/connectors).
 
 </td>
 </tr>
@@ -97,7 +169,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-[Abstract types](/graphos/schema-design/connectors/limitations#abstract-schema-types-are-unsupported) are not allowed when using connectors.
+[Abstract types](/graphos/connectors/reference/limitations#abstract-schema-types-are-unsupported) are not allowed when using connectors.
 
 </td>
 </tr>
@@ -111,7 +183,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-[Certain directives](/graphos/schema-design/connectors/limitations) are not allowed when using connectors.
+[Certain directives](/graphos/connectors/reference/limitations) are not allowed when using connectors.
 
 </td>
 </tr>
@@ -199,7 +271,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-Indicates two connector sources with the same name were created.
+Indicates two connector [sources](/graphos/connectors/requests#sharing-configuration-with-source) with the same name were created.
 
 </td>
 </tr>
@@ -242,7 +314,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-No `name` was provided when creating a connector source with `@source`.
+No `name` was provided when creating a connector source with [`@source`](/graphos/connectors/requests#sharing-configuration-with-source).
 
 </td>
 </tr>
@@ -477,7 +549,7 @@ Replaces [`VALUE_TYPE_FIELD_TYPE_MISMATCH`](#value-type-field-type-mismatch).
 <tr>
 <td>
 
-###### `GRAPHQL_ERROR`
+###### `GRAPH_QL_ERROR`
 
 Since v2.10.0<sup>\*\*</sup>
 
@@ -512,7 +584,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-Fields that return an object type must use a group selection mapping `{}`.
+Fields that return an object type must use a group selection mapping (i.e. `a { b }`).
 
 </td>
 </tr>
@@ -568,7 +640,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-The `http.body` provided in `@connect` was not valid.
+The mapping for `http.body` provided in `@connect` was not valid. See [Mapping Language Reference](/graphos/connectors/mapping) for more information on writing mappings.
 
 </td>
 </tr>
@@ -582,7 +654,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-A provided header in `@source` or `@connect` was not valid.
+A provided header in `@source` or `@connect` was not valid. See [Headers](/graphos/connectors/requests#headers) for more on connector request headers.
 
 </td>
 </tr>
@@ -596,7 +668,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-The provided selection mapping in a `@connect`s `selection` was not valid.
+The provided selection mapping in a `@connect`s `selection` was not valid. See [Mapping Language Reference](/graphos/connectors/mapping) for more information on writing selection mappings.
 
 </td>
 </tr>
@@ -610,7 +682,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-The `name` provided for a `@source` was invalid. Source names must start with a letter, include only letters, numbers, underscores (`_`) and hyphens (`-`), and be less than 64 characters.
+The `name` provided for a [`@source`](/graphos/connectors/requests#sharing-configuration-with-source) was invalid. Source names must start with a letter, include only letters, numbers, underscores (`_`) and hyphens (`-`), and be less than 64 characters.
 
 </td>
 </tr>
@@ -918,7 +990,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-A `@key` was defined without a corresponding entity connector.
+A `@key` was defined without a corresponding entity connector. See: [Working with Entities](/graphos/connectors/responses/entities) for more information.
 
 </td>
 </tr>
@@ -932,7 +1004,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-The `@connect` directive is missing an HTTP method.
+The `@connect` directive is missing an [HTTP method](/graphos/connectors/requests#http-methods).
 
 </td>
 </tr>
@@ -946,7 +1018,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-The `@connect` directive has multiple HTTP methods when only one is allowed.
+The `@connect` directive has multiple [HTTP methods](/graphos/connectors/requests#http-methods) when only one is allowed.
 
 </td>
 </tr>
@@ -1003,20 +1075,6 @@ Since v2.10.0<sup>\*\*</sup>
 <td>
 
 This is a specialization of [`SOURCE_NAME_MISMATCH`](#source_name_mismatch) error that indicates no sources were defined.
-
-</td>
-</tr>
-<tr>
-<td>
-
-###### `NULLABILITY_MISMATCH`
-
-Since v2.10.0<sup>\*\*</sup>
-
-</td>
-<td>
-
-A variable is nullable in a location which requires non-null at runtime.
 
 </td>
 </tr>
@@ -1464,7 +1522,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-The `source` argument used in a `@connect` directive doesn't match any named connecter sources created with `@source`.
+The `source` argument used in a `@connect` directive doesn't match any named connector sources created with [`@source`](/graphos/connectors/requests#sharing-configuration-with-source).
 
 </td>
 </tr>
@@ -1478,7 +1536,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-Connectors currently [don't support subscription operations](/graphos/schema-design/connectors/limitations#subscriptions-are-unsupported).
+Connectors currently [don't support subscription operations](/graphos/connectors/reference/limitations#subscriptions-are-unsupported).
 
 </td>
 </tr>
@@ -1536,7 +1594,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-Part of the `@connect` refers to an `$args` which is not defined.
+Part of the `@connect` directive refers to an [`$args`](/graphos/connectors/mapping/variables#args) which is not defined.
 
 </td>
 </tr>
@@ -1550,7 +1608,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-Part of the `@connect` refers to an `$this` which is not defined.
+Part of the `@connect` directive refers to an [`$this`](/graphos/connectors/mapping/variables#this) which is not defined.
 
 </td>
 </tr>
@@ -1634,7 +1692,7 @@ Since v2.10.0<sup>\*\*</sup>
 </td>
 <td>
 
-A type used in a connector's variable is [not yet supported](/graphos/schema-design/connectors/limitations) (i.e., unions).
+A type used in a connector's variable is [not yet supported](/graphos/connectors/reference/limitations) (i.e., unions).
 
 </td>
 </tr>
