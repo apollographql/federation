@@ -1,5 +1,42 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.11.0-preview.2
+
+### Patch Changes
+
+- Preparing preview.2 release ([#3255](https://github.com/apollographql/federation/pull/3255))
+
+- Updated dependencies [[`3e2b0a8569a9fe46726182887ed0b4bfc0b52468`](https://github.com/apollographql/federation/commit/3e2b0a8569a9fe46726182887ed0b4bfc0b52468)]:
+  - @apollo/query-planner@2.11.0-preview.2
+  - @apollo/composition@2.11.0-preview.2
+  - @apollo/federation-internals@2.11.0-preview.2
+
+## 2.11.0-preview.1
+
+### Patch Changes
+
+- Corrects a set of denial-of-service (DOS) vulnerabilities that made it possible for an attacker to render gateway inoperable with certain simple query patterns due to uncontrolled resource consumption. All prior-released versions and configurations are vulnerable. ([#3238](https://github.com/apollographql/federation/pull/3238))
+
+  See the associated GitHub Advisories [GHSA-q2f9-x4p4-7xmh](https://github.com/apollographql/federation/security/advisories/GHSA-q2f9-x4p4-7xmh) and [GHSA-p2q6-pwh5-m6jr](https://github.com/apollographql/federation/security/advisories/GHSA-p2q6-pwh5-m6jr) for more information.
+
+- Updated dependencies [[`1462c91879d41884c0a7e60551d8dd0d67c832d3`](https://github.com/apollographql/federation/commit/1462c91879d41884c0a7e60551d8dd0d67c832d3)]:
+  - @apollo/query-planner@2.11.0-preview.1
+  - @apollo/federation-internals@2.11.0-preview.1
+  - @apollo/composition@2.11.0-preview.1
+
+## 2.11.0-preview.0
+
+### Minor Changes
+
+- Add connect spec v0.2 ([#3228](https://github.com/apollographql/federation/pull/3228))
+
+### Patch Changes
+
+- Updated dependencies [[`e7e67579908d5cd2fa6fe558228dffe4808cd98d`](https://github.com/apollographql/federation/commit/e7e67579908d5cd2fa6fe558228dffe4808cd98d)]:
+  - @apollo/composition@2.11.0-preview.0
+  - @apollo/federation-internals@2.11.0-preview.0
+  - @apollo/query-planner@2.11.0-preview.0
+
 ## 2.10.0
 
 ### Patch Changes

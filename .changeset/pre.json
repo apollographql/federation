@@ -1,0 +1,18 @@
+{
+  "mode": "exit",
+  "tag": "preview",
+  "initialVersions": {
+    "@apollo/composition": "2.10.0",
+    "apollo-federation-integration-testsuite": "2.10.0",
+    "@apollo/gateway": "2.10.0",
+    "@apollo/federation-internals": "2.10.0",
+    "@apollo/query-graphs": "2.10.0",
+    "@apollo/query-planner": "2.10.0",
+    "@apollo/subgraph": "2.10.0"
+  },
+  "changesets": [
+    "afraid-queens-drive",
+    "five-suits-drum",
+    "lucky-pillows-rhyme"
+  ]
+}
