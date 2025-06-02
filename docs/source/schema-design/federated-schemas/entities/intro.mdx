@@ -106,7 +106,7 @@ type Product @key(fields: "upc") {
 ```graphql title="Reviews subgraph"
 type Product @key(fields: "productUpc") {
   productUpc: ID!
-  inStock: Boolean!
+  rating: Int!
 }
 ```
 
