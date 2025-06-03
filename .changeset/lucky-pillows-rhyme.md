@@ -8,4 +8,4 @@
 "@apollo/subgraph": minor
 ---
 
-Add connect spec v0.2
+Adds connect spec v0.2, available for use with Apollo Router 2.3.0 or greater.
