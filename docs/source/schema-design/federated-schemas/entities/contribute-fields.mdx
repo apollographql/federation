@@ -104,11 +104,9 @@ type Product @key(fields: "id") {
 In this modification of the previous example, `size` and `weight` are now subfields of a `ProductDimensions` object.
 The Products and Shipping subgraphs must both define the `ProductDimensions` type for this to be valid.
 
-<MinVersion version="2.1.2">
-
 ### Using `@requires` with fields that take arguments
 
-</MinVersion>
+MinVersionBadge version="Federation v2.1.2" />
 
 Starting in Federation v2.1.2, the `@requires` directive can include fields that take arguments, like so:
 
