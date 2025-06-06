@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.11.1
+
+### Patch Changes
+
+- Adding new CompositionOption `maxValidationSubgraphPaths`. This value represents the maximum number of SubgraphPathInfo objects that may exist in a ValidationTraversal when checking for satisfiability. Setting this value can help composition error before running out of memory. Default is 1,000,000. ([#3254](https://github.com/apollographql/federation/pull/3254))
+
 ## 2.11.0
 
 ### Minor Changes
