@@ -86,6 +86,7 @@ import {
   inaccessibleIdentity,
   FeatureDefinitions,
   CONNECT_VERSIONS,
+  CACHE_KEY_VERSIONS,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -418,6 +419,7 @@ class Merger {
     // Represent any applications of directives imported from these spec URLs
     // using @join__directive in the merged supergraph.
     this.joinDirectiveFeatureDefinitionsByIdentity.set(CONNECT_VERSIONS.identity, CONNECT_VERSIONS);
+    this.joinDirectiveFeatureDefinitionsByIdentity.set(CACHE_KEY_VERSIONS.identity, CACHE_KEY_VERSIONS);
   }
 
   private getLatestFederationVersionUsed(): FeatureVersion {
