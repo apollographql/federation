@@ -1,5 +1,11 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.11.0
+
+### Minor Changes
+
+- Adds connect spec v0.2, available for use with Apollo Router 2.3.0 or greater. ([#3262](https://github.com/apollographql/federation/pull/3262))
+
 ## 2.11.0-preview.2
 
 ### Patch Changes

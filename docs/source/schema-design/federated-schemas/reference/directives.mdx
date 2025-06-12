@@ -76,11 +76,9 @@ As shown, custom namespace prefixes also end in two underscores.
 
 ## Managing schemas
 
-<MinVersion version="2.0">
-
 ### The `@link` directive
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.0" />
 
 ```graphql
 directive @link(
@@ -99,11 +97,9 @@ For more information on `@link`, see the [official spec](https://specs.apollo.de
 
 ## Managing types
 
-<MinVersion version="1.0">
-
 ### `@key`
 
-</MinVersion>
+<MinVersionBadge version="Federation v1.0" />
 
 ```graphql
 directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
@@ -202,11 +198,9 @@ The default value is `true`.
 </tbody>
 </table>
 
-<MinVersion version="2.3">
-
 ### `@interfaceObject`
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.3" />
 
 ```graphql
 directive @interfaceObject on OBJECT
@@ -218,11 +212,9 @@ During composition, the fields of every `@interfaceObject` are added both to the
 
 [Learn more about entity interfaces.](/graphos/schema-design/federated-schemas/entities/interfaces/)
 
-<MinVersion version="1.0">
-
 ### `@extends`
 
-</MinVersion>
+<MinVersionBadge version="Federation v1.0" />
 
 ```graphql
 directive @extends on OBJECT | INTERFACE
@@ -248,11 +240,9 @@ In Federation 1, every subgraph must extend the `Query` and `Mutation` types (if
 
 ## Managing shared fields
 
-<MinVersion version="2.0">
-
 ### `@shareable`
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.0" />
 
 ```graphql
 directive @shareable repeatable on FIELD_DEFINITION | OBJECT
@@ -296,11 +286,9 @@ See also [Value types in Apollo Federation](/graphos/schema-design/federated-sch
 
 The `@shareable` directive is about indicating when an object field can be resolved by multiple subgraphs. As interface fields are not directly resolved (their implementation is), `@shareable` is not meaningful on an interface field and is not allowed (at least since federation 2.2; earlier versions of federation 2 mistakenly ignored `@shareable` on interface fields).
 
-<MinVersion version="2.0">
-
 ### `@inaccessible`
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.0" />
 
 ```graphql
 directive @inaccessible on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
@@ -349,11 +337,9 @@ If a type is marked `@inaccessible`, all fields that return that type must also 
 
 For more information, see [Using `@inaccessible`](/graphos/schema-design/federated-schemas/sharing-types/#using-inaccessible).
 
-<MinVersion version="2.0">
-
 ### `@override`
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.0" />
 
 ```graphql
 directive @override(from: String!) on FIELD_DEFINITION
@@ -389,11 +375,9 @@ Only one subgraph can `@override` any given field. If multiple subgraphs attempt
 
 For more information, see [Migrating entity and root fields](/graphos/schema-design/federated-schemas/entities/migrate-fields).
 
-<MinVersion version="2.7">
-
 #### Progressive `@override`
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.7" />
 
 <ProgressiveOverrideEnterprise/>
 
@@ -459,11 +443,9 @@ This argument is available in Apollo Federation 2.7 and later. It is an [Enterpr
 
 ## Controlling access
 
-<MinVersion version="2.5">
-
 ### `@authenticated`
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.5" />
 
 <EnterpriseDirective />
 
@@ -479,11 +461,9 @@ directive @authenticated on
 
 Indicates to composition that the target element is accessible only to the authenticated supergraph users. For more granular access control, see the [`@requiresScopes`](#requiresScopes) directive below. Refer to the [router article](/graphos/routing/security/authorization#authenticated) for additional details.
 
-<MinVersion version="2.5">
-
 ### `@requiresScopes`
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.5" />
 
 <EnterpriseDirective />
 
@@ -528,11 +508,9 @@ Indicates to composition that the target element is accessible only to the authe
 </tbody>
 </table>
 
-<MinVersion version="2.6">
-
 ### `@policy`
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.6" />
 
 <EnterpriseDirective />
 
@@ -579,11 +557,9 @@ Indicates to composition that the target element is restricted based on authoriz
 
 ## Referencing external fields
 
-<MinVersion version="1.0">
-
 ### `@external`
 
-</MinVersion>
+<MinVersionBadge version="Federation v1.0" />
 
 ```graphql
 directive @external on FIELD_DEFINITION | OBJECT
@@ -617,11 +593,9 @@ type Position @external {
 }
 ```
 
-<MinVersion version="1.0">
-
 ### `@provides`
 
-</MinVersion>
+<MinVersionBadge version="Federation v1.0" />
 
 ```graphql
 directive @provides(fields: FieldSet!) on FIELD_DEFINITION
@@ -698,11 +672,9 @@ Examples:
 </tbody>
 </table>
 
-<MinVersion version="1.0">
-
 ### `@requires`
 
-</MinVersion>
+<MinVersionBadge version="Federation v1.0" />
 
 ```graphql
 directive @requires(fields: FieldSet!) on FIELD_DEFINITION
@@ -767,11 +739,9 @@ Examples:
 
 ## Applying metadata
 
-<MinVersion version="1.1">
-
 ### `@tag`
 
-</MinVersion>
+<MinVersionBadge version="Federation v1.1" />
 
 ```graphql
 directive @tag(name: String!) repeatable on FIELD_DEFINITION | INTERFACE | OBJECT | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION | SCHEMA
@@ -845,11 +815,9 @@ type Employee implements User @tag(name: "team-admin") {
 
 ## Managing custom directives
 
-<MinVersion version="2.1">
-
 ### `@composeDirective`
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.1" />
 
 ```graphql
 directive @composeDirective(name: String!) repeatable on SCHEMA
@@ -923,11 +891,9 @@ If different subgraphs use different versions of a directive's corresponding spe
 
 ## Saving and referencing data with contexts
 
-<MinVersion version="2.8">
-
 ### `@context`
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.8" />
 
 <EnterpriseFeature />
 
@@ -958,11 +924,9 @@ type U @key(fields: "id") {
 }
 ```
 
-<MinVersion version="2.8">
-
 ### `@fromContext`
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.8" />
 
 <EnterpriseFeature />
 
@@ -990,11 +954,9 @@ For examples using `@context` and `@fromContext`, see [Using contexts to share d
 
 ## Customizing demand controls
 
-<MinVersion version="2.9">
-
 ### `@cost`
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.9" />
 
 <EnterpriseFeature />
 
@@ -1039,11 +1001,9 @@ Regardless of whether `@cost` is specified on a field, the field cost for that f
 </tbody>
 </table>
 
-<MinVersion version="2.9">
-
 ### `@listSize`
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.9" />
 
 <EnterpriseFeature />
 
@@ -1199,11 +1159,9 @@ The default value is `true`.
 </tbody>
 </table>
 
-<MinVersion version="2.10">
-
 ## Connectors
 
-</MinVersion>
+<MinVersionBadge version="Federation v2.10" />
 
 <EnterpriseFeature />
 

@@ -627,6 +627,12 @@ const LIST_SIZE_INVALID_SIZED_FIELD = makeCodeDefinition(
   { addedIn: '2.9.2' },
 );
 
+const MAX_VALIDATION_SUBGRAPH_PATHS_EXCEEDED = makeCodeDefinition(
+  'MAX_VALIDATION_SUBGRAPH_PATHS_EXCEEDED',
+  'The maximum number of validation subgraph paths has been exceeded.',
+  { addedIn: '2.8.0' },
+);
+
 export const ERROR_CATEGORIES = {
   DIRECTIVE_FIELDS_MISSING_EXTERNAL,
   DIRECTIVE_UNSUPPORTED_ON_INTERFACE,
@@ -727,6 +733,7 @@ export const ERRORS = {
   LIST_SIZE_INVALID_ASSUMED_SIZE,
   LIST_SIZE_INVALID_SIZED_FIELD,
   LIST_SIZE_INVALID_SLICING_ARGUMENT,
+  MAX_VALIDATION_SUBGRAPH_PATHS_EXCEEDED,
 };
 
 const codeDefByCode = Object.values(ERRORS).reduce((obj: {[code: string]: ErrorCodeDefinition}, codeDef: ErrorCodeDefinition) => { obj[codeDef.code] = codeDef; return obj; }, {});

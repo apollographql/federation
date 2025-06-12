@@ -1,5 +1,19 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.11.0
+
+### Minor Changes
+
+- Adds connect spec v0.2, available for use with Apollo Router 2.3.0 or greater. ([#3262](https://github.com/apollographql/federation/pull/3262))
+
+### Patch Changes
+
+- Allow merging external types when using arrays as default arguments. ([#3262](https://github.com/apollographql/federation/pull/3262))
+
+- Updated dependencies [[`1462c91879d41884c0a7e60551d8dd0d67c832d3`](https://github.com/apollographql/federation/commit/1462c91879d41884c0a7e60551d8dd0d67c832d3), [`9614b26e5a17cbf1f6aaf08f6fcb1c95eb12592d`](https://github.com/apollographql/federation/commit/9614b26e5a17cbf1f6aaf08f6fcb1c95eb12592d)]:
+  - @apollo/query-graphs@2.11.0
+  - @apollo/federation-internals@2.11.0
+
 ## 2.11.0-preview.2
 
 ### Patch Changes

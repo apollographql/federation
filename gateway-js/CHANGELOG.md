@@ -1,5 +1,22 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.11.0
+
+### Minor Changes
+
+- Adds connect spec v0.2, available for use with Apollo Router 2.3.0 or greater. ([#3262](https://github.com/apollographql/federation/pull/3262))
+
+### Patch Changes
+
+- Corrects a set of denial-of-service (DOS) vulnerabilities that made it possible for an attacker to render gateway inoperable with certain simple query patterns due to uncontrolled resource consumption. All prior-released versions and configurations are vulnerable. ([#3238](https://github.com/apollographql/federation/pull/3238))
+
+  See the associated GitHub Advisories [GHSA-q2f9-x4p4-7xmh](https://github.com/apollographql/federation/security/advisories/GHSA-q2f9-x4p4-7xmh) and [GHSA-p2q6-pwh5-m6jr](https://github.com/apollographql/federation/security/advisories/GHSA-p2q6-pwh5-m6jr) for more information.
+
+- Updated dependencies [[`1462c91879d41884c0a7e60551d8dd0d67c832d3`](https://github.com/apollographql/federation/commit/1462c91879d41884c0a7e60551d8dd0d67c832d3), [`9614b26e5a17cbf1f6aaf08f6fcb1c95eb12592d`](https://github.com/apollographql/federation/commit/9614b26e5a17cbf1f6aaf08f6fcb1c95eb12592d), [`9614b26e5a17cbf1f6aaf08f6fcb1c95eb12592d`](https://github.com/apollographql/federation/commit/9614b26e5a17cbf1f6aaf08f6fcb1c95eb12592d)]:
+  - @apollo/query-planner@2.11.0
+  - @apollo/federation-internals@2.11.0
+  - @apollo/composition@2.11.0
+
 ## 2.11.0-preview.2
 
 ### Patch Changes
