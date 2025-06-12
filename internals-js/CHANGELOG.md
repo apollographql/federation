@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.12.0
+
+### Minor Changes
+
+- Add connect spec v0.2 ([#3228](https://github.com/apollographql/federation/pull/3228))
+
+### Patch Changes
+
+- Preparing preview.2 release ([#3255](https://github.com/apollographql/federation/pull/3255))
+
+- Adding new CompositionOption `maxValidationSubgraphPaths`. This value represents the maximum number of SubgraphPathInfo objects that may exist in a ValidationTraversal when checking for satisfiability. Setting this value can help composition error before running out of memory. Default is 1,000,000. ([#3275](https://github.com/apollographql/federation/pull/3275))
+
 ## 2.11.0
 
 ### Minor Changes

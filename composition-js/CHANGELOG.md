@@ -1,5 +1,23 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.12.0
+
+### Minor Changes
+
+- Add connect spec v0.2 ([#3228](https://github.com/apollographql/federation/pull/3228))
+
+### Patch Changes
+
+- Preparing preview.2 release ([#3255](https://github.com/apollographql/federation/pull/3255))
+
+- Adding new CompositionOption `maxValidationSubgraphPaths`. This value represents the maximum number of SubgraphPathInfo objects that may exist in a ValidationTraversal when checking for satisfiability. Setting this value can help composition error before running out of memory. Default is 1,000,000. ([#3275](https://github.com/apollographql/federation/pull/3275))
+
+- Allow merging external types when using arrays as default arguments. ([#3096](https://github.com/apollographql/federation/pull/3096))
+
+- Updated dependencies [[`3e2b0a8569a9fe46726182887ed0b4bfc0b52468`](https://github.com/apollographql/federation/commit/3e2b0a8569a9fe46726182887ed0b4bfc0b52468), [`b734ea04d118db09cf6077fdd968c8f04a96327a`](https://github.com/apollographql/federation/commit/b734ea04d118db09cf6077fdd968c8f04a96327a), [`e7e67579908d5cd2fa6fe558228dffe4808cd98d`](https://github.com/apollographql/federation/commit/e7e67579908d5cd2fa6fe558228dffe4808cd98d)]:
+  - @apollo/query-graphs@2.12.0
+  - @apollo/federation-internals@2.12.0
+
 ## 2.11.0
 
 ### Minor Changes
