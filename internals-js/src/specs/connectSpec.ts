@@ -222,6 +222,12 @@ export const CONNECT_VERSIONS = new FeatureDefinitions<ConnectSpecDefinition>(
       new FeatureVersion(0, 2),
       new FeatureVersion(2, 10),
     ),
+  )
+  .add(
+    new ConnectSpecDefinition(
+      new FeatureVersion(0, 3),
+      new FeatureVersion(2, 11),
+    ),
   );
 
 registerKnownFeature(CONNECT_VERSIONS);
