@@ -1735,6 +1735,15 @@ function advancePathWithDirectTransition<V extends Vertex>(
     // We can now continue on dealing with the actual field.
   }
 
+  if (
+    transition.kind === 'DownCast'
+    && transition.castedType.name === path.tail.type.name
+  ) {
+    // Due to output type covariance, a downcast supergraph transition may be a no-op on the
+    // subgraph path. In these cases, we effectively ignore the type condition.
+    return [path];
+  }
+
   const options: GraphPath<Transition, V>[] = [];
   const deadEndClosures: UnadvanceableClosure[] = [];
 
