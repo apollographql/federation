@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.12.0-preview.0
+
+### Minor Changes
+
+- Federation 2.12 and Connect 0.3 ([#3276](https://github.com/apollographql/federation/pull/3276))
+
+### Patch Changes
+
+- Updated dependencies [[`468f27842608f4e390cfc88bc7e6b4b0945f95ff`](https://github.com/apollographql/federation/commit/468f27842608f4e390cfc88bc7e6b4b0945f95ff), [`b734ea04d118db09cf6077fdd968c8f04a96327a`](https://github.com/apollographql/federation/commit/b734ea04d118db09cf6077fdd968c8f04a96327a)]:
+  - @apollo/query-graphs@2.12.0-preview.0
+  - @apollo/federation-internals@2.12.0-preview.0
+
 ## 2.11.0
 
 ### Minor Changes
