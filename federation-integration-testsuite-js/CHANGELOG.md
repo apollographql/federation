@@ -1,5 +1,11 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.12.0-preview.0
+
+### Minor Changes
+
+- Federation 2.12 and Connect 0.3 ([#3276](https://github.com/apollographql/federation/pull/3276))
+
 ## 2.11.0
 
 ### Minor Changes
