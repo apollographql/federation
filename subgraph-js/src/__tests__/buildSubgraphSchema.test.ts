@@ -1349,7 +1349,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @federation__override(from: String!) on FIELD_DEFINITION
 
-        directive @federation__composeDirective(name: String) repeatable on SCHEMA
+        directive @federation__composeDirective(name: String!) repeatable on SCHEMA
 
         type Query {
           x: Int
@@ -1416,7 +1416,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @federation__override(from: String!) on FIELD_DEFINITION
 
-        directive @federation__composeDirective(name: String) repeatable on SCHEMA
+        directive @federation__composeDirective(name: String!) repeatable on SCHEMA
 
         type Query {
           x: Int
@@ -1484,7 +1484,7 @@ describe('buildSubgraphSchema', () => {
 
         directive @federation__override(from: String!) on FIELD_DEFINITION
 
-        directive @federation__composeDirective(name: String) repeatable on SCHEMA
+        directive @federation__composeDirective(name: String!) repeatable on SCHEMA
 
         directive @federation__interfaceObject on OBJECT
 
