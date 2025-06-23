@@ -10,19 +10,18 @@ import { Schema } from '../definitions';
 import { registerKnownFeature } from '../knownCoreFeatures';
 import { createDirectiveSpecification } from '../directiveAndTypeSpecification';
 
-export const cacheKeyIdentity = 'https://specs.apollo.dev/cacheKey';
+export const cacheTagIdentity = 'https://specs.apollo.dev/cacheTag';
 
-const CACHE_KEY = 'cacheKey';
+const CACHE_KEY = 'cacheTag';
 const FORMAT = 'format';
-const CASCADE = 'cascade';
 
-export class CacheKeySpecDefinition extends FeatureDefinition {
+export class CacheTagSpecDefinition extends FeatureDefinition {
   constructor(
     version: FeatureVersion,
     readonly minimumFederationVersion: FeatureVersion,
   ) {
     super(
-      new FeatureUrl(cacheKeyIdentity, CACHE_KEY, version),
+      new FeatureUrl(cacheTagIdentity, CACHE_KEY, version),
       minimumFederationVersion,
     );
 
@@ -44,20 +43,18 @@ export class CacheKeySpecDefinition extends FeatureDefinition {
 
   addElementsToSchema(schema: Schema): GraphQLError[] {
     /*
-      directive @cacheKey(
+      directive @cacheTag(
         format: String
-        cascade: Boolean = false
       ) repeatable on FIELD_DEFINITION
         | OBJECT
     */
-    const cacheKey = this.addDirective(schema, CACHE_KEY).addLocations(
+    const cacheTag = this.addDirective(schema, CACHE_KEY).addLocations(
       DirectiveLocation.FIELD_DEFINITION,
       DirectiveLocation.OBJECT,
     );
-    cacheKey.repeatable = true;
+    cacheTag.repeatable = true;
 
-    cacheKey.addArgument(FORMAT, schema.stringType());
-    cacheKey.addArgument(CASCADE, schema.booleanType(), false);
+    cacheTag.addArgument(FORMAT, schema.stringType());
 
     return [];
   }
@@ -68,8 +65,8 @@ export class CacheKeySpecDefinition extends FeatureDefinition {
 }
 
 export const CACHE_KEY_VERSIONS =
-  new FeatureDefinitions<CacheKeySpecDefinition>(cacheKeyIdentity).add(
-    new CacheKeySpecDefinition(
+  new FeatureDefinitions<CacheTagSpecDefinition>(cacheTagIdentity).add(
+    new CacheTagSpecDefinition(
       new FeatureVersion(0, 1),
       new FeatureVersion(2, 12),
     ),

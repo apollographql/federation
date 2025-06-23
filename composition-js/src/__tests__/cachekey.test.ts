@@ -2,7 +2,7 @@ import { composeServices } from "../compose";
 import { printSchema } from "@apollo/federation-internals";
 import { parse } from "graphql/index";
 
-describe("cacheKey spec and join__directive", () => {
+describe("cacheTag spec and join__directive", () => {
   it("composes", () => {
     const subgraphs = [
       {
@@ -14,15 +14,15 @@ describe("cacheKey spec and join__directive", () => {
                         import: ["@key"]
                     )
                     @link(
-                        url: "https://specs.apollo.dev/cacheKey/v0.1"
-                        import: ["@cacheKey"]
+                        url: "https://specs.apollo.dev/cacheTag/v0.1"
+                        import: ["@cacheTag"]
                     )
 
                     type Query {
-                        resources: [Resource!]! @cacheKey(format: "resources", cascade: true)
+                        resources: [Resource!]! @cacheTag(format: "resources")
                     }
 
-                    type Resource @key(fields: "id") @cacheKey(format: "resource-{$key.id}") {
+                    type Resource @key(fields: "id") @cacheTag(format: "resource-{$key.id}") {
                         id: ID!
                         name: String!
                     }
@@ -37,8 +37,8 @@ describe("cacheKey spec and join__directive", () => {
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/cacheKey/v0.1\\", for: EXECUTION)
-        @join__directive(graphs: [PRODUCTS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/cacheKey/v0.1\\", import: [\\"@cacheKey\\"]})
+        @link(url: \\"https://specs.apollo.dev/cacheTag/v0.1\\", for: EXECUTION)
+        @join__directive(graphs: [PRODUCTS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/cacheTag/v0.1\\", import: [\\"@cacheTag\\"]})
       {
         query: Query
       }
@@ -93,12 +93,12 @@ describe("cacheKey spec and join__directive", () => {
       type Query
         @join__type(graph: PRODUCTS)
       {
-        resources: [Resource!]! @join__directive(graphs: [PRODUCTS], name: \\"cacheKey\\", args: {format: \\"resources\\", cascade: true})
+        resources: [Resource!]! @join__directive(graphs: [PRODUCTS], name: \\"cacheTag\\", args: {format: \\"resources\\"})
       }
 
       type Resource
         @join__type(graph: PRODUCTS, key: \\"id\\")
-        @join__directive(graphs: [PRODUCTS], name: \\"cacheKey\\", args: {format: \\"resource-{$key.id}\\"})
+        @join__directive(graphs: [PRODUCTS], name: \\"cacheTag\\", args: {format: \\"resource-{$key.id}\\"})
       {
         id: ID!
         name: String!
@@ -130,15 +130,15 @@ describe("cacheKey spec and join__directive", () => {
                         import: ["@key"]
                     )
                     @link(
-                        url: "https://specs.apollo.dev/cacheKey/v0.1"
-                        import: ["@cacheKey"]
+                        url: "https://specs.apollo.dev/cacheTag/v0.1"
+                        import: ["@cacheTag"]
                     )
 
                     type Query {
-                        resources: [Resource!]! @cacheKey(format: "resources", cascade: true)
+                        resources: [Resource!]! @cacheTag(format: "resources")
                     }
 
-                    type Resource @key(fields: "id") @cacheKey(format: "resource-{$key.id}") {
+                    type Resource @key(fields: "id") @cacheTag(format: "resource-{$key.id}") {
                         id: ID!
                         name: String!
                     }
@@ -153,11 +153,11 @@ describe("cacheKey spec and join__directive", () => {
                         import: ["@key"]
                     )
                     @link(
-                        url: "https://specs.apollo.dev/cacheKey/v0.1"
-                        import: ["@cacheKey"]
+                        url: "https://specs.apollo.dev/cacheTag/v0.1"
+                        import: ["@cacheTag"]
                     )
 
-                    type Resource @key(fields: "id") @cacheKey(format: "resource-{$key.id}") {
+                    type Resource @key(fields: "id") @cacheTag(format: "resource-{$key.id}") {
                         id: ID!
                         reviews: [String!]!
                     }
@@ -172,8 +172,8 @@ describe("cacheKey spec and join__directive", () => {
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/cacheKey/v0.1\\", for: EXECUTION)
-        @join__directive(graphs: [PRODUCTS, REVIEWS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/cacheKey/v0.1\\", import: [\\"@cacheKey\\"]})
+        @link(url: \\"https://specs.apollo.dev/cacheTag/v0.1\\", for: EXECUTION)
+        @join__directive(graphs: [PRODUCTS, REVIEWS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/cacheTag/v0.1\\", import: [\\"@cacheTag\\"]})
       {
         query: Query
       }
@@ -230,13 +230,13 @@ describe("cacheKey spec and join__directive", () => {
         @join__type(graph: PRODUCTS)
         @join__type(graph: REVIEWS)
       {
-        resources: [Resource!]! @join__field(graph: PRODUCTS) @join__directive(graphs: [PRODUCTS], name: \\"cacheKey\\", args: {format: \\"resources\\", cascade: true})
+        resources: [Resource!]! @join__field(graph: PRODUCTS) @join__directive(graphs: [PRODUCTS], name: \\"cacheTag\\", args: {format: \\"resources\\"})
       }
 
       type Resource
         @join__type(graph: PRODUCTS, key: \\"id\\")
         @join__type(graph: REVIEWS, key: \\"id\\")
-        @join__directive(graphs: [PRODUCTS, REVIEWS], name: \\"cacheKey\\", args: {format: \\"resource-{$key.id}\\"})
+        @join__directive(graphs: [PRODUCTS, REVIEWS], name: \\"cacheTag\\", args: {format: \\"resource-{$key.id}\\"})
       {
         id: ID!
         name: String! @join__field(graph: PRODUCTS)
