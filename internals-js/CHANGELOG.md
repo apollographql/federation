@@ -1,5 +1,19 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.11.1
+
+### Patch Changes
+
+- fix: make composeDirective argument non-nullable. ([#3278](https://github.com/apollographql/federation/pull/3278))
+
+  Per our [docs](https://www.apollographql.com/docs/graphos/schema-design/federated-schemas/reference/directives#composedirective),
+  `@composeDirective` requires non-nullable value to be passed as an argument.
+
+  Our [validations](https://github.com/apollographql/federation/blob/main/composition-js/src/composeDirectiveManager.ts#L250-L255) were checking for valid values (it has to be a string that starts with `@`),
+  but the generated schema was incorrectly specifying that the argument was nullable.
+
+- Adding new CompositionOption `maxValidationSubgraphPaths`. This value represents the maximum number of SubgraphPathInfo objects that may exist in a ValidationTraversal when checking for satisfiability. Setting this value can help composition error before running out of memory. Default is 1,000,000. ([#3254](https://github.com/apollographql/federation/pull/3254))
+
 ## 2.11.0
 
 ### Minor Changes

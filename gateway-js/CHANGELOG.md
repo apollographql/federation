@@ -1,5 +1,14 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.11.1
+
+### Patch Changes
+
+- Updated dependencies [[`7799ad1717becf15fb0e82f89619f2ec8a24b4d4`](https://github.com/apollographql/federation/commit/7799ad1717becf15fb0e82f89619f2ec8a24b4d4), [`b26794c5724ef23d1f0fd45a40aee3d301557489`](https://github.com/apollographql/federation/commit/b26794c5724ef23d1f0fd45a40aee3d301557489), [`51bed5be49d8e87adae59f568315c9e3488a91e0`](https://github.com/apollographql/federation/commit/51bed5be49d8e87adae59f568315c9e3488a91e0)]:
+  - @apollo/federation-internals@2.11.1
+  - @apollo/composition@2.11.1
+  - @apollo/query-planner@2.11.1
+
 ## 2.11.0
 
 ### Minor Changes
