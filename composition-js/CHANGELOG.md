@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.11.1
+
+### Patch Changes
+
+- Adding new CompositionOption `maxValidationSubgraphPaths`. This value represents the maximum number of SubgraphPathInfo objects that may exist in a ValidationTraversal when checking for satisfiability. Setting this value can help composition error before running out of memory. Default is 1,000,000. ([#3254](https://github.com/apollographql/federation/pull/3254))
+
+- Fix bug in composition where, when a field's type in a subgraph is a subtype of the field's type in the supergraph, the satisfiability validation spuriously succeeds/errors. ([#3277](https://github.com/apollographql/federation/pull/3277))
+
+- Updated dependencies [[`7799ad1717becf15fb0e82f89619f2ec8a24b4d4`](https://github.com/apollographql/federation/commit/7799ad1717becf15fb0e82f89619f2ec8a24b4d4), [`b26794c5724ef23d1f0fd45a40aee3d301557489`](https://github.com/apollographql/federation/commit/b26794c5724ef23d1f0fd45a40aee3d301557489), [`51bed5be49d8e87adae59f568315c9e3488a91e0`](https://github.com/apollographql/federation/commit/51bed5be49d8e87adae59f568315c9e3488a91e0)]:
+  - @apollo/federation-internals@2.11.1
+  - @apollo/query-graphs@2.11.1
+
 ## 2.11.0
 
 ### Minor Changes
