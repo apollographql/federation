@@ -47,6 +47,7 @@ export enum FederationDirectiveName {
   FROM_CONTEXT = 'fromContext',
   COST = 'cost',
   LIST_SIZE = 'listSize',
+  CACHE_TAG = 'cacheTag',
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
@@ -180,6 +181,14 @@ export class FederationSpecDefinition extends FeatureDefinition {
 
     if (version.gte(new FeatureVersion(2, 9))) {
       this.registerSubFeature(COST_VERSIONS.find(new FeatureVersion(0, 1))!);
+    }
+
+    if (version.gte(new FeatureVersion(2, 12))) {
+      this.registerDirective(createDirectiveSpecification({
+        name: FederationDirectiveName.CACHE_TAG,
+        locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE, DirectiveLocation.FIELD_DEFINITION],
+        args: [{ name: 'format', type: (schema) => new NonNullType(schema.stringType()) }],
+      }));
     }
   }
 }

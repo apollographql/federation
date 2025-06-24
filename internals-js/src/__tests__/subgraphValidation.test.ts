@@ -1691,3 +1691,40 @@ describe('@listSize', () => {
     ]);
   });
 });
+
+describe('@cacheTag', () => {
+  it('works on root field', () => {
+    const doc = gql`
+      extend schema
+        @link(
+          url: "https://specs.apollo.dev/federation/v2.12"
+          import: ["@cacheTag"]
+        )
+
+      type Query {
+        f(x: Int!): String! @cacheTag(format: "query-f-{$arg.x}")
+      }
+    `;
+    const name = 'S';
+    buildSubgraph(name, `http://${name}`, doc).validate();
+  });
+
+  it('rejects application on non-root field', () => {
+    const doc = gql`
+      type Query {
+        a: A
+      }
+
+      type A {
+        x: Int @cacheTag(format: "not-applicable")
+      }
+    `;
+
+    expect(
+      buildForErrors(doc, { asFed2: true, includeAllImports: true }),
+    ).toStrictEqual(
+      // TODO
+      undefined,
+    );
+  });
+});

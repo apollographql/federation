@@ -25,5 +25,4 @@ export * from './specs/authenticatedSpec';
 export * from './specs/requiresScopesSpec';
 export * from './specs/policySpec';
 export * from './specs/connectSpec';
-export * from './specs/cacheTagSpec';
 export * from './specs/costSpec';

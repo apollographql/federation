@@ -86,7 +86,7 @@ import {
   inaccessibleIdentity,
   FeatureDefinitions,
   CONNECT_VERSIONS,
-  CACHE_KEY_VERSIONS,
+  FederationDirectiveName,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -380,6 +380,7 @@ class Merger {
   private inaccessibleDirectiveInSupergraph?: DirectiveDefinition;
   private latestFedVersionUsed: FeatureVersion;
   private joinDirectiveFeatureDefinitionsByIdentity = new Map<string, FeatureDefinitions>();
+  private federationDirectiveUsingJoinDirective = new Set<string>();
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
   private fieldsWithFromContext: Set<string>;
   private fieldsWithOverride: Set<string>;
@@ -419,7 +420,8 @@ class Merger {
     // Represent any applications of directives imported from these spec URLs
     // using @join__directive in the merged supergraph.
     this.joinDirectiveFeatureDefinitionsByIdentity.set(CONNECT_VERSIONS.identity, CONNECT_VERSIONS);
-    this.joinDirectiveFeatureDefinitionsByIdentity.set(CACHE_KEY_VERSIONS.identity, CACHE_KEY_VERSIONS);
+    // Some federation directives are translated to @join__directive in the supergraph.
+    this.federationDirectiveUsingJoinDirective.add(FederationDirectiveName.CACHE_TAG);
   }
 
   private getLatestFederationVersionUsed(): FeatureVersion {
@@ -3186,9 +3188,20 @@ class Merger {
           // leading @.
           const nameWithAtSymbol =
             directive.name.startsWith('@') ? directive.name : '@' + directive.name;
+          const featureUrl = linkImportIdentityURLMap.get(nameWithAtSymbol);
+          // See if directives from this feature URL should use the @join__directive.
           shouldIncludeAsJoinDirective = this.shouldUseJoinDirectiveForURL(
-            linkImportIdentityURLMap.get(nameWithAtSymbol),
+            featureUrl
           );
+          // See if this directive is one of the federation directives that
+          // should use the @join__directive.
+          if (
+            !shouldIncludeAsJoinDirective
+            && featureUrl?.identity == federationIdentity
+            && this.federationDirectiveUsingJoinDirective.has(directive.name)
+          ) {
+            shouldIncludeAsJoinDirective = true;
+          }
         }
 
         if (shouldIncludeAsJoinDirective) {

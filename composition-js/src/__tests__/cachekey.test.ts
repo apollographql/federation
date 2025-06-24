@@ -10,12 +10,8 @@ describe("cacheTag spec and join__directive", () => {
         typeDefs: parse(`
                     extend schema
                     @link(
-                        url: "https://specs.apollo.dev/federation/v2.11"
-                        import: ["@key"]
-                    )
-                    @link(
-                        url: "https://specs.apollo.dev/cacheTag/v0.1"
-                        import: ["@cacheTag"]
+                        url: "https://specs.apollo.dev/federation/v2.12"
+                        import: ["@key" "@cacheTag"]
                     )
 
                     type Query {
@@ -37,8 +33,6 @@ describe("cacheTag spec and join__directive", () => {
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/cacheTag/v0.1\\", for: EXECUTION)
-        @join__directive(graphs: [PRODUCTS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/cacheTag/v0.1\\", import: [\\"@cacheTag\\"]})
       {
         query: Query
       }
@@ -126,12 +120,8 @@ describe("cacheTag spec and join__directive", () => {
         typeDefs: parse(`
                     extend schema
                     @link(
-                        url: "https://specs.apollo.dev/federation/v2.11"
-                        import: ["@key"]
-                    )
-                    @link(
-                        url: "https://specs.apollo.dev/cacheTag/v0.1"
-                        import: ["@cacheTag"]
+                        url: "https://specs.apollo.dev/federation/v2.12"
+                        import: ["@key" "@cacheTag"]
                     )
 
                     type Query {
@@ -149,12 +139,8 @@ describe("cacheTag spec and join__directive", () => {
         typeDefs: parse(`
                     extend schema
                     @link(
-                        url: "https://specs.apollo.dev/federation/v2.11"
-                        import: ["@key"]
-                    )
-                    @link(
-                        url: "https://specs.apollo.dev/cacheTag/v0.1"
-                        import: ["@cacheTag"]
+                        url: "https://specs.apollo.dev/federation/v2.12"
+                        import: ["@key" "@cacheTag"]
                     )
 
                     type Resource @key(fields: "id") @cacheTag(format: "resource-{$key.id}") {
@@ -172,8 +158,6 @@ describe("cacheTag spec and join__directive", () => {
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/cacheTag/v0.1\\", for: EXECUTION)
-        @join__directive(graphs: [PRODUCTS, REVIEWS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/cacheTag/v0.1\\", import: [\\"@cacheTag\\"]})
       {
         query: Query
       }
