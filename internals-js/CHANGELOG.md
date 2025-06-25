@@ -1,5 +1,13 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.11.2
+
+### Patch Changes
+
+- Revert change to @composeDirective definition to specify nullable argument value. ([#3283](https://github.com/apollographql/federation/pull/3283))
+
+  We cannot fix the definition as that would break customers using older versions of `subgraph-js`. Our validations are already verifying that the values are specified.
+
 ## 2.11.1
 
 ### Patch Changes
