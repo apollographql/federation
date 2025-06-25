@@ -998,4 +998,44 @@ describe('composing custom core directives', () => {
     const appliedDirectives = schema.elementByCoordinate('Query.shared')?.appliedDirectives;
     expect(appliedDirectives?.map(d => [d.name, d.arguments()])).toMatchObject([['auth', { scope: 'VIEWER'}], ['auth', {}]]);
   });
+
+  it('verifies can compose with @composeDirective definition mismatch', () => {
+    const subgraphA = {
+      name: 'subgraphA',
+      typeDefs: gql`
+        extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@composeDirective", "@key", "FieldSet"])
+        @link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])
+        @composeDirective(name: "@foo")
+
+        # subgraph-js incorrectly defined this argument as nullable in older versions
+        directive @composeDirective(name: String) repeatable on SCHEMA
+
+        directive @key(fields: FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+        
+        directive @foo(name: String!) on FIELD_DEFINITION
+        
+        type Query {
+          a: User
+        }
+        
+        type User @key(fields: "id") {
+          id: Int
+          a: String @foo(name: "a")
+        }
+
+        scalar FieldSet
+      `,
+    };
+
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result);
+    expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectCoreFeature(schema, 'https://specs.apollo.dev/foo', '1.0', [{ name: '@foo' }]);
+    expectDirectiveOnElement(schema, 'User.a', 'foo', { name: 'a' });
+  });
 });
