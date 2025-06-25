@@ -153,7 +153,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
         name: FederationDirectiveName.COMPOSE_DIRECTIVE,
         locations: [DirectiveLocation.SCHEMA],
         repeatable: true,
-        args: [{ name: 'name', type: (schema) => new NonNullType(schema.stringType()) }],
+        args: [{ name: 'name', type: (schema) => schema.stringType() }],
       }));
     }
 
