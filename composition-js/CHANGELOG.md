@@ -1,5 +1,21 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.11.2
+
+### Patch Changes
+
+- Improve error messages when @composeDirective arguments are NULL or empty strings. ([#3283](https://github.com/apollographql/federation/pull/3283))
+
+  Previous message on undefined/null argument value
+  `Cannot read properties of undefined (reading '0')`
+
+  New message
+  `Argument to @composeDirective in subgraph "${sg.name}" cannot be NULL or an empty String`
+
+- Updated dependencies [[`28c08bef6e691aefc6ed07c0e7057f9cd803b317`](https://github.com/apollographql/federation/commit/28c08bef6e691aefc6ed07c0e7057f9cd803b317)]:
+  - @apollo/federation-internals@2.11.2
+  - @apollo/query-graphs@2.11.2
+
 ## 2.11.1
 
 ### Patch Changes
