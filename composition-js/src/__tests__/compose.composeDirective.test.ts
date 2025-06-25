@@ -759,10 +759,28 @@ describe('composing custom core directives', () => {
     ]);
   });
 
-  it('ensure that composeDirective argument cannot be null', () => {
+  it('ensure that composeDirective argument cannot be undefined', () => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
       composeText: '@composeDirective',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([
+      [
+        'DIRECTIVE_COMPOSITION_ERROR',
+        'Argument to @composeDirective in subgraph "subgraphA" cannot be NULL or an empty String',
+      ]
+    ]);
+  });
+
+  it('ensure that composeDirective argument cannot be null', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      composeText: '@composeDirective(name: null)',
     });
     const subgraphB = generateSubgraph({
       name: 'subgraphB',
