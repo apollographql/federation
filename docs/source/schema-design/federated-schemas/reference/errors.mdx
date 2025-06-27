@@ -83,7 +83,8 @@ Since v2.11.0<sup>\*\*</sup>
 </td>
 <td>
 
-`$batch` key is not reflected in the output selection of connector.
+Every field used on `$batch` must also appear in the `selection` of the same connector.
+See [Rules for `batch` Connectors](/graphos/connectors/requests/batching#rules-for-batch-connectors) for more information.
 
 </td>
 </tr>
@@ -97,7 +98,8 @@ Since v2.11.0<sup>\*\*</sup>
 </td>
 <td>
 
-A `@key` could not be resolved for the given combination of variables.
+A `@key` could not be resolved for the given combination of variables. In order to create a valid `@key`
+selection's are expected contain at least one of the following variables: `$args`, `$this`, or `$batch`.
 
 </td>
 </tr>
@@ -126,7 +128,8 @@ Since v2.11.0<sup>\*\*</sup>
 </td>
 <td>
 
- Connector `$batch` key cannot be derived from a non-root variable such as `$this` or `$context`.
+Variables (such as `$this` or `$context`) to define Connector `$batch` selections.
+Batch selections should be mapped from the `$batch` variable.
 
 </td>
 </tr>
