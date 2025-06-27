@@ -420,7 +420,7 @@ class Merger {
     // Represent any applications of directives imported from these spec URLs
     // using @join__directive in the merged supergraph.
     this.joinDirectiveFeatureDefinitionsByIdentity.set(CONNECT_VERSIONS.identity, CONNECT_VERSIONS);
-    // Some federation directives are translated to @join__directive in the supergraph.
+    // Following federation directives are recorded in the supergraph using @join__directive.
     this.federationDirectiveUsingJoinDirective.add(FederationDirectiveName.CACHE_TAG);
   }
 
