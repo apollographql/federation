@@ -133,7 +133,16 @@ export function addResolversToSchema(
 
     if (isScalarType(type)) {
       for (const fn in fieldConfigs) {
-        (type as any)[fn] = (fieldConfigs as any)[fn];
+        const fnValue = (fieldConfigs as any)[fn];
+        // When users provide a `GraphQLScalarType` for resolvers, they often
+        // omit several config options (effectively providing `undefined`), but
+        // they probably don't mean for this to unset values in the existing
+        // `GraphQLScalarType` (e.g., clearing the AST nodes or description).
+        // So we explicitly ignore `undefined` values here; if users do want to
+        // unset existing values, they can use `null` instead.
+        if (fnValue !== undefined) {
+          (type as any)[fn] = fnValue;
+        }
       }
     }
 
