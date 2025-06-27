@@ -87,12 +87,12 @@ describe("cacheTag spec and join__directive", () => {
       type Query
         @join__type(graph: PRODUCTS)
       {
-        resources: [Resource!]! @join__directive(graphs: [PRODUCTS], name: \\"cacheTag\\", args: {format: \\"resources\\"})
+        resources: [Resource!]! @join__directive(graphs: [PRODUCTS], name: \\"federation__cacheTag\\", args: {format: \\"resources\\"})
       }
 
       type Resource
         @join__type(graph: PRODUCTS, key: \\"id\\")
-        @join__directive(graphs: [PRODUCTS], name: \\"cacheTag\\", args: {format: \\"resource-{$key.id}\\"})
+        @join__directive(graphs: [PRODUCTS], name: \\"federation__cacheTag\\", args: {format: \\"resource-{$key.id}\\"})
       {
         id: ID!
         name: String!
@@ -214,13 +214,13 @@ describe("cacheTag spec and join__directive", () => {
         @join__type(graph: PRODUCTS)
         @join__type(graph: REVIEWS)
       {
-        resources: [Resource!]! @join__field(graph: PRODUCTS) @join__directive(graphs: [PRODUCTS], name: \\"cacheTag\\", args: {format: \\"resources\\"})
+        resources: [Resource!]! @join__field(graph: PRODUCTS) @join__directive(graphs: [PRODUCTS], name: \\"federation__cacheTag\\", args: {format: \\"resources\\"})
       }
 
       type Resource
         @join__type(graph: PRODUCTS, key: \\"id\\")
         @join__type(graph: REVIEWS, key: \\"id\\")
-        @join__directive(graphs: [PRODUCTS, REVIEWS], name: \\"cacheTag\\", args: {format: \\"resource-{$key.id}\\"})
+        @join__directive(graphs: [PRODUCTS, REVIEWS], name: \\"federation__cacheTag\\", args: {format: \\"resource-{$key.id}\\"})
       {
         id: ID!
         name: String! @join__field(graph: PRODUCTS)

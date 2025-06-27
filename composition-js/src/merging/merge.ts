@@ -3166,6 +3166,7 @@ class Merger {
 
       for (const directive of source.appliedDirectives) {
         let shouldIncludeAsJoinDirective = false;
+        let fullDirectiveName = directive.name;
 
         if (directive.name === 'link') {
           const { url } = directive.arguments();
@@ -3201,11 +3202,14 @@ class Merger {
             && this.federationDirectiveUsingJoinDirective.has(directive.name)
           ) {
             shouldIncludeAsJoinDirective = true;
+            // Since federation directives are not directly imported, make it
+            // a fully qualified name.
+            fullDirectiveName = `federation__${directive.name}`;
           }
         }
 
         if (shouldIncludeAsJoinDirective) {
-          const existingJoins = (joinsByDirectiveName[directive.name] ??= []);
+          const existingJoins = (joinsByDirectiveName[fullDirectiveName] ??= []);
           let found = false;
           for (const existingJoin of existingJoins) {
             if (valueEquals(existingJoin.args, directive.arguments())) {
