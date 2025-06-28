@@ -86,6 +86,7 @@ import {
   inaccessibleIdentity,
   FeatureDefinitions,
   CONNECT_VERSIONS,
+  FederationDirectiveName,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -379,6 +380,7 @@ class Merger {
   private inaccessibleDirectiveInSupergraph?: DirectiveDefinition;
   private latestFedVersionUsed: FeatureVersion;
   private joinDirectiveFeatureDefinitionsByIdentity = new Map<string, FeatureDefinitions>();
+  private federationDirectiveUsingJoinDirective = new Set<string>();
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
   private fieldsWithFromContext: Set<string>;
   private fieldsWithOverride: Set<string>;
@@ -418,6 +420,8 @@ class Merger {
     // Represent any applications of directives imported from these spec URLs
     // using @join__directive in the merged supergraph.
     this.joinDirectiveFeatureDefinitionsByIdentity.set(CONNECT_VERSIONS.identity, CONNECT_VERSIONS);
+    // Following federation directives are recorded in the supergraph using @join__directive.
+    this.federationDirectiveUsingJoinDirective.add(FederationDirectiveName.CACHE_TAG);
   }
 
   private getLatestFederationVersionUsed(): FeatureVersion {
@@ -3162,6 +3166,7 @@ class Merger {
 
       for (const directive of source.appliedDirectives) {
         let shouldIncludeAsJoinDirective = false;
+        let fullDirectiveName = directive.name;
 
         if (directive.name === 'link') {
           const { url } = directive.arguments();
@@ -3184,13 +3189,27 @@ class Merger {
           // leading @.
           const nameWithAtSymbol =
             directive.name.startsWith('@') ? directive.name : '@' + directive.name;
+          const featureUrl = linkImportIdentityURLMap.get(nameWithAtSymbol);
+          // See if directives from this feature URL should use the @join__directive.
           shouldIncludeAsJoinDirective = this.shouldUseJoinDirectiveForURL(
-            linkImportIdentityURLMap.get(nameWithAtSymbol),
+            featureUrl
           );
+          // See if this directive is one of the federation directives that
+          // should use the @join__directive.
+          if (
+            !shouldIncludeAsJoinDirective
+            && featureUrl?.identity == federationIdentity
+            && this.federationDirectiveUsingJoinDirective.has(directive.name)
+          ) {
+            shouldIncludeAsJoinDirective = true;
+            // Since federation directives are not directly imported, make it
+            // a fully qualified name.
+            fullDirectiveName = `federation__${directive.name}`;
+          }
         }
 
         if (shouldIncludeAsJoinDirective) {
-          const existingJoins = (joinsByDirectiveName[directive.name] ??= []);
+          const existingJoins = (joinsByDirectiveName[fullDirectiveName] ??= []);
           let found = false;
           for (const existingJoin of existingJoins) {
             if (valueEquals(existingJoin.args, directive.arguments())) {
