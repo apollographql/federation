@@ -1693,7 +1693,7 @@ describe('@listSize', () => {
 });
 
 describe('@cacheTag', () => {
-  it('works on root field', () => {
+  it('applies on root field', () => {
     const doc = gql`
       extend schema
         @link(
@@ -1702,7 +1702,26 @@ describe('@cacheTag', () => {
         )
 
       type Query {
-        f(x: Int!): String! @cacheTag(format: "query-f-{$arg.x}")
+        f(x: Int!): String!
+          @cacheTag(format: "query-f-{$args.x}")
+          @cacheTag(format: "any-query")
+      }
+    `;
+    const name = 'S';
+    buildSubgraph(name, `http://${name}`, doc).validate();
+  });
+
+  it('applies on entity type', () => {
+    const doc = gql`
+      extend schema
+        @link(
+          url: "https://specs.apollo.dev/federation/v2.12"
+          import: ["@key" "@cacheTag"]
+        )
+
+      type P @key(fields: "id") @cacheTag(format: "p-{$.id}") {
+        id: ID!
+        a: Int
       }
     `;
     const name = 'S';

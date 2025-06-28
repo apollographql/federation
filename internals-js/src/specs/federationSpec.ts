@@ -187,6 +187,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
       this.registerDirective(createDirectiveSpecification({
         name: FederationDirectiveName.CACHE_TAG,
         locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE, DirectiveLocation.FIELD_DEFINITION],
+        repeatable: true,
         args: [{ name: 'format', type: (schema) => new NonNullType(schema.stringType()) }],
       }));
     }
