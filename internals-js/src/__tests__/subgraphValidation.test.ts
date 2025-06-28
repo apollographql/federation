@@ -1716,7 +1716,7 @@ describe('@cacheTag', () => {
       extend schema
         @link(
           url: "https://specs.apollo.dev/federation/v2.12"
-          import: ["@key" "@cacheTag"]
+          import: ["@key", "@cacheTag"]
         )
 
       type P @key(fields: "id") @cacheTag(format: "p-{$.id}") {
