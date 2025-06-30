@@ -1,5 +1,14 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.12.0-preview.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/composition@2.12.0-preview.1
+  - @apollo/federation-internals@2.12.0-preview.1
+  - @apollo/query-planner@2.12.0-preview.1
+
 ## 2.12.0-preview.0
 
 ### Minor Changes
