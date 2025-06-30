@@ -246,6 +246,14 @@ export class ComposeDirectiveManager {
         .applications();
 
       for (const composeInstance of composeDirectives) {
+        if (composeInstance.arguments().name == null || composeInstance.arguments().name === '') {
+          this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
+              `Argument to @composeDirective in subgraph "${sg.name}" cannot be NULL or an empty String`,
+              { nodes: composeInstance.sourceAST },
+          ));
+          continue;
+        }
+
         if (composeInstance.arguments().name[0] !== '@') {
           this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
             `Argument to @composeDirective "${composeInstance.arguments().name}" in subgraph "${sg.name}" must have a leading "@"`,

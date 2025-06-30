@@ -6,10 +6,12 @@ import {
   execute,
   type DefinitionNode,
   OperationTypeNode,
+  GraphQLScalarType,
   GraphQLUnionType,
   printType,
 } from 'graphql';
 import { buildSubgraphSchema } from '../buildSubgraphSchema';
+import { printSubgraphSchema } from '../printSubgraphSchema';
 import { typeSerializer } from 'apollo-federation-integration-testsuite';
 import { errorCauses } from '@apollo/federation-internals';
 
@@ -964,10 +966,12 @@ describe('buildSubgraphSchema', () => {
 
     const validateTag = async (
       header: string,
+      printedHeader: string,
       directiveDefinitions: string,
       typeDefinitions: string,
+      withResolvers: boolean,
     ) => {
-      const schema = buildSubgraphSchema(gql`
+      const typeDefs = gql`
         ${header}
         type User @key(fields: "email") @tag(name: "tagOnType") {
           email: String @tag(name: "tagOnField")
@@ -978,19 +982,15 @@ describe('buildSubgraphSchema', () => {
         }
 
         union UserButAUnion @tag(name: "tagOnUnion") = User
-      `);
 
-      const { data, errors } = await graphql({ schema, source: query });
-      expect(errors).toBeUndefined();
-      expect((data?._service as any).sdl).toMatchString(
-        (header.length === 0
-          ? ''
-          : `
-        ${header.trim()}
-        `) +
-          `
-        ${directiveDefinitions.trim()}
+        scalar CustomScalar @tag(name: "tagOnCustomScalar")
 
+        enum Enum @tag(name: "tagOnEnum") {
+          ENUM_VALUE @tag(name: "tagOnEnumValue")
+        }
+      `;
+
+      const printedTypeDefsWithoutHeader = `
         type User
           @key(fields: "email")
           @tag(name: "tagOnType")
@@ -1008,15 +1008,72 @@ describe('buildSubgraphSchema', () => {
           @tag(name: "tagOnUnion")
          = User
 
+        scalar CustomScalar
+          @tag(name: "tagOnCustomScalar")
+
+        enum Enum
+          @tag(name: "tagOnEnum")
+        {
+          ENUM_VALUE @tag(name: "tagOnEnumValue")
+        }
+      `;
+
+      const schema = withResolvers
+        ? buildSubgraphSchema({
+            typeDefs,
+            resolvers: {
+              User: {
+                email: () => 1,
+              },
+              CustomScalar: new GraphQLScalarType({
+                name: 'CustomScalar',
+                serialize: () => 1,
+                parseValue: () => 1,
+                parseLiteral: () => 1,
+              }),
+              Enum: {
+                ENUM_VALUE: 1,
+              },
+            },
+          })
+        : buildSubgraphSchema(typeDefs);
+
+      // Check the sdl field's schema.
+      const { data, errors } = await graphql({ schema, source: query });
+      expect(errors).toBeUndefined();
+      expect((data?._service as any).sdl).toMatchString(
+        (header.length === 0
+          ? ''
+          : `
+        ${header.trim()}
+        `) +
+          `
+        ${directiveDefinitions.trim()}
+
+        ${printedTypeDefsWithoutHeader.trim()}
+
         ${typeDefinitions.trim()}
+      `,
+      );
+
+      // Check the printSubgraphSchema's schema.
+      expect(printSubgraphSchema(schema)).toMatchString(
+        (printedHeader.length === 0
+          ? ''
+          : `
+        ${printedHeader.trim()}
+        `) +
+          `
+        ${printedTypeDefsWithoutHeader.trim()}
       `,
       );
     };
 
-    it.each([
+    const testCases = [
       {
         name: 'fed1',
         header: '',
+        printedHeader: '',
         directiveDefinitions: `
         directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
 
@@ -1052,6 +1109,10 @@ describe('buildSubgraphSchema', () => {
         header: `
         extend schema
           @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@tag"])
+      `,
+        printedHeader: `
+        extend schema
           @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@tag"])
       `,
         directiveDefinitions: `
@@ -1106,10 +1167,41 @@ describe('buildSubgraphSchema', () => {
         }
       `,
       },
-    ])(
+    ];
+
+    it.each(testCases)(
       'adds it for $name schema',
-      async ({ header, directiveDefinitions, typesDefinitions }) => {
-        await validateTag(header, directiveDefinitions, typesDefinitions);
+      async ({
+        header,
+        printedHeader,
+        directiveDefinitions,
+        typesDefinitions,
+      }) => {
+        await validateTag(
+          header,
+          printedHeader,
+          directiveDefinitions,
+          typesDefinitions,
+          false,
+        );
+      },
+    );
+
+    it.each(testCases)(
+      'adds it for $name schema with resolvers',
+      async ({
+        header,
+        printedHeader,
+        directiveDefinitions,
+        typesDefinitions,
+      }) => {
+        await validateTag(
+          header,
+          printedHeader,
+          directiveDefinitions,
+          typesDefinitions,
+          true,
+        );
       },
     );
   });

@@ -641,6 +641,7 @@ export class ValidationState {
     for (const pathInfo of this.subgraphPathInfos) {
       const tailSubgraphName = pathInfo.path.path.tail.source;
       const tailSubgraphEnumValue = subgraphNameToGraphEnumValue.get(tailSubgraphName);
+      const tailTypeName = pathInfo.path.path.tail.type.name;
       const entryKeys = [];
       const contexts = Array.from(pathInfo.contexts.entries());
       contexts.sort((a, b) => a[0].localeCompare(b[0]));
@@ -649,7 +650,7 @@ export class ValidationState {
         entryKeys.push(`${context}=${subgraphEnumValue}.${typeName}`);
       }
       subgraphContextKeys.add(
-        `${tailSubgraphEnumValue}[${entryKeys.join(',')}]`
+        `${tailSubgraphEnumValue}.${tailTypeName}[${entryKeys.join(',')}]`
       );
     }
     return subgraphContextKeys;
