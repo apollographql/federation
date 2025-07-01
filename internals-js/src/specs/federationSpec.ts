@@ -20,6 +20,7 @@ import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
 import { POLICY_VERSIONS } from './policySpec';
 import { CONTEXT_VERSIONS } from './contextSpec';
 import { COST_VERSIONS } from "./costSpec";
+import { CACHE_TAG_VERSIONS, CACHE_TAG as CACHE_TAG_DIRECTIVE_NAME } from "./cacheTagSpec";
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -47,7 +48,7 @@ export enum FederationDirectiveName {
   FROM_CONTEXT = 'fromContext',
   COST = 'cost',
   LIST_SIZE = 'listSize',
-  CACHE_TAG = 'cacheTag',
+  CACHE_TAG = CACHE_TAG_DIRECTIVE_NAME,
 }
 
 const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
@@ -184,12 +185,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
     }
 
     if (version.gte(new FeatureVersion(2, 12))) {
-      this.registerDirective(createDirectiveSpecification({
-        name: FederationDirectiveName.CACHE_TAG,
-        locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE, DirectiveLocation.FIELD_DEFINITION],
-        repeatable: true,
-        args: [{ name: 'format', type: (schema) => new NonNullType(schema.stringType()) }],
-      }));
+      this.registerSubFeature(CACHE_TAG_VERSIONS.find(new FeatureVersion(0, 1))!);
     }
   }
 }
