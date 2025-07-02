@@ -248,4 +248,117 @@ describe("cacheTag spec and join__directive", () => {
                   `);
     }
   });
+
+  it("may be renamed", () => {
+    const subgraphs = [
+      {
+        name: "products",
+        typeDefs: parse(`
+                    extend schema
+                    @link(
+                        url: "https://specs.apollo.dev/federation/v2.12"
+                        import: ["@key" {name: "@cacheTag" as: "@myCacheTag"}]
+                    )
+
+                    type Query {
+                        resources: [Resource!]! @myCacheTag(format: "resources")
+                    }
+
+                    type Resource @key(fields: "id") @myCacheTag(format: "resource-{$key.id}") {
+                        id: ID!
+                        name: String!
+                    }
+                `),
+      },
+    ];
+
+    const result = composeServices(subgraphs);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+    expect(printed).toMatchInlineSnapshot(`
+      "schema
+        @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
+        @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
+        @link(url: \\"https://specs.apollo.dev/cacheTag/v0.1\\", for: EXECUTION, import: [{name: \\"@cacheTag\\", as: \\"@myCacheTag\\"}])
+      {
+        query: Query
+      }
+
+      directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+      directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+      directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+
+      directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
+
+      directive @myCacheTag(format: String!) repeatable on OBJECT | INTERFACE | FIELD_DEFINITION
+
+      enum link__Purpose {
+        \\"\\"\\"
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        \\"\\"\\"
+        SECURITY
+
+        \\"\\"\\"
+        \`EXECUTION\` features provide metadata necessary for operation execution.
+        \\"\\"\\"
+        EXECUTION
+      }
+
+      scalar link__Import
+
+      enum join__Graph {
+        PRODUCTS @join__graph(name: \\"products\\", url: \\"\\")
+      }
+
+      scalar join__FieldSet
+
+      scalar join__DirectiveArguments
+
+      scalar join__FieldValue
+
+      input join__ContextArgument {
+        name: String!
+        type: String!
+        context: String!
+        selection: join__FieldValue!
+      }
+
+      type Query
+        @join__type(graph: PRODUCTS)
+      {
+        resources: [Resource!]! @join__directive(graphs: [PRODUCTS], name: \\"federation__cacheTag\\", args: {format: \\"resources\\"})
+      }
+
+      type Resource
+        @join__type(graph: PRODUCTS, key: \\"id\\")
+        @join__directive(graphs: [PRODUCTS], name: \\"federation__cacheTag\\", args: {format: \\"resource-{$key.id}\\"})
+      {
+        id: ID!
+        name: String!
+      }"
+    `);
+
+    if (result.schema) {
+      expect(printSchema(result.schema.toAPISchema())).toMatchInlineSnapshot(`
+                      "type Query {
+                        resources: [Resource!]!
+                      }
+
+                      type Resource {
+                        id: ID!
+                        name: String!
+                      }"
+                  `);
+    }
+  });
 });
