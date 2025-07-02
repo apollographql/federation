@@ -2,7 +2,6 @@
 // use the `@cacheTag` directive. The `@cacheTag` directive itself is not used in supergraph
 // schema, since `@cacheTag` directive applications are composed using the `@join__directive`
 // directive.
-import { DirectiveLocation } from "graphql";
 import {
   CorePurpose,
   FeatureDefinition,
@@ -10,8 +9,6 @@ import {
   FeatureUrl,
   FeatureVersion,
 } from "./coreSpec";
-import { NonNullType } from "../definitions";
-import { createDirectiveSpecification } from "../directiveAndTypeSpecification";
 
 export const CACHE_TAG = 'cacheTag';
 
@@ -28,16 +25,6 @@ export class CacheTagSpecDefinition extends FeatureDefinition {
       ),
       minimumFederationVersion,
     );
-
-    this.registerDirective(createDirectiveSpecification({
-      name: CACHE_TAG,
-      locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE, DirectiveLocation.FIELD_DEFINITION],
-      repeatable: true,
-      args: [{ name: 'format', type: (schema) => new NonNullType(schema.stringType()) }],
-      composes: true,
-      supergraphSpecification: (fedVersion) => CACHE_TAG_VERSIONS.getMinimumRequiredVersion(fedVersion),
-      useJoinDirective: true,
-    }));
   }
 
   get defaultCorePurpose(): CorePurpose {

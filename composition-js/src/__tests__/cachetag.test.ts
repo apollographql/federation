@@ -54,8 +54,6 @@ describe("cacheTag spec and join__directive", () => {
 
       directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
 
-      directive @cacheTag(format: String!) repeatable on OBJECT | INTERFACE | FIELD_DEFINITION
-
       enum link__Purpose {
         \\"\\"\\"
         \`SECURITY\` features provide metadata necessary to securely resolve fields.
@@ -182,8 +180,6 @@ describe("cacheTag spec and join__directive", () => {
 
       directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
 
-      directive @cacheTag(format: String!) repeatable on OBJECT | INTERFACE | FIELD_DEFINITION
-
       enum link__Purpose {
         \\"\\"\\"
         \`SECURITY\` features provide metadata necessary to securely resolve fields.
@@ -279,7 +275,7 @@ describe("cacheTag spec and join__directive", () => {
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/cacheTag/v0.1\\", for: EXECUTION, import: [{name: \\"@cacheTag\\", as: \\"@myCacheTag\\"}])
+        @link(url: \\"https://specs.apollo.dev/cacheTag/v0.1\\", for: EXECUTION)
       {
         query: Query
       }
@@ -299,8 +295,6 @@ describe("cacheTag spec and join__directive", () => {
       directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
       directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
-
-      directive @myCacheTag(format: String!) repeatable on OBJECT | INTERFACE | FIELD_DEFINITION
 
       enum link__Purpose {
         \\"\\"\\"

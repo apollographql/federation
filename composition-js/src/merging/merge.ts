@@ -547,7 +547,13 @@ class Merger {
 
     for (const { specInSupergraph, directives } of supergraphInfoByIdentity.values()) {
       const imports: CoreImport[] = [];
-      for (const { nameInFeature, nameInSupergraph } of directives) {
+      for (const { nameInFeature, nameInSupergraph, compositionSpec } of directives) {
+        // If this directive is using the @join__directive directive, we don't import it in the
+        // supergraph schemas.
+        if (compositionSpec.useJoinDirective) {
+          continue;
+        }
+
         const defaultNameInSupergraph = CoreFeature.directiveNameInSchemaForCoreArguments(
           specInSupergraph.url,
           specInSupergraph.url.name,

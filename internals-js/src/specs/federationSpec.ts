@@ -185,7 +185,15 @@ export class FederationSpecDefinition extends FeatureDefinition {
     }
 
     if (version.gte(new FeatureVersion(2, 12))) {
-      this.registerSubFeature(CACHE_TAG_VERSIONS.find(new FeatureVersion(0, 1))!);
+      this.registerDirective(createDirectiveSpecification({
+        name: FederationDirectiveName.CACHE_TAG,
+        locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE, DirectiveLocation.FIELD_DEFINITION],
+        repeatable: true,
+        args: [{ name: 'format', type: (schema) => new NonNullType(schema.stringType()) }],
+        composes: true,
+        supergraphSpecification: (fedVersion) => CACHE_TAG_VERSIONS.getMinimumRequiredVersion(fedVersion),
+        useJoinDirective: true,
+      }));
     }
   }
 }
