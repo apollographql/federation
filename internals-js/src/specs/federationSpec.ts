@@ -187,7 +187,7 @@ export class FederationSpecDefinition extends FeatureDefinition {
     if (version.gte(new FeatureVersion(2, 12))) {
       this.registerDirective(createDirectiveSpecification({
         name: FederationDirectiveName.CACHE_TAG,
-        locations: [DirectiveLocation.OBJECT, DirectiveLocation.INTERFACE, DirectiveLocation.FIELD_DEFINITION],
+        locations: [DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION],
         repeatable: true,
         args: [{ name: 'format', type: (schema) => new NonNullType(schema.stringType()) }],
         composes: true,
