@@ -1691,3 +1691,59 @@ describe('@listSize', () => {
     ]);
   });
 });
+
+describe('@cacheTag', () => {
+  it('applies on root field', () => {
+    const doc = gql`
+      extend schema
+        @link(
+          url: "https://specs.apollo.dev/federation/v2.12"
+          import: ["@cacheTag"]
+        )
+
+      type Query {
+        f(x: Int!): String!
+          @cacheTag(format: "query-f-{$args.x}")
+          @cacheTag(format: "any-query")
+      }
+    `;
+    const name = 'S';
+    buildSubgraph(name, `http://${name}`, doc).validate();
+  });
+
+  it('applies on entity type', () => {
+    const doc = gql`
+      extend schema
+        @link(
+          url: "https://specs.apollo.dev/federation/v2.12"
+          import: ["@key", "@cacheTag"]
+        )
+
+      type P @key(fields: "id") @cacheTag(format: "p-{$.id}") {
+        id: ID!
+        a: Int
+      }
+    `;
+    const name = 'S';
+    buildSubgraph(name, `http://${name}`, doc).validate();
+  });
+
+  it('rejects application on non-root field', () => {
+    const doc = gql`
+      type Query {
+        a: A
+      }
+
+      type A {
+        x: Int @cacheTag(format: "not-applicable")
+      }
+    `;
+
+    expect(
+      buildForErrors(doc, { asFed2: true, includeAllImports: true }),
+    ).toStrictEqual(
+      // TODO
+      undefined,
+    );
+  });
+});
