@@ -225,7 +225,7 @@ export class ApolloGateway implements GatewayInterface {
 
     this.validateConfigAndEmitWarnings();
 
-    this.openTelemetryMeterProvider = this.initialiseTelemetry();
+    this.openTelemetryMeterProvider = this.initializeTelemetry();
 
     this.logger.debug('Gateway successfully initialized (but not yet loaded)');
     this.state = { phase: 'initialized' };
@@ -293,7 +293,7 @@ export class ApolloGateway implements GatewayInterface {
     }
   }
 
-  private initialiseTelemetry() : MeterProvider {
+  private initializeTelemetry() : MeterProvider {
     const meterProvider = configureOpenTelemetry();
 
     const os_type = os.type();
