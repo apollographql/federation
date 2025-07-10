@@ -68,7 +68,6 @@ import {
   CoreSpecDefinition,
   FeatureVersion,
   FEDERATION_VERSIONS,
-  LinkDirectiveArgs,
   connectIdentity,
   FeatureUrl,
   isFederationDirectiveDefinedInSchema,
@@ -379,7 +378,7 @@ class Merger {
   private inaccessibleDirectiveInSupergraph?: DirectiveDefinition;
   private latestFedVersionUsed: FeatureVersion;
   private joinDirectiveFeatureDefinitionsByIdentity = new Map<string, FeatureDefinitions>();
-  private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
+  private directivesUsingJoinDirective = new Set<string>();
   private fieldsWithFromContext: Set<string>;
   private fieldsWithOverride: Set<string>;
 
@@ -402,14 +401,8 @@ class Merger {
       (hint: CompositionHint) => { this.hints.push(hint); },
     );
 
-    this.subgraphsSchema = subgraphs.values().map(({ schema }) => {
-      if (!this.schemaToImportNameToFeatureUrl.has(schema)) {
-        this.schemaToImportNameToFeatureUrl.set(
-          schema,
-          this.computeMapFromImportNameToIdentityUrl(schema),
-        );
-      }
-      return schema;
+    this.subgraphsSchema = subgraphs.values().map((subgraph) => {
+      return subgraph.schema;
     });
 
     this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
@@ -546,12 +539,21 @@ class Merger {
           nameInSupergraph,
           compositionSpec,
         });
+        if (compositionSpec.useJoinDirective) {
+          this.directivesUsingJoinDirective.add(nameInSupergraph);
+        }
       }
     }
 
     for (const { specInSupergraph, directives } of supergraphInfoByIdentity.values()) {
       const imports: CoreImport[] = [];
-      for (const { nameInFeature, nameInSupergraph } of directives) {
+      for (const { nameInFeature, nameInSupergraph, compositionSpec } of directives) {
+        // If this directive is using the @join__directive directive, we don't import it in the
+        // supergraph schemas.
+        if (compositionSpec.useJoinDirective) {
+          continue;
+        }
+
         const defaultNameInSupergraph = CoreFeature.directiveNameInSchemaForCoreArguments(
           specInSupergraph.url,
           specInSupergraph.url.name,
@@ -618,6 +620,11 @@ class Merger {
     // application is an type-system element and we don't want to merge it).
     if (this.composeDirectiveManager.shouldComposeDirective({ subgraphName, directiveName: definition.name })) {
       return true;
+    }
+    if (this.directivesUsingJoinDirective.has(definition.name)) {
+      // This directive will be added as `@join__directive` by the `addJoinDirectiveDirectives`
+      // method. So, we skip the normal merging logic.
+      return false;
     }
     if (definition instanceof Directive) {
       // We have special code in `Merger.prepareSupergraph` to include the _definition_ of merged federation
@@ -3108,33 +3115,6 @@ class Merger {
     return Boolean(url && this.joinDirectiveFeatureDefinitionsByIdentity.has(url.identity));
   }
 
-  private computeMapFromImportNameToIdentityUrl(
-    schema: Schema,
-  ): Map<string, FeatureUrl> {
-    // For each @link directive on the schema definition, store its normalized
-    // identity url in a Map, reachable from all its imported names.
-    const map = new Map<string, FeatureUrl>();
-    for (const linkDirective of schema.schemaDefinition.appliedDirectivesOf<LinkDirectiveArgs>('link')) {
-      const { url, as, import: imports } = linkDirective.arguments();
-      const parsedUrl = FeatureUrl.maybeParse(url);
-
-      if (parsedUrl) {
-        // always add the main directive to the map, regardless of whether it is imported
-        map.set(`@${as ?? parsedUrl.name}`, parsedUrl);
-        if (imports) {
-          for (const i of imports) {
-            if (typeof i === 'string') {
-              map.set(i, parsedUrl);
-            } else {
-              map.set(i.as ?? i.name, parsedUrl);
-            }
-          }
-        }
-      }
-    }
-    return map;
-  }
-
   // This method gets called at various points during the merge to allow
   // subgraph directive applications to be reflected (unapplied) in the
   // supergraph, using the @join__directive(graphs,name,args) directive.
@@ -3153,17 +3133,18 @@ class Merger {
     for (const [idx, source] of sources.entries()) {
       if (!source) continue;
       const graph = this.joinSpecName(idx);
-
-      // We compute this map only once per subgraph, as it takes time
-      // proportional to the size of the schema.
-      const linkImportIdentityURLMap =
-        this.schemaToImportNameToFeatureUrl.get(source.schema());
-      if (!linkImportIdentityURLMap) continue;
+      const coreFeaturesInSource = source.schema().coreFeatures;
 
       for (const directive of source.appliedDirectives) {
+        const sourceFeature = coreFeaturesInSource?.sourceFeature(directive);
         let shouldIncludeAsJoinDirective = false;
+        // `directiveNameForJoinDirective`: The directive name to use in the extracted subgraph
+        // schema. For Connectors (see `shouldUseJoinDirectiveForURL`), this is an import name (the
+        // same name imported in the supergraph and the extracted subgraphs). For others, this is
+        // the fully qualified directive name in the subgraph schema (re-assigned below).
+        let directiveNameForJoinDirective = directive.name;
 
-        if (directive.name === 'link') {
+        if (sourceFeature && sourceFeature.feature.url.identity == linkIdentity) {
           const { url } = directive.arguments();
           const parsedUrl = FeatureUrl.maybeParse(url);
           if (typeof url === 'string' && parsedUrl) {
@@ -3179,18 +3160,32 @@ class Merger {
           }
 
         } else {
-          // To be consistent with other code accessing
-          // linkImportIdentityURLMap, we ensure directive names start with a
-          // leading @.
-          const nameWithAtSymbol =
-            directive.name.startsWith('@') ? directive.name : '@' + directive.name;
+          // See if directives from this feature URL should use the @join__directive.
           shouldIncludeAsJoinDirective = this.shouldUseJoinDirectiveForURL(
-            linkImportIdentityURLMap.get(nameWithAtSymbol),
+            sourceFeature?.feature.url
           );
+          // See if this directive is one of the directives that should use the @join__directive.
+          if (
+            !shouldIncludeAsJoinDirective
+            && this.directivesUsingJoinDirective.has(directive.name)
+          ) {
+            shouldIncludeAsJoinDirective = true;
+            if (sourceFeature) {
+              // Compute the fully qualified directive name in the subgraph schema without using
+              // `import`, so it can be referenced in the extracted subgraph schema via
+              // `@join__directive`.
+              directiveNameForJoinDirective = CoreFeature.directiveNameInSchemaForCoreArguments(
+                sourceFeature.feature.url,
+                sourceFeature.feature.url.name,
+                [],
+                sourceFeature.nameInFeature,
+              );
+            }
+          }
         }
 
         if (shouldIncludeAsJoinDirective) {
-          const existingJoins = (joinsByDirectiveName[directive.name] ??= []);
+          const existingJoins = (joinsByDirectiveName[directiveNameForJoinDirective] ??= []);
           let found = false;
           for (const existingJoin of existingJoins) {
             if (valueEquals(existingJoin.args, directive.arguments())) {
