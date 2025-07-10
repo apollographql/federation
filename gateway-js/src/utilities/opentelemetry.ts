@@ -1,7 +1,30 @@
-import opentelemetry from '@opentelemetry/api';
 import type { Attributes, Exception, Span } from '@opentelemetry/api';
+import opentelemetry from '@opentelemetry/api';
 import type { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
 import { OperationContext } from '../operationContext';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
+import {
+  MeterProvider,
+  PeriodicExportingMetricReader,
+} from '@opentelemetry/sdk-metrics';
+import {
+  detectResources,
+  resourceFromAttributes,
+} from '@opentelemetry/resources';
+import { alibabaCloudEcsDetector } from '@opentelemetry/resource-detector-alibaba-cloud';
+import {
+  awsBeanstalkDetector,
+  awsEc2Detector,
+  awsEcsDetector,
+  awsEksDetector,
+  awsLambdaDetector,
+} from '@opentelemetry/resource-detector-aws';
+import { gcpDetector } from '@opentelemetry/resource-detector-gcp';
+import {
+  azureAppServiceDetector,
+  azureFunctionsDetector,
+  azureVmDetector,
+} from '@opentelemetry/resource-detector-azure';
 
 export type OpenTelemetryConfig = {
   /**
@@ -24,7 +47,7 @@ export type OpenTelemetryConfig = {
    * Defaults to `false`, meaning that no exceptions will be reported in any spans.
    */
   recordExceptions?: boolean | number;
-}
+};
 
 export enum OpenTelemetrySpanNames {
   REQUEST = 'gateway.request',
@@ -118,4 +141,26 @@ export function recordExceptions(
   for (const exception of exceptionsToRecord) {
     span.recordException(exception);
   }
+}
+
+export function configureOpenTelemetry(): MeterProvider {
+  const resource = detectResources({
+    detectors: [alibabaCloudEcsDetector, awsEc2Detector, awsBeanstalkDetector, awsEcsDetector, awsEksDetector, awsLambdaDetector, gcpDetector, azureVmDetector, azureFunctionsDetector, azureAppServiceDetector],
+  })
+
+  const metricExporter = new OTLPMetricExporter();
+  return new MeterProvider({
+    resource: resource.merge(
+      resourceFromAttributes({
+        // Replace with any string to identify this service in your system
+        'service.name': 'gateway',
+      }),
+    ),
+    readers: [
+      new PeriodicExportingMetricReader({
+        exporter: metricExporter,
+        exportIntervalMillis: 10000,
+      }),
+    ],
+  });
 }
