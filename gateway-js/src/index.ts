@@ -16,7 +16,7 @@ import {
   GraphQLDataSource,
   GraphQLDataSourceRequestKind,
 } from './datasources/types';
-import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
+import { RemoteGraphQLDataSource } from './datasources';
 import { getVariableValues } from 'graphql/execution/values';
 import {
   QueryPlanner,
@@ -47,7 +47,7 @@ import {
   requestContextSpanAttributes,
   operationContextSpanAttributes,
   recordExceptions,
-  OpenTelemetryAttributeNames
+  OpenTelemetryAttributeNames, configureOpenTelemetry,
 } from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
@@ -64,7 +64,16 @@ import {
   Supergraph,
 } from '@apollo/federation-internals';
 import { getDefaultLogger } from './logger';
-import {GatewayInterface, GatewayUnsubscriber, GatewayGraphQLRequestContext, GatewayExecutionResult} from '@apollo/server-gateway-interface';
+import {
+  GatewayInterface,
+  GatewayUnsubscriber,
+  GatewayGraphQLRequestContext,
+  GatewayExecutionResult,
+  GatewayGraphQLRequest, GatewayGraphQLResponse,
+} from '@apollo/server-gateway-interface';
+import * as os from 'node:os';
+import { cpuCountSync } from 'node-cpu-count';
+import { MeterProvider } from '@opentelemetry/sdk-metrics';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -148,6 +157,7 @@ export class ApolloGateway implements GatewayInterface {
   private compositionId?: string;
   private state: GatewayState;
   private _supergraphManager?: SupergraphManager;
+  private openTelemetryMeterProvider: MeterProvider;
 
   // Observe query plan, service info, and operation info prior to execution.
   // The information made available here will give insight into the resulting
@@ -215,6 +225,8 @@ export class ApolloGateway implements GatewayInterface {
 
     this.validateConfigAndEmitWarnings();
 
+    this.openTelemetryMeterProvider = this.initialiseTelemetry();
+
     this.logger.debug('Gateway successfully initialized (but not yet loaded)');
     this.state = { phase: 'initialized' };
   }
@@ -279,6 +291,74 @@ export class ApolloGateway implements GatewayInterface {
         'The poll interval is now defined by Uplink, this option will only be used if it is greater than the value defined by Uplink or as a fallback.',
       );
     }
+  }
+
+  private initialiseTelemetry() : MeterProvider {
+    const meterProvider = configureOpenTelemetry();
+
+    const os_type = os.type();
+    const host_arch = os.arch();
+    const meter = meterProvider.getMeter("apollo/gateway");
+
+    // gateway.instance
+
+    const instanceGauge = meter.createObservableGauge("gateway.instance", {
+      "description": "The number of instances of the gateway running"
+    })
+    instanceGauge.addCallback((result) => {
+      result.observe(1,  {
+        "os.type": os_type,
+        "host.arch": host_arch,
+        "deployment_type": "gateway"
+      })
+    })
+
+    // gateway.instance.cpu_freq
+    const cpuFreqGauge = meter.createObservableGauge("gateway.instance.cpu_freq", {
+      "description": "The CPU frequency of the underlying instance the router is deployed to",
+      "unit": "Mhz"
+    })
+    cpuFreqGauge.addCallback((result) => {
+      const cpus = os.cpus();
+      const average_frequency = os.cpus().map((a) => a.speed).reduce((partialSum, a) => partialSum + a, 0) / cpus.length
+      result.observe(average_frequency)
+    })
+
+    // gateway.instance.cpu_count
+    const cpuCountGauge = meter.createObservableGauge("gateway.instance.cpu_count", {
+      "description": "The number of CPUs reported by the instance the gateway is running on"
+    })
+    cpuCountGauge.addCallback((result) => {
+      result.observe(cpuCountSync(), {
+        "host.arch": host_arch,
+      });
+    })
+
+    // gateway.instance.total_memory
+    const totalMemoryGauge = meter.createObservableGauge("gateway.instance.total_memory", {
+      "description": "The amount of memory reported by the instance the router is running on",
+      "unit": "bytes"
+    })
+    totalMemoryGauge.addCallback((result) => {
+      result.observe(os.totalmem(), {
+        "host.arch": host_arch,
+      });
+    })
+
+    // gateway.instance.schema
+    const schemaGauge = meter.createObservableGauge("gateway.instance.schema", {
+      "description": "Details about the current in-use schema"
+    })
+    schemaGauge.addCallback((result) => {
+      if (this.supergraphSdl) {
+        const hash = this.getIdForSupergraphSdl(this.supergraphSdl)
+        result.observe(1, {
+          schema_hash: hash
+        })
+      }
+    })
+
+    return meterProvider
   }
 
   public async load(options?: {
@@ -739,6 +819,7 @@ export class ApolloGateway implements GatewayInterface {
       ? this.config.buildService(serviceDef)
       : new RemoteGraphQLDataSource({
           url: serviceDef.url,
+          meterProvider: this.openTelemetryMeterProvider
         });
   }
 
@@ -782,6 +863,7 @@ export class ApolloGateway implements GatewayInterface {
   public executor = async (
     requestContext: GatewayGraphQLRequestContext,
   ): Promise<GatewayExecutionResult> => {
+
     return tracer.startActiveSpan(
       OpenTelemetrySpanNames.REQUEST,
       { attributes: requestContextSpanAttributes(requestContext, this.config.telemetry) },
@@ -874,6 +956,10 @@ export class ApolloGateway implements GatewayInterface {
             });
           }
 
+          this.openTelemetryMeterProvider.getMeter("apollo/gateway").createCounter("apollo.gateway.operations.fetch.request_size", {
+            unit: "bytes"
+          }).add(this.calculate_request_size(request));
+
           const response = await executeQueryPlan(
             queryPlan,
             serviceMap,
@@ -883,6 +969,10 @@ export class ApolloGateway implements GatewayInterface {
             this.apiSchema!,
             this.config.telemetry
           );
+
+          this.openTelemetryMeterProvider.getMeter("apollo/gateway").createCounter("apollo.gateway.operations.fetch.response_size", {
+            unit: "bytes"
+          }).add(this.calculate_response_size(response));
 
           const shouldShowQueryPlan =
             this.config.__exposeQueryPlanExperimental &&
@@ -947,6 +1037,39 @@ export class ApolloGateway implements GatewayInterface {
       },
     );
   };
+
+  private calculate_request_size(request: GatewayGraphQLRequest) {
+    let total = 0;
+
+    if (request.http?.headers) {
+      total += Array.from(request.http.headers).reduce((size, headerPair )=> size + Buffer.byteLength(headerPair[0]) + Buffer.byteLength(headerPair[1]), 0);
+    }
+    if (request.query) {
+      total += Buffer.byteLength(request.query);
+    }
+    if (request.variables) {
+      total += Object.entries(request.variables).reduce((accumulator, variable_pair) =>
+        accumulator + Buffer.byteLength(variable_pair[0]) + Buffer.byteLength(variable_pair[1].toString())
+      , 0);
+    }
+
+    return total
+  }
+
+  private calculate_response_size(response: GatewayGraphQLResponse) {
+    let total = 0;
+
+    if (response.http?.headers) {
+      total += Array.from(response.http.headers).reduce((size, headerPair )=> size + Buffer.byteLength(headerPair[0]) + Buffer.byteLength(headerPair[1]), 0);
+    }
+    if (response.data) {
+      total += Object.entries(response.data).reduce((accumulator, data_pair) =>
+          accumulator + Buffer.byteLength(data_pair[0]) + Buffer.byteLength(JSON.stringify(data_pair[1]))
+        , 0);
+    }
+
+    return total
+  }
 
   private validateIncomingRequest(
     requestContext: GatewayGraphQLRequestContext,
@@ -1044,6 +1167,8 @@ export class ApolloGateway implements GatewayInterface {
       queryPlanner: this.queryPlanner,
     };
   }
+
+
 }
 
 ApolloGateway.prototype.onSchemaChange = deprecate(
