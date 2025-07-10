@@ -4,12 +4,12 @@ import {
   fixtures,
   spanSerializer,
 } from 'apollo-federation-integration-testsuite';
+import { buildSubgraphSchema } from '@apollo/subgraph';
 import {
   InMemorySpanExporter,
   SimpleSpanProcessor,
-} from '@opentelemetry/tracing';
-import { NodeTracerProvider } from '@opentelemetry/node';
-import { buildSubgraphSchema } from '@apollo/subgraph';
+} from '@opentelemetry/sdk-trace-base';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 
 expect.addSnapshotSerializer(spanSerializer);
 

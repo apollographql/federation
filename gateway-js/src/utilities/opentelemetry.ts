@@ -7,10 +7,6 @@ import {
   MeterProvider,
   PeriodicExportingMetricReader,
 } from '@opentelemetry/sdk-metrics';
-import {
-  detectResources,
-  resourceFromAttributes,
-} from '@opentelemetry/resources';
 import { alibabaCloudEcsDetector } from '@opentelemetry/resource-detector-alibaba-cloud';
 import {
   awsBeanstalkDetector,
@@ -25,6 +21,7 @@ import {
   azureFunctionsDetector,
   azureVmDetector,
 } from '@opentelemetry/resource-detector-azure';
+import { detectResourcesSync, Resource } from '@opentelemetry/resources';
 
 export type OpenTelemetryConfig = {
   /**
@@ -144,14 +141,14 @@ export function recordExceptions(
 }
 
 export function configureOpenTelemetry(): MeterProvider {
-  const resource = detectResources({
+  const resource = detectResourcesSync({
     detectors: [alibabaCloudEcsDetector, awsEc2Detector, awsBeanstalkDetector, awsEcsDetector, awsEksDetector, awsLambdaDetector, gcpDetector, azureVmDetector, azureFunctionsDetector, azureAppServiceDetector],
   })
 
   const metricExporter = new OTLPMetricExporter();
   return new MeterProvider({
     resource: resource.merge(
-      resourceFromAttributes({
+      new Resource ({
         // Replace with any string to identify this service in your system
         'service.name': 'gateway',
       }),
