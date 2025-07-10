@@ -34,7 +34,7 @@ export type DirectiveSpecification = {
 
 export type DirectiveCompositionSpecification = {
   supergraphSpecification: (federationVersion: FeatureVersion) => FeatureDefinition,
-  useJoinDirective?: boolean,
+  useJoinDirective: boolean,
   argumentsMerger?: (schema: Schema, feature: CoreFeature) => ArgumentMerger | GraphQLError,
   staticArgumentTransform?: StaticArgumentsTransform,
 }
@@ -80,7 +80,7 @@ export function createDirectiveSpecification({
   args = [],
   composes = false,
   supergraphSpecification = undefined,
-  useJoinDirective = undefined,
+  useJoinDirective = false,
   staticArgumentTransform = undefined,
 }: {
   name: string,
@@ -136,7 +136,7 @@ export function createDirectiveSpecification({
     }
     composition = {
       supergraphSpecification,
-      useJoinDirective,
+      useJoinDirective: useJoinDirective ?? false,
       argumentsMerger,
       staticArgumentTransform,
     };

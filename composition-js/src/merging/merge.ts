@@ -378,7 +378,7 @@ class Merger {
   private inaccessibleDirectiveInSupergraph?: DirectiveDefinition;
   private latestFedVersionUsed: FeatureVersion;
   private joinDirectiveFeatureDefinitionsByIdentity = new Map<string, FeatureDefinitions>();
-  private directiveUsingJoinDirective = new Set<string>();
+  private directivesUsingJoinDirective = new Set<string>();
   private fieldsWithFromContext: Set<string>;
   private fieldsWithOverride: Set<string>;
 
@@ -540,7 +540,7 @@ class Merger {
           compositionSpec,
         });
         if (compositionSpec.useJoinDirective) {
-          this.directiveUsingJoinDirective.add(nameInSupergraph);
+          this.directivesUsingJoinDirective.add(nameInSupergraph);
         }
       }
     }
@@ -620,6 +620,11 @@ class Merger {
     // application is an type-system element and we don't want to merge it).
     if (this.composeDirectiveManager.shouldComposeDirective({ subgraphName, directiveName: definition.name })) {
       return true;
+    }
+    if (this.directivesUsingJoinDirective.has(definition.name)) {
+      // This directive will be added as `@join__directive` by the `addJoinDirectiveDirectives`
+      // method. So, we skip the normal merging logic.
+      return false;
     }
     if (definition instanceof Directive) {
       // We have special code in `Merger.prepareSupergraph` to include the _definition_ of merged federation
@@ -2968,12 +2973,6 @@ class Merger {
   }
 
   private mergeAppliedDirective(name: string, sources: Sources<SchemaElement<any, any>>, dest: SchemaElement<any, any>) {
-    if (this.directiveUsingJoinDirective.has(name)) {
-      // This directive will be added as `@join__directive` by the `addJoinDirectiveDirectives`
-      // method. So, skip the normal merging logic here.
-      return;
-    }
-
     // TODO: we currently "only" merge together applications that have the exact same arguments (with defaults expanded however),
     // but when an argument is an input object type, we should (?) ignore those fields that will not be included in the supergraph
     // due the intersection merging of input types, otherwise the merged value may be invalid for the supergraph.
@@ -3168,7 +3167,7 @@ class Merger {
           // See if this directive is one of the directives that should use the @join__directive.
           if (
             !shouldIncludeAsJoinDirective
-            && this.directiveUsingJoinDirective.has(directive.name)
+            && this.directivesUsingJoinDirective.has(directive.name)
           ) {
             shouldIncludeAsJoinDirective = true;
             if (sourceFeature) {

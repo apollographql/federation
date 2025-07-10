@@ -16,7 +16,7 @@ export class CacheTagSpecDefinition extends FeatureDefinition {
   public static readonly specName = CACHE_TAG;
   public static readonly identity = `https://specs.apollo.dev/${CacheTagSpecDefinition.specName}`;
 
-  constructor(version: FeatureVersion, minimumFederationVersion: FeatureVersion) {
+  constructor(version: FeatureVersion, minimumFederationVersion?: FeatureVersion) {
     super(
       new FeatureUrl(
         CacheTagSpecDefinition.identity,
@@ -36,8 +36,5 @@ export const CACHE_TAG_VERSIONS =
   new FeatureDefinitions<CacheTagSpecDefinition>(
     CacheTagSpecDefinition.identity
   ).add(
-    new CacheTagSpecDefinition(
-      new FeatureVersion(0, 1),
-      new FeatureVersion(2, 12),
-    ),
+    new CacheTagSpecDefinition(new FeatureVersion(0, 1)),
   );
