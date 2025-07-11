@@ -2,7 +2,11 @@ import type { Attributes, Exception, Span } from '@opentelemetry/api';
 import opentelemetry from '@opentelemetry/api';
 import type { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
 import { OperationContext } from '../operationContext';
-import { ConsoleMetricExporter } from '@opentelemetry/sdk-metrics'
+import {
+  AggregationTemporalitySelector,
+  ConsoleMetricExporter,
+  ResourceMetrics,
+} from '@opentelemetry/sdk-metrics';
 import {
   MeterProvider,
   PeriodicExportingMetricReader,
@@ -22,6 +26,7 @@ import {
   azureVmDetector,
 } from '@opentelemetry/resource-detector-azure';
 import { detectResourcesSync, Resource } from '@opentelemetry/resources';
+import { ExportResult, ExportResultCode } from '@opentelemetry/core';
 
 export type OpenTelemetryConfig = {
   /**
@@ -146,6 +151,7 @@ export function configureOpenTelemetry(): MeterProvider {
   })
 
   const metricExporter = new ConsoleMetricExporter();
+  const resourceExporter = new ConsoleResourceMetricExporter();
   return new MeterProvider({
     resource: resource.merge(
       new Resource ({
@@ -158,6 +164,44 @@ export function configureOpenTelemetry(): MeterProvider {
         exporter: metricExporter,
         exportIntervalMillis: 10000,
       }),
+      new PeriodicExportingMetricReader({
+        exporter: resourceExporter,
+        exportIntervalMillis: 10000,
+      })
     ],
   });
+}
+
+/**
+ * Console exporter that logs ONLY the `metrics.resource` portion
+ * of every export request.  Useful when you just want to inspect
+ * the attributes attached to the resource (service name, version,
+ * environment, etc.) and not the individual metric datapoints.
+ */
+export class ConsoleResourceMetricExporter extends ConsoleMetricExporter {
+  /** Re-expose the constructor so callers can still pass options through */
+  constructor(options?: { temporalitySelector?: AggregationTemporalitySelector }) {
+    super(options);
+  }
+
+  /** Override the export hook to log the resource and nothing else. */
+  override export(
+    metrics: ResourceMetrics,
+    resultCallback: (result: ExportResult) => void
+  ): void {
+    if (this._shutdown) {
+      // follow spec: once shutdown, every call must fail fast
+      setImmediate(resultCallback, { code: ExportResultCode.FAILED });
+      return;
+    }
+
+    // The only new behaviour: print the resource object.
+    console.dir(metrics.resource, { depth: null });
+
+    // report success to the SDK
+    setImmediate(resultCallback, { code: ExportResultCode.SUCCESS });
+  }
+
+  /* All other behaviour (forceFlush, shutdown, temporality, etc.)
+   * inherits directly from ConsoleMetricExporter with no change */
 }
