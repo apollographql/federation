@@ -18,12 +18,12 @@ export class RemoteGraphQLDataSource<
   fetcher: Fetcher;
   fetch_request_size_counter: (Counter | undefined);
   fetch_response_size_counter: (Counter | undefined);
-  meterProvider?: MeterProvider
 
   constructor(
     config?: Partial<RemoteGraphQLDataSource<TContext>> &
       object &
       ThisType<RemoteGraphQLDataSource<TContext>>,
+    meterProvider?: MeterProvider,
   ) {
     this.fetcher = fetcher.defaults({
       // Allow an arbitrary number of sockets per subgraph. This is the default
@@ -36,17 +36,17 @@ export class RemoteGraphQLDataSource<
       // intact.
       retry: false,
     });
-    if (config) {
-      return Object.assign(this, config);
-    }
-    if (this.meterProvider) {
-      const meter = this.meterProvider.getMeter('apollo/gateway');
+    if (meterProvider) {
+      const meter = meterProvider.getMeter('apollo/gateway');
       this.fetch_request_size_counter = meter.createCounter("apollo.gateway.operations.fetch.request_size", {
         unit: 'bytes',
       });
       this.fetch_response_size_counter = meter.createCounter("apollo.gateway.operations.fetch.response_size", {
         unit: 'bytes',
       });
+    }
+    if (config) {
+      return Object.assign(this, config);
     }
   }
 
