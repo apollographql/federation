@@ -74,6 +74,7 @@ import {
 import * as os from 'node:os';
 import { cpuCountSync } from 'node-cpu-count';
 import { MeterProvider } from '@opentelemetry/sdk-metrics';
+import {ATTR_OS_TYPE, ATTR_HOST_ARCH} from '@opentelemetry/semantic-conventions/incubating';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -307,8 +308,8 @@ export class ApolloGateway implements GatewayInterface {
     })
     instanceGauge.addCallback((result) => {
       result.observe(1,  {
-        "os.type": os_type,
-        "host.arch": host_arch,
+        [ATTR_OS_TYPE]: os_type,
+        [ATTR_HOST_ARCH]: host_arch,
         "deployment_type": "gateway"
       })
     })
@@ -330,7 +331,7 @@ export class ApolloGateway implements GatewayInterface {
     })
     cpuCountGauge.addCallback((result) => {
       result.observe(cpuCountSync(), {
-        "host.arch": host_arch,
+        [ATTR_HOST_ARCH]: host_arch,
       });
     })
 
@@ -341,7 +342,7 @@ export class ApolloGateway implements GatewayInterface {
     })
     totalMemoryGauge.addCallback((result) => {
       result.observe(os.totalmem(), {
-        "host.arch": host_arch,
+        [ATTR_HOST_ARCH]: host_arch,
       });
     })
 
@@ -818,6 +819,7 @@ export class ApolloGateway implements GatewayInterface {
     return this.config.buildService
       ? this.config.buildService(serviceDef)
       : new RemoteGraphQLDataSource({
+          name: serviceDef.name,
           url: serviceDef.url,
           meterProvider: this.openTelemetryMeterProvider
         });

@@ -51,6 +51,7 @@ export class RemoteGraphQLDataSource<
   }
 
   url!: string;
+  name!: string;
 
   /**
    * Whether the downstream request should be made with automated persisted
@@ -216,7 +217,7 @@ export class RemoteGraphQLDataSource<
 
     try {
       this.fetch_request_size_counter?.add(Buffer.byteLength(stringifiedRequestWithoutHttp), {
-        "subgraph.name": "foo"
+        "subgraph.name": this.name
       })
       // Use our local `fetcher` to allow for fetch injection
       // Use the fetcher's `Request` implementation for compatibility
@@ -233,7 +234,7 @@ export class RemoteGraphQLDataSource<
       }
 
       this.fetch_response_size_counter?.add(Buffer.byteLength(body.toString()), {
-        "subgraph.name": "foo"
+        "subgraph.name": this.name
       })
 
       return {
