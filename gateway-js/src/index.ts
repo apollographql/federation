@@ -820,9 +820,8 @@ export class ApolloGateway implements GatewayInterface {
       ? this.config.buildService(serviceDef)
       : new RemoteGraphQLDataSource({
           name: serviceDef.name,
-          url: serviceDef.url,
-          meterProvider: this.openTelemetryMeterProvider
-        });
+          url: serviceDef.url
+        }, this.openTelemetryMeterProvider);
   }
 
   private createServices(services: readonly ServiceEndpointDefinition[]) {
@@ -958,7 +957,7 @@ export class ApolloGateway implements GatewayInterface {
             });
           }
 
-          this.openTelemetryMeterProvider.getMeter("apollo/gateway").createCounter("apollo.gateway.operations.fetch.request_size", {
+          this.openTelemetryMeterProvider.getMeter("apollo/gateway").createCounter("apollo.gateway.operations.request_size", {
             unit: "bytes"
           }).add(this.calculate_request_size(request));
 
@@ -972,7 +971,7 @@ export class ApolloGateway implements GatewayInterface {
             this.config.telemetry
           );
 
-          this.openTelemetryMeterProvider.getMeter("apollo/gateway").createCounter("apollo.gateway.operations.fetch.response_size", {
+          this.openTelemetryMeterProvider.getMeter("apollo/gateway").createCounter("apollo.gateway.operations.response_size", {
             unit: "bytes"
           }).add(this.calculate_response_size(response));
 
