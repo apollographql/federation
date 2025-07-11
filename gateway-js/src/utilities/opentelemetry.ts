@@ -2,7 +2,7 @@ import type { Attributes, Exception, Span } from '@opentelemetry/api';
 import opentelemetry from '@opentelemetry/api';
 import type { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
 import { OperationContext } from '../operationContext';
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
+import { ConsoleMetricExporter } from '@opentelemetry/sdk-metrics'
 import {
   MeterProvider,
   PeriodicExportingMetricReader,
@@ -145,7 +145,7 @@ export function configureOpenTelemetry(): MeterProvider {
     detectors: [alibabaCloudEcsDetector, awsEc2Detector, awsBeanstalkDetector, awsEcsDetector, awsEksDetector, awsLambdaDetector, gcpDetector, azureVmDetector, azureFunctionsDetector, azureAppServiceDetector],
   })
 
-  const metricExporter = new OTLPMetricExporter();
+  const metricExporter = new ConsoleMetricExporter();
   return new MeterProvider({
     resource: resource.merge(
       new Resource ({
