@@ -570,6 +570,7 @@ describe("connect spec and join__directive", () => {
 
                     type Resource @key(fields: "id")
                       @connect(
+                        id: "conn_id", 
                         source: "v1"
                         http: {
                           GET: "/resources"
@@ -693,7 +694,7 @@ describe("connect spec and join__directive", () => {
 
       type Resource
         @join__type(graph: WITH_CONNECTORS_V0_3_, key: \\"id\\")
-        @join__directive(graphs: [WITH_CONNECTORS_V0_3_], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\", path: \\"\\", queryParams: \\"\\"}, batch: {maxSize: 5}, errors: {message: \\"\\", extensions: \\"\\"}, selection: \\"\\"})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_3_], name: \\"connect\\", args: {id: \\"conn_id\\", source: \\"v1\\", http: {GET: \\"/resources\\", path: \\"\\", queryParams: \\"\\"}, batch: {maxSize: 5}, errors: {message: \\"\\", extensions: \\"\\"}, selection: \\"\\"})
       {
         id: ID!
         name: String!

@@ -23,6 +23,7 @@ export const connectIdentity = 'https://specs.apollo.dev/connect';
 
 const CONNECT = 'connect';
 const SOURCE = 'source';
+const ID = 'id';
 const URL_PATH_TEMPLATE = 'URLPathTemplate';
 const JSON_SELECTION = 'JSONSelection';
 const CONNECT_HTTP = 'ConnectHTTP';
@@ -95,6 +96,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
     connect.repeatable = true;
 
     connect.addArgument(SOURCE, schema.stringType());
+    connect.addArgument(ID, schema.stringType());
 
     /*
       input HTTPHeaderMapping {
