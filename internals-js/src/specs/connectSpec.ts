@@ -86,6 +86,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         selection: JSONSelection!
         entity: Boolean = false
         errors: ConnectorErrors
+        isSuccess: JSONSelection
       ) repeatable on FIELD_DEFINITION
         | OBJECT # added in v0.2, validation enforced in rust
     */
@@ -164,12 +165,14 @@ export class ConnectSpecDefinition extends FeatureDefinition {
 
     connect.addArgument('selection', new NonNullType(JSONSelection));
     connect.addArgument('entity', schema.booleanType(), false);
+    connect.addArgument('isSuccess', JSONSelection);
 
     /*
       directive @source(
         name: String!
         http: ConnectHTTP
         errors: ConnectorErrors
+        isSuccess: JSONSelection
       ) repeatable on SCHEMA
     */
     const source = this.addDirective(schema, SOURCE).addLocations(
@@ -201,6 +204,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
 
     source.addArgument('http', new NonNullType(SourceHTTP));
     source.addArgument('errors', ConnectorErrors);
+    source.addArgument('isSuccess', JSONSelection);
 
     return [];
   }
