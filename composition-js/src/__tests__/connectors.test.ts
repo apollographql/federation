@@ -561,6 +561,7 @@ describe("connect spec and join__directive", () => {
                         queryParams: ""
                       }
                       errors: { message: "" extensions: "" }
+                      isSuccess: ""
                     )
 
                     type Query {
@@ -579,6 +580,7 @@ describe("connect spec and join__directive", () => {
                         }
                         batch: { maxSize: 5 }
                         errors: { message: "" extensions: "" }
+                        isSuccess: ""
                         selection: ""
                       ) {
                         id: ID!
@@ -624,7 +626,7 @@ describe("connect spec and join__directive", () => {
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_3_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.3\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
-        @join__directive(graphs: [WITH_CONNECTORS_V0_3_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\", path: \\"\\", queryParams: \\"\\"}, errors: {message: \\"\\", extensions: \\"\\"}})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_3_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\", path: \\"\\", queryParams: \\"\\"}, errors: {message: \\"\\", extensions: \\"\\"}, isSuccess: \\"\\"})
       {
         query: Query
       }
@@ -694,7 +696,7 @@ describe("connect spec and join__directive", () => {
 
       type Resource
         @join__type(graph: WITH_CONNECTORS_V0_3_, key: \\"id\\")
-        @join__directive(graphs: [WITH_CONNECTORS_V0_3_], name: \\"connect\\", args: {id: \\"conn_id\\", source: \\"v1\\", http: {GET: \\"/resources\\", path: \\"\\", queryParams: \\"\\"}, batch: {maxSize: 5}, errors: {message: \\"\\", extensions: \\"\\"}, selection: \\"\\"})
+        @join__directive(graphs: [WITH_CONNECTORS_V0_3_], name: \\"connect\\", args: {id: \\"conn_id\\", source: \\"v1\\", http: {GET: \\"/resources\\", path: \\"\\", queryParams: \\"\\"}, batch: {maxSize: 5}, errors: {message: \\"\\", extensions: \\"\\"}, isSuccess: \\"\\", selection: \\"\\"})
       {
         id: ID!
         name: String!
