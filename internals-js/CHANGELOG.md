@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.12.0-preview.2
+
+### Minor Changes
+
+- Added isSuccess argument to @connect and @source ([#3294](https://github.com/apollographql/federation/pull/3294))
+
 ## 2.12.0-preview.1
 
 ## 2.12.0-preview.0
