@@ -5,12 +5,6 @@ description: Use the @context and @fromContext directives to enable a subgraph t
 minVersion: Federation v2.8
 ---
 
-<EnterpriseFeature>
-
-The `@context` and `@fromContext` directives are [Enterprise features](https://www.apollographql.com/pricing) of the Apollo Router and require an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/). If your organization doesn't have an Enterprise plan, you can test it out by signing up for a free [Enterprise trial](https://studio.apollographql.com/signup?referrer=docs).
-
-</EnterpriseFeature>
-
 In an entity, a nested object may have a dependency on an ancestor type and thus need access to that ancestor's field(s).
 
 To enable a descendant to access an ancestor's field, you could add it as a `@key` field to every entity along the chain of nested types, but that can become problematic. Deeply nested types can change the `@key` fields of many entities. The added field may be irrelevant to the entities it's added to. Most importantly, overloading `@key` fields often breaks the separation of concerns between different subgraphs.

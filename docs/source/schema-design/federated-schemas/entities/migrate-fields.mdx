@@ -4,8 +4,6 @@ subtitle: Transfer entity fields from one subgraph to another
 description: Learn how to safely move parts of one subgraph to another subgraph in a federated GraphQL architecture using the @override directive.
 ---
 
-import ProgressiveOverrideEnterprise from '../../../../shared/progressive-override-enterprise.mdx';
-
 As your supergraph grows, you might want to move parts of one subgraph to another subgraph.
 For example, suppose your Payments subgraph defines a `Bill` entity:
 
@@ -159,8 +157,6 @@ After you deploy the Billing subgraph and publish this final schema change, you'
 ## Incremental migration with progressive `@override`
 
 <MinVersionBadge version="Federation v2.7" />
-
-<ProgressiveOverrideEnterprise/>
 
 Follow these steps to incrementally migrate a field from one subgraph to another.
 These steps use the `amount` field in the example Payments and Billing subgraphs described at the top of the page, but you can them with any entity field(s).
