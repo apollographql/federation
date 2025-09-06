@@ -1,7 +1,32 @@
-import opentelemetry from '@opentelemetry/api';
 import type { Attributes, Exception, Span } from '@opentelemetry/api';
+import opentelemetry from '@opentelemetry/api';
 import type { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
 import { OperationContext } from '../operationContext';
+import {
+  AggregationTemporalitySelector,
+  ConsoleMetricExporter,
+  ResourceMetrics,
+} from '@opentelemetry/sdk-metrics';
+import {
+  MeterProvider,
+  PeriodicExportingMetricReader,
+} from '@opentelemetry/sdk-metrics';
+import { alibabaCloudEcsDetector } from '@opentelemetry/resource-detector-alibaba-cloud';
+import {
+  awsBeanstalkDetector,
+  awsEc2Detector,
+  awsEcsDetector,
+  awsEksDetector,
+  awsLambdaDetector,
+} from '@opentelemetry/resource-detector-aws';
+import { gcpDetector } from '@opentelemetry/resource-detector-gcp';
+import {
+  azureAppServiceDetector,
+  azureFunctionsDetector,
+  azureVmDetector,
+} from '@opentelemetry/resource-detector-azure';
+import { detectResourcesSync, Resource } from '@opentelemetry/resources';
+import { ExportResult, ExportResultCode } from '@opentelemetry/core';
 
 export type OpenTelemetryConfig = {
   /**
@@ -24,7 +49,7 @@ export type OpenTelemetryConfig = {
    * Defaults to `false`, meaning that no exceptions will be reported in any spans.
    */
   recordExceptions?: boolean | number;
-}
+};
 
 export enum OpenTelemetrySpanNames {
   REQUEST = 'gateway.request',
@@ -118,4 +143,65 @@ export function recordExceptions(
   for (const exception of exceptionsToRecord) {
     span.recordException(exception);
   }
+}
+
+export function configureOpenTelemetry(): MeterProvider {
+  const resource = detectResourcesSync({
+    detectors: [alibabaCloudEcsDetector, awsEc2Detector, awsBeanstalkDetector, awsEcsDetector, awsEksDetector, awsLambdaDetector, gcpDetector, azureVmDetector, azureFunctionsDetector, azureAppServiceDetector],
+  })
+
+  const metricExporter = new ConsoleMetricExporter();
+  const resourceExporter = new ConsoleResourceMetricExporter();
+  return new MeterProvider({
+    resource: resource.merge(
+      new Resource ({
+        // Replace with any string to identify this service in your system
+        'service.name': 'gateway',
+      }),
+    ),
+    readers: [
+      new PeriodicExportingMetricReader({
+        exporter: metricExporter,
+        exportIntervalMillis: 10000,
+      }),
+      new PeriodicExportingMetricReader({
+        exporter: resourceExporter,
+        exportIntervalMillis: 10000,
+      })
+    ],
+  });
+}
+
+/**
+ * Console exporter that logs ONLY the `metrics.resource` portion
+ * of every export request.  Useful when you just want to inspect
+ * the attributes attached to the resource (service name, version,
+ * environment, etc.) and not the individual metric datapoints.
+ */
+export class ConsoleResourceMetricExporter extends ConsoleMetricExporter {
+  /** Re-expose the constructor so callers can still pass options through */
+  constructor(options?: { temporalitySelector?: AggregationTemporalitySelector }) {
+    super(options);
+  }
+
+  /** Override the export hook to log the resource and nothing else. */
+  override export(
+    metrics: ResourceMetrics,
+    resultCallback: (result: ExportResult) => void
+  ): void {
+    if (this._shutdown) {
+      // follow spec: once shutdown, every call must fail fast
+      setImmediate(resultCallback, { code: ExportResultCode.FAILED });
+      return;
+    }
+
+    // The only new behaviour: print the resource object.
+    console.dir(metrics.resource, { depth: null });
+
+    // report success to the SDK
+    setImmediate(resultCallback, { code: ExportResultCode.SUCCESS });
+  }
+
+  /* All other behaviour (forceFlush, shutdown, temporality, etc.)
+   * inherits directly from ConsoleMetricExporter with no change */
 }
