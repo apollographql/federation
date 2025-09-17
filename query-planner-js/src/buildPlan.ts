@@ -4814,34 +4814,13 @@ function createPostRequiresGroup(
     // we need the path here, so this will have to do for now, and if this ever breaks in practice, we'll at least have an example to
     // guide us toward improving/fixing.
     assert(parent.path, `Missing path-in-parent for @requires on ${edge} with group ${group} and parent ${parent}`);
-    let requirePath = path.forParentOfGroup(parent.path, parent.group.parentType.schema());
-    let preRequireGroup = parent.group;
-
-    // The `postRequireGroup` needs a key. This can come from `group` (and code
-    // in `canSatisfyConditions()` guarantees such a locally satisfiable key
-    // exists in `group`), but it can also potentially come from `parent.group`,
-    // and previous code had (wrongfully) always assumed it could.
-    //
-    // To keep this previous optimization, we now explicitly check whether the
-    // known locally satisfiable key can be rebased in `parent.group`, and we
-    // fall back to `group` if it doesn't.
-    const keyCondition = getLocallySatisfiableKey(dependencyGraph.federatedQueryGraph, edge.head);
-    assert(keyCondition, () => `Due to @requires, validation should have required a key to be present for ${edge}`);
-    if (!keyCondition.canRebaseOn(typeAtPath(preRequireGroup.selection.parentType, requirePath.inGroup()))) {
-      requirePath = path;
-      preRequireGroup = group;
-      // It's possible we didn't add `group` as a parent previously, so we do so
-      // here similarly to how `handleRequiresTree()` specifies it.
-      postRequireGroup.addParent({ group, path: [] });
-    }
-
     addPostRequireInputs(
       dependencyGraph,
-      requirePath,
+      path.forParentOfGroup(parent.path, parent.group.parentType.schema()),
       entityType,
       edge,
       context,
-      preRequireGroup,
+      parent.group,
       postRequireGroup,
     );
     return {
