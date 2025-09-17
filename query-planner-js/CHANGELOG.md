@@ -1,5 +1,13 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.11.3
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.11.3
+  - @apollo/query-graphs@2.11.3
+
 ## 2.11.2
 
 ### Patch Changes
