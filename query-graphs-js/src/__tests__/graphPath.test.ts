@@ -72,6 +72,7 @@ function createOptions(supergraph: Schema, queryGraph: QueryGraph): Simultaneous
     [],
     [],
     new Map(),
+    null,
   );
 }
 
