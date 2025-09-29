@@ -39,6 +39,7 @@ import {
   ContextSpecDefinition,
   CONTEXT_VERSIONS,
   NamedSchemaElement,
+  NamedType,
 } from "@apollo/federation-internals";
 import {
   Edge,
@@ -59,6 +60,7 @@ import {
   ConditionResolver,
   UnadvanceableClosures,
   isUnadvanceableClosures,
+  Vertex,
 } from "@apollo/query-graphs";
 import { CompositionHint, HINTS } from "./hints";
 import { ASTNode, GraphQLError, print } from "graphql";
@@ -113,7 +115,7 @@ function shareableFieldNonIntersectingRuntimeTypesError(
     + `\nShared field "${field.coordinate}" return type "${field.type}" has a non-intersecting set of possible runtime types across subgraphs. Runtime types in subgraphs are:`
     + `\n${typeStrings.join(';\n')}.`
     + `\nThis is not allowed as shared fields must resolve the same way in all subgraphs, and that imply at least some common runtime types between the subgraphs.`;
-  const error = new ValidationError(message, invalidState.supergraphPath, invalidState.subgraphPathInfos.map((p) => p.path.path), witness);
+  const error = new ValidationError(message, invalidState.supergraphPath, invalidState.allSubgraphPathInfos().map((p) => p.path.path), witness);
   return ERRORS.SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES.err(error.message, {
     nodes: subgraphNodes(invalidState, (s) => (s.type(field.parent.name) as CompositeType | undefined)?.field(field.name)?.sourceAST),
   });
@@ -431,8 +433,16 @@ export class ValidationState {
   constructor(
     // Path in the supergraph corresponding to the current state.
     public readonly supergraphPath: RootPath<Transition>,
-    // All the possible paths we could be in the subgraph.
-    public readonly subgraphPathInfos: SubgraphPathInfo[],
+    // All the possible paths we could be in the subgraph. When the supergraph
+    // path's top-level selection is a mutation field, the possible paths are
+    // instead partitioned by the name of the subgraph containing the mutation
+    // field.
+    public readonly subgraphPathInfos:
+      | SubgraphPathInfo[]
+      | {
+          mutationField: FieldDefinition<CompositeType>;
+          paths: Map<string, SubgraphPathInfo[]>;
+        },
     // When we encounter an `@override`n field with a label condition, we record
     // its value (T/F) as we traverse the graph. This allows us to ignore paths
     // that can never be taken by the query planner (i.e. a path where the
@@ -469,6 +479,73 @@ export class ValidationState {
     );
   }
 
+  // Returns whether the entire entire visit to this state can be skipped. If
+  // the state is partitioned, note that each individual partition must be
+  // skippable for the state to be skippable.
+  canSkipVisit(
+    subgraphNameToGraphEnumValue: Map<string, string>,
+    previousVisits: QueryGraphState<VertexVisit[]>,
+  ): boolean {
+    const vertex = this.supergraphPath.tail;
+    if (this.subgraphPathInfos instanceof Array) {
+      return this.canSkipVisitForSubgraphPaths(
+        vertex,
+        this.subgraphPathInfos,
+        subgraphNameToGraphEnumValue,
+        previousVisits,
+      );
+    } else {
+      let canSkip = true;
+      for (const subgraphPathInfos of this.subgraphPathInfos.paths.values()) {
+        // Note that this method mutates the set of previous visits, so we
+        // purposely do not short-circuit return here.
+        if (!this.canSkipVisitForSubgraphPaths(
+          vertex,
+          subgraphPathInfos,
+          subgraphNameToGraphEnumValue,
+          previousVisits,
+        )) {
+          canSkip = false;
+        }
+      }
+      return canSkip;
+    }
+  }
+
+  canSkipVisitForSubgraphPaths(
+    supergraphPathTail: Vertex,
+    subgraphPathInfos: SubgraphPathInfo[],
+    subgraphNameToGraphEnumValue: Map<string, string>,
+    previousVisits: QueryGraphState<VertexVisit[]>,
+  ): boolean {
+    const currentVertexVisit: VertexVisit = {
+      subgraphContextKeys: this.currentSubgraphContextKeys(
+        subgraphNameToGraphEnumValue,
+        subgraphPathInfos,
+      ),
+      overrideConditions: this.selectedOverrideConditions
+    };
+    const previousVisitsForVertex = previousVisits.getVertexState(supergraphPathTail);
+    if (previousVisitsForVertex) {
+      for (const previousVisit of previousVisitsForVertex) {
+        if (isSupersetOrEqual(currentVertexVisit, previousVisit)) {
+          // This means that we've already seen the type we're currently on in the supergraph, and when saw it we could be in
+          // one of `previousSources`, and we validated that we could reach anything from there. We're now on the same
+          // type, and have strictly more options regarding subgraphs. So whatever comes next, we can handle in the exact
+          // same way we did previously, and there is thus no way to bother.
+          debug.groupEnd(`Has already validated this vertex.`);
+          return true;
+        }
+      }
+      // We're gonna have to validate, but we can save the new set of sources here to hopefully save work later.
+      previousVisitsForVertex.push(currentVertexVisit);
+    } else {
+      // We save the current sources but do validate.
+      previousVisits.setVertexState(supergraphPathTail, [currentVertexVisit]);
+    }
+    return false;
+  }
+
   /**
    * Validates that the current state can always be advanced for the provided supergraph edge, and returns the updated state if
    * so.
@@ -480,17 +557,23 @@ export class ValidationState {
    *  to a type condition for which there cannot be any runtime types), in which case not further validation is necessary "from that branch".
    *  Additionally, when the state can be successfully advanced, an `hint` can be optionally returned.
    */
-  validateTransition(context: ValidationContext, supergraphEdge: Edge, matchingContexts: string[]): {
+  validateTransition(
+    context: ValidationContext,
+    supergraphEdge: Edge,
+    matchingContexts: string[],
+    validationErrors: GraphQLError[],
+    satisfiabilityErrorsByMutationFieldAndSubgraph: Map<
+      string, Map<string, GraphQLError[]>
+    >,
+  ): {
     state?: ValidationState,
-    error?: GraphQLError,
     hint?: CompositionHint,
   } {
     assert(!supergraphEdge.conditions, () => `Supergraph edges should not have conditions (${supergraphEdge})`);
 
     const transition = supergraphEdge.transition;
     const targetType = supergraphEdge.tail.type;
-    const newSubgraphPathInfos: SubgraphPathInfo[] = [];
-    const deadEnds: UnadvanceableClosures[] = [];
+
     // If the edge has an override condition, we should capture it in the state so
     // that we can ignore later edges that don't satisfy the condition.
     const newOverrideConditions = new Map([...this.selectedOverrideConditions]);
@@ -500,51 +583,145 @@ export class ValidationState {
         supergraphEdge.overrideCondition.condition
       );
     }
+    const newPath = this.supergraphPath.add(
+      transition,
+      supergraphEdge,
+      noConditionsResolution,
+    );
 
-    for (const { path, contexts } of this.subgraphPathInfos) {
-      const options = advancePathWithTransition(
-        path,
+    let updatedState: ValidationState;
+    if (this.subgraphPathInfos instanceof Array) {
+      const {
+        newSubgraphPathInfos,
+        error,
+      } = this.validateTransitionforSubgraphPaths(
+        this.subgraphPathInfos,
+        newOverrideConditions,
         transition,
         targetType,
+        matchingContexts,
+        newPath,
+      );
+      if (error) {
+        validationErrors.push(error);
+        return {};
+      }
+      // As noted in `validateTransitionforSubgraphPaths()`, this being empty
+      // means that the edge is a type condition and that if we follow the path
+      // to this subgraph, we're guaranteed that handling that type condition
+      // gives us no matching results, and so we can handle whatever comes next
+      // really.
+      if (newSubgraphPathInfos.length === 0) {
+        return {};
+      }
+      const mutationField = ValidationState.fieldIfTopLevelMutation(
+        this.supergraphPath,
+        supergraphEdge,
+      );
+      if (mutationField) {
+        // If we just added a top-level mutation field, we partition the created
+        // state by the subgraph of the field.
+        const partitionedSubgraphPathInfos =
+          new Map<string, SubgraphPathInfo[]>();
+        for (const subgraphPathInfo of newSubgraphPathInfos) {
+          let subgraph = ValidationState.subgraphOfTopLevelMutation(
+            subgraphPathInfo
+          );
+          let subgraphPathInfos = partitionedSubgraphPathInfos.get(subgraph);
+          if (!subgraphPathInfos) {
+            subgraphPathInfos = [];
+            partitionedSubgraphPathInfos.set(subgraph, subgraphPathInfos);
+          }
+          subgraphPathInfos.push(subgraphPathInfo);
+        }
+        if (partitionedSubgraphPathInfos.size <= 1) {
+          // If there's not more than one subgraph, then the mutation field was
+          // never really shared, and we can continue with non-partitioned
+          // state.
+          updatedState = new ValidationState(
+            newPath,
+            [...partitionedSubgraphPathInfos.values()].flat(),
+            newOverrideConditions,
+          );
+        } else {
+          // Otherwise, we need the partitioning, and we set up the error stacks
+          // for each (field, subgraph) pair.
+          let errorsBySubgraph = satisfiabilityErrorsByMutationFieldAndSubgraph
+            .get(mutationField.coordinate);
+          if (!errorsBySubgraph) {
+            errorsBySubgraph = new Map();
+            satisfiabilityErrorsByMutationFieldAndSubgraph.set(
+              mutationField.coordinate,
+              errorsBySubgraph,
+            );
+          }
+          for (const subgraph of partitionedSubgraphPathInfos.keys()) {
+            if (!errorsBySubgraph.has(subgraph)) {
+              errorsBySubgraph.set(subgraph, []);
+            }
+          }
+          updatedState = new ValidationState(
+            newPath,
+            {
+              mutationField,
+              paths: partitionedSubgraphPathInfos,
+            },
+            newOverrideConditions,
+          );
+        }
+      } else {
+        updatedState = new ValidationState(
+          newPath,
+          newSubgraphPathInfos,
+          newOverrideConditions,
+        );
+      }
+    } else {
+      const partitionedSubgraphPathInfos =
+        new Map<string, SubgraphPathInfo[]>();
+      for (const [subgraph, subgraphPathInfos] of this.subgraphPathInfos.paths) {
+        // The setup we do above when we enter a mutation field ensures these
+        // map entries exist.
+        const errors = satisfiabilityErrorsByMutationFieldAndSubgraph
+          .get(this.subgraphPathInfos.mutationField.coordinate)!
+          .get(subgraph)!;
+        const {
+          newSubgraphPathInfos,
+          error,
+        } = this.validateTransitionforSubgraphPaths(
+          subgraphPathInfos,
+          newOverrideConditions,
+          transition,
+          targetType,
+          matchingContexts,
+          newPath,
+        );
+        if (error) {
+          errors.push(error);
+          continue;
+        }
+        // As noted in `validateTransitionforSubgraphPaths()`, this being empty
+        // means that the edge is a type condition and that if we follow the
+        // path to this subgraph, we're guaranteed that handling that type
+        // condition gives us no matching results, and so we can handle whatever
+        // comes next really.
+        if (newSubgraphPathInfos.length === 0) {
+          return {};
+        }
+        partitionedSubgraphPathInfos.set(subgraph, newSubgraphPathInfos);
+      }
+      if (partitionedSubgraphPathInfos.size === 0) {
+        return {};
+      }
+      updatedState = new ValidationState(
+        newPath,
+        {
+          mutationField: this.subgraphPathInfos.mutationField,
+          paths: partitionedSubgraphPathInfos,
+        },
         newOverrideConditions,
       );
-      if (isUnadvanceableClosures(options)) {
-        deadEnds.push(options);
-        continue;
-      }
-      if (options.length === 0) {
-        // This means that the edge is a type condition and that if we follow the path to this subgraph, we're guaranteed that handling that
-        // type condition give us no matching results, and so we can handle whatever comes next really.
-        return { state: undefined };
-      }
-      let newContexts = contexts;
-      if (matchingContexts.length) {
-        const subgraphName = path.path.tail.source;
-        const typeName = path.path.tail.type.name;
-        newContexts = new Map([...contexts]);
-        for (const matchingContext in matchingContexts) {
-          newContexts.set(
-            matchingContext,
-            {
-              subgraphName,
-              typeName,
-            }
-          )
-        }
-      }
-
-      newSubgraphPathInfos.push(...options.map((p) => ({ path: p, contexts: newContexts })));
     }
-    const newPath = this.supergraphPath.add(transition, supergraphEdge, noConditionsResolution);
-    if (newSubgraphPathInfos.length === 0) {
-      return { error: satisfiabilityError(newPath, this.subgraphPathInfos.map((p) => p.path.path), deadEnds.map((d) => d.toUnadvanceables())) };
-    }
-
-    const updatedState = new ValidationState(
-      newPath,
-      newSubgraphPathInfos,
-      newOverrideConditions,
-    );
 
     // When handling a @shareable field, we also compare the set of runtime types for each subgraphs involved.
     // If there is no common intersection between those sets, then we record an error: a @shareable field should resolve
@@ -562,14 +739,15 @@ export class ValidationState {
     // Note that we ignore any path when the type is not an abstract type, because in practice this means an @interfaceObject
     // and this should not be considered as an implementation type. Besides @interfaceObject always "stand-in" for every
     // implementations so they never are a problem for this check and can be ignored.
+    let allSubgraphPathInfos = updatedState.allSubgraphPathInfos();
     let hint: CompositionHint | undefined = undefined;
     if (
-      newSubgraphPathInfos.length > 1
+      allSubgraphPathInfos.length > 1
       && transition.kind === 'FieldCollection'
       && isAbstractType(newPath.tail.type)
       && context.isShareable(transition.definition)
     ) {
-      const filteredPaths = newSubgraphPathInfos.map((p) => p.path.path).filter((p) => isAbstractType(p.tail.type));
+      const filteredPaths = allSubgraphPathInfos.map((p) => p.path.path).filter((p) => isAbstractType(p.tail.type));
       if (filteredPaths.length > 1) {
         // We start our intersection by using all the supergraph types, both because it's a convenient "max" set to start our intersection,
         // but also because that means we will ignore @inaccessible types in our checks (which is probably not very important because
@@ -580,7 +758,7 @@ export class ValidationState {
         const runtimeTypesToSubgraphs = new MultiMap<string, string>();
         const runtimeTypesPerSubgraphs = new MultiMap<string, string>();
         let hasAllEmpty = true;
-        for (const { path } of newSubgraphPathInfos) {
+        for (const { path } of allSubgraphPathInfos) {
           const subgraph = path.path.tail.source;
           const typeNames = possibleRuntimeTypeNamesSorted(path.path);
           
@@ -610,7 +788,8 @@ export class ValidationState {
         // which each subgraph can resolve is `null` and so that essentially guaranttes that all subgraph do resolve the same way.
         if (!hasAllEmpty) {
           if (intersection.length === 0) {
-            return { error: shareableFieldNonIntersectingRuntimeTypesError(updatedState, transition.definition, runtimeTypesToSubgraphs) };
+            validationErrors.push(shareableFieldNonIntersectingRuntimeTypesError(updatedState, transition.definition, runtimeTypesToSubgraphs));
+            return {};
           }
 
           // As said, we accept it if there is an intersection, but if the runtime types are not all the same, we still emit a warning to make it clear that
@@ -625,9 +804,105 @@ export class ValidationState {
     return { state: updatedState, hint };
   }
 
+  validateTransitionforSubgraphPaths(
+    subgraphPathInfos: SubgraphPathInfo[],
+    newOverrideConditions: Map<string, boolean>,
+    transition: Transition,
+    targetType: NamedType,
+    matchingContexts: string[],
+    newPath: RootPath<Transition>,
+  ): {
+    newSubgraphPathInfos: SubgraphPathInfo[],
+    error?: never,
+  } | {
+    newSubgraphPathInfos?: never,
+    error: GraphQLError,
+  } {
+    const newSubgraphPathInfos: SubgraphPathInfo[] = [];
+    const deadEnds: UnadvanceableClosures[] = [];
+    for (const { path, contexts } of subgraphPathInfos) {
+      const options = advancePathWithTransition(
+        path,
+        transition,
+        targetType,
+        newOverrideConditions,
+      );
+      if (isUnadvanceableClosures(options)) {
+        deadEnds.push(options);
+        continue;
+      }
+      if (options.length === 0) {
+        // This means that the edge is a type condition and that if we follow
+        // the path to this subgraph, we're guaranteed that handling that type
+        // condition give us no matching results, and so we can handle whatever
+        // comes next really.
+        return { newSubgraphPathInfos: [] };
+      }
+      let newContexts = contexts;
+      if (matchingContexts.length) {
+        const subgraphName = path.path.tail.source;
+        const typeName = path.path.tail.type.name;
+        newContexts = new Map([...contexts]);
+        for (const matchingContext in matchingContexts) {
+          newContexts.set(
+            matchingContext,
+            {
+              subgraphName,
+              typeName,
+            }
+          )
+        }
+      }
+
+      newSubgraphPathInfos.push(
+        ...options.map((p) => ({ path: p, contexts: newContexts }))
+      );
+    }
+
+    return newSubgraphPathInfos.length === 0
+      ? {
+          error: satisfiabilityError(
+            newPath,
+            subgraphPathInfos.map((p) => p.path.path),
+            deadEnds.map((d) => d.toUnadvanceables())
+          )
+        }
+      : { newSubgraphPathInfos };
+  }
+
+  private static fieldIfTopLevelMutation(
+    supergraphPath: RootPath<Transition>,
+    edge: Edge,
+  ): FieldDefinition<CompositeType> | null {
+    if (supergraphPath.size !== 0) {
+      return null;
+    }
+    if (edge.transition.kind !== 'FieldCollection') {
+      return null;
+    }
+    if (supergraphPath.root !== supergraphPath.graph.root('mutation')) {
+      return null;
+    }
+    return edge.transition.definition;
+  }
+
+  private static subgraphOfTopLevelMutation(
+    subgraphPathInfo: SubgraphPathInfo
+  ): string {
+    const lastEdge = subgraphPathInfo.path.path.lastEdge();
+    assert(lastEdge, "Path unexpectedly missing edge");
+    return lastEdge.head.source;
+  }
+
+  allSubgraphPathInfos(): SubgraphPathInfo[] {
+    return this.subgraphPathInfos instanceof Array
+      ? this.subgraphPathInfos
+      : Array.from(this.subgraphPathInfos.paths.values()).flat();
+  }
+
   currentSubgraphNames(): string[] {
     const subgraphs: string[] = [];
-    for (const pathInfo of this.subgraphPathInfos) {
+    for (const pathInfo of this.allSubgraphPathInfos()) {
       const source = pathInfo.path.path.tail.source;
       if (!subgraphs.includes(source)) {
         subgraphs.push(source);
@@ -636,9 +911,12 @@ export class ValidationState {
     return subgraphs;
   }
 
-  currentSubgraphContextKeys(subgraphNameToGraphEnumValue: Map<string, string>): Set<string> {
+  currentSubgraphContextKeys(
+    subgraphNameToGraphEnumValue: Map<string, string>,
+    subgraphPathInfos: SubgraphPathInfo[],
+  ): Set<string> {
     const subgraphContextKeys: Set<string> = new Set();
-    for (const pathInfo of this.subgraphPathInfos) {
+    for (const pathInfo of subgraphPathInfos) {
       const tailSubgraphName = pathInfo.path.path.tail.source;
       const tailSubgraphEnumValue = subgraphNameToGraphEnumValue.get(tailSubgraphName);
       const tailTypeName = pathInfo.path.path.tail.type.name;
@@ -657,15 +935,26 @@ export class ValidationState {
   }
 
   currentSubgraphs(): { name: string, schema: Schema }[] {
-    if (this.subgraphPathInfos.length === 0) {
+    const allSubgraphPathInfos = this.allSubgraphPathInfos();
+    if (allSubgraphPathInfos.length === 0) {
       return [];
     }
-    const sources = this.subgraphPathInfos[0].path.path.graph.sources;
+    const sources = allSubgraphPathInfos[0].path.path.graph.sources;
     return this.currentSubgraphNames().map((name) => ({ name, schema: sources.get(name)!}));
   }
 
   toString(): string {
-    return `${this.supergraphPath} <=> [${this.subgraphPathInfos.map(s => s.path.toString()).join(', ')}]`;
+    if (this.subgraphPathInfos instanceof Array) {
+      return `${this.supergraphPath} <=> [${this.subgraphPathInfos.map(
+        p => p.path.toString()
+      ).join(', ')}]`;
+    } else {
+      return `${this.supergraphPath} <=> {${
+        Array.from(this.subgraphPathInfos.paths.entries()).map(
+          ([s, p]) => `${s}: [${p.map(p => p.path.toString()).join(', ')}]`
+        ).join(', ')
+      }}`;
+    }
   }
 }
 
@@ -698,12 +987,22 @@ class ValidationTraversal {
   private readonly validationErrors: GraphQLError[] = [];
   private readonly validationHints: CompositionHint[] = [];
 
+  // When we discover a shared top-level mutation field, we track satisfiability
+  // errors for each subgraph containing the field separately. This is because
+  // the query planner needs to avoid calling these fields more than once, which
+  // means there must be no satisfiability errors for (at least) one subgraph.
+  // The first Map key is the field coordinate, and the second Map key is the
+  // subgraph name.
+  private readonly satisfiabilityErrorsByMutationFieldAndSubgraph: Map<
+    string, Map<string, GraphQLError[]>
+  > = new Map();
+
   private readonly context: ValidationContext;
   private totalValidationSubgraphPaths = 0;
   private maxValidationSubgraphPaths: number;
-  
+
   private static DEFAULT_MAX_VALIDATION_SUBGRAPH_PATHS = 1000000;
-  
+
   constructor(
     supergraphSchema: Schema,
     subgraphNameToGraphEnumValue: Map<string, string>,
@@ -711,8 +1010,9 @@ class ValidationTraversal {
     federatedQueryGraph: QueryGraph,
     compositionOptions: CompositionOptions,
   ) {
-    this.maxValidationSubgraphPaths = compositionOptions.maxValidationSubgraphPaths ?? ValidationTraversal.DEFAULT_MAX_VALIDATION_SUBGRAPH_PATHS;
-    
+    this.maxValidationSubgraphPaths = compositionOptions.maxValidationSubgraphPaths
+      ?? ValidationTraversal.DEFAULT_MAX_VALIDATION_SUBGRAPH_PATHS;
+
     this.conditionResolver = simpleValidationConditionResolver({
       supergraph: supergraphSchema,
       queryGraph: federatedQueryGraph,
@@ -731,20 +1031,34 @@ class ValidationTraversal {
       subgraphNameToGraphEnumValue,
     );
   }
-  
+
   pushStack(state: ValidationState): { error?: GraphQLError } {
-    this.totalValidationSubgraphPaths += state.subgraphPathInfos.length;
+    if (state.subgraphPathInfos instanceof Array) {
+      this.totalValidationSubgraphPaths += state.subgraphPathInfos.length;
+    } else {
+      for (const subgraphPathInfos of state.subgraphPathInfos.paths.values()) {
+        this.totalValidationSubgraphPaths += subgraphPathInfos.length;
+      }
+    }
     this.stack.push(state);
     if (this.totalValidationSubgraphPaths > this.maxValidationSubgraphPaths) {
-      return { error: ERRORS.MAX_VALIDATION_SUBGRAPH_PATHS_EXCEEDED.err(`Maximum number of validation subgraph paths exceeded: ${this.totalValidationSubgraphPaths}`) };
+      return {
+        error: ERRORS.MAX_VALIDATION_SUBGRAPH_PATHS_EXCEEDED.err(
+          `Maximum number of validation subgraph paths exceeded: ${this.totalValidationSubgraphPaths}`
+        )
+      };
     }
     return {};
   }
-  
+
   popStack() {
     const state = this.stack.pop();
-    if (state) {
+    if (state?.subgraphPathInfos instanceof Array) {
       this.totalValidationSubgraphPaths -= state.subgraphPathInfos.length;
+    } else if (state) {
+      for (const subgraphPathInfos of state.subgraphPathInfos.paths.values()) {
+        this.totalValidationSubgraphPaths -= subgraphPathInfos.length;
+      }
     }
     return state;
   }
@@ -759,34 +1073,62 @@ class ValidationTraversal {
         return { errors: [error], hints: this.validationHints };
       }
     }
+    for (const [
+      fieldCoordinate,
+      errorsBySubgraph,
+    ] of this.satisfiabilityErrorsByMutationFieldAndSubgraph) {
+      // Check if some subgraph has no satisfiability errors. If so, then that
+      // subgraph can be used to satisfy all queries to the top-level mutation
+      // field, and we can ignore the errors in other subgraphs.
+      let someSubgraphHasNoErrors = false;
+      for (const errors of errorsBySubgraph.values()) {
+        if (errors.length === 0) {
+          someSubgraphHasNoErrors = true;
+          break;
+        }
+      }
+      if (someSubgraphHasNoErrors) {
+        continue;
+      }
+      // Otherwise, queries on the top-level mutation field can't be satisfied
+      // through only one call to that field.
+      let messageParts = [
+        `Supergraph API queries using the mutation field "${fieldCoordinate}"`
+          + ` at top-level must be satisfiable without needing to call that`
+          + ` field from multiple subgraphs, but every subgraph with that field`
+          + ` encounters satisfiability errors. Please fix these satisfiability`
+          + ` errors for (at least) one of the following subgraphs with the`
+          + ` mutation field:`
+      ];
+      for (const [subgraph, errors] of errorsBySubgraph) {
+        messageParts.push(
+          `- When calling "${fieldCoordinate}" at top-level from subgraph`
+            +` "${subgraph}":`
+        );
+        for (const error of errors) {
+          for (const line of error.message.split("\n")) {
+            if (line.length === 0) {
+              messageParts.push(line);
+            } else {
+              messageParts.push("  " + line);
+            }
+          }
+        }
+      }
+      this.validationErrors.push(
+        ERRORS.SATISFIABILITY_ERROR.err(messageParts.join("\n"))
+      );
+    }
     return { errors: this.validationErrors, hints: this.validationHints };
   }
 
   private handleState(state: ValidationState): { error?: GraphQLError } {
     debug.group(() => `Validation: ${this.stack.length + 1} open states. Validating ${state}`);
-    const vertex = state.supergraphPath.tail;
-
-    const currentVertexVisit: VertexVisit = {
-      subgraphContextKeys: state.currentSubgraphContextKeys(this.context.subgraphNameToGraphEnumValue),
-      overrideConditions: state.selectedOverrideConditions
-    };
-    const previousVisitsForVertex = this.previousVisits.getVertexState(vertex);
-    if (previousVisitsForVertex) {
-      for (const previousVisit of previousVisitsForVertex) {
-        if (isSupersetOrEqual(currentVertexVisit, previousVisit)) {
-          // This means that we've already seen the type we're currently on in the supergraph, and when saw it we could be in
-          // one of `previousSources`, and we validated that we could reach anything from there. We're now on the same
-          // type, and have strictly more options regarding subgraphs. So whatever comes next, we can handle in the exact
-          // same way we did previously, and there is thus no way to bother.
-          debug.groupEnd(`Has already validated this vertex.`);
-          return {};
-        }
-      }
-      // We're gonna have to validate, but we can save the new set of sources here to hopefully save work later.
-      previousVisitsForVertex.push(currentVertexVisit);
-    } else {
-      // We save the current sources but do validate.
-      this.previousVisits.setVertexState(vertex, [currentVertexVisit]);
+    if (state.canSkipVisit(
+      this.context.subgraphNameToGraphEnumValue,
+      this.previousVisits
+    )) {
+      return {};
     }
 
     // Note that if supergraphPath is terminal, this method is a no-op, which is expected/desired as
@@ -816,10 +1158,15 @@ class ValidationTraversal {
         : [];
 
       debug.group(() => `Validating supergraph edge ${edge}`);
-      const { state: newState, error, hint } = state.validateTransition(this.context, edge, matchingContexts);
-      if (error) {
+      const { state: newState, hint } = state.validateTransition(
+        this.context,
+        edge,
+        matchingContexts,
+        this.validationErrors,
+        this.satisfiabilityErrorsByMutationFieldAndSubgraph,
+      );
+      if (!newState) {
         debug.groupEnd(`Validation error!`);
-        this.validationErrors.push(error);
         continue;
       }
       if (hint) {
