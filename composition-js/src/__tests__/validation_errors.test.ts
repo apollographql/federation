@@ -413,6 +413,151 @@ describe('when shared field has non-intersecting runtime types in different subg
   });
 });
 
+describe('@shareable on top-level mutation fields', () => {
+  it('errors when queries may require multiple calls to mutation field', () => {
+    const subgraphA = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          dummy: Int
+        }
+
+        type Mutation {
+          f: F @shareable
+        }
+
+        type F {
+          x: Int
+        }
+      `
+    };
+    const subgraphB = {
+      name: 'B',
+      typeDefs: gql`
+        type Mutation {
+          f: F @shareable
+        }
+
+        type F {
+          y: Int
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    expect(result.errors).toBeDefined();
+    expect(errorMessages(result)).toMatchStringArray([
+      `
+      Supergraph API queries using the mutation field \"Mutation.f\" at top-level must be satisfiable without needing to call that field from multiple subgraphs, but every subgraph with that field encounters satisfiability errors. Please fix these satisfiability errors for (at least) one of the following subgraphs with the mutation field:
+      - When calling \"Mutation.f\" at top-level from subgraph \"A\":
+        The following supergraph API query:
+        mutation {
+          f {
+            y
+          }
+        }
+        cannot be satisfied by the subgraphs because:
+        - from subgraph \"A\":
+          - cannot find field \"F.y\".
+          - cannot move to subgraph \"B\", which has field \"F.y\", because type \"F\" has no @key defined in subgraph \"B\".
+      - When calling \"Mutation.f\" at top-level from subgraph \"B\":
+        The following supergraph API query:
+        mutation {
+          f {
+            x
+          }
+        }
+        cannot be satisfied by the subgraphs because:
+        - from subgraph \"B\":
+          - cannot find field \"F.x\".
+          - cannot move to subgraph \"A\", which has field \"F.x\", because type \"F\" has no @key defined in subgraph \"A\".
+      `
+    ]);
+  });
+
+  it('errors normally for mutation fields that are not actually shared', () => {
+    const subgraphA = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          dummy: Int
+        }
+
+        type Mutation {
+          f: F @shareable
+        }
+
+        type F @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    };
+    const subgraphB = {
+      name: 'B',
+      typeDefs: gql`
+        type F @key(fields: "id", resolvable: false) {
+          id: ID!
+          y: Int
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    expect(result.errors).toBeDefined();
+    expect(errorMessages(result)).toMatchStringArray([
+      `
+      The following supergraph API query:
+      mutation {
+        f {
+          y
+        }
+      }
+      cannot be satisfied by the subgraphs because:
+      - from subgraph "A":
+        - cannot find field "F.y".
+        - cannot move to subgraph "B", which has field "F.y", because none of the @key defined on type "F" in subgraph "B" are resolvable (they are all declared with their "resolvable" argument set to false).
+      `
+    ]);
+  });
+
+  it('succeeds when queries do not require multiple calls to mutation field', () => {
+    const subgraphA = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          dummy: Int
+        }
+
+        type Mutation {
+          f: F @shareable
+        }
+
+        type F @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `
+    };
+    const subgraphB = {
+      name: 'B',
+      typeDefs: gql`
+        type Mutation {
+          f: F @shareable
+        }
+
+        type F @key(fields: "id", resolvable: false) {
+          id: ID!
+          y: Int
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    expect(result.errors).toBeUndefined();
+  });
+});
+
 describe('other validation errors', () => {
   
   it('errors when maxValidationSubgraphPaths is exceeded', () => {
