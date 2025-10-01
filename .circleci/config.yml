@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  node: circleci/node@5.1.0
+  node: circleci/node@7.2.0
 
 jobs:
   # Unfortunately cimg/node doesn't tag its images with major only, you have to specify a minor version.
@@ -43,6 +43,7 @@ workflows:
                 - "16"
                 - "18"
                 - "20"
+                - "22"
       - node/run:
           name: Check Error Code Doc
           npm-run: error-code-doc:check
