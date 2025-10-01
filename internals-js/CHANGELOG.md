@@ -4,7 +4,9 @@
 
 ### Minor Changes
 
-- Added isSuccess argument to @connect and @source ([#3294](https://github.com/apollographql/federation/pull/3294))
+- Added `isSuccess` argument to `@connect` and `@source` ([#3294](https://github.com/apollographql/federation/pull/3294))
+
+- Added preview `@cacheTag` directive support ([#3274](https://github.com/apollographql/federation/pull/3274))
 
 ## 2.12.0-preview.1
 
