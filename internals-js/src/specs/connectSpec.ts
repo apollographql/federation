@@ -1,4 +1,4 @@
-import { DirectiveLocation, GraphQLError } from 'graphql';
+import { DirectiveLocation } from 'graphql';
 import {
   CorePurpose,
   FeatureDefinition,
@@ -7,17 +7,16 @@ import {
   FeatureVersion,
 } from './coreSpec';
 import {
-  Schema,
-  NonNullType,
   InputObjectType,
-  InputFieldDefinition,
   ListType,
+  NonNullType, ScalarType,
 } from '../definitions';
 import { registerKnownFeature } from '../knownCoreFeatures';
 import {
-  createDirectiveSpecification,
+  createDirectiveSpecification, createInputObjectTypeSpecification,
   createScalarTypeSpecification,
 } from '../directiveAndTypeSpecification';
+import {assert} from "../utils";
 
 export const connectIdentity = 'https://specs.apollo.dev/connect';
 
@@ -41,60 +40,40 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       minimumFederationVersion,
     );
 
-    this.registerDirective(
-      createDirectiveSpecification({
-        name: CONNECT,
-        locations: [DirectiveLocation.FIELD_DEFINITION],
-        repeatable: true,
-        // We "compose" these directives using the  `@join__directive` mechanism,
-        // so they do not need to be composed in the way passing `composes: true`
-        // here implies.
-        composes: false,
-      }),
-    );
-
-    this.registerDirective(
-      createDirectiveSpecification({
-        name: SOURCE,
-        locations: [DirectiveLocation.SCHEMA],
-        repeatable: true,
-        composes: false,
-      }),
-    );
-
-    this.registerType(
-      createScalarTypeSpecification({ name: URL_PATH_TEMPLATE }),
-    );
-    this.registerType(createScalarTypeSpecification({ name: JSON_SELECTION }));
-    this.registerType({ name: CONNECT_HTTP, checkOrAdd: () => [] });
-    this.registerType({ name: SOURCE_HTTP, checkOrAdd: () => [] });
-    this.registerType({ name: HTTP_HEADER_MAPPING, checkOrAdd: () => [] });
-  }
-
-  addElementsToSchema(schema: Schema): GraphQLError[] {
     /* scalar URLPathTemplate */
-    const URLPathTemplate = this.addScalarType(schema, URL_PATH_TEMPLATE);
-
+    this.registerType(
+        createScalarTypeSpecification({ name: URL_PATH_TEMPLATE }),
+    );
     /* scalar JSONSelection */
-    const JSONSelection = this.addScalarType(schema, JSON_SELECTION);
+    this.registerType(createScalarTypeSpecification({ name: JSON_SELECTION }));
 
     /*
-      directive @connect(
-        source: String
-        http: ConnectHTTP
-        selection: JSONSelection!
-        entity: Boolean = false
-        errors: ConnectorErrors
-      ) repeatable on FIELD_DEFINITION
-        | OBJECT # added in v0.2, validation enforced in rust
+      input ConnectorErrors {
+        message: JSONSelection
+        extensions: JSONSelection
+      }
     */
-    const connect = this.addDirective(schema, CONNECT).addLocations(
-      DirectiveLocation.FIELD_DEFINITION,
-      DirectiveLocation.OBJECT,
+    this.registerType(
+        createInputObjectTypeSpecification({
+          name: CONNECTOR_ERRORS,
+          inputFieldsFct: (schema, feature) => {
+            assert(feature, "Shouldn't be added without being attached to a @connect spec");
+            const jsonSelectionName = feature.typeNameInSchema(JSON_SELECTION);
+            const jsonSelectionType = schema.typeOfKind<ScalarType>(jsonSelectionName, 'ScalarType');
+            assert(jsonSelectionType, () => `Expected "${jsonSelectionName}" to be defined`);
+            return [
+              {
+                name: 'message',
+                type: jsonSelectionType
+              },
+              {
+                name: 'extensions',
+                type: jsonSelectionType
+              },
+            ]
+          }
+        })
     );
-    connect.repeatable = true;
-
-    connect.addArgument(SOURCE, schema.stringType());
 
     /*
       input HTTPHeaderMapping {
@@ -103,15 +82,86 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         value: String
       }
     */
-    const HTTPHeaderMapping = schema.addType(
-      new InputObjectType(this.typeNameInSchema(schema, HTTP_HEADER_MAPPING)!),
+    this.registerType(
+        createInputObjectTypeSpecification({
+          name: HTTP_HEADER_MAPPING,
+          inputFieldsFct: (schema) => [
+            {
+              name: 'name',
+              type: new NonNullType(schema.stringType())
+            },
+            {
+              name: 'from',
+              type: schema.stringType()
+            },
+            {
+              name: 'value',
+              type: schema.stringType()
+            },
+          ]
+        })
     );
-    HTTPHeaderMapping.addField(new InputFieldDefinition('name')).type =
-      new NonNullType(schema.stringType());
-    HTTPHeaderMapping.addField(new InputFieldDefinition('from')).type =
-      schema.stringType();
-    HTTPHeaderMapping.addField(new InputFieldDefinition('value')).type =
-      schema.stringType();
+
+    /*
+      input ConnectBatch {
+        maxSize: Int
+      }
+     */
+    this.registerType(
+        createInputObjectTypeSpecification({
+          name: CONNECT_BATCH,
+          inputFieldsFct: (schema) => [
+            {
+              name: 'maxSize',
+              type: schema.intType()
+            }
+          ]
+        })
+    )
+
+    /*
+      input SourceHTTP {
+        baseURL: String!
+        headers: [HTTPHeaderMapping!]
+
+        # added in v0.2
+        path: JSONSelection
+        query: JSONSelection
+      }
+    */
+    this.registerType(
+        createInputObjectTypeSpecification({
+          name: SOURCE_HTTP,
+          inputFieldsFct: (schema, feature) => {
+            assert(feature, "Shouldn't be added without being attached to a @link spec");
+            const jsonSelectionName = feature.typeNameInSchema(JSON_SELECTION);
+            const jsonSelectionType = schema.typeOfKind<ScalarType>(jsonSelectionName, 'ScalarType');
+            assert(jsonSelectionType, () => `Expected "${jsonSelectionType}" to be defined`);
+
+            const httpHeaderMappingName = feature.typeNameInSchema(HTTP_HEADER_MAPPING);
+            const httpHeaderMappingType = schema.typeOfKind<InputObjectType>(httpHeaderMappingName, 'InputObjectType');
+            assert(httpHeaderMappingType, () => `Expected "${httpHeaderMappingType}" to be defined`);
+            return [
+              {
+                name: 'baseURL',
+                type: schema.stringType()
+              },
+              {
+                name: 'headers',
+                type: new ListType(new NonNullType(httpHeaderMappingType))
+              },
+              {
+                name: 'path',
+                type: jsonSelectionType
+              },
+              {
+                name: 'queryParams',
+                type: jsonSelectionType
+              }
+            ];
+          }
+        })
+    );
 
     /*
       input ConnectHTTP {
@@ -128,79 +178,179 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         query: JSONSelection
       }
     */
-    const ConnectHTTP = schema.addType(
-      new InputObjectType(this.typeNameInSchema(schema, CONNECT_HTTP)!),
+    this.registerType(
+      createInputObjectTypeSpecification({
+        name: CONNECT_HTTP,
+        inputFieldsFct: (schema, feature) => {
+          assert(feature, "Shouldn't be added without being attached to a @link spec");
+          const urlPathTemplateName = feature.typeNameInSchema(URL_PATH_TEMPLATE);
+          const urlPathTemplateType = schema.typeOfKind<ScalarType>(urlPathTemplateName, 'ScalarType');
+          assert(urlPathTemplateType, () => `Expected "${urlPathTemplateType}" to be defined`);
+
+          const jsonSelectionName = feature.typeNameInSchema(JSON_SELECTION);
+          const jsonSelectionType = schema.typeOfKind<ScalarType>(jsonSelectionName, 'ScalarType');
+          assert(jsonSelectionType, () => `Expected "${jsonSelectionType}" to be defined`);
+
+          const httpHeaderMappingName = feature.typeNameInSchema(HTTP_HEADER_MAPPING);
+          const httpHeaderMappingType = schema.typeOfKind<InputObjectType>(httpHeaderMappingName, 'InputObjectType');
+          assert(httpHeaderMappingType, () => `Expected "${httpHeaderMappingType}" to be defined`);
+          return [
+            {
+              name: 'GET',
+              type: urlPathTemplateType
+            },
+            {
+              name: 'POST',
+              type: urlPathTemplateType
+            },
+            {
+              name: 'PUT',
+              type: urlPathTemplateType
+            },
+            {
+              name: 'PATCH',
+              type: urlPathTemplateType
+            },
+            {
+              name: 'DELETE',
+              type: urlPathTemplateType
+            },
+            {
+              name: 'body',
+              type: jsonSelectionType
+            },
+            {
+              name: 'headers',
+              type: new ListType(new NonNullType(httpHeaderMappingType))
+            },
+            {
+              name: 'path',
+              type: jsonSelectionType
+            },
+            {
+              name: 'queryParams',
+              type: jsonSelectionType
+            },
+          ];
+        }
+      })
     );
-    ConnectHTTP.addField(new InputFieldDefinition('GET')).type =
-      URLPathTemplate;
-    ConnectHTTP.addField(new InputFieldDefinition('POST')).type =
-      URLPathTemplate;
-    ConnectHTTP.addField(new InputFieldDefinition('PUT')).type =
-      URLPathTemplate;
-    ConnectHTTP.addField(new InputFieldDefinition('PATCH')).type =
-      URLPathTemplate;
-    ConnectHTTP.addField(new InputFieldDefinition('DELETE')).type =
-      URLPathTemplate;
-    ConnectHTTP.addField(new InputFieldDefinition('body')).type = JSONSelection;
-    ConnectHTTP.addField(new InputFieldDefinition('headers')).type =
-      new ListType(new NonNullType(HTTPHeaderMapping));
 
-    ConnectHTTP.addField(new InputFieldDefinition('path')).type = JSONSelection;
-    ConnectHTTP.addField(new InputFieldDefinition('queryParams')).type =
-      JSONSelection;
-
-    connect.addArgument('http', new NonNullType(ConnectHTTP));
-
-    const ConnectBatch  = schema.addType(new InputObjectType(this.typeNameInSchema(schema, CONNECT_BATCH)!));
-    ConnectBatch.addField(new InputFieldDefinition('maxSize')).type = schema.intType();
-    connect.addArgument('batch', ConnectBatch);
-
-    const ConnectorErrors  = schema.addType(new InputObjectType(this.typeNameInSchema(schema, CONNECTOR_ERRORS)!));
-    ConnectorErrors.addField(new InputFieldDefinition('message')).type = JSONSelection;
-    ConnectorErrors.addField(new InputFieldDefinition('extensions')).type = JSONSelection;
-    connect.addArgument('errors', ConnectorErrors);
-
-    connect.addArgument('selection', new NonNullType(JSONSelection));
-    connect.addArgument('entity', schema.booleanType(), false);
+    /*
+      directive @connect(
+        source: String
+        http: ConnectHTTP!
+        batch: ConnectBatch
+        selection: JSONSelection!
+        entity: Boolean = false
+        errors: ConnectorErrors
+      ) repeatable on FIELD_DEFINITION
+        | OBJECT # added in v0.2, validation enforced in rust
+    */
+    this.registerDirective(
+      createDirectiveSpecification({
+        name: CONNECT,
+        locations: [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT],
+        repeatable: true,
+        args: [
+          {
+            name: 'source',
+            type: (schema) => schema.stringType()
+          },
+          {
+            name: 'http',
+            type: (schema, feature) => {
+              assert(feature, "Shouldn't be added without being attached to a @connect spec");
+              const connectHttpName = feature.typeNameInSchema(CONNECT_HTTP);
+              const connectHttpType = schema.typeOfKind<InputObjectType>(connectHttpName, "InputObjectType");
+              assert(connectHttpType, () => `Expected "${connectHttpName}" to be defined`);
+              return new NonNullType(connectHttpType);
+            }
+          },
+          {
+            name: 'batch',
+            type: (schema, feature) => {
+              assert(feature, "Shouldn't be added without being attached to a @connect spec");
+              const connectBatchName = feature.typeNameInSchema(CONNECT_BATCH);
+              const connectBatchType = schema.typeOfKind<InputObjectType>(connectBatchName, "InputObjectType");
+              assert(connectBatchType, () => `Expected "${connectBatchName}" to be defined`);
+              return connectBatchType;
+            }
+          },
+          {
+            name: 'selection',
+            type: (schema, feature) => {
+              assert(feature, "Shouldn't be added without being attached to a @connect spec");
+              const jsonSelectionName = feature.typeNameInSchema(JSON_SELECTION);
+              const jsonSelectionType = schema.typeOfKind<ScalarType>(jsonSelectionName, "ScalarType");
+              assert(jsonSelectionType, () => `Expected "${jsonSelectionName}" to be defined`);
+              return jsonSelectionType;
+            }
+          },
+          {
+            name: 'entity',
+            type: (schema) => schema.booleanType(),
+            defaultValue: false
+          },
+          {
+            name: 'errors',
+            type: (schema, feature) => {
+              assert(feature, "Shouldn't be added without being attached to a @connect spec");
+              const connectorErrorsName = feature.typeNameInSchema(CONNECTOR_ERRORS);
+              const connectorErrorsType = schema.typeOfKind<InputObjectType>(connectorErrorsName, "InputObjectType");
+              assert(connectorErrorsType, () => `Expected "${connectorErrorsName}" to be defined`);
+              return connectorErrorsType;
+            }
+          }
+        ],
+        // We "compose" these directives using the  `@join__directive` mechanism,
+        // so they do not need to be composed in the way passing `composes: true`
+        // here implies.
+        composes: false,
+      }),
+    );
 
     /*
       directive @source(
         name: String!
-        http: ConnectHTTP
+        http: SourceHttp!
         errors: ConnectorErrors
       ) repeatable on SCHEMA
     */
-    const source = this.addDirective(schema, SOURCE).addLocations(
-      DirectiveLocation.SCHEMA,
+    this.registerDirective(
+      createDirectiveSpecification({
+        name: SOURCE,
+        locations: [DirectiveLocation.SCHEMA],
+        repeatable: true,
+        composes: false,
+        args: [
+          {
+            name: 'name',
+            type: (schema) => new NonNullType(schema.stringType())
+          },
+          {
+            name: 'http',
+            type: (schema, feature) => {
+              assert(feature, "Shouldn't be added without being attached to a @connect spec");
+              const sourceHttpName = feature.typeNameInSchema(SOURCE_HTTP);
+              const sourceHttpType = schema.typeOfKind<InputObjectType>(sourceHttpName, "InputObjectType");
+              assert(sourceHttpType, () => `Expected "${sourceHttpName}" to be defined`);
+              return new NonNullType(sourceHttpType);
+            }
+          },
+          {
+            name: 'errors',
+            type: (schema, feature) => {
+              assert(feature, "Shouldn't be added without being attached to a @connect spec");
+              const connectorErrorsName = feature.typeNameInSchema(CONNECTOR_ERRORS);
+              const connectorErrorsType = schema.typeOfKind<InputObjectType>(connectorErrorsName, "InputObjectType");
+              assert(connectorErrorsType, () => `Expected "${connectorErrorsName}" to be defined`);
+              return connectorErrorsType;
+            }
+          }
+        ]
+      }),
     );
-    source.repeatable = true;
-    source.addArgument('name', new NonNullType(schema.stringType()));
-
-    /*
-      input SourceHTTP {
-        baseURL: String!
-        headers: [HTTPHeaderMapping!]
-
-        # added in v0.2
-        path: JSONSelection
-        query: JSONSelection
-      }
-    */
-    const SourceHTTP = schema.addType(
-      new InputObjectType(this.typeNameInSchema(schema, SOURCE_HTTP)!),
-    );
-    SourceHTTP.addField(new InputFieldDefinition('baseURL')).type =
-      new NonNullType(schema.stringType());
-    SourceHTTP.addField(new InputFieldDefinition('headers')).type =
-      new ListType(new NonNullType(HTTPHeaderMapping));
-
-    SourceHTTP.addField(new InputFieldDefinition('path')).type = JSONSelection;
-    SourceHTTP.addField(new InputFieldDefinition('queryParams')).type = JSONSelection;
-
-    source.addArgument('http', new NonNullType(SourceHTTP));
-    source.addArgument('errors', ConnectorErrors);
-
-    return [];
   }
 
   get defaultCorePurpose(): CorePurpose {
