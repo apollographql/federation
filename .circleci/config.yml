@@ -43,6 +43,7 @@ workflows:
                 - "16"
                 - "18"
                 - "20"
+                - "22"
       - node/run:
           name: Check Error Code Doc
           npm-run: error-code-doc:check
