@@ -7,9 +7,10 @@ import {
   FeatureVersion,
 } from './coreSpec';
 import {
+  CoreFeature,
   InputObjectType,
-  ListType,
-  NonNullType, ScalarType,
+  ListType, NamedType,
+  NonNullType, ScalarType, Schema,
 } from '../definitions';
 import { registerKnownFeature } from '../knownCoreFeatures';
 import {
@@ -40,6 +41,14 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       minimumFederationVersion,
     );
 
+    function lookupFeatureTypeInSchema<T extends NamedType>(name: string, kind: T['kind'], schema: Schema, feature?: CoreFeature): T {
+      assert(feature, `Shouldn't be added without being attached to a @connect spec`);
+      const typeName = feature.typeNameInSchema(name);
+      const type = schema.typeOfKind<T>(typeName, kind);
+      assert(type, () => `Expected "${typeName}" to be defined`);
+      return type;
+    }
+
     /* scalar URLPathTemplate */
     this.registerType(
         createScalarTypeSpecification({ name: URL_PATH_TEMPLATE }),
@@ -57,10 +66,8 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         createInputObjectTypeSpecification({
           name: CONNECTOR_ERRORS,
           inputFieldsFct: (schema, feature) => {
-            assert(feature, "Shouldn't be added without being attached to a @connect spec");
-            const jsonSelectionName = feature.typeNameInSchema(JSON_SELECTION);
-            const jsonSelectionType = schema.typeOfKind<ScalarType>(jsonSelectionName, 'ScalarType');
-            assert(jsonSelectionType, () => `Expected "${jsonSelectionName}" to be defined`);
+            const jsonSelectionType =
+                lookupFeatureTypeInSchema<ScalarType>(JSON_SELECTION, 'ScalarType', schema, feature);
             return [
               {
                 name: 'message',
@@ -133,14 +140,10 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         createInputObjectTypeSpecification({
           name: SOURCE_HTTP,
           inputFieldsFct: (schema, feature) => {
-            assert(feature, "Shouldn't be added without being attached to a @link spec");
-            const jsonSelectionName = feature.typeNameInSchema(JSON_SELECTION);
-            const jsonSelectionType = schema.typeOfKind<ScalarType>(jsonSelectionName, 'ScalarType');
-            assert(jsonSelectionType, () => `Expected "${jsonSelectionType}" to be defined`);
-
-            const httpHeaderMappingName = feature.typeNameInSchema(HTTP_HEADER_MAPPING);
-            const httpHeaderMappingType = schema.typeOfKind<InputObjectType>(httpHeaderMappingName, 'InputObjectType');
-            assert(httpHeaderMappingType, () => `Expected "${httpHeaderMappingType}" to be defined`);
+            const jsonSelectionType =
+                lookupFeatureTypeInSchema<ScalarType>(JSON_SELECTION, 'ScalarType', schema, feature);
+            const httpHeaderMappingType =
+                lookupFeatureTypeInSchema<InputObjectType>(HTTP_HEADER_MAPPING, 'InputObjectType', schema, feature);
             return [
               {
                 name: 'baseURL',
@@ -182,18 +185,12 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       createInputObjectTypeSpecification({
         name: CONNECT_HTTP,
         inputFieldsFct: (schema, feature) => {
-          assert(feature, "Shouldn't be added without being attached to a @link spec");
-          const urlPathTemplateName = feature.typeNameInSchema(URL_PATH_TEMPLATE);
-          const urlPathTemplateType = schema.typeOfKind<ScalarType>(urlPathTemplateName, 'ScalarType');
-          assert(urlPathTemplateType, () => `Expected "${urlPathTemplateType}" to be defined`);
-
-          const jsonSelectionName = feature.typeNameInSchema(JSON_SELECTION);
-          const jsonSelectionType = schema.typeOfKind<ScalarType>(jsonSelectionName, 'ScalarType');
-          assert(jsonSelectionType, () => `Expected "${jsonSelectionType}" to be defined`);
-
-          const httpHeaderMappingName = feature.typeNameInSchema(HTTP_HEADER_MAPPING);
-          const httpHeaderMappingType = schema.typeOfKind<InputObjectType>(httpHeaderMappingName, 'InputObjectType');
-          assert(httpHeaderMappingType, () => `Expected "${httpHeaderMappingType}" to be defined`);
+          const urlPathTemplateType =
+              lookupFeatureTypeInSchema<ScalarType>(URL_PATH_TEMPLATE, 'ScalarType', schema, feature);
+          const jsonSelectionType =
+              lookupFeatureTypeInSchema<ScalarType>(JSON_SELECTION, 'ScalarType', schema, feature);
+          const httpHeaderMappingType =
+              lookupFeatureTypeInSchema<InputObjectType>(HTTP_HEADER_MAPPING, 'InputObjectType', schema, feature);
           return [
             {
               name: 'GET',
@@ -260,32 +257,20 @@ export class ConnectSpecDefinition extends FeatureDefinition {
           {
             name: 'http',
             type: (schema, feature) => {
-              assert(feature, "Shouldn't be added without being attached to a @connect spec");
-              const connectHttpName = feature.typeNameInSchema(CONNECT_HTTP);
-              const connectHttpType = schema.typeOfKind<InputObjectType>(connectHttpName, "InputObjectType");
-              assert(connectHttpType, () => `Expected "${connectHttpName}" to be defined`);
+              const connectHttpType =
+                  lookupFeatureTypeInSchema<InputObjectType>(CONNECT_HTTP, 'InputObjectType', schema, feature);
               return new NonNullType(connectHttpType);
             }
           },
           {
             name: 'batch',
-            type: (schema, feature) => {
-              assert(feature, "Shouldn't be added without being attached to a @connect spec");
-              const connectBatchName = feature.typeNameInSchema(CONNECT_BATCH);
-              const connectBatchType = schema.typeOfKind<InputObjectType>(connectBatchName, "InputObjectType");
-              assert(connectBatchType, () => `Expected "${connectBatchName}" to be defined`);
-              return connectBatchType;
-            }
+            type: (schema, feature) =>
+                lookupFeatureTypeInSchema<InputObjectType>(CONNECT_BATCH, 'InputObjectType', schema, feature)
           },
           {
             name: 'selection',
-            type: (schema, feature) => {
-              assert(feature, "Shouldn't be added without being attached to a @connect spec");
-              const jsonSelectionName = feature.typeNameInSchema(JSON_SELECTION);
-              const jsonSelectionType = schema.typeOfKind<ScalarType>(jsonSelectionName, "ScalarType");
-              assert(jsonSelectionType, () => `Expected "${jsonSelectionName}" to be defined`);
-              return jsonSelectionType;
-            }
+            type: (schema, feature) =>
+                lookupFeatureTypeInSchema<ScalarType>(JSON_SELECTION, 'ScalarType', schema, feature)
           },
           {
             name: 'entity',
@@ -294,13 +279,8 @@ export class ConnectSpecDefinition extends FeatureDefinition {
           },
           {
             name: 'errors',
-            type: (schema, feature) => {
-              assert(feature, "Shouldn't be added without being attached to a @connect spec");
-              const connectorErrorsName = feature.typeNameInSchema(CONNECTOR_ERRORS);
-              const connectorErrorsType = schema.typeOfKind<InputObjectType>(connectorErrorsName, "InputObjectType");
-              assert(connectorErrorsType, () => `Expected "${connectorErrorsName}" to be defined`);
-              return connectorErrorsType;
-            }
+            type: (schema, feature) =>
+                lookupFeatureTypeInSchema<InputObjectType>(CONNECTOR_ERRORS, 'InputObjectType', schema, feature)
           }
         ],
         // We "compose" these directives using the  `@join__directive` mechanism,
@@ -331,22 +311,15 @@ export class ConnectSpecDefinition extends FeatureDefinition {
           {
             name: 'http',
             type: (schema, feature) => {
-              assert(feature, "Shouldn't be added without being attached to a @connect spec");
-              const sourceHttpName = feature.typeNameInSchema(SOURCE_HTTP);
-              const sourceHttpType = schema.typeOfKind<InputObjectType>(sourceHttpName, "InputObjectType");
-              assert(sourceHttpType, () => `Expected "${sourceHttpName}" to be defined`);
+              const sourceHttpType =
+                  lookupFeatureTypeInSchema<InputObjectType>(SOURCE_HTTP, 'InputObjectType', schema, feature);
               return new NonNullType(sourceHttpType);
             }
           },
           {
             name: 'errors',
-            type: (schema, feature) => {
-              assert(feature, "Shouldn't be added without being attached to a @connect spec");
-              const connectorErrorsName = feature.typeNameInSchema(CONNECTOR_ERRORS);
-              const connectorErrorsType = schema.typeOfKind<InputObjectType>(connectorErrorsName, "InputObjectType");
-              assert(connectorErrorsType, () => `Expected "${connectorErrorsName}" to be defined`);
-              return connectorErrorsType;
-            }
+            type: (schema, feature) =>
+                lookupFeatureTypeInSchema<InputObjectType>(CONNECTOR_ERRORS, 'InputObjectType', schema, feature)
           }
         ]
       }),
