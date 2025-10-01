@@ -3,10 +3,10 @@ import {
   ArgumentDefinition,
   CoreFeature,
   DirectiveDefinition,
-  EnumType,
+  EnumType, InputObjectType,
   InputType,
   isCustomScalarType,
-  isEnumType,
+  isEnumType, isInputObjectType,
   isListType,
   isNonNullType,
   isObjectType,
@@ -66,7 +66,13 @@ export type FieldSpecification = {
   args?: ResolvedArgumentSpecification[],
 }
 
-type ResolvedArgumentSpecification = {
+export type ResolvedArgumentSpecification = {
+  name: string,
+  type: InputType,
+  defaultValue?: any,
+}
+
+export type InputFieldSpecification = {
   name: string,
   type: InputType,
   defaultValue?: any,
@@ -243,6 +249,62 @@ export function createObjectTypeSpecification({
           const field = createdType.addField(name, type);
           for (const { name: argName, type: argType, defaultValue } of args ?? []) {
             field.addArgument(argName, argType, defaultValue);
+          }
+        }
+        return [];
+      }
+    },
+  }
+}
+
+export function createInputObjectTypeSpecification({
+  name,
+  inputFieldsFct,
+}: {
+  name: string,
+  inputFieldsFct: (schema: Schema, feature?: CoreFeature) => InputFieldSpecification[],
+}): TypeSpecification {
+  return {
+    name,
+    checkOrAdd: (schema: Schema, feature?: CoreFeature, asBuiltIn?: boolean) => {
+      const actualName = feature?.typeNameInSchema(name) ?? name;
+      const expectedFields = inputFieldsFct(schema, feature);
+      const existing = schema.type(actualName);
+      if (existing) {
+        let errors = ensureSameTypeKind('InputObjectType', existing);
+        if (errors.length > 0) {
+          return errors;
+        }
+        assert(isInputObjectType(existing), 'Should be an input object type');
+        for (const { name: field_name, type, defaultValue } of expectedFields) {
+          const existingField = existing.field(field_name);
+          if (!existingField) {
+            errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err(
+                `Invalid definition of type ${name}: missing input field ${field_name}`,
+                { nodes: existing.sourceAST },
+            ));
+            continue;
+          }
+          if (!sameType(type, existingField.type!)) {
+            errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err(
+                `Invalid definition for field ${field_name} of type ${name}: should have type ${type} but found type ${existingField.type}`,
+                { nodes: existingField.sourceAST },
+            ));
+          }
+          if (defaultValue !== existingField.defaultValue) {
+            errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err(
+                `Invalid definition for field ${field_name} of type ${name}: should have default value ${defaultValue} but found type ${existingField.defaultValue}`,
+                { nodes: existingField.sourceAST },
+            ));
+          }
+        }
+        return errors;
+      } else {
+        const createdType = schema.addType(new InputObjectType(actualName, asBuiltIn));
+        for (const { name, type, defaultValue } of expectedFields) {
+          const newField = createdType.addField(name, type);
+          if (defaultValue) {
+            newField.defaultValue = defaultValue;
           }
         }
         return [];
