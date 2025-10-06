@@ -9,15 +9,26 @@ import {
 import {
   CoreFeature,
   InputObjectType,
-  ListType, NamedType,
-  NonNullType, ScalarType, Schema,
+  isInputObjectType,
+  isNonNullType,
+  ListType,
+  NamedType,
+  NonNullType,
+  ScalarType,
+  Schema,
 } from '../definitions';
 import { registerKnownFeature } from '../knownCoreFeatures';
 import {
-  createDirectiveSpecification, createInputObjectTypeSpecification,
+  createDirectiveSpecification,
   createScalarTypeSpecification,
+  ensureSameTypeKind,
+  InputFieldSpecification,
+  TypeSpecification,
 } from '../directiveAndTypeSpecification';
-import {assert} from "../utils";
+import { ERRORS } from '../error';
+import { sameType } from '../types';
+import { assert } from '../utils';
+import { valueEquals, valueToString } from '../values';
 
 export const connectIdentity = 'https://specs.apollo.dev/connect';
 
@@ -133,7 +144,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
 
         # added in v0.2
         path: JSONSelection
-        query: JSONSelection
+        queryParams: JSONSelection
       }
     */
     this.registerType(
@@ -147,7 +158,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
             return [
               {
                 name: 'baseURL',
-                type: schema.stringType()
+                type: new NonNullType(schema.stringType())
               },
               {
                 name: 'headers',
@@ -178,7 +189,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
 
         # added in v0.2
         path: JSONSelection
-        query: JSONSelection
+        queryParams: JSONSelection
       }
     */
     this.registerType(
@@ -238,9 +249,9 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         source: String
         http: ConnectHTTP!
         batch: ConnectBatch
+        errors: ConnectorErrors
         selection: JSONSelection!
         entity: Boolean = false
-        errors: ConnectorErrors
       ) repeatable on FIELD_DEFINITION
         | OBJECT # added in v0.2, validation enforced in rust
     */
@@ -268,19 +279,22 @@ export class ConnectSpecDefinition extends FeatureDefinition {
                 lookupFeatureTypeInSchema<InputObjectType>(CONNECT_BATCH, 'InputObjectType', schema, feature)
           },
           {
-            name: 'selection',
+            name: 'errors',
             type: (schema, feature) =>
-                lookupFeatureTypeInSchema<ScalarType>(JSON_SELECTION, 'ScalarType', schema, feature)
+                lookupFeatureTypeInSchema<InputObjectType>(CONNECTOR_ERRORS, 'InputObjectType', schema, feature)
+          },
+          {
+            name: 'selection',
+            type: (schema, feature) => {
+              const jsonSelectionType =
+                  lookupFeatureTypeInSchema<ScalarType>(JSON_SELECTION, 'ScalarType', schema, feature);
+              return new NonNullType(jsonSelectionType);
+            }
           },
           {
             name: 'entity',
             type: (schema) => schema.booleanType(),
             defaultValue: false
-          },
-          {
-            name: 'errors',
-            type: (schema, feature) =>
-                lookupFeatureTypeInSchema<InputObjectType>(CONNECTOR_ERRORS, 'InputObjectType', schema, feature)
           }
         ],
         // We "compose" these directives using the  `@join__directive` mechanism,
@@ -293,7 +307,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
     /*
       directive @source(
         name: String!
-        http: SourceHttp!
+        http: SourceHTTP!
         errors: ConnectorErrors
       ) repeatable on SCHEMA
     */
@@ -348,3 +362,108 @@ export const CONNECT_VERSIONS = new FeatureDefinitions<ConnectSpecDefinition>(
   );
 
 registerKnownFeature(CONNECT_VERSIONS);
+
+// This function is purposefully declared only in this file and without export.
+//
+// Do NOT add this to "internals-js/src/directiveAndTypeSpecification.ts", and
+// do NOT export this function.
+//
+// Subgraph schema building, at this time of writing, does not really support
+// input objects in specs. We did a number of one-off things to support them in
+// the connect spec's case, and it will be non-maintainable/bug-prone to do them
+// again.
+// 
+// There's work to be done to support input objects more generally; please see
+// https://github.com/apollographql/federation/pull/3311 for more information. 
+function createInputObjectTypeSpecification({
+  name,
+  inputFieldsFct,
+}: {
+  name: string,
+  inputFieldsFct: (schema: Schema, feature?: CoreFeature) => InputFieldSpecification[],
+}): TypeSpecification {
+  return {
+    name,
+    checkOrAdd: (schema: Schema, feature?: CoreFeature, asBuiltIn?: boolean) => {
+      const actualName = feature?.typeNameInSchema(name) ?? name;
+      const expectedFields = inputFieldsFct(schema, feature);
+      const existing = schema.type(actualName);
+      if (existing) {
+        let errors = ensureSameTypeKind('InputObjectType', existing);
+        if (errors.length > 0) {
+          return errors;
+        }
+        assert(isInputObjectType(existing), 'Should be an input object type');
+        // The following mimics `ensureSameArguments()`, but with some changes.
+        for (const { name: fieldName, type, defaultValue } of expectedFields) {
+          const existingField = existing.field(fieldName);
+          if (!existingField) {
+            // Not declaring an optional input field is ok: that means you won't
+            // be able to pass a non-default value in your schema, but we allow
+            // you that. But missing a required input field it not ok.
+            if (isNonNullType(type) && defaultValue === undefined) {
+              errors.push(ERRORS.TYPE_DEFINITION_INVALID.err(
+                `Invalid definition for type ${name}: missing required input field "${fieldName}"`,
+                { nodes: existing.sourceAST },
+              ));
+            }
+            continue;
+          }
+
+          let existingType = existingField.type!;
+          if (isNonNullType(existingType) && !isNonNullType(type)) {
+            // It's ok to redefine an optional input field as mandatory. For
+            // instance, if you want to force people on your team to provide a
+            // "maxSize", you can redefine ConnectBatch as
+            // `input ConnectBatch { maxSize: Int! }` to get validation. In
+            // other words, you are allowed to always pass an input field that
+            // is optional if you so wish.
+            existingType = existingType.ofType;
+          }
+          // Note that while `ensureSameArguments()` allows input type
+          // redefinitions (e.g. allowing users to declare `String` instead of a
+          // custom scalar), this behavior can be confusing/error-prone more
+          // generally, so we forbid this for now. We can relax this later on a
+          // case-by-case basis if needed.
+          //
+          // Further, `ensureSameArguments()` would skip default value checking
+          // if the input type was non-nullable. It's unclear why this is there;
+          // it may have been a mistake due to the impression that non-nullable
+          // inputs can't have default values (they can), or this may have been
+          // to avoid some breaking change, but there's no such limitation in
+          // the case of input objects, so we always validate default values
+          // here.
+          if (!sameType(type, existingType)) {
+            errors.push(ERRORS.TYPE_DEFINITION_INVALID.err(
+              `Invalid definition for type ${name}: input field "${fieldName}" should have type "${type}" but found type "${existingField.type!}"`,
+              { nodes: existingField.sourceAST },
+            ));
+          } else if (!valueEquals(defaultValue, existingField.defaultValue)) {
+            errors.push(ERRORS.TYPE_DEFINITION_INVALID.err(
+              `Invalid definition type ${name}: input field "${fieldName}" should have default value ${valueToString(defaultValue)} but found default value ${valueToString(existingField.defaultValue)}`,
+              { nodes: existingField.sourceAST },
+            ));
+          }
+        }
+        for (const existingField of existing.fields()) {
+          // If it's an expected input field, we already validated it. But we
+          // still need to reject unknown input fields.
+          if (!expectedFields.some((field) => field.name === existingField.name)) {
+            errors.push(ERRORS.TYPE_DEFINITION_INVALID.err(
+              `Invalid definition for type ${name}: unknown/unsupported input field "${existingField.name}"`,
+              { nodes: existingField.sourceAST },
+            ));
+          }
+        }
+        return errors;
+      } else {
+        const createdType = schema.addType(new InputObjectType(actualName, asBuiltIn));
+        for (const { name, type, defaultValue } of expectedFields) {
+          const newField = createdType.addField(name, type);
+          newField.defaultValue = defaultValue;
+        }
+        return [];
+      }
+    },
+  }
+}
