@@ -56,6 +56,9 @@ import {
 } from "./definitions";
 import { ERRORS, errorCauses, withModifiedErrorNodes } from "./error";
 import { introspectionTypeNames } from "./introspection";
+import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
+import { connectIdentity } from "./specs/connectSpec";
+
 
 function buildValue(value?: ValueNode): any {
   return value ? valueFromASTUntyped(value) : undefined;
@@ -143,6 +146,48 @@ export function buildSchemaFromAST(
     buildSchemaDefinitionInner(schemaExtension, schema.schemaDefinition, errors, schema.schemaDefinition.newExtension());
   }
 
+  // The following block of code is a one-off to support input objects in the
+  // connect spec. It will be non-maintainable/bug-prone to do this again, and
+  // has various limitations/unsupported edge cases already.
+  //
+  // There's work to be done to support input objects more generally; please see
+  // https://github.com/apollographql/federation/pull/3311 for more information.
+  const connectFeature = schema.coreFeatures?.getByIdentity(connectIdentity);
+  const handledConnectTypeNames = new Set<string>();
+  if (connectFeature) {
+    const connectFeatureDefinition =
+      coreFeatureDefinitionIfKnown(connectFeature.url);
+    if (connectFeatureDefinition) {
+      const connectTypeNamesInSchema = new Set(
+        connectFeatureDefinition.typeSpecs()
+          .map(({ name }) => connectFeature.typeNameInSchema(name))
+      );
+      for (const typeNode of typeDefinitions) {
+        if (connectTypeNamesInSchema.has(typeNode.name.value)
+          && typeNode.kind === 'InputObjectTypeDefinition'
+        ) {
+          handledConnectTypeNames.add(typeNode.name.value)
+        } else {
+          continue;
+        }
+        buildNamedTypeInner(typeNode, schema.type(typeNode.name.value)!, schema.blueprint, errors);
+      }
+      for (const typeExtensionNode of typeExtensions) {
+        if (connectTypeNamesInSchema.has(typeExtensionNode.name.value)
+          && typeExtensionNode.kind === 'InputObjectTypeExtension'
+        ) {
+          handledConnectTypeNames.add(typeExtensionNode.name.value)
+        } else {
+          continue;
+        }
+        const toExtend = schema.type(typeExtensionNode.name.value)!;
+        const extension = toExtend.newExtension();
+        extension.sourceAST = typeExtensionNode;
+        buildNamedTypeInner(typeExtensionNode, toExtend, schema.blueprint, errors, extension);
+      }
+    }
+  }
+
   // The following is a no-op for "standard" schema, but for federation subgraphs, this is where we handle the auto-addition
   // of imported federation directive definitions. That is why we have avoid looking at directive applications within
   // directive definition earlier: if one of those application was of an imported federation directive, the definition
@@ -155,9 +200,15 @@ export function buildSchemaFromAST(
   }
 
   for (const typeNode of typeDefinitions) {
+    if (handledConnectTypeNames.has(typeNode.name.value)) {
+      continue;
+    }
     buildNamedTypeInner(typeNode, schema.type(typeNode.name.value)!, schema.blueprint, errors);
   }
   for (const typeExtensionNode of typeExtensions) {
+    if (handledConnectTypeNames.has(typeExtensionNode.name.value)) {
+      continue;
+    }
     const toExtend = schema.type(typeExtensionNode.name.value)!;
     const extension = toExtend.newExtension();
     extension.sourceAST = typeExtensionNode;
