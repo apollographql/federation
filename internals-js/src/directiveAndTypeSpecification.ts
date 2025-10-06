@@ -3,10 +3,10 @@ import {
   ArgumentDefinition,
   CoreFeature,
   DirectiveDefinition,
-  EnumType, InputObjectType,
+  EnumType,
   InputType,
   isCustomScalarType,
-  isEnumType, isInputObjectType,
+  isEnumType,
   isListType,
   isNonNullType,
   isObjectType,
@@ -257,62 +257,6 @@ export function createObjectTypeSpecification({
   }
 }
 
-export function createInputObjectTypeSpecification({
-  name,
-  inputFieldsFct,
-}: {
-  name: string,
-  inputFieldsFct: (schema: Schema, feature?: CoreFeature) => InputFieldSpecification[],
-}): TypeSpecification {
-  return {
-    name,
-    checkOrAdd: (schema: Schema, feature?: CoreFeature, asBuiltIn?: boolean) => {
-      const actualName = feature?.typeNameInSchema(name) ?? name;
-      const expectedFields = inputFieldsFct(schema, feature);
-      const existing = schema.type(actualName);
-      if (existing) {
-        let errors = ensureSameTypeKind('InputObjectType', existing);
-        if (errors.length > 0) {
-          return errors;
-        }
-        assert(isInputObjectType(existing), 'Should be an input object type');
-        for (const { name: field_name, type, defaultValue } of expectedFields) {
-          const existingField = existing.field(field_name);
-          if (!existingField) {
-            errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err(
-                `Invalid definition of type ${name}: missing input field ${field_name}`,
-                { nodes: existing.sourceAST },
-            ));
-            continue;
-          }
-          if (!sameType(type, existingField.type!)) {
-            errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err(
-                `Invalid definition for field ${field_name} of type ${name}: should have type ${type} but found type ${existingField.type}`,
-                { nodes: existingField.sourceAST },
-            ));
-          }
-          if (defaultValue !== existingField.defaultValue) {
-            errors = errors.concat(ERRORS.TYPE_DEFINITION_INVALID.err(
-                `Invalid definition for field ${field_name} of type ${name}: should have default value ${defaultValue} but found type ${existingField.defaultValue}`,
-                { nodes: existingField.sourceAST },
-            ));
-          }
-        }
-        return errors;
-      } else {
-        const createdType = schema.addType(new InputObjectType(actualName, asBuiltIn));
-        for (const { name, type, defaultValue } of expectedFields) {
-          const newField = createdType.addField(name, type);
-          if (defaultValue) {
-            newField.defaultValue = defaultValue;
-          }
-        }
-        return [];
-      }
-    },
-  }
-}
-
 export function createUnionTypeSpecification({
   name,
   membersFct,
@@ -400,7 +344,7 @@ export function createEnumTypeSpecification({
   }
 }
 
-function ensureSameTypeKind(expected: NamedType['kind'], actual: NamedType): GraphQLError[] {
+export function ensureSameTypeKind(expected: NamedType['kind'], actual: NamedType): GraphQLError[] {
   return expected === actual.kind
     ? []
     : [
