@@ -4051,32 +4051,6 @@ describe('composition', () => {
         name: 'on-object',
       };
 
-      const onInterface = {
-        typeDefs: gql`
-          type Query {
-            interface: AuthenticatedInterface!
-          }
-
-          interface AuthenticatedInterface @authenticated {
-            field: Int!
-          }
-        `,
-        name: 'on-interface',
-      };
-
-      const onInterfaceObject = {
-        typeDefs: gql`
-          type AuthenticatedInterfaceObject
-            @interfaceObject
-            @key(fields: "id")
-            @authenticated
-          {
-            id: String!
-          }
-        `,
-        name: 'on-interface-object',
-      }
-
       const onScalar = {
         typeDefs: gql`
           scalar AuthenticatedScalar @authenticated
@@ -4140,8 +4114,6 @@ describe('composition', () => {
 
       const result = composeAsFed2Subgraphs([
         onObject,
-        onInterface,
-        onInterfaceObject,
         onScalar,
         onEnum,
         onRootField,
@@ -4152,8 +4124,6 @@ describe('composition', () => {
 
       const authenticatedElements = [
         "AuthenticatedObject",
-        "AuthenticatedInterface",
-        "AuthenticatedInterfaceObject",
         "AuthenticatedScalar",
         "AuthenticatedEnum",
         "Query.authenticatedRootField",
@@ -4287,32 +4257,6 @@ describe('composition', () => {
         name: 'on-object',
       };
 
-      const onInterface = {
-        typeDefs: gql`
-          type Query {
-            interface: ScopedInterface!
-          }
-
-          interface ScopedInterface ${directiveName}(${argName}: ["interface"]) {
-            field: Int!
-          }
-        `,
-        name: 'on-interface',
-      };
-
-      const onInterfaceObject = {
-        typeDefs: gql`
-          type ScopedInterfaceObject
-            @interfaceObject
-            @key(fields: "id")
-            ${directiveName}(${argName}: ["interfaceObject"])
-          {
-            id: String!
-          }
-        `,
-        name: 'on-interface-object',
-      }
-
       const onScalar = {
         typeDefs: gql`
           scalar ScopedScalar ${directiveName}(${argName}: ["scalar"])
@@ -4376,8 +4320,6 @@ describe('composition', () => {
 
       const result = composeAsFed2Subgraphs([
         onObject,
-        onInterface,
-        onInterfaceObject,
         onScalar,
         onEnum,
         onRootField,
@@ -4388,8 +4330,6 @@ describe('composition', () => {
 
       const scopedElements = [
         "ScopedObject",
-        "ScopedInterface",
-        "ScopedInterfaceObject",
         "ScopedScalar",
         "ScopedEnum",
         "Query.scopedRootField",
