@@ -1672,15 +1672,15 @@ describe('@cacheTag', () => {
   it('applies on root field', () => {
     const doc = gql`
       extend schema
-        @link(
-          url: "https://specs.apollo.dev/federation/v2.12"
-          import: ["@cacheTag"]
-        )
+      @link(
+        url: "https://specs.apollo.dev/federation/v2.12"
+        import: ["@cacheTag"]
+      )
 
       type Query {
         f(x: Int!): String!
-          @cacheTag(format: "query-f-{$args.x}")
-          @cacheTag(format: "any-query")
+        @cacheTag(format: "query-f-{$args.x}")
+        @cacheTag(format: "any-query")
       }
     `;
     const name = 'S';
@@ -1690,10 +1690,10 @@ describe('@cacheTag', () => {
   it('applies on entity type', () => {
     const doc = gql`
       extend schema
-        @link(
-          url: "https://specs.apollo.dev/federation/v2.12"
-          import: ["@key", "@cacheTag"]
-        )
+      @link(
+        url: "https://specs.apollo.dev/federation/v2.12"
+        import: ["@key", "@cacheTag"]
+      )
 
       type P @key(fields: "id") @cacheTag(format: "p-{$.id}") {
         id: ID!
@@ -1716,10 +1716,69 @@ describe('@cacheTag', () => {
     `;
 
     expect(
-      buildForErrors(doc, { asFed2: true, includeAllImports: true }),
+        buildForErrors(doc, {asFed2: true, includeAllImports: true}),
     ).toStrictEqual(
-      // TODO
-      undefined,
+        // TODO
+        undefined,
     );
   });
+});
+
+describe('authentication validations', () => {
+  it.each([
+    {
+      directiveName: '@authenticated',
+      directiveString: '@authenticated',
+    },
+    {
+      directiveName: '@requiresScopes',
+      directiveString: '@requiresScopes(scopes: [["scope1"]])',
+    },
+    {
+      directiveName: '@policy',
+      directiveString: '@policy(policies: [["policy1"]])',
+    },
+  ])(
+    `rejects $directiveName applications on interfaces and interface objects`,
+    ({ directiveName, directiveString }) => {
+      const doc = gql`
+      type Query {
+        i: I
+        o: O
+      }
+
+      interface I ${directiveString} {
+        x: Int ${directiveString}
+      }
+      
+      type T implements I {
+        x: Int
+      }
+
+      type O @key(fields: "id") @interfaceObject ${directiveString} {
+        id: ID!
+        y: Int ${directiveString}
+      }
+    `;
+
+      expect(buildForErrors(doc, { includeAllImports: true })).toStrictEqual([
+        [
+          'AUTHENTICATION_APPLIED_ON_INTERFACE',
+          `[S] Invalid use of ${directiveName} on field "I.x": ${directiveName} cannot be applied on interfaces, interface objects or their fields`,
+        ],
+        [
+          'AUTHENTICATION_APPLIED_ON_INTERFACE',
+          `[S] Invalid use of ${directiveName} on interface "I": ${directiveName} cannot be applied on interfaces, interface objects or their fields`,
+        ],
+        [
+          'AUTHENTICATION_APPLIED_ON_INTERFACE',
+          `[S] Invalid use of ${directiveName} on field "O.y": ${directiveName} cannot be applied on interfaces, interface objects or their fields`,
+        ],
+        [
+          'AUTHENTICATION_APPLIED_ON_INTERFACE',
+          `[S] Invalid use of ${directiveName} on interface object "O": ${directiveName} cannot be applied on interfaces, interface objects or their fields`,
+        ],
+      ]);
+    },
+  );
 });
