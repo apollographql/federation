@@ -6,7 +6,7 @@ import {
   FeatureUrl,
   FeatureVersion,
 } from "./coreSpec";
-import { ListType, NonNullType } from "../definitions";
+import {DirectiveDefinition, ListType, NonNullType, Schema} from "../definitions";
 import { createDirectiveSpecification, createScalarTypeSpecification } from "../directiveAndTypeSpecification";
 import { registerKnownFeature } from "../knownCoreFeatures";
 import { ARGUMENT_COMPOSITION_STRATEGIES } from "../argumentCompositionStrategies";
@@ -54,6 +54,10 @@ export class PolicySpecDefinition extends FeatureDefinition {
       composes: true,
       supergraphSpecification: () => POLICY_VERSIONS.latest(),
     }));
+  }
+
+  policyDirective(schema: Schema): DirectiveDefinition | undefined {
+    return this.directive(schema, PolicySpecDefinition.directiveName);
   }
 
   get defaultCorePurpose(): CorePurpose {

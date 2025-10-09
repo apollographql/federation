@@ -37,7 +37,7 @@ import {
   isWrapperType,
   possibleRuntimeTypes,
   isIntType,
-  Type,
+  Type, isFieldDefinition,
 } from "./definitions";
 import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues, assertUnreachable } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -1838,6 +1838,9 @@ export class FederationBlueprint extends SchemaBlueprint {
       validateSizedFieldsAreValidLists(application, parent, errorCollector);
     }
 
+    // Validate @authenticated, @requireScopes and @policy
+    validateNoAuthenticationOnInterfaces(metadata, errorCollector);
+
     return errorCollector;
   }
 
@@ -2887,5 +2890,41 @@ function withoutNonExternalLeafFields(selectionSet: SelectionSet): SelectionSet 
     }
     // We skip that selection.
     return undefined;
+  });
+}
+
+function validateNoAuthenticationOnInterfaces(metadata: FederationMetadata, errorCollector: GraphQLError[]) {
+  const authenticatedDirective = metadata.authenticatedDirective();
+  const requiresScopesDirective = metadata.requiresScopesDirective();
+  const policyDirective = metadata.policyDirective();
+  [authenticatedDirective, requiresScopesDirective, policyDirective].forEach((directive) => {
+    for (const application of directive.applications()) {
+      const element = application.parent;
+      function isAppliedOnInterface(type: Type) {
+        return isInterfaceType(type) || isInterfaceObjectType(baseType(type));
+      }
+      function isAppliedOnInterfaceField(elem: SchemaElement<any, any>) {
+        return isFieldDefinition(elem) && isAppliedOnInterface(elem.parent);
+      }
+
+      if (isAppliedOnInterface(element) || isAppliedOnInterfaceField(element)) {
+        let kind = '';
+        switch (element.kind) {
+          case 'FieldDefinition':
+            kind = 'field';
+            break;
+          case 'InterfaceType':
+            kind = 'interface';
+            break;
+          case 'ObjectType':
+            kind = 'interface object';
+            break;
+        }
+        errorCollector.push(ERRORS.AUTHENTICATION_APPLIED_ON_INTERFACE.err(
+            `Invalid use of @${directive.name} on ${kind} "${element.coordinate}": @${directive.name} cannot be applied on interfaces, interface objects or their fields`,
+            {nodes: sourceASTs(application, element.parent)},
+        ));
+      }
+    }
   });
 }
