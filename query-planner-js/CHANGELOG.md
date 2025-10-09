@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.11.3
+
+### Patch Changes
+
+- Fix bug in query planning where a subgraph jump for `@requires` can sometimes try to fetch `@key` fields from a subgraph that doesn't have them. This bug would previously cause query planning to error with a message that looks like "Cannot add selection of field `T.id` to selection set of parent type `T`". ([#3307](https://github.com/apollographql/federation/pull/3307))
+
+- Updated dependencies [[`8c7a2cd655ad3060e9f5c3b106cfbdb59251701c`](https://github.com/apollographql/federation/commit/8c7a2cd655ad3060e9f5c3b106cfbdb59251701c)]:
+  - @apollo/federation-internals@2.11.3
+  - @apollo/query-graphs@2.11.3
+
 ## 2.11.2
 
 ### Patch Changes
