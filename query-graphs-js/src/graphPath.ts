@@ -1490,8 +1490,11 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
       // We have edges between Query objects so that if a field returns a query object, we can jump to any subgraph
       // at that point. However, there is no point of using those edges at the beginning of a path, except for when
       // we have a @defer, in which case we want to allow re-jumping to the same subgraph.
-      if (isTopLevelPath && edge.transition.kind === 'RootTypeResolution' && !(toAdvance.deferOnTail && edge.isKeyOrRootTypeEdgeToSelf())) {
-        debug.groupEnd(`Ignored: edge is a top-level "RootTypeResolution"`);
+      if (isTopLevelPath
+        && (edge.transition.kind === 'RootTypeResolution' || edge.transition.kind === 'KeyResolution')
+        && !(toAdvance.deferOnTail && edge.isKeyOrRootTypeEdgeToSelf())
+      ) {
+        debug.groupEnd(`Ignored: edge is a top-level "RootTypeResolution" or "KeyResolution"`);
         continue;
       }
 
