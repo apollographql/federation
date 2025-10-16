@@ -56,7 +56,7 @@ export class PolicySpecDefinition extends FeatureDefinition {
     }));
   }
 
-  policyDirective(schema: Schema): DirectiveDefinition | undefined {
+  policyDirective(schema: Schema): DirectiveDefinition<{policies: string[][]}> | undefined {
     return this.directive(schema, PolicySpecDefinition.directiveName);
   }
 

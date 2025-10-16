@@ -57,7 +57,7 @@ export class RequiresScopesSpecDefinition extends FeatureDefinition {
     }));
   }
 
-  requiresScopesDirective(schema: Schema): DirectiveDefinition | undefined {
+  requiresScopesDirective(schema: Schema): DirectiveDefinition<{scopes: string[][]}> | undefined {
     return this.directive(schema, RequiresScopesSpecDefinition.directiveName);
   }
 
