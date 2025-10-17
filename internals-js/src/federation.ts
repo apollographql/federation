@@ -97,7 +97,7 @@ import { createObjectTypeSpecification, createScalarTypeSpecification, createUni
 import { didYouMean, suggestionList } from "./suggestions";
 import { coreFeatureDefinitionIfKnown } from "./knownCoreFeatures";
 import { joinIdentity } from "./specs/joinSpec";
-import { COST_VERSIONS, CostDirectiveArguments, ListSizeDirectiveArguments, costIdentity } from "./specs/costSpec";
+import { CostDirectiveArguments, ListSizeDirectiveArguments } from "./specs/costSpec";
 
 const linkSpec = LINK_VERSIONS.latest();
 const tagSpec = TAG_VERSIONS.latest();
@@ -1820,18 +1820,16 @@ export class FederationBlueprint extends SchemaBlueprint {
       }
     }
 
-    const costFeature = schema.coreFeatures?.getByIdentity(costIdentity);
-    const costSpec = costFeature && COST_VERSIONS.find(costFeature.url.version);
-    const costDirective = costSpec?.costDirective(schema);
-    const listSizeDirective = costSpec?.listSizeDirective(schema);
+    const costDirective = metadata.costDirective();
+    const listSizeDirective = metadata.listSizeDirective();
 
     // Validate @cost
-    for (const application of costDirective?.applications() ?? []) {
+    for (const application of costDirective.applications()) {
       validateCostNotAppliedToInterface(application, errorCollector);
     }
 
     // Validate @listSize
-    for (const application of listSizeDirective?.applications() ?? []) {
+    for (const application of listSizeDirective.applications()) {
       const parent = application.parent;
       assert(parent instanceof FieldDefinition, "@listSize can only be applied to FIELD_DEFINITION");
       validateListSizeAppliedToList(application, parent, errorCollector);
