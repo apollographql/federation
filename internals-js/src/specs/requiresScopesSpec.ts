@@ -43,7 +43,7 @@ export class RequiresScopesSpecDefinition extends FeatureDefinition {
           assert(scopeType, () => `Expected "${scopeName}" to be defined`);
           return new NonNullType(new ListType(new NonNullType(new ListType(new NonNullType(scopeType)))));
         },
-        compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.UNION,
+        compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.DNF_CONJUNCTION,
       }],
       locations: [
         DirectiveLocation.FIELD_DEFINITION,
