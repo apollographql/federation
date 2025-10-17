@@ -9,10 +9,11 @@ export function buildForErrors(
   options?: {
     subgraphName?: string,
     asFed2?: boolean,
+    includeAllImports?: boolean,
   }
 ): [string, string][] | undefined {
   try {
-    const doc = (options?.asFed2 ?? true) ? asFed2SubgraphDocument(subgraphDefs) : subgraphDefs;
+    const doc = (options?.asFed2 ?? true) ? asFed2SubgraphDocument(subgraphDefs, { ...options }) : subgraphDefs;
     const name = options?.subgraphName ?? 'S';
     buildSubgraph(name, `http://${name}`, doc).validate();
     return undefined;
