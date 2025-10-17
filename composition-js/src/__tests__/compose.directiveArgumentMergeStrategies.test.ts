@@ -159,6 +159,22 @@ describe('composition of directive with non-trivial argument strategies', () => 
     resultValues: {
       t: ['foo', 'bar'], k: ['v1', 'v2'], b: ['x'],
     },
+  },
+  {
+    name: 'dnf_conjunction',
+    // [[String!]!]!
+    type: (schema: Schema) => new NonNullType(new ListType(
+        new NonNullType(new ListType(
+            new NonNullType(schema.stringType())))
+    )),
+    compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.DNF_CONJUNCTION,
+    argValues: {
+      s1: { t: [['foo'], ['bar']], k: [['v1']] },
+      s2: { t: [['foo'], ['bar'], ['baz']], k: [['v2', 'v3']], b: [['x']] },
+    },
+    resultValues: {
+      t: [['bar'], ['foo']], k: [['v1', 'v2', 'v3']], b: [['x']],
+    },
   }])('works for $name', ({ name, type, compositionStrategy, argValues, resultValues }) => {
     createTestFeature({
       url: 'https://specs.apollo.dev',
