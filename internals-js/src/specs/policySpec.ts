@@ -42,7 +42,7 @@ export class PolicySpecDefinition extends FeatureDefinition {
           assert(PolicyType, () => `Expected "${policyName}" to be defined`);
           return new NonNullType(new ListType(new NonNullType(new ListType(new NonNullType(PolicyType)))));
         },
-        compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.UNION,
+        compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.DNF_CONJUNCTION,
       }],
       locations: [
         DirectiveLocation.FIELD_DEFINITION,
