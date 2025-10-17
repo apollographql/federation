@@ -1,4 +1,4 @@
-import { InputType, NonNullType, Schema, isListType, isNonNullType } from "./definitions"
+import {InputType, NonNullType, Schema, isListType, isNonNullType} from "./definitions"
 import { sameType } from "./types";
 import { valueEquals } from "./values";
 
@@ -17,6 +17,14 @@ function supportFixedTypes(types: (schema: Schema) => InputType[]): TypeSupportV
       ? { valid: true }
       : { valid: false, supportedMsg: `type(s) ${supported.join(', ')}` };
   };
+}
+
+function supportAnyNonNullNestedArray(): TypeSupportValidator {
+  return (_, type) =>
+    isNonNullType(type) && isListType(type.ofType)
+      && isNonNullType(type.ofType.ofType) && isListType(type.ofType.ofType.ofType)
+        ? { valid: true }
+        : { valid: false, supportedMsg: 'non nullable nested list types of any type' }
 }
 
 function supportAnyNonNullArray(): TypeSupportValidator {
@@ -52,6 +60,104 @@ function unionValues(values: any[]): any {
     const newValues = next.filter((v1: any) => !acc.some((v2: any) => valueEquals(v1, v2)));
     return acc.concat(newValues);
   }, []);
+}
+
+/**
+ * Performs conjunction of 2d arrays that represent conditions in Disjunctive Normal Form.
+ *
+ * * Each inner array is interpreted as the conjunction of the conditions in the array.
+ * * The top-level array is interpreted as the disjunction of the inner arrays
+ *
+ * Algorithm
+ * * filter out duplicate entries to limit the amount of necessary computations
+ * * calculate cartesian product of the arrays to find all possible combinations
+ *   * simplify combinations by dropping duplicate conditions (i.e. p ^ p = p, p ^ q = q ^ p)
+ * * eliminate entries that are subsumed by others (i.e. (p ^ q) subsumes (p ^ q ^ r))
+ */
+function dnfConjunction<T>(values: T[][][]): T[][] {
+  // should never be the case
+  if (values.length == 0) {
+    return [];
+  }
+
+  // we first filter out duplicate values from candidates
+  // this avoids exponential computation of exactly the same conditions
+  const filtered = filterNestedArrayDuplicates(values);
+
+  // initialize with first entry
+  let result: T[][] = filtered[0];
+  // perform cartesian product to find all possible entries
+  for (let i = 1; i < filtered.length; i++) {
+    const current = filtered[i];
+    const accumulator: T[][] = [];
+    const seen = new Set<string>;
+
+    for (const accElement of result) {
+      for (const currentElement of current) {
+        // filter out elements that are already present in accElement
+        const filteredElement = currentElement.filter((e) => !accElement.includes(e));
+        const candidate = [...accElement, ...filteredElement].sort();
+        const key = JSON.stringify(candidate);
+        // only add entries which has not been seen yet
+        if (!seen.has(key)) {
+          seen.add(key);
+          accumulator.push(candidate);
+        }
+      }
+    }
+    // Now we need to deduplicate the results. Given that
+    // - outer array implies OR requirements
+    // - inner array implies AND requirements
+    // We can filter out any inner arrays that fully contain other inner arrays, i.e.
+    //   A OR B OR (A AND B) OR (A AND B AND C) => A OR B
+    result = deduplicateSubsumedValues(accumulator);
+  }
+  return result;
+}
+
+function filterNestedArrayDuplicates<T>(values: T[][][]): T[][][] {
+  const filtered: T[][][] = [];
+  const seen = new Set<string>;
+  values.forEach((value) => {
+    value.sort();
+    const key = JSON.stringify(value);
+    if (!seen.has(key)) {
+      seen.add(key);
+      filtered.push(value);
+    }
+  });
+  return filtered;
+}
+
+function deduplicateSubsumedValues<T>(values: T[][]): T[][] {
+  const result: T[][] = [];
+  // we first sort by length as the longer ones might be dropped
+  values.sort((first, second) => {
+    if (first.length < second.length) {
+      return -1;
+    } else if (first.length > second.length) {
+      return 1;
+    } else {
+      return 0;
+    }
+  });
+
+  for (const candidate of values) {
+    const entry = new Set(candidate);
+    let redundant = false;
+    for (const r of result) {
+      if (r.every(e => entry.has(e))) {
+        // if `r` is a subset of a `candidate` then it means `candidate` is redundant
+        redundant = true;
+        break;
+      }
+    }
+
+    if (!redundant) {
+      result.push(candidate);
+    }
+  }
+  return result;
 }
 
 export const ARGUMENT_COMPOSITION_STRATEGIES = {
@@ -95,7 +201,8 @@ export const ARGUMENT_COMPOSITION_STRATEGIES = {
       schema.booleanType(),
       new NonNullType(schema.booleanType())
     ]),
-    mergeValues: mergeNullableValues(
+    mergeValues:
+        mergeNullableValues(
       (values: boolean[]) => values.every((v) => v)
     ),
   },
@@ -113,5 +220,10 @@ export const ARGUMENT_COMPOSITION_STRATEGIES = {
     name: 'NULLABLE_UNION',
     isTypeSupported: supportAnyArray(),
     mergeValues: mergeNullableValues(unionValues),
+  },
+  DNF_CONJUNCTION: {
+    name: 'DNF_CONJUNCTION',
+    isTypeSupported: supportAnyNonNullNestedArray(),
+    mergeValues: dnfConjunction
   }
 }
