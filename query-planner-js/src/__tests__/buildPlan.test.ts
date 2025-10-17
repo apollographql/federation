@@ -6247,6 +6247,85 @@ describe('mutations', () => {
       }
     `);
   });
+
+  it('executes a single mutation operation on a @shareable field', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          dummy: Int
+        }
+
+        type Mutation {
+          f: F @shareable
+        }
+
+        type F @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Mutation {
+          f: F @shareable
+        }
+
+        type F @key(fields: "id", resolvable: false) {
+          id: ID!
+          y: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        mutation {
+          f {
+            x
+            y
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              f {
+                __typename
+                id
+                y
+              }
+            }
+          },
+          Flatten(path: "f") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on F {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on F {
+                  x
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 describe('interface type-explosion', () => {

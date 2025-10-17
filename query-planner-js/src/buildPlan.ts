@@ -398,6 +398,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
     initialContext: PathContext,
     typeConditionedFetching: boolean,
     nonLocalSelectionsState: NonLocalSelectionsState | null,
+    initialSubgraphConstraint: string | null,
     excludedDestinations: ExcludedDestinations = [],
     excludedConditions: ExcludedConditions = [],
   ) {
@@ -418,6 +419,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       excludedDestinations,
       excludedConditions,
       parameters.overrideConditions,
+      initialSubgraphConstraint,
     );
     this.stack = mapOptionsToSelections(selectionSet, initialOptions);
     if (
@@ -527,8 +529,9 @@ class QueryPlanningTraversal<RV extends Vertex> {
       // If we have no options, it means there is no way to build a plan for that branch, and
       // that means the whole query planning has no plan.
       // This should never happen for a top-level query planning (unless the supergraph has *not* been
-      // validated), but can happen when computing sub-plans for a key condition.
-      if (this.isTopLevel) {
+      // validated), but can happen when computing sub-plans for a key condition and when computing
+      // a top-level plan for a mutation field on a specific subgraph.
+      if (this.isTopLevel && this.rootKind !== 'mutation') {
         debug.groupEnd(() => `No valid options to advance ${selection} from ${advanceOptionsToString(options)}`);
         throw new Error(`Was not able to find any options for ${selection}: This shouldn't have happened.`);
       } else {
@@ -793,6 +796,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
       this.costFunction,
       context,
       this.typeConditionedFetching,
+      null,
       null,
       excludedDestinations,
       addConditionExclusion(excludedConditions, edge.conditions),
@@ -3593,7 +3597,7 @@ function computePlanInternal({
 
   const { operation, processor } = parameters;
   if (operation.rootKind === 'mutation') {
-    const dependencyGraphs = computeRootSerialDependencyGraph(
+    const dependencyGraphs = computeRootSerialDependencyGraphForMutation(
       parameters,
       hasDefers,
       nonLocalSelectionsState,
@@ -3770,11 +3774,50 @@ function computeRootParallelBestPlan(
     emptyContext,
     parameters.config.typeConditionedFetching,
     nonLocalSelectionsState,
+    null,
   );
   const plan = planningTraversal.findBestPlan();
   // Getting no plan means the query is essentially unsatisfiable (it's a valid query, but we can prove it will never return a result),
   // so we just return an empty plan.
   return plan ?? createEmptyPlan(parameters);
+}
+
+function computeRootParallelBestPlanForMutation(
+  parameters: PlanningParameters<RootVertex>,
+  selection: SelectionSet,
+  startFetchIdGen: number,
+  hasDefers: boolean,
+  nonLocalSelectionsState: NonLocalSelectionsState | null,
+): [FetchDependencyGraph, OpPathTree<RootVertex>, number] {
+  let bestPlan:
+    | [FetchDependencyGraph, OpPathTree<RootVertex>, number]
+    | undefined;
+  const mutationSubgraphs = parameters.federatedQueryGraph
+    .outEdges(parameters.root).map((edge) => edge.tail.source);
+  for (const mutationSubgraph of mutationSubgraphs) {
+    const planningTraversal = new QueryPlanningTraversal(
+      parameters,
+      selection,
+      startFetchIdGen,
+      hasDefers,
+      parameters.root.rootKind,
+      defaultCostFunction,
+      emptyContext,
+      parameters.config.typeConditionedFetching,
+      nonLocalSelectionsState,
+      mutationSubgraph,
+    );
+    const plan = planningTraversal.findBestPlan();
+    if (!bestPlan || (plan && plan[2] < bestPlan[2])) {
+      bestPlan = plan;
+    }
+  }
+  if (!bestPlan) {
+    throw new Error(
+      `Was not able to plan ${parameters.operation.toString(false, false)} starting from a single subgraph: This shouldn't have happened.`,
+    );
+  }
+  return bestPlan;
 }
 
 function createEmptyPlan(
@@ -3794,7 +3837,7 @@ function onlyRootSubgraph(graph: FetchDependencyGraph): string {
   return subgraphs[0];
 }
 
-function computeRootSerialDependencyGraph(
+function computeRootSerialDependencyGraphForMutation(
   parameters: PlanningParameters<RootVertex>,
   hasDefers: boolean,
   nonLocalSelectionsState: NonLocalSelectionsState | null,
@@ -3805,7 +3848,7 @@ function computeRootSerialDependencyGraph(
   const splittedRoots = splitTopLevelFields(operation.selectionSet);
   const graphs: FetchDependencyGraph[] = [];
   let startingFetchId = 0;
-  let [prevDepGraph, prevPaths] = computeRootParallelBestPlan(
+  let [prevDepGraph, prevPaths] = computeRootParallelBestPlanForMutation(
     parameters,
     splittedRoots[0],
     startingFetchId,
@@ -3814,7 +3857,7 @@ function computeRootSerialDependencyGraph(
   );
   let prevSubgraph = onlyRootSubgraph(prevDepGraph);
   for (let i = 1; i < splittedRoots.length; i++) {
-    const [newDepGraph, newPaths] = computeRootParallelBestPlan(
+    const [newDepGraph, newPaths] = computeRootParallelBestPlanForMutation(
       parameters,
       splittedRoots[i],
       prevDepGraph.nextFetchId(),
