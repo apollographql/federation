@@ -433,6 +433,7 @@ class QueryPlanningTraversal<RV extends Vertex> {
           this.parameters.supergraphSchema,
           this.parameters.inconsistentAbstractTypesRuntimes,
           this.parameters.overrideConditions,
+          initialSubgraphConstraint !== null,
         )
       ) {
         throw Error(`Number of non-local selections exceeds limit of ${

@@ -600,6 +600,10 @@ export class NonLocalSelectionsMetadata {
    * This calls {@link checkNonLocalSelectionsLimitExceeded} for each of the
    * selections in the open branches stack; see that function's doc comment for
    * more information.
+   *
+   * To support mutations, we allow indicating the initial subgraph is
+   * constrained, in which case indirect options will be ignored until the first
+   * field (similar to query planning).
    */
   checkNonLocalSelectionsLimitExceededAtRoot(
     stack: [Selection, SimultaneousPathsWithLazyIndirectPaths[]][],
@@ -607,6 +611,7 @@ export class NonLocalSelectionsMetadata {
     supergraphSchema: Schema,
     inconsistentAbstractTypesRuntimes: Set<string>,
     overrideConditions: Map<string, boolean>,
+    isInitialSubgraphConstrained: boolean,
   ): boolean {
     for (const [selection, simultaneousPaths] of stack) {
       const tailVertices = new Set<Vertex>();
@@ -616,7 +621,10 @@ export class NonLocalSelectionsMetadata {
         }
       }
       const tailVerticesInfo =
-        this.estimateVerticesWithIndirectOptions(tailVertices);
+        this.estimateVerticesWithIndirectOptions(
+          tailVertices,
+          isInitialSubgraphConstrained,
+        );
 
       // Note that top-level selections aren't avoided via fully-local selection
       // set optimization, so we always add them here.
@@ -626,12 +634,16 @@ export class NonLocalSelectionsMetadata {
 
       if (selection.selectionSet) {
         const selectionHasDefer = selection.hasDefer();
+        const isInitialSubgraphConstrainedAfterElement =
+          isInitialSubgraphConstrained
+            && selection.kind === 'FragmentSelection';
         const nextVertices = this.estimateNextVerticesForSelection(
           selection.element,
           tailVerticesInfo,
           state,
           supergraphSchema,
           overrideConditions,
+          isInitialSubgraphConstrainedAfterElement,
         );
         if (this.checkNonLocalSelectionsLimitExceeded(
           selection.selectionSet,
@@ -641,6 +653,7 @@ export class NonLocalSelectionsMetadata {
           supergraphSchema,
           inconsistentAbstractTypesRuntimes,
           overrideConditions,
+          isInitialSubgraphConstrainedAfterElement,
         )) {
           return true;
         }
@@ -674,6 +687,10 @@ export class NonLocalSelectionsMetadata {
    * Note that this function takes in whether the parent selection of the
    * selection set has @defer, as that affects whether the optimization is
    * disabled for that selection set.
+   *
+   * To support mutations, we allow indicating the initial subgraph is
+   * constrained, in which case indirect options will be ignored until the first
+   * field (similar to query planning).
    */
   private checkNonLocalSelectionsLimitExceeded(
     selectionSet: SelectionSet,
@@ -683,6 +700,7 @@ export class NonLocalSelectionsMetadata {
     supergraphSchema: Schema,
     inconsistentAbstractTypesRuntimes: Set<string>,
     overrideConditions: Map<string, boolean>,
+    isInitialSubgraphConstrained: boolean,
   ): boolean {
     // Compute whether the selection set is non-local, and if so, add its
     // selections to the count. Any of the following causes the selection set to
@@ -709,12 +727,16 @@ export class NonLocalSelectionsMetadata {
       
       const oldCount = state.count;
       if (selection.selectionSet) {
+        const isInitialSubgraphConstrainedAfterElement =
+          isInitialSubgraphConstrained
+            && selection.kind === 'FragmentSelection';
         const nextVertices = this.estimateNextVerticesForSelection(
           element,
           parentVertices,
           state,
           supergraphSchema,
           overrideConditions,
+          isInitialSubgraphConstrainedAfterElement,
         );
         if (this.checkNonLocalSelectionsLimitExceeded(
           selection.selectionSet,
@@ -724,6 +746,7 @@ export class NonLocalSelectionsMetadata {
           supergraphSchema,
           inconsistentAbstractTypesRuntimes,
           overrideConditions,
+          isInitialSubgraphConstrainedAfterElement,
         )) {
           return true;
         }
@@ -822,6 +845,12 @@ export class NonLocalSelectionsMetadata {
    * selection for a set of parent vertices (including indirect options), this
    * function can be used to estimate an upper bound on the next vertices after
    * taking the selection (also with indirect options).
+   *
+   * To support mutations, we allow indicating the initial subgraph will be
+   * constrained after taking the element, in which case indirect options will
+   * be ignored (and caching will be skipped). This is to ensure that top-level
+   * mutation fields are not executed on a different subgraph than the initial
+   * one during query planning.
    */
   private estimateNextVerticesForSelection(
     element: OperationElement,
@@ -829,6 +858,7 @@ export class NonLocalSelectionsMetadata {
     state: NonLocalSelectionsState,
     supergraphSchema: Schema,
     overrideConditions: Map<string, boolean>,
+    isInitialSubgraphConstrainedAfterElement: boolean,
   ): NextVerticesInfo {
     const selectionKey = element.kind === 'Field'
       ? element.definition.name
@@ -836,6 +866,28 @@ export class NonLocalSelectionsMetadata {
     if (!selectionKey) {
       // For empty type condition, the vertices don't change.
       return parentVertices;
+    }
+    if (isInitialSubgraphConstrainedAfterElement) {
+      // When the initial subgraph is constrained, skip caching entirely. Note
+      // that caching is not skipped when the initial subgraph is constrained
+      // before this element but not after. Because of that, there may be cache
+      // entries for remaining nodes that were actually part of a complete
+      // digraph, but this is only a slight caching inefficiency and doesn't
+      // affect the computation's result.
+      assert(
+        parentVertices.nextVerticesWithIndirectOptions.types.size === 0,
+        () => 'Initial subgraph was constrained which indicates no indirect'
+          + ' options should be taken, but the parent nodes unexpectedly had a'
+          + ' complete digraph which indicates indirect options were taken'
+          + ' upstream in the path.',
+      );
+      return this.estimateNextVerticesForSelectionWithoutCaching(
+        element,
+        parentVertices.nextVerticesWithIndirectOptions.remainingVertices,
+        supergraphSchema,
+        overrideConditions,
+        true,
+      );
     }
     let cache = state.nextVerticesCache.get(selectionKey);
     if (!cache) {
@@ -866,6 +918,7 @@ export class NonLocalSelectionsMetadata {
           indirectOptions.sameTypeOptions,
           supergraphSchema,
           overrideConditions,
+          false,
         );
         cache.typesToNextVertices.set(typeName, cacheEntry);
       }
@@ -879,6 +932,7 @@ export class NonLocalSelectionsMetadata {
           [vertex],
           supergraphSchema,
           overrideConditions,
+          false,
         );
         cache.remainingVerticesToNextVertices.set(vertex, cacheEntry);
       }
@@ -922,16 +976,23 @@ export class NonLocalSelectionsMetadata {
    * (We do account for override conditions, which are relatively
    * straightforward.)
    *
-   * Since we're iterating through next vertices in the process, for efficiency
-   * sake we also compute whether there are any reachable cross-subgraph edges
-   * from the next vertices (without indirect options). This method assumes that
-   * inline fragments have type conditions.
+   * Since we're iterating through next vertices in the process, for
+   * efficiency's sake we also compute whether there are any reachable
+   * cross-subgraph edges from the next vertices (without indirect options).
+   * This method assumes that inline fragments have type conditions.
+   *
+   * To support mutations, we allow indicating the initial subgraph will be
+   * constrained after taking the element, in which case indirect options will
+   * be ignored. This is to ensure that top-level mutation fields are not
+   * executed on a different subgraph than the initial one during query
+   * planning.
    */
   private estimateNextVerticesForSelectionWithoutCaching(
     element: OperationElement,
     parentVertices: Iterable<Vertex>,
     supergraphSchema: Schema,
     overrideConditions: Map<string, boolean>,
+    isInitialSubgraphConstrainedAfterElement: boolean,
   ): NextVerticesInfo {
     const nextVertices = new Set<Vertex>();
     switch (element.kind) {
@@ -955,7 +1016,7 @@ export class NonLocalSelectionsMetadata {
           }
         };
         for (const vertex of parentVertices) {
-          // As an upper bound for efficiency sake, we consider both
+          // As an upper bound for efficiency's sake, we consider both
           // non-type-exploded and type-exploded options.
           processHeadVertex(vertex);
           const downcasts = this.verticesToObjectTypeDowncasts.get(vertex);
@@ -1041,16 +1102,33 @@ export class NonLocalSelectionsMetadata {
         assertUnreachable(element);
     }
 
-    return this.estimateVerticesWithIndirectOptions(nextVertices);
+    return this.estimateVerticesWithIndirectOptions(
+      nextVertices,
+      isInitialSubgraphConstrainedAfterElement,
+    );
   }
 
   /**
-   * Estimate the indirect options for the given next vertices, and add them to
-   * the given vertices. As an upper bound for efficiency's sake, we assume we
-   * can take any indirect option (i.e. ignore any edge conditions).
+   * Estimate the indirect options for the given next vertices, and return the
+   * given next vertices along with `nextVerticesWithIndirectOptions` which
+   * contains these direct and indirect options. As an upper bound for
+   * efficiency's sake, we assume we can take any indirect option (i.e. ignore
+   * any edge conditions).
+   *
+   * Since we're iterating through next vertices in the process, for
+   * efficiency's sake we also compute whether there are any reachable
+   * cross-subgraph edges from the next nodes (without indirect options).
+   *
+   * To support mutations, we allow ignoring indirect options, as we don't want
+   * top-level mutation fields to be executed on a different subgraph than the
+   * initial one. In that case, `nextVerticesWithIndirectOptions` will not have
+   * any `types`, and the given vertices will be added to `remainingVertices`
+   * (despite them potentially being part of the complete digraph for their
+   * type). This is fine, as caching logic accounts for this accordingly.
    */
   private estimateVerticesWithIndirectOptions(
     nextVertices: Set<Vertex>,
+    ignoreIndirectOptions: boolean,
   ): NextVerticesInfo {
     const nextVerticesInfo: NextVerticesInfo = {
       nextVertices,
@@ -1063,7 +1141,16 @@ export class NonLocalSelectionsMetadata {
     for (const nextVertex of nextVertices) {
       nextVerticesInfo.nextVerticesHaveReachableCrossSubgraphEdges ||=
         nextVertex.hasReachableCrossSubgraphEdges;
-      
+
+      // As noted above, we don't want top-level mutation fields to be executed
+      // on a different subgraph than the initial one, so we support ignoring
+      // indirect options here.
+      if (ignoreIndirectOptions) {
+        nextVerticesInfo.nextVerticesWithIndirectOptions.remainingVertices
+          .add(nextVertex);
+        continue;
+      }
+
       const typeName = nextVertex.type.name
       const optionsMetadata = this.typesToIndirectOptions.get(typeName);
       if (optionsMetadata) {
@@ -1085,7 +1172,7 @@ export class NonLocalSelectionsMetadata {
           continue;
         }
       }
-      // We need to add the remaining vertex, and if its our first time seeing
+      // We need to add the remaining vertex, and if it's our first time seeing
       // it, we also add any of its interface object options.
       if (
         !nextVerticesInfo.nextVerticesWithIndirectOptions.remainingVertices
