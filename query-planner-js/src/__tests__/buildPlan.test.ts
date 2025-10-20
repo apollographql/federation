@@ -6378,8 +6378,9 @@ describe('mutations', () => {
     // than a plan that doesn't, so the query planner's plan won't show that we
     // properly ignored the @key. We instead check both the number of evaluated
     // plans and the plan itself.
-    expect(queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount)
-      .toStrictEqual(1);
+    expect(
+      queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount,
+    ).toStrictEqual(1);
     expect(plan).toMatchInlineSnapshot(`
       QueryPlan {
         Sequence {
