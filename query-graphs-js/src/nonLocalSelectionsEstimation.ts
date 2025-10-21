@@ -871,14 +871,14 @@ export class NonLocalSelectionsMetadata {
       // When the initial subgraph is constrained, skip caching entirely. Note
       // that caching is not skipped when the initial subgraph is constrained
       // before this element but not after. Because of that, there may be cache
-      // entries for remaining nodes that were actually part of a complete
+      // entries for remaining vertices that were actually part of a complete
       // digraph, but this is only a slight caching inefficiency and doesn't
       // affect the computation's result.
       assert(
         parentVertices.nextVerticesWithIndirectOptions.types.size === 0,
         () => 'Initial subgraph was constrained which indicates no indirect'
-          + ' options should be taken, but the parent nodes unexpectedly had a'
-          + ' complete digraph which indicates indirect options were taken'
+          + ' options should be taken, but the parent vertices unexpectedly had'
+          + ' a complete digraph which indicates indirect options were taken'
           + ' upstream in the path.',
       );
       return this.estimateNextVerticesForSelectionWithoutCaching(
@@ -1117,7 +1117,7 @@ export class NonLocalSelectionsMetadata {
    *
    * Since we're iterating through next vertices in the process, for
    * efficiency's sake we also compute whether there are any reachable
-   * cross-subgraph edges from the next nodes (without indirect options).
+   * cross-subgraph edges from the next vertices (without indirect options).
    *
    * To support mutations, we allow ignoring indirect options, as we don't want
    * top-level mutation fields to be executed on a different subgraph than the
