@@ -1490,8 +1490,11 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
       // We have edges between Query objects so that if a field returns a query object, we can jump to any subgraph
       // at that point. However, there is no point of using those edges at the beginning of a path, except for when
       // we have a @defer, in which case we want to allow re-jumping to the same subgraph.
-      if (isTopLevelPath && edge.transition.kind === 'RootTypeResolution' && !(toAdvance.deferOnTail && edge.isKeyOrRootTypeEdgeToSelf())) {
-        debug.groupEnd(`Ignored: edge is a top-level "RootTypeResolution"`);
+      if (isTopLevelPath
+        && (edge.transition.kind === 'RootTypeResolution' || edge.transition.kind === 'KeyResolution')
+        && !(toAdvance.deferOnTail && edge.isKeyOrRootTypeEdgeToSelf())
+      ) {
+        debug.groupEnd(`Ignored: edge is a top-level "RootTypeResolution" or "KeyResolution"`);
         continue;
       }
 
@@ -1573,7 +1576,11 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
           let backToPreviousSubgraph: boolean;
           if (subgraphEnteringEdge.edge.transition.kind === 'SubgraphEnteringTransition') {
             assert(toAdvance.root instanceof RootVertex, () => `${toAdvance} should be a root path if it starts with subgraph entering edge ${subgraphEnteringEdge.edge}`);
-            prevSubgraphEnteringVertex = rootVertexForSubgraph(toAdvance.graph, edge.tail.source, toAdvance.root.rootKind);
+            // Since mutation options need to originate from the same subgraph, we pretend we cannot find a root vertex
+            // in another subgraph (effectively skipping the optimization).
+            prevSubgraphEnteringVertex = toAdvance.root.rootKind !== 'mutation'
+              ? rootVertexForSubgraph(toAdvance.graph, edge.tail.source, toAdvance.root.rootKind)
+              : undefined;
             // If the entering edge is the root entering of subgraphs, then the "prev subgraph" is really `edge.tail.source` and
             // so `edge` always get us back to that (but `subgraphEnteringEdge.edge.head.source` would be `FEDERATED_GRAPH_ROOT_SOURCE`,
             // so the test we do in the `else` branch would not work here).
@@ -2383,6 +2390,7 @@ export function createInitialOptions<V extends Vertex>(
   excludedEdges: ExcludedDestinations,
   excludedConditions: ExcludedConditions,
   overrideConditions: Map<string, boolean>,
+  initialSubgraphConstraint: string | null,
 ): SimultaneousPathsWithLazyIndirectPaths<V>[] {
   const lazyInitialPath = new SimultaneousPathsWithLazyIndirectPaths(
     [initialPath],
@@ -2393,7 +2401,12 @@ export function createInitialOptions<V extends Vertex>(
     overrideConditions,
   );
   if (isFederatedGraphRootType(initialPath.tail.type)) {
-    const initialOptions = lazyInitialPath.indirectOptions(initialContext, 0);
+    let initialOptions = lazyInitialPath.indirectOptions(initialContext, 0);
+    if (initialSubgraphConstraint !== null) {
+      initialOptions.paths = initialOptions
+        .paths
+        .filter((path) => path.tail.source === initialSubgraphConstraint);
+    }
     return createLazyOptions(initialOptions.paths.map(p => [p]), lazyInitialPath, initialContext, overrideConditions);
   } else {
     return [lazyInitialPath];

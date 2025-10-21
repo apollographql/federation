@@ -6247,6 +6247,171 @@ describe('mutations', () => {
       }
     `);
   });
+
+  it('executes a single mutation operation on a @shareable field', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          dummy: Int
+        }
+
+        type Mutation {
+          f: F @shareable
+        }
+
+        type F @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Mutation {
+          f: F @shareable
+        }
+
+        type F @key(fields: "id", resolvable: false) {
+          id: ID!
+          y: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        mutation {
+          f {
+            x
+            y
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              f {
+                __typename
+                id
+                y
+              }
+            }
+          },
+          Flatten(path: "f") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on F {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on F {
+                  x
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  it('ignores mutation @key at top-level for mutations', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          dummy: Int
+        }
+
+        type Mutation @key(fields: "__typename") {
+          f: F @shareable
+        }
+
+        type F @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Mutation @key(fields: "__typename") {
+          f: F @shareable
+        }
+
+        type F @key(fields: "id", resolvable: false) {
+          id: ID!
+          y: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        mutation {
+          f {
+            x
+            y
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // Note that a plan that uses a mutation @key will typically be more costly
+    // than a plan that doesn't, so the query planner's plan won't show that we
+    // properly ignored the @key. We instead check both the number of evaluated
+    // plans and the plan itself.
+    expect(
+      queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount,
+    ).toStrictEqual(1);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              f {
+                __typename
+                id
+                y
+              }
+            }
+          },
+          Flatten(path: "f") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on F {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on F {
+                  x
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 describe('interface type-explosion', () => {
