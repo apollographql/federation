@@ -396,7 +396,8 @@ class Merger {
   private fieldsWithFromContext: Set<string>;
   private fieldsWithOverride: Set<string>;
   private fieldsWithRequires: Set<string>;
-  private coordinatesWithAuth: Set<string>;
+  private authEnabled: boolean;
+  private interfacesWithAuthRequirements: Set<string>;
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.latestFedVersionUsed = this.getLatestFederationVersionUsed();
@@ -405,7 +406,9 @@ class Merger {
     this.fieldsWithFromContext = this.getFieldsWithFromContextDirective();
     this.fieldsWithOverride = this.getFieldsWithOverrideDirective();
     this.fieldsWithRequires = this.getFieldsWithRequiresDirective();
-    this.coordinatesWithAuth = this.getCoordinatesWithAuth();
+    const { authEnabled, interfacesWithAuthRequirements } = this.getAuthRequirements();
+    this.authEnabled = authEnabled;
+    this.interfacesWithAuthRequirements = interfacesWithAuthRequirements;
 
     this.names = subgraphs.names();
     this.composeDirectiveManager = new ComposeDirectiveManager(
@@ -750,6 +753,8 @@ class Merger {
     // copy things from interface in the merged schema into their implementation in that same schema so
     // we want to make sure everything is ready.
     this.addMissingInterfaceObjectFieldsToImplementations();
+
+    this.propagateAuthToInterfaces();
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
     // are only an artifact of that incompleteness as it's confusing.
@@ -3437,7 +3442,7 @@ class Merger {
 
     // auth verification on the supergraph
     // need to verify usage of @requires on fields that require authorization
-    if (this.coordinatesWithAuth.size > 0) {
+    if (this.authEnabled) {
       const authValidator = new AuthValidator(this.merged, this.joinSpec, this.subgraphNamesToJoinSpecName);
       for (const coordinate of this.fieldsWithRequires) {
         const errors = authValidator.validateRequiresFieldSet(coordinate);
@@ -3629,8 +3634,9 @@ class Merger {
     );
   }
 
-  private getCoordinatesWithAuth(): Set<string> {
-    const coordinates = new Set<string>();
+  private getAuthRequirements(): { authEnabled: boolean, interfacesWithAuthRequirements: Set<string> } {
+    const interfacesWithAuthRequirements = new Set<string>();
+    let authEnabled = false;
     for (const subgraph of this.subgraphs) {
       const authenticatedDirective = subgraph.metadata().authenticatedDirective();
       const requiresScopesDirective = subgraph.metadata().requiresScopesDirective();
@@ -3638,23 +3644,30 @@ class Merger {
 
       for (const authDirective of [authenticatedDirective, requiresScopesDirective, policyDirective]) {
         if (isFederationDirectiveDefinedInSchema(authDirective)) {
+          authEnabled = authEnabled || authDirective.applications().size > 0;
+
           for (const application of authDirective.applications()) {
             const parent = application.parent;
-            if (parent instanceof FieldDefinition) {
-              coordinates.add(parent.coordinate);
-            } else if (parent instanceof ObjectType) {
-              coordinates.add(parent.coordinate)
-            } else if (parent instanceof ScalarType) {
-              coordinates.add(parent.coordinate);
-            } else if (parent instanceof EnumType) {
-              coordinates.add(parent.coordinate);
+            if (parent instanceof ObjectType) {
+              // capture interfaces that will need to be updated later on
+              parent.interfaces().forEach(
+                  (intf) => interfacesWithAuthRequirements.add(intf.name)
+              );
+            } else if (parent instanceof FieldDefinition) {
+              // we only allow auth on object fields
+              const parentObjectType = parent.parent;
+              if (isObjectType(parentObjectType)) {
+                parentObjectType.interfaces().forEach(
+                    (intf) => interfacesWithAuthRequirements.add(intf.name)
+                );
+              }
             }
           }
         }
       }
     }
 
-    return coordinates;
+    return { authEnabled, interfacesWithAuthRequirements };
   }
 
   private getFieldsWithAppliedDirective(
@@ -3676,9 +3689,58 @@ class Merger {
     }
     return fields;
   }
+
+  propagateAuthToInterfaces() {
+    if (this.authEnabled) {
+      const interfacesThatNeedAuth = this.merged.interfaceTypes()
+          .filter((intf) => this.interfacesWithAuthRequirements.has(intf.name));
+
+      if (interfacesThatNeedAuth.length > 0) {
+        const authenticatedFeature = this.merged.coreFeatures?.getByIdentity(AuthenticatedSpecDefinition.identity);
+        const authenticatedSpec = authenticatedFeature && AUTHENTICATED_VERSIONS.find(authenticatedFeature.url.version);
+        const authenticatedDirective = authenticatedSpec?.authenticatedDirective(this.merged);
+
+        const requiresScopesFeature = this.merged.coreFeatures?.getByIdentity(RequiresScopesSpecDefinition.identity);
+        const requiresScopesSpec = requiresScopesFeature && REQUIRES_SCOPES_VERSIONS.find(requiresScopesFeature.url.version);
+        const requiresScopesDirective = requiresScopesSpec?.requiresScopesDirective(this.merged);
+
+        const policyFeature = this.merged.coreFeatures?.getByIdentity(PolicySpecDefinition.identity);
+        const policySpec = policyFeature && POLICY_VERSIONS.find(policyFeature.url.version);
+        const policyDirective = policySpec?.policyDirective(this.merged);
+
+        for (const intf of interfacesThatNeedAuth) {
+          const impls = intf.possibleRuntimeTypes();
+          const implSources = sourcesFromArray(<Array<ObjectType | undefined>>impls);
+          if (authenticatedDirective) {
+            this.mergeAppliedDirective(authenticatedDirective.name, implSources, intf);
+          }
+          if (requiresScopesDirective) {
+            this.mergeAppliedDirective(requiresScopesDirective.name, implSources, intf);
+          }
+          if (policyDirective) {
+            this.mergeAppliedDirective(policyDirective.name, implSources, intf);
+          }
+
+          for (const intfField of intf.fields()) {
+            const implFields = impls.map((impl) => impl.field(intfField.name));
+            const fieldSources = sourcesFromArray(implFields);
+            if (authenticatedDirective) {
+              this.mergeAppliedDirective(authenticatedDirective.name, fieldSources, intfField);
+            }
+            if (requiresScopesDirective) {
+              this.mergeAppliedDirective(requiresScopesDirective.name, fieldSources, intfField);
+            }
+            if (policyDirective) {
+              this.mergeAppliedDirective(policyDirective.name, fieldSources, intfField);
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
-class AuthValidator {
+export class AuthValidator {
   schema: Schema;
   joinSpecNamesToSubgraphNames: Map<string, string>;
   joinFieldDirective: DirectiveDefinition<JoinFieldDirectiveArguments>;
@@ -3813,7 +3875,7 @@ class AuthValidator {
     return errors;
   }
 
-  authRequirementsOnElement(element: NamedType | FieldDefinition<ObjectType>): AuthRequirementsOnElement | undefined {
+  private authRequirementsOnElement(element: NamedType | FieldDefinition<ObjectType>): AuthRequirementsOnElement | undefined {
     const requirements = new AuthRequirementsOnElement();
     if (this.authenticatedDirective) {
       const appliedDirective = element.appliedDirectivesOf(this.authenticatedDirective)?.[0];
@@ -3845,7 +3907,7 @@ class AuthValidator {
     }
   }
 
-  verifyAuthRequirementsOnSelectionSet(authRequirements: AuthRequirements, selectionSet: SelectionSet) {
+  private verifyAuthRequirementsOnSelectionSet(authRequirements: AuthRequirements, selectionSet: SelectionSet) {
     const parentType = this.schema.type(selectionSet.parentType.name);
     for (const selection of selectionSet.selections()) {
       if (selection instanceof FieldSelection) {
@@ -3855,7 +3917,7 @@ class AuthValidator {
             const requirementsOnImplType = this.authRequirementsOnElement(implType);
             if (!authRequirements.satisfies(requirementsOnImplType)) {
               const msg = `Field "${authRequirements.fieldCoordinate}" does not specify necessary @authenticated, @requiresScopes `
-                  + `and/or @policy auth requirements to access the transitive interface ${parentType} data from ${authRequirements.directive} selection set.`;
+                  + `and/or @policy auth requirements to access the transitive interface "${parentType}" data from ${authRequirements.directive} selection set.`;
               throw ERRORS.MISSING_TRANSITIVE_AUTH_REQUIREMENTS.err(msg);
             }
             // re-check the implementation auth condition
@@ -3876,7 +3938,7 @@ class AuthValidator {
           const requirementsOnCondition = this.authRequirementsOnElement(condition);
           if (!authRequirements.satisfies(requirementsOnCondition)) {
             const msg = `Field "${authRequirements.fieldCoordinate}" does not specify necessary @authenticated, @requiresScopes `
-                + `and/or @policy auth requirements to access the transitive data in inline fragment type condition ${condition} from ${authRequirements.directive} selection set.`;
+                + `and/or @policy auth requirements to access the transitive data in inline fragment type condition "${condition}" from ${authRequirements.directive} selection set.`;
             throw ERRORS.MISSING_TRANSITIVE_AUTH_REQUIREMENTS.err(msg);
           }
         }
@@ -3894,7 +3956,7 @@ class AuthValidator {
 
     if (!authRequirements.satisfies(fieldAuthReqs) || !authRequirements.satisfies(fieldReturnAuthReqs)) {
       const msg = `Field "${authRequirements.fieldCoordinate}" does not specify necessary @authenticated, @requiresScopes `
-          + `and/or @policy auth requirements to access the transitive field ${field.coordinate} data from ${authRequirements.directive} selection set.`;
+          + `and/or @policy auth requirements to access the transitive field "${field.coordinate}" data from ${authRequirements.directive} selection set.`;
       throw ERRORS.MISSING_TRANSITIVE_AUTH_REQUIREMENTS.err(msg);
     }
   }
