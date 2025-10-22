@@ -429,6 +429,19 @@ type SubgraphPathInfo = {
   contexts: Map<string, { subgraphName: string, typeName: string }>,
 }
 
+class SubgraphPathInfos {
+  constructor(
+    readonly paths: SubgraphPathInfo[]
+  ) {}
+}
+
+class TopLevelMutationFieldSubgraphPathInfos {
+  constructor(
+    readonly mutationField: FieldDefinition<CompositeType>,
+    readonly paths: Map<string, SubgraphPathInfo[]>,
+  ) {}
+}
+
 export class ValidationState {
   constructor(
     // Path in the supergraph corresponding to the current state.
@@ -438,11 +451,8 @@ export class ValidationState {
     // instead partitioned by the name of the subgraph containing the mutation
     // field.
     public readonly subgraphPathInfos:
-      | SubgraphPathInfo[]
-      | {
-          mutationField: FieldDefinition<CompositeType>;
-          paths: Map<string, SubgraphPathInfo[]>;
-        },
+      | SubgraphPathInfos
+      | TopLevelMutationFieldSubgraphPathInfos,
     // When we encounter an `@override`n field with a label condition, we record
     // its value (T/F) as we traverse the graph. This allows us to ignore paths
     // that can never be taken by the query planner (i.e. a path where the
@@ -466,7 +476,7 @@ export class ValidationState {
   }) {
     return new ValidationState(
       GraphPath.fromGraphRoot(supergraphAPI, kind)!,
-      initialSubgraphPaths(kind, federatedQueryGraph).map((p) =>
+      new SubgraphPathInfos(initialSubgraphPaths(kind, federatedQueryGraph).map((p) =>
         TransitionPathWithLazyIndirectPaths.initial(
           p,
           conditionResolver,
@@ -475,7 +485,7 @@ export class ValidationState {
       ).map((p) => ({
         path: p,
         contexts: new Map(),
-      })),
+      }))),
     );
   }
 
@@ -487,10 +497,10 @@ export class ValidationState {
     previousVisits: QueryGraphState<VertexVisit[]>,
   ): boolean {
     const vertex = this.supergraphPath.tail;
-    if (this.subgraphPathInfos instanceof Array) {
+    if (this.subgraphPathInfos instanceof SubgraphPathInfos) {
       return this.canSkipVisitForSubgraphPaths(
         vertex,
-        this.subgraphPathInfos,
+        this.subgraphPathInfos.paths,
         subgraphNameToGraphEnumValue,
         previousVisits,
       );
@@ -590,12 +600,12 @@ export class ValidationState {
     );
 
     let updatedState: ValidationState;
-    if (this.subgraphPathInfos instanceof Array) {
+    if (this.subgraphPathInfos instanceof SubgraphPathInfos) {
       const {
         newSubgraphPathInfos,
         error,
-      } = this.validateTransitionforSubgraphPaths(
-        this.subgraphPathInfos,
+      } = this.validateTransitionForSubgraphPaths(
+        this.subgraphPathInfos.paths,
         newOverrideConditions,
         transition,
         targetType,
@@ -640,7 +650,9 @@ export class ValidationState {
           // state.
           updatedState = new ValidationState(
             newPath,
-            [...partitionedSubgraphPathInfos.values()].flat(),
+            new SubgraphPathInfos(
+              [...partitionedSubgraphPathInfos.values()].flat(),
+            ),
             newOverrideConditions,
           );
         } else {
@@ -672,7 +684,7 @@ export class ValidationState {
       } else {
         updatedState = new ValidationState(
           newPath,
-          newSubgraphPathInfos,
+          new SubgraphPathInfos(newSubgraphPathInfos),
           newOverrideConditions,
         );
       }
@@ -688,7 +700,7 @@ export class ValidationState {
         const {
           newSubgraphPathInfos,
           error,
-        } = this.validateTransitionforSubgraphPaths(
+        } = this.validateTransitionForSubgraphPaths(
           subgraphPathInfos,
           newOverrideConditions,
           transition,
@@ -804,7 +816,7 @@ export class ValidationState {
     return { state: updatedState, hint };
   }
 
-  validateTransitionforSubgraphPaths(
+  validateTransitionForSubgraphPaths(
     subgraphPathInfos: SubgraphPathInfo[],
     newOverrideConditions: Map<string, boolean>,
     transition: Transition,
@@ -895,9 +907,21 @@ export class ValidationState {
   }
 
   allSubgraphPathInfos(): SubgraphPathInfo[] {
-    return this.subgraphPathInfos instanceof Array
-      ? this.subgraphPathInfos
+    return this.subgraphPathInfos instanceof SubgraphPathInfos
+      ? this.subgraphPathInfos.paths
       : Array.from(this.subgraphPathInfos.paths.values()).flat();
+  }
+
+  allSubgraphPathsCount(): number {
+    if (this.subgraphPathInfos instanceof SubgraphPathInfos) {
+      return this.subgraphPathInfos.paths.length;
+    } else {
+      let count = 0;
+      for (const subgraphPathInfos of this.subgraphPathInfos.paths.values()) {
+        count += subgraphPathInfos.length;
+      }
+      return count;
+    }
   }
 
   currentSubgraphNames(): string[] {
@@ -944,8 +968,8 @@ export class ValidationState {
   }
 
   toString(): string {
-    if (this.subgraphPathInfos instanceof Array) {
-      return `${this.supergraphPath} <=> [${this.subgraphPathInfos.map(
+    if (this.subgraphPathInfos instanceof SubgraphPathInfos) {
+      return `${this.supergraphPath} <=> [${this.subgraphPathInfos.paths.map(
         p => p.path.toString()
       ).join(', ')}]`;
     } else {
@@ -1033,13 +1057,7 @@ class ValidationTraversal {
   }
 
   pushStack(state: ValidationState): { error?: GraphQLError } {
-    if (state.subgraphPathInfos instanceof Array) {
-      this.totalValidationSubgraphPaths += state.subgraphPathInfos.length;
-    } else {
-      for (const subgraphPathInfos of state.subgraphPathInfos.paths.values()) {
-        this.totalValidationSubgraphPaths += subgraphPathInfos.length;
-      }
-    }
+    this.totalValidationSubgraphPaths += state.allSubgraphPathsCount();
     this.stack.push(state);
     if (this.totalValidationSubgraphPaths > this.maxValidationSubgraphPaths) {
       return {
@@ -1053,12 +1071,8 @@ class ValidationTraversal {
 
   popStack() {
     const state = this.stack.pop();
-    if (state?.subgraphPathInfos instanceof Array) {
-      this.totalValidationSubgraphPaths -= state.subgraphPathInfos.length;
-    } else if (state) {
-      for (const subgraphPathInfos of state.subgraphPathInfos.paths.values()) {
-        this.totalValidationSubgraphPaths -= subgraphPathInfos.length;
-      }
+    if (state) {
+      this.totalValidationSubgraphPaths -= state.allSubgraphPathsCount();
     }
     return state;
   }
