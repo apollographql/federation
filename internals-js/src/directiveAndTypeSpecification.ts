@@ -67,7 +67,13 @@ export type FieldSpecification = {
   args?: ResolvedArgumentSpecification[],
 }
 
-type ResolvedArgumentSpecification = {
+export type ResolvedArgumentSpecification = {
+  name: string,
+  type: InputType,
+  defaultValue?: any,
+}
+
+export type InputFieldSpecification = {
   name: string,
   type: InputType,
   defaultValue?: any,
@@ -342,7 +348,7 @@ export function createEnumTypeSpecification({
   }
 }
 
-function ensureSameTypeKind(expected: NamedType['kind'], actual: NamedType): GraphQLError[] {
+export function ensureSameTypeKind(expected: NamedType['kind'], actual: NamedType): GraphQLError[] {
   return expected === actual.kind
     ? []
     : [

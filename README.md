@@ -4,11 +4,6 @@
 
 ---
 
-**Announcement:**   
-Join 1000+ engineers at GraphQL Summit for talks, workshops, and office hours, Oct 8-10 in NYC. [Get your pass here ->](https://summit.graphql.com/?utm_campaign=github_federation_readme)
-
----
-
 # Apollo Federation
 
 Apollo Federation is an architecture for declaratively composing APIs into a unified graph. Each team can own their slice of the graph independently, empowering them to deliver autonomously and incrementally.
