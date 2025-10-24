@@ -85,6 +85,7 @@ import {
   inaccessibleIdentity,
   FeatureDefinitions,
   CONNECT_VERSIONS,
+  ScalarType
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -654,7 +655,8 @@ class Merger {
     const interfaceTypes: InterfaceType[] = [];
     const unionTypes: UnionType[] = [];
     const enumTypes: EnumType[] = [];
-    const nonUnionEnumTypes: NamedType[] = [];
+    const scalarTypes: ScalarType[] = [];
+    const inputObjectTypes: InputObjectType[] = [];
 
     this.merged.types().forEach(type => {
       if (
@@ -667,19 +669,23 @@ class Merger {
       switch (type.kind) {
         case 'UnionType':
           unionTypes.push(type);
-          return;
+          break;
         case 'EnumType':
           enumTypes.push(type);
-          return;
+          break;
         case 'ObjectType':
           objectTypes.push(type);
           break;
         case 'InterfaceType':
           interfaceTypes.push(type);
           break;
+        case 'ScalarType':
+          scalarTypes.push(type);
+          break;
+        case 'InputObjectType':
+          inputObjectTypes.push(type);
+          break;
       }
-
-      nonUnionEnumTypes.push(type);
     });
 
     // Then, for object and interface types, we merge the 'implements' relationship, and we merge the unions.
@@ -705,7 +711,7 @@ class Merger {
     );
 
     // We've already merged unions above and we've going to merge enums last
-    for (const type of nonUnionEnumTypes) {
+    for (const type of [...scalarTypes, ...inputObjectTypes, ...interfaceTypes, ...objectTypes]) {
       this.mergeType(this.subgraphsTypes(type), type);
     }
 

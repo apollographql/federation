@@ -4075,6 +4075,145 @@ describe('composition', () => {
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
       assertCompositionSuccess(result);
     });
+
+    it('composes @requires references to @interfaceObject', () => {
+      const subgraph1 = {
+        name: 'A',
+        url: 'https://Subgraph1',
+        typeDefs: gql`
+
+          type T implements I @key(fields: "id") {
+            id: ID!
+            i1: U! @external
+            specific: U! @requires(fields: "i1 { u1 }")
+          }
+
+          interface I @key(fields: "id") {
+            id: ID!
+            i1: U!
+          }
+
+          type U @shareable {
+            u1: String
+          }
+
+          type Query {
+            example: T!
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'B',
+        url: 'https://Subgraph2',
+        typeDefs: gql`
+          type I @key(fields: "id") @interfaceObject {
+            id: ID!
+            i1: U!
+          }
+
+          type U @shareable {
+            u1: String
+          }
+        `
+      }
+
+      let result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+      assertCompositionSuccess(result);
+      console.log(result.supergraphSdl);
+
+      expect(result.supergraphSdl).toMatchString(`
+      schema
+        @link(url: "https://specs.apollo.dev/link/v1.0")
+        @link(url: "https://specs.apollo.dev/join/v0.5", for: EXECUTION)
+      {
+        query: Query
+      }
+      
+      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
+      
+      directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+      
+      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+      
+      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+      
+      directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+      
+      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+      
+      directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+      
+      directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+      
+      interface I
+        @join__type(graph: A, key: "id")
+        @join__type(graph: B, key: "id", isInterfaceObject: true)
+      {
+        id: ID!
+        i1: U!
+      }
+      
+      input join__ContextArgument {
+        name: String!
+        type: String!
+        context: String!
+        selection: join__FieldValue!
+      }
+      
+      scalar join__DirectiveArguments
+      
+      scalar join__FieldSet
+      
+      scalar join__FieldValue
+      
+      enum join__Graph {
+        A @join__graph(name: "A", url: "https://Subgraph1")
+        B @join__graph(name: "B", url: "https://Subgraph2")
+      }
+      
+      scalar link__Import
+      
+      enum link__Purpose {
+        """
+        \`SECURITY\` features provide metadata necessary to securely resolve fields.
+        """
+        SECURITY
+      
+        """
+        \`EXECUTION\` features provide metadata necessary for operation execution.
+        """
+        EXECUTION
+      }
+      
+      type Query
+        @join__type(graph: A)
+        @join__type(graph: B)
+      {
+        example: T! @join__field(graph: A)
+      }
+      
+      type T implements I
+        @join__implements(graph: A, interface: "I")
+        @join__type(graph: A, key: "id")
+      {
+        id: ID!
+        i1: U! @join__field(graph: A, external: true)
+        specific: U! @join__field(graph: A, requires: "i1 { u1 }")
+      }
+      
+      type U
+        @join__type(graph: A)
+        @join__type(graph: B)
+      {
+        u1: String
+      }
+    `);
+
+      // composes regardless of the subgraph order
+      result = composeAsFed2Subgraphs([subgraph2, subgraph1]);
+      assertCompositionSuccess(result);
+    })
   });
 
   describe('@authenticated', () => {
