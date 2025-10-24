@@ -1,5 +1,14 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.12.0-preview.4
+
+### Patch Changes
+
+- Fixes a bug where query planning may unexpectedly error due to attempting to generate a plan where a `@shareable` mutation field is called more than once across multiple subgraphs. ([#3304](https://github.com/apollographql/federation/pull/3304)) ([#3304](https://github.com/apollographql/federation/pull/3304))
+
+- Updated dependencies [[`4bda3a498eba36e187dfd9ae673eca12d3f3502c`](https://github.com/apollographql/federation/commit/4bda3a498eba36e187dfd9ae673eca12d3f3502c)]:
+  - @apollo/federation-internals@2.12.0-preview.4
+
 ## 2.12.0-preview.3
 
 ### Patch Changes
