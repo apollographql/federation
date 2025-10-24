@@ -40,6 +40,15 @@
   - @apollo/composition@2.12.0-preview.0
   - @apollo/federation-internals@2.12.0-preview.0
 
+## 2.11.3
+
+### Patch Changes
+
+- Updated dependencies [[`4faa114215200daf7ad7518be8e50071fcde783c`](https://github.com/apollographql/federation/commit/4faa114215200daf7ad7518be8e50071fcde783c), [`8c7a2cd655ad3060e9f5c3b106cfbdb59251701c`](https://github.com/apollographql/federation/commit/8c7a2cd655ad3060e9f5c3b106cfbdb59251701c)]:
+  - @apollo/query-planner@2.11.3
+  - @apollo/federation-internals@2.11.3
+  - @apollo/composition@2.11.3
+
 ## 2.11.2
 
 ### Patch Changes

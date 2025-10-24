@@ -4,8 +4,8 @@ subtitle: Reference for Apollo Federation specific GraphQL directives
 description: Reference for GraphQL federation directives including @key, @extends, @sharable, @override, @requires and more.
 ---
 
-import ProgressiveOverrideEnterprise from '../../../../shared/progressive-override-enterprise.mdx';
 import EnterpriseDirective from '../../../../shared/enterprise-directive.mdx';
+import LicensedDirective from '../../../../shared/licensed-directive.mdx';
 import LinkDirective from '../../../../shared/link-directive.mdx';
 
 Apollo Federation defines a collection of directives that you use in your subgraph schemas to enable certain features.
@@ -379,8 +379,6 @@ For more information, see [Migrating entity and root fields](/graphos/schema-des
 
 <MinVersionBadge version="Federation v2.7" />
 
-<ProgressiveOverrideEnterprise/>
-
 Rolling out any change to a production subgraph, including field migration, risks degrading the performance of your graph. Rerouting all traffic from one subgraph to another all at once could overload the overriding subgraph.
 
 The _progressive `@override`_ feature enables the gradual, progressive deployment of a subgraph with an `@override` field. As a subgraph developer, you can customize the percentage of traffic that the overriding and overridden subgraphs each resolve for a field. You apply a label to an `@override` field to set the percentage of traffic for the field that should be resolved by the overriding subgraph, with the remaining percentage resolved by the overridden subgraph. You can then monitor the performance of the subgraphs in Studio, resolve any issues, and iteratively and progressively increase the percentage until all traffic is resolved by the overriding subgraph.
@@ -426,12 +424,6 @@ To learn more, see the [Incremental migration with `@override`](/graphos/schema-
 </td>
 <td>
 
-<EnterpriseFeature>
-
-This argument is available in Apollo Federation 2.7 and later. It is an [Enterprise feature](https://www.apollographql.com/pricing) of the GraphOS Router and requires an organization with a [GraphOS Enterprise plan](https://www.apollographql.com/pricing/). You can test it out by signing up for a free [Enterprise trial](https://studio.apollographql.com/signup?referrer=docs).
-
-</EnterpriseFeature>
-
 **Optional.** A string of arbitrary arguments. Supported in this release:
 - `percent(<percent-value>)` - The percentage of traffic for the field that's resolved by this subgraph. The remaining percentage is resolved by the other ([from](#from)) subgraph. To learn more, see [Incremental migration with `@override`](/graphos/schema-design/federated-schemas/entities/migrate-fields#incremental-migration-with-progressive-override).
 
@@ -447,7 +439,7 @@ This argument is available in Apollo Federation 2.7 and later. It is an [Enterpr
 
 <MinVersionBadge version="Federation v2.5" />
 
-<EnterpriseDirective />
+<LicensedDirective />
 
 
 ```graphql
@@ -465,7 +457,7 @@ Indicates to composition that the target element is accessible only to the authe
 
 <MinVersionBadge version="Federation v2.5" />
 
-<EnterpriseDirective />
+<LicensedDirective />
 
 ```graphql
 directive @requiresScopes(scopes: [[federation__Scope!]!]!) on
@@ -512,7 +504,7 @@ Indicates to composition that the target element is accessible only to the authe
 
 <MinVersionBadge version="Federation v2.6" />
 
-<EnterpriseDirective />
+<LicensedDirective />
 
 ```graphql
 directive @policy(policies: [[federation__Policy!]!]!) on
@@ -895,8 +887,6 @@ If different subgraphs use different versions of a directive's corresponding spe
 
 <MinVersionBadge version="Federation v2.8" />
 
-<EnterpriseFeature />
-
 The `@context` directive defines a named context from which a field of the annotated type can be passed to a receiver of the context. The receiver must be a field annotated with the `@fromContext` directive. 
 
 ```graphql
@@ -928,8 +918,6 @@ type U @key(fields: "id") {
 
 <MinVersionBadge version="Federation v2.8" />
 
-<EnterpriseFeature />
-
 The `@fromContext` directive sets the context from which to receive the value of the annotated field. The context must have been defined with the `@context` directive.
 
 ```graphql
@@ -958,7 +946,7 @@ For examples using `@context` and `@fromContext`, see [Using contexts to share d
 
 <MinVersionBadge version="Federation v2.9" />
 
-<EnterpriseFeature />
+<LicensedDirective />
 
 ```graphql
 directive @cost(weight: Int!) on ARGUMENT_DEFINITION | ENUM | FIELD_DEFINITION | INPUT_FIELD_DEFINITION | OBJECT | SCALAR
@@ -1005,7 +993,7 @@ Regardless of whether `@cost` is specified on a field, the field cost for that f
 
 <MinVersionBadge version="Federation v2.9" />
 
-<EnterpriseFeature />
+<LicensedDirective />
 
 ```graphql
 directive @listSize(assumedSize: Int, slicingArguments: [String!], sizedFields: [String!], requireOneSlicingArgument: Boolean = true) on FIELD_DEFINITION
@@ -1162,7 +1150,5 @@ The default value is `true`.
 ## Connectors
 
 <MinVersionBadge version="Federation v2.10" />
-
-<EnterpriseFeature />
 
 Directives for Connectors like `@connect` and `@source` are documented in [Connector Directives Reference](/graphos/schema-design/connectors/directives).

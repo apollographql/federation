@@ -3162,6 +3162,126 @@ describe('@requires', () => {
       }
     `);
   });
+
+  it('avoids selecting inapplicable @key from parent fetch group', () => {
+    // Previously, there was an issue where a subgraph jump inserted due to a
+    // @requires field would try (as an optimization) to collect its locally
+    // satisfiable key from the parent, but the parent may not have that locally
+    // satisfiable key. We now explicitly check for this, falling back to the
+    // current node if needed (which should be guaranteed to have it).
+    const subgraph1 = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          t: T
+        }
+        type T @key(fields: "id1") {
+          id1: ID!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'B',
+      typeDefs: gql`
+        type T @key(fields: "id2") @key(fields: "id1") {
+          id1: ID!
+          id2: ID!
+          x: Int @external
+          req: Int @requires(fields: "x")
+        }
+      `,
+    };
+
+    const subgraph3 = {
+      name: 'C',
+      typeDefs: gql`
+        type T @key(fields: "id2") {
+          id2: ID!
+          x: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(
+      subgraph1,
+      subgraph2,
+      subgraph3,
+    );
+    const operation = operationFromDocument(
+      api,
+      gql`
+        {
+          t {
+            req
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "A") {
+            {
+              t {
+                __typename
+                id1
+              }
+            }
+          },
+          Flatten(path: "t") {
+            Fetch(service: "B") {
+              {
+                ... on T {
+                  __typename
+                  id1
+                }
+              } =>
+              {
+                ... on T {
+                  __typename
+                  id2
+                }
+              }
+            },
+          },
+          Flatten(path: "t") {
+            Fetch(service: "C") {
+              {
+                ... on T {
+                  __typename
+                  id2
+                }
+              } =>
+              {
+                ... on T {
+                  x
+                }
+              }
+            },
+          },
+          Flatten(path: "t") {
+            Fetch(service: "B") {
+              {
+                ... on T {
+                  __typename
+                  x
+                  id2
+                }
+              } =>
+              {
+                ... on T {
+                  req
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
 });
 
 describe('fetch operation names', () => {
@@ -6122,6 +6242,171 @@ describe('mutations', () => {
             {
               m1
             }
+          },
+        },
+      }
+    `);
+  });
+
+  it('executes a single mutation operation on a @shareable field', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          dummy: Int
+        }
+
+        type Mutation {
+          f: F @shareable
+        }
+
+        type F @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Mutation {
+          f: F @shareable
+        }
+
+        type F @key(fields: "id", resolvable: false) {
+          id: ID!
+          y: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        mutation {
+          f {
+            x
+            y
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              f {
+                __typename
+                id
+                y
+              }
+            }
+          },
+          Flatten(path: "f") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on F {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on F {
+                  x
+                }
+              }
+            },
+          },
+        },
+      }
+    `);
+  });
+
+  it('ignores mutation @key at top-level for mutations', () => {
+    const subgraph1 = {
+      name: 'Subgraph1',
+      typeDefs: gql`
+        type Query {
+          dummy: Int
+        }
+
+        type Mutation @key(fields: "__typename") {
+          f: F @shareable
+        }
+
+        type F @key(fields: "id") {
+          id: ID!
+          x: Int
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: 'Subgraph2',
+      typeDefs: gql`
+        type Mutation @key(fields: "__typename") {
+          f: F @shareable
+        }
+
+        type F @key(fields: "id", resolvable: false) {
+          id: ID!
+          y: Int
+        }
+      `,
+    };
+
+    const [api, queryPlanner] = composeAndCreatePlanner(subgraph1, subgraph2);
+    const operation = operationFromDocument(
+      api,
+      gql`
+        mutation {
+          f {
+            x
+            y
+          }
+        }
+      `,
+    );
+
+    const plan = queryPlanner.buildQueryPlan(operation);
+    // Note that a plan that uses a mutation @key will typically be more costly
+    // than a plan that doesn't, so the query planner's plan won't show that we
+    // properly ignored the @key. We instead check both the number of evaluated
+    // plans and the plan itself.
+    expect(
+      queryPlanner.lastGeneratedPlanStatistics()?.evaluatedPlanCount,
+    ).toStrictEqual(1);
+    expect(plan).toMatchInlineSnapshot(`
+      QueryPlan {
+        Sequence {
+          Fetch(service: "Subgraph2") {
+            {
+              f {
+                __typename
+                id
+                y
+              }
+            }
+          },
+          Flatten(path: "f") {
+            Fetch(service: "Subgraph1") {
+              {
+                ... on F {
+                  __typename
+                  id
+                }
+              } =>
+              {
+                ... on F {
+                  x
+                }
+              }
+            },
           },
         },
       }

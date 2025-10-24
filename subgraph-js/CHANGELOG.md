@@ -34,6 +34,15 @@
 - Updated dependencies [[`468f27842608f4e390cfc88bc7e6b4b0945f95ff`](https://github.com/apollographql/federation/commit/468f27842608f4e390cfc88bc7e6b4b0945f95ff), [`b734ea04d118db09cf6077fdd968c8f04a96327a`](https://github.com/apollographql/federation/commit/b734ea04d118db09cf6077fdd968c8f04a96327a)]:
   - @apollo/federation-internals@2.12.0-preview.0
 
+## 2.11.3
+
+### Patch Changes
+
+- When a `GraphQLScalarType` resolver is provided to `buildSubgraphSchema()`, omitted configuration options in the `GraphQLScalarType` no longer cause the corresponding properties in the GraphQL document/AST to be cleared. To explicitly clear these properties, use `null` for the configuration option instead. ([#3285](https://github.com/apollographql/federation/pull/3285)) ([#3285](https://github.com/apollographql/federation/pull/3285))
+
+- Updated dependencies [[`8c7a2cd655ad3060e9f5c3b106cfbdb59251701c`](https://github.com/apollographql/federation/commit/8c7a2cd655ad3060e9f5c3b106cfbdb59251701c)]:
+  - @apollo/federation-internals@2.11.3
+
 ## 2.11.2
 
 ### Patch Changes
