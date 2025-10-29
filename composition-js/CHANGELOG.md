@@ -1,5 +1,21 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.12.0-preview.4
+
+### Minor Changes
+
+- Fixes a bug where composition may not generate a satisfiability error for an unsatisfiable `@shareable` mutation field. ([#3305](https://github.com/apollographql/federation/pull/3305)) ([#3305](https://github.com/apollographql/federation/pull/3305))
+
+### Patch Changes
+
+- Fixed handling `@requires` dependency on fields returned by `@interfaceObject` ([#3318](https://github.com/apollographql/federation/pull/3318))
+
+  Depending on the merge order of the types, we could fail composition if a type that `@requires` data from an `@interfaceObject` is merged before the interface. Updated merge logic to use explicit merge order of scalars, input objects, interfaces, and finally objects.
+
+- Updated dependencies [[`4bda3a498eba36e187dfd9ae673eca12d3f3502c`](https://github.com/apollographql/federation/commit/4bda3a498eba36e187dfd9ae673eca12d3f3502c), [`f3ab499eaf62b1a1c0f08b838d2cbde5accb303a`](https://github.com/apollographql/federation/commit/f3ab499eaf62b1a1c0f08b838d2cbde5accb303a)]:
+  - @apollo/federation-internals@2.12.0-preview.4
+  - @apollo/query-graphs@2.12.0-preview.4
+
 ## 2.12.0-preview.3
 
 ### Patch Changes

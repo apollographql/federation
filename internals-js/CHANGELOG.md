@@ -1,5 +1,13 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.12.0-preview.4
+
+### Patch Changes
+
+- Fixed demand control validations ([#3314](https://github.com/apollographql/federation/pull/3314))
+
+  Updated `@cost`/`@listSize` validations to use correct federation spec to look them up in the schema.
+
 ## 2.12.0-preview.3
 
 ### Patch Changes
