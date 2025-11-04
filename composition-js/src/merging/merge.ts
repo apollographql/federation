@@ -89,7 +89,6 @@ import {
   AuthenticatedSpecDefinition,
   RequiresScopesSpecDefinition,
   PolicySpecDefinition,
-  ScalarType,
   AUTHENTICATED_VERSIONS,
   REQUIRES_SCOPES_VERSIONS,
   POLICY_VERSIONS,
