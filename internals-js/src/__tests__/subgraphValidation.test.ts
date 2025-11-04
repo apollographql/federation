@@ -1723,3 +1723,62 @@ describe('@cacheTag', () => {
     );
   });
 });
+
+describe('authentication validations', () => {
+  it.each([
+    {
+      directiveName: '@authenticated',
+      directiveString: '@authenticated',
+    },
+    {
+      directiveName: '@requiresScopes',
+      directiveString: '@requiresScopes(scopes: [["scope1"]])',
+    },
+    {
+      directiveName: '@policy',
+      directiveString: '@policy(policies: [["policy1"]])',
+    },
+  ])(
+    `rejects $directiveName applications on interfaces and interface objects`,
+    ({ directiveName, directiveString }) => {
+      const doc = gql`
+      type Query {
+        i: I
+        o: O
+      }
+
+      interface I ${directiveString} {
+        x: Int ${directiveString}
+      }
+      
+      type T implements I {
+        x: Int
+      }
+
+      type O @key(fields: "id") @interfaceObject ${directiveString} {
+        id: ID!
+        y: Int ${directiveString}
+      }
+    `;
+
+      expect(buildForErrors(doc, { includeAllImports: true })).toStrictEqual([
+        [
+          'AUTHENTICATION_APPLIED_ON_INTERFACE',
+          `[S] Invalid use of ${directiveName} on field "I.x": ${directiveName} cannot be applied on interfaces, interface objects or their fields`,
+        ],
+        [
+          'AUTHENTICATION_APPLIED_ON_INTERFACE',
+          `[S] Invalid use of ${directiveName} on interface "I": ${directiveName} cannot be applied on interfaces, interface objects or their fields`,
+        ],
+        [
+          'AUTHENTICATION_APPLIED_ON_INTERFACE',
+          `[S] Invalid use of ${directiveName} on field "O.y": ${directiveName} cannot be applied on interfaces, interface objects or their fields`,
+        ],
+        [
+          'AUTHENTICATION_APPLIED_ON_INTERFACE',
+          `[S] Invalid use of ${directiveName} on interface object "O": ${directiveName} cannot be applied on interfaces, interface objects or their fields`,
+        ],
+      ]);
+    },
+  );
+});
