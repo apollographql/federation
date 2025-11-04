@@ -1,5 +1,96 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.9.4
+
+### Patch Changes
+
+- Automatically propagate authorization requirements from implementing type to interface in the supergraph. ([#3327](https://github.com/apollographql/federation/pull/3327))
+
+  Authorization requirements now automatically propagate from implementing types to interfaces during composition. Direct auth specifications on interfaces are no longer allowed. Interface access requires satisfying ALL implementing types' requirements (`AND` rule), with these requirements included in the supergraph for backward compatibility with older routers.
+
+- Fix transitive auth requirements on `@requires` and `@fromcontext` ([#3327](https://github.com/apollographql/federation/pull/3327))
+
+  Adds new `postMergeValidation` check to ensure that all fields that depends on data from other parts of the supergraph through `@requires` and/or `@fromContext` directives explicitly specify matching `@authenticated`, `@requiresScopes` and/or `@policy` auth requirements, e.g.
+
+  ```graphql
+  type T @key(fields: "id") {
+    id: ID!
+    extra: String @external
+    # we need explicit `@authenticated` as it is needed to access extra
+    requiresExtra: String @requires(fields: "extra") @authenticated
+  }
+
+  type T @key(fields: "id") {
+    id: ID!
+    extra: String @authenticated
+  }
+  ```
+
+- Restrict usage of auth directives on interfaces ([#3327](https://github.com/apollographql/federation/pull/3327))
+
+  Restricts usage of `@authenticated`, `@policy` and `@requiresScopes` from being applied on interfaces, interface objects and their fields.
+
+  GraphQL spec currently does not define any interface inheritance rules and developers have to explicitly redefine all interface fields on their implementations. At runtime, GraphQL servers cannot return abstract types and always return concrete output types. Due to the above, applying auth directives on the interfaces may lead to unexpected runtime behavior as they won't have any effect at runtime.
+
+- Stricter merge rules for @requiresScopes and @policy ([#3327](https://github.com/apollographql/federation/pull/3327))
+
+  Current merge policies for `@authenticated`, `@requiresScopes` and `@policy` were inconsistent.
+
+  If a shared field uses the same authorization directives across subgraphs, composition merges them using `OR` logic. However, if a shared field uses different authorization directives across subgraphs composition merges them using `AND` logic. This simplified schema evolution, but weakened security requirements. Therefore, the behavior has been changed to always apply `AND` logic to authorization directives applied to the same field across subgraphs.
+
+  Since `@policy` and `@requiresScopes` values represent boolean conditions in Disjunctive Normal Form, we can merge them conjunctively to get the final auth requirements. For example:
+
+  ```graphql
+  # subgraph A
+  type T @authenticated {
+    # requires scopes (A1 AND A2) OR A3
+    secret: String @requiresScopes(scopes: [["A1", "A2"], ["A3"]])
+  }
+
+  # subgraph B
+  type T {
+    # requires scopes B1 OR B2
+    secret: String @requiresScopes(scopes: [["B1"], ["B2"]]
+  }
+
+  # composed supergraph
+  type T @authenticated {
+    secret: String @requiresScopes(
+      scopes: [
+        ["A1", "A2", "B1"],
+        ["A1", "A2", "B2"],
+        ["A3", "B1"],
+        ["A3", "B2"]
+      ])
+  }
+  ```
+
+  This algorithm also deduplicates redundant requirements, e.g.
+
+  ```graphql
+  # subgraph A
+  type T {
+    # requires A1 AND A2 scopes to access
+    secret: String @requiresScopes(scopes: [["A1", "A2"]])
+  }
+
+  # subgraph B
+  type T {
+    # requires only A1 scope to access
+    secret: String @requiresScopes(scopes: [["A1"]])
+  }
+
+  # composed supergraph
+  type T {
+    # requires only A1 scope to access as A2 is redundant
+    secret: String @requiresScopes(scopes: [["A1"]])
+  }
+  ```
+
+- Updated dependencies [[`22686d640b1e48f6a9aa07e538464db95b536792`](https://github.com/apollographql/federation/commit/22686d640b1e48f6a9aa07e538464db95b536792), [`22686d640b1e48f6a9aa07e538464db95b536792`](https://github.com/apollographql/federation/commit/22686d640b1e48f6a9aa07e538464db95b536792), [`22686d640b1e48f6a9aa07e538464db95b536792`](https://github.com/apollographql/federation/commit/22686d640b1e48f6a9aa07e538464db95b536792), [`22686d640b1e48f6a9aa07e538464db95b536792`](https://github.com/apollographql/federation/commit/22686d640b1e48f6a9aa07e538464db95b536792)]:
+  - @apollo/federation-internals@2.9.4
+  - @apollo/query-graphs@2.9.4
+
 ## 2.9.3
 
 ### Patch Changes
