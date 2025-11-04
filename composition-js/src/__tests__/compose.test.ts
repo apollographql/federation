@@ -4051,32 +4051,6 @@ describe('composition', () => {
         name: 'on-object',
       };
 
-      const onInterface = {
-        typeDefs: gql`
-          type Query {
-            interface: AuthenticatedInterface!
-          }
-
-          interface AuthenticatedInterface @authenticated {
-            field: Int!
-          }
-        `,
-        name: 'on-interface',
-      };
-
-      const onInterfaceObject = {
-        typeDefs: gql`
-          type AuthenticatedInterfaceObject
-            @interfaceObject
-            @key(fields: "id")
-            @authenticated
-          {
-            id: String!
-          }
-        `,
-        name: 'on-interface-object',
-      }
-
       const onScalar = {
         typeDefs: gql`
           scalar AuthenticatedScalar @authenticated
@@ -4140,8 +4114,6 @@ describe('composition', () => {
 
       const result = composeAsFed2Subgraphs([
         onObject,
-        onInterface,
-        onInterfaceObject,
         onScalar,
         onEnum,
         onRootField,
@@ -4152,8 +4124,6 @@ describe('composition', () => {
 
       const authenticatedElements = [
         "AuthenticatedObject",
-        "AuthenticatedInterface",
-        "AuthenticatedInterfaceObject",
         "AuthenticatedScalar",
         "AuthenticatedEnum",
         "Query.authenticatedRootField",
@@ -4287,32 +4257,6 @@ describe('composition', () => {
         name: 'on-object',
       };
 
-      const onInterface = {
-        typeDefs: gql`
-          type Query {
-            interface: ScopedInterface!
-          }
-
-          interface ScopedInterface ${directiveName}(${argName}: ["interface"]) {
-            field: Int!
-          }
-        `,
-        name: 'on-interface',
-      };
-
-      const onInterfaceObject = {
-        typeDefs: gql`
-          type ScopedInterfaceObject
-            @interfaceObject
-            @key(fields: "id")
-            ${directiveName}(${argName}: ["interfaceObject"])
-          {
-            id: String!
-          }
-        `,
-        name: 'on-interface-object',
-      }
-
       const onScalar = {
         typeDefs: gql`
           scalar ScopedScalar ${directiveName}(${argName}: ["scalar"])
@@ -4376,8 +4320,6 @@ describe('composition', () => {
 
       const result = composeAsFed2Subgraphs([
         onObject,
-        onInterface,
-        onInterfaceObject,
         onScalar,
         onEnum,
         onRootField,
@@ -4388,8 +4330,6 @@ describe('composition', () => {
 
       const scopedElements = [
         "ScopedObject",
-        "ScopedInterface",
-        "ScopedInterfaceObject",
         "ScopedScalar",
         "ScopedEnum",
         "Query.scopedRootField",
@@ -4440,14 +4380,14 @@ describe('composition', () => {
       expect(result2.schema.type('A')?.hasAppliedDirective(directiveName.slice(1))).toBeTruthy();
     });
 
-    it.each(testsToRun)('merges ${directiveName} lists (simple union)', ({ directiveName, argName }) => {
+    it.each(testsToRun)('merges $directiveName lists (outer sum)', ({ directiveName, argName }) => {
       const a1 = {
         typeDefs: gql`
           type Query {
             a: A
           }
 
-          type A ${directiveName}(${argName}: ["a"]) @key(fields: "id") {
+          type A ${directiveName}(${argName}: [["a1", "a2"], ["a3"]]) @key(fields: "id") {
             id: String!
             a1: String
           }
@@ -4456,7 +4396,7 @@ describe('composition', () => {
       };
       const a2 = {
         typeDefs: gql`
-          type A ${directiveName}(${argName}: ["b"]) @key(fields: "id") {
+          type A ${directiveName}(${argName}: [["b1"], ["b2"]]) @key(fields: "id") {
             id: String!
             a2: String
           }
@@ -4469,18 +4409,24 @@ describe('composition', () => {
       expect(
         result.schema.type('A')
           ?.appliedDirectivesOf(directiveName.slice(1))
-          ?.[0]?.arguments()?.[argName]).toStrictEqual(['a', 'b']
+          ?.[0]?.arguments()?.[argName]).toStrictEqual(
+              [
+                ['a3', 'b1'],
+                ['a3', 'b2'],
+                ['a1', 'a2', 'b1'],
+                ['a1', 'a2', 'b2']
+              ]
       );
     });
 
-    it.each(testsToRun)('merges ${directiveName} lists (deduplicates intersecting scopes)', ({ directiveName, argName }) => {
+    it.each(testsToRun)('merges $directiveName lists (deduplicates redundant scopes)', ({ directiveName, argName }) => {
       const a1 = {
         typeDefs: gql`
           type Query {
             a: A
           }
 
-          type A ${directiveName}(${argName}: ["a", "b"]) @key(fields: "id") {
+          type A ${directiveName}(${argName}: [["a"], ["c"]]) @key(fields: "id") {
             id: String!
             a1: String
           }
@@ -4489,20 +4435,33 @@ describe('composition', () => {
       };
       const a2 = {
         typeDefs: gql`
-          type A ${directiveName}(${argName}: ["b", "c"]) @key(fields: "id") {
+          type A ${directiveName}(${argName}: [["a"], ["b"], ["c"]]) @key(fields: "id") {
             id: String!
             a2: String
           }
         `,
         name: 'a2',
       };
+      const a3 = {
+        typeDefs: gql`
+          type A ${directiveName}(${argName}: [["a"], ["b", "c"]]) @key(fields: "id") {
+            id: String!
+            a3: String
+          }
+        `,
+        name: 'a3',
+      };
 
-      const result = composeAsFed2Subgraphs([a1, a2]);
+      const result = composeAsFed2Subgraphs([a1, a2, a3]);
       assertCompositionSuccess(result);
       expect(
         result.schema.type('A')
           ?.appliedDirectivesOf(directiveName.slice(1))
-          ?.[0]?.arguments()?.[argName]).toStrictEqual(['a', 'b', 'c']
+          ?.[0]?.arguments()?.[argName]).toStrictEqual(
+            [
+              ['a'],
+              ['b', 'c'],
+            ]
       );
     });
 
@@ -4510,7 +4469,7 @@ describe('composition', () => {
       const a = {
         typeDefs: gql`
           type Query {
-            x: Int ${directiveName}(${argName}: ["a", "b"])
+            x: Int ${directiveName}(${argName}: [["a"], ["b"]])
           }
         `,
         name: 'a',

@@ -100,6 +100,7 @@ iface
 impelementation
 implemenations
 implementationt
+impls
 inacessible
 incopatibilities
 ineffectient
@@ -109,6 +110,7 @@ insteances
 instrospection
 Inteface
 Intelli
+intf
 invalidities
 isnodelike
 issuels
@@ -187,6 +189,7 @@ Renamers
 reoptimized
 repeateable
 reponse
+Reqs
 resovable
 Reviwed
 Rhai
