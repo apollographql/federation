@@ -8,6 +8,7 @@ import {
 } from "./coreSpec";
 import { createDirectiveSpecification } from "../directiveAndTypeSpecification";
 import { registerKnownFeature } from "../knownCoreFeatures";
+import {DirectiveDefinition, Schema} from "../definitions";
 
 export class AuthenticatedSpecDefinition extends FeatureDefinition {
   public static readonly directiveName = "authenticated";
@@ -35,6 +36,10 @@ export class AuthenticatedSpecDefinition extends FeatureDefinition {
       composes: true,
       supergraphSpecification: () => AUTHENTICATED_VERSIONS.latest(),
     }));
+  }
+
+  authenticatedDirective(schema: Schema): DirectiveDefinition | undefined {
+    return this.directive(schema, AuthenticatedSpecDefinition.directiveName);
   }
 
   get defaultCorePurpose(): CorePurpose {
