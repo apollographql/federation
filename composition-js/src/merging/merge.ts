@@ -84,6 +84,18 @@ import {
   DirectiveCompositionSpecification,
   CoreImport,
   inaccessibleIdentity,
+  AuthenticatedSpecDefinition,
+  RequiresScopesSpecDefinition,
+  PolicySpecDefinition,
+  AUTHENTICATED_VERSIONS,
+  REQUIRES_SCOPES_VERSIONS,
+  POLICY_VERSIONS,
+  parseSelectionSet,
+  FieldSelection,
+  SelectionSet,
+  JoinFieldDirectiveArguments,
+  ContextSpecDefinition,
+  CONTEXT_VERSIONS,
 } from "@apollo/federation-internals";
 import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
 import {
@@ -380,6 +392,9 @@ class Merger {
   private schemaToImportNameToFeatureUrl = new Map<Schema, Map<string, FeatureUrl>>();
   private fieldsWithFromContext: Set<string>;
   private fieldsWithOverride: Set<string>;
+  private fieldsWithRequires: Set<string>;
+  private authEnabled: boolean;
+  private interfacesWithAuthRequirements: Set<string>;
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.latestFedVersionUsed = this.getLatestFederationVersionUsed();
@@ -387,6 +402,10 @@ class Merger {
     this.linkSpec = LINK_VERSIONS.getMinimumRequiredVersion(this.latestFedVersionUsed);
     this.fieldsWithFromContext = this.getFieldsWithFromContextDirective();
     this.fieldsWithOverride = this.getFieldsWithOverrideDirective();
+    this.fieldsWithRequires = this.getFieldsWithRequiresDirective();
+    const { authEnabled, interfacesWithAuthRequirements } = this.getAuthRequirements();
+    this.authEnabled = authEnabled;
+    this.interfacesWithAuthRequirements = interfacesWithAuthRequirements;
 
     this.names = subgraphs.names();
     this.composeDirectiveManager = new ComposeDirectiveManager(
@@ -732,6 +751,8 @@ class Merger {
     // copy things from interface in the merged schema into their implementation in that same schema so
     // we want to make sure everything is ready.
     this.addMissingInterfaceObjectFieldsToImplementations();
+
+    this.propagateAuthToInterfaces();
 
     // If we already encountered errors, `this.merged` is probably incomplete. Let's not risk adding errors that
     // are only an artifact of that incompleteness as it's confusing.
@@ -3392,6 +3413,21 @@ class Merger {
         }
       }
     }
+
+    // auth verification on the supergraph
+    // need to verify usage of @requires on fields that require authorization
+    if (this.authEnabled) {
+      const authValidator = new AuthValidator(this.merged, this.joinSpec, this.subgraphNamesToJoinSpecName);
+      for (const coordinate of this.fieldsWithRequires) {
+        const errors = authValidator.validateRequiresFieldSet(coordinate);
+        this.errors.push(...errors);
+      }
+
+      for (const coordinate of this.fieldsWithFromContext) {
+        const errors = authValidator.validateFromContext(coordinate);
+        this.errors.push(...errors);
+      }
+    }
   }
 
   private updateInaccessibleErrorsWithLinkToSubgraphs(
@@ -3561,6 +3597,53 @@ class Merger {
     );
   }
 
+  private getFieldsWithRequiresDirective(): Set<string> {
+    return this.getFieldsWithAppliedDirective(
+        (subgraph: Subgraph) => subgraph.metadata().requiresDirective(),
+        (application: Directive<SchemaElement<any,any>>) => {
+          const field = application.parent;
+          assert(isFieldDefinition(field), () => `Expected ${application.parent} to be a field`);
+          return field;
+        }
+    );
+  }
+
+  private getAuthRequirements(): { authEnabled: boolean, interfacesWithAuthRequirements: Set<string> } {
+    const interfacesWithAuthRequirements = new Set<string>();
+    let authEnabled = false;
+    for (const subgraph of this.subgraphs) {
+      const authenticatedDirective = subgraph.metadata().authenticatedDirective();
+      const requiresScopesDirective = subgraph.metadata().requiresScopesDirective();
+      const policyDirective = subgraph.metadata().policyDirective();
+
+      for (const authDirective of [authenticatedDirective, requiresScopesDirective, policyDirective]) {
+        if (isFederationDirectiveDefinedInSchema(authDirective)) {
+          authEnabled = authEnabled || authDirective.applications().size > 0;
+
+          for (const application of authDirective.applications()) {
+            const parent = application.parent;
+            if (parent instanceof ObjectType) {
+              // capture interfaces that will need to be updated later on
+              parent.interfaces().forEach(
+                  (intf) => interfacesWithAuthRequirements.add(intf.name)
+              );
+            } else if (parent instanceof FieldDefinition) {
+              // we only allow auth on object fields
+              const parentObjectType = parent.parent;
+              if (isObjectType(parentObjectType)) {
+                parentObjectType.interfaces().forEach(
+                    (intf) => interfacesWithAuthRequirements.add(intf.name)
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return { authEnabled, interfacesWithAuthRequirements };
+  }
+
   private getFieldsWithAppliedDirective(
     getDirective: (subgraph: Subgraph) => Post20FederationDirectiveDefinition<any>,
     getField: (application: Directive<SchemaElement<any, any>>) => FieldDefinition<any>,
@@ -3579,5 +3662,345 @@ class Merger {
       }
     }
     return fields;
+  }
+
+  propagateAuthToInterfaces() {
+    if (this.authEnabled) {
+      const interfacesThatNeedAuth = this.merged.interfaceTypes()
+          .filter((intf) => this.interfacesWithAuthRequirements.has(intf.name));
+
+      if (interfacesThatNeedAuth.length > 0) {
+        const authenticatedFeature = this.merged.coreFeatures?.getByIdentity(AuthenticatedSpecDefinition.identity);
+        const authenticatedSpec = authenticatedFeature && AUTHENTICATED_VERSIONS.find(authenticatedFeature.url.version);
+        const authenticatedDirective = authenticatedSpec?.authenticatedDirective(this.merged);
+
+        const requiresScopesFeature = this.merged.coreFeatures?.getByIdentity(RequiresScopesSpecDefinition.identity);
+        const requiresScopesSpec = requiresScopesFeature && REQUIRES_SCOPES_VERSIONS.find(requiresScopesFeature.url.version);
+        const requiresScopesDirective = requiresScopesSpec?.requiresScopesDirective(this.merged);
+
+        const policyFeature = this.merged.coreFeatures?.getByIdentity(PolicySpecDefinition.identity);
+        const policySpec = policyFeature && POLICY_VERSIONS.find(policyFeature.url.version);
+        const policyDirective = policySpec?.policyDirective(this.merged);
+
+        for (const intf of interfacesThatNeedAuth) {
+          const impls = intf.possibleRuntimeTypes();
+          const implSources = sourcesFromArray(<Array<ObjectType | undefined>>impls);
+          if (authenticatedDirective) {
+            this.mergeAppliedDirective(authenticatedDirective.name, implSources, intf);
+          }
+          if (requiresScopesDirective) {
+            this.mergeAppliedDirective(requiresScopesDirective.name, implSources, intf);
+          }
+          if (policyDirective) {
+            this.mergeAppliedDirective(policyDirective.name, implSources, intf);
+          }
+
+          for (const intfField of intf.fields()) {
+            const implFields = impls.map((impl) => impl.field(intfField.name));
+            const fieldSources = sourcesFromArray(implFields);
+            if (authenticatedDirective) {
+              this.mergeAppliedDirective(authenticatedDirective.name, fieldSources, intfField);
+            }
+            if (requiresScopesDirective) {
+              this.mergeAppliedDirective(requiresScopesDirective.name, fieldSources, intfField);
+            }
+            if (policyDirective) {
+              this.mergeAppliedDirective(policyDirective.name, fieldSources, intfField);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+export class AuthValidator {
+  schema: Schema;
+  joinSpecNamesToSubgraphNames: Map<string, string>;
+  joinFieldDirective: DirectiveDefinition<JoinFieldDirectiveArguments>;
+  authenticatedDirective?: DirectiveDefinition;
+  requiresScopesDirective?: DirectiveDefinition<{ scopes: string[][] }>;
+  policyDirective?: DirectiveDefinition<{ policies: string[][] }>;
+  contexts: Map<string, string[]>;
+
+  constructor(schema: Schema, joinSpec: JoinSpecDefinition, subgraphNamesToJoinSpecName: Map<string, string>) {
+    this.schema = schema;
+    this.joinFieldDirective = joinSpec.fieldDirective(this.schema);
+    this.joinSpecNamesToSubgraphNames = new Map(Array.from(
+        subgraphNamesToJoinSpecName, entry => entry.reverse() as [string, string])
+    );
+
+    const authenticatedFeature = this.schema.coreFeatures?.getByIdentity(AuthenticatedSpecDefinition.identity);
+    const authenticatedSpec = authenticatedFeature && AUTHENTICATED_VERSIONS.find(authenticatedFeature.url.version);
+    this.authenticatedDirective = authenticatedSpec?.authenticatedDirective(this.schema);
+
+    const requiresScopesFeature = this.schema.coreFeatures?.getByIdentity(RequiresScopesSpecDefinition.identity);
+    const requiresScopesSpec = requiresScopesFeature && REQUIRES_SCOPES_VERSIONS.find(requiresScopesFeature.url.version);
+    this.requiresScopesDirective = requiresScopesSpec?.requiresScopesDirective(this.schema);
+
+    const policyFeature = this.schema.coreFeatures?.getByIdentity(PolicySpecDefinition.identity);
+    const policySpec = policyFeature && POLICY_VERSIONS.find(policyFeature.url.version);
+    this.policyDirective = policySpec?.policyDirective(this.schema);
+
+    const contextFeature = this.schema.coreFeatures?.getByIdentity(ContextSpecDefinition.identity);
+    const contextSpec = contextFeature && CONTEXT_VERSIONS.find(contextFeature.url.version);
+    const contextDirective = contextSpec?.contextDirective(this.schema);
+
+    const contextApplications = Array.from(contextDirective?.applications() ?? []);
+    this.contexts = new Map();
+    contextApplications.forEach((context) => {
+      const contextName = context.arguments().name;
+      const contextType = context.parent as CompositeType;
+      const types = this.contexts.get(contextName) ?? [];
+      types.push(contextType.name);
+      this.contexts.set(contextName, types);
+    });
+  }
+
+  validateRequiresFieldSet(coordinate: string): GraphQLError[] {
+    const fieldCoordinate = coordinate.split('.');
+    assert(fieldCoordinate && fieldCoordinate.length == 2,'Valid coordinate for field with @requires');
+    const type = this.schema.type(fieldCoordinate[0]);
+    assert(type instanceof ObjectType, 'Type exists in the schema');
+    const field = type.field(fieldCoordinate[1]);
+    assert(field instanceof FieldDefinition, 'Field exists in the schema');
+
+    const authRequirementOnRequires = new AuthRequirements(coordinate, '@requires');
+    authRequirementOnRequires.type = this.authRequirementsOnElement(type);
+    authRequirementOnRequires.field = this.authRequirementsOnElement(field);
+
+    const errors: GraphQLError[] = []
+    const joinDirectivesOnRequires = field.appliedDirectivesOf(this.joinFieldDirective);
+    for (const joinDirectiveOnRequires of joinDirectivesOnRequires) {
+      const requiresFieldSet = joinDirectiveOnRequires.arguments().requires!;
+      const requiresSelectionSet = parseSelectionSet({parentType: type, source: requiresFieldSet});
+      try {
+        this.verifyAuthRequirementsOnSelectionSet(authRequirementOnRequires, requiresSelectionSet);
+      } catch (e) {
+        if (!(e instanceof GraphQLError)) {
+          throw e;
+        }
+        // target subgraph info should always be provided but just in case
+        const enumSubgraphValue = joinDirectiveOnRequires.arguments().graph;
+        const subgraph = enumSubgraphValue ? this.joinSpecNamesToSubgraphNames.get(enumSubgraphValue) : undefined;
+        if (subgraph) {
+          errors.push(addSubgraphToError(e, subgraph));
+        } else {
+          errors.push(e);
+        }
+      }
+    }
+
+    return errors;
+  }
+
+  validateFromContext(coordinate: string): GraphQLError[] {
+    const fieldCoordinate = coordinate.split('.');
+    assert(fieldCoordinate && fieldCoordinate.length == 2,'Valid coordinate for field with @fromContext');
+    const type = this.schema.type(fieldCoordinate[0]);
+    assert(type instanceof ObjectType, 'Type exists in the schema');
+    const field = type.field(fieldCoordinate[1]);
+    assert(field instanceof FieldDefinition, 'Field exists in the schema');
+
+    const authRequirementOnContext = new AuthRequirements(coordinate, '@fromContext');
+    authRequirementOnContext.type = this.authRequirementsOnElement(type);
+    authRequirementOnContext.field = this.authRequirementsOnElement(field);
+
+    const errors: GraphQLError[] = []
+    const joinDirectivesOnFromContext = field.appliedDirectivesOf(this.joinFieldDirective);
+    for (const joinDirectiveOnFromContext of joinDirectivesOnFromContext) {
+      const contexts = joinDirectiveOnFromContext.arguments().contextArguments!;
+      for (const context of contexts) {
+        const name = context.context;
+        const contextSelection = context.selection;
+
+        const targetTypeNames = this.contexts.get(name);
+        assert(targetTypeNames, 'Contexts exists');
+        for (const targetTypeName of targetTypeNames) {
+          // we need to verify against all possible contexts
+          const targetType = this.schema.type(targetTypeName) as CompositeType;
+          assert(targetType, 'Context references valid type in the schema');
+          try {
+            const requirementsOnContextType = this.authRequirementsOnElement(targetType);
+            if (!authRequirementOnContext.satisfies(requirementsOnContextType)) {
+              const msg = `Field "${field.coordinate}" does not specify necessary @authenticated, @requiresScopes `
+                  + `and/or @policy auth requirements to access the transitive data in context ${name} from @fromContext selection set.`;
+              throw ERRORS.MISSING_TRANSITIVE_AUTH_REQUIREMENTS.err(msg);
+            }
+
+            const contextSelectionSet = parseSelectionSet({parentType: targetType, source: contextSelection});
+            this.verifyAuthRequirementsOnSelectionSet(authRequirementOnContext, contextSelectionSet);
+          } catch (e) {
+            if (!(e instanceof GraphQLError)) {
+              throw e;
+            }
+            // target subgraph info should always be provided but just in case
+            const enumSubgraphValue = joinDirectiveOnFromContext.arguments().graph;
+            const subgraph = enumSubgraphValue ? this.joinSpecNamesToSubgraphNames.get(enumSubgraphValue) : undefined;
+            if (subgraph) {
+              errors.push(addSubgraphToError(e, subgraph));
+            } else {
+              errors.push(e);
+            }
+          }
+        }
+      }
+    }
+    return errors;
+  }
+
+  private authRequirementsOnElement(element: NamedType | FieldDefinition<ObjectType>): AuthRequirementsOnElement | undefined {
+    const requirements = new AuthRequirementsOnElement();
+    if (this.authenticatedDirective) {
+      const appliedDirective = element.appliedDirectivesOf(this.authenticatedDirective)?.[0];
+      if (appliedDirective) {
+        requirements.isAuthenticated = true;
+      }
+    }
+
+    if (this.requiresScopesDirective) {
+      const appliedDirective = element.appliedDirectivesOf(this.requiresScopesDirective)?.[0];
+      if (appliedDirective) {
+        const { scopes } = appliedDirective.arguments();
+        requirements.scopes = scopes;
+      }
+    }
+
+    if (this.policyDirective) {
+      const appliedDirective = element.appliedDirectivesOf(this.policyDirective)?.[0];
+      if (appliedDirective) {
+        const { policies } = appliedDirective.arguments();
+        requirements.policies = policies;
+      }
+    }
+
+    if (requirements.isAuthenticated || requirements.scopes || requirements.policies) {
+      return requirements;
+    } else {
+      return;
+    }
+  }
+
+  private verifyAuthRequirementsOnSelectionSet(authRequirements: AuthRequirements, selectionSet: SelectionSet) {
+    const parentType = this.schema.type(selectionSet.parentType.name);
+    for (const selection of selectionSet.selections()) {
+      if (selection instanceof FieldSelection) {
+        if (parentType instanceof InterfaceType) {
+          // if we are referencing an interface field we need to check against all implementations
+          for (const implType of parentType.possibleRuntimeTypes()) {
+            const requirementsOnImplType = this.authRequirementsOnElement(implType);
+            if (!authRequirements.satisfies(requirementsOnImplType)) {
+              const msg = `Field "${authRequirements.fieldCoordinate}" does not specify necessary @authenticated, @requiresScopes `
+                  + `and/or @policy auth requirements to access the transitive interface "${parentType}" data from ${authRequirements.directive} selection set.`;
+              throw ERRORS.MISSING_TRANSITIVE_AUTH_REQUIREMENTS.err(msg);
+            }
+            // re-check the implementation auth condition
+            this.verifyAuthOnFieldSelection(implType, selection, authRequirements);
+          }
+        }
+
+        if (parentType instanceof ObjectType) {
+          this.verifyAuthOnFieldSelection(parentType, selection, authRequirements);
+        }
+
+        if (selection.selectionSet) {
+          this.verifyAuthRequirementsOnSelectionSet(authRequirements, selection.selectionSet);
+        }
+      } else {
+        const condition = selection.element.typeCondition;
+        if (condition) {
+          const requirementsOnCondition = this.authRequirementsOnElement(condition);
+          if (!authRequirements.satisfies(requirementsOnCondition)) {
+            const msg = `Field "${authRequirements.fieldCoordinate}" does not specify necessary @authenticated, @requiresScopes `
+                + `and/or @policy auth requirements to access the transitive data in inline fragment type condition "${condition}" from ${authRequirements.directive} selection set.`;
+            throw ERRORS.MISSING_TRANSITIVE_AUTH_REQUIREMENTS.err(msg);
+          }
+        }
+        this.verifyAuthRequirementsOnSelectionSet(authRequirements, selection.selectionSet);
+      }
+    }
+  }
+
+  private verifyAuthOnFieldSelection(parentType: ObjectType, selection: FieldSelection, authRequirements: AuthRequirements) {
+    const field = parentType.field(selection.element.name);
+    assert(field, 'field exists in the schema');
+    const fieldAuthReqs = this.authRequirementsOnElement(field);
+    const returnType = baseType(field.type!);
+    const fieldReturnAuthReqs = this.authRequirementsOnElement(returnType);
+
+    if (!authRequirements.satisfies(fieldAuthReqs) || !authRequirements.satisfies(fieldReturnAuthReqs)) {
+      const msg = `Field "${authRequirements.fieldCoordinate}" does not specify necessary @authenticated, @requiresScopes `
+          + `and/or @policy auth requirements to access the transitive field "${field.coordinate}" data from ${authRequirements.directive} selection set.`;
+      throw ERRORS.MISSING_TRANSITIVE_AUTH_REQUIREMENTS.err(msg);
+    }
+  }
+}
+
+class AuthRequirements {
+  fieldCoordinate: string;
+  directive: string;
+  type?: AuthRequirementsOnElement;
+  field?: AuthRequirementsOnElement;
+
+  constructor(coordinate: string, directive: string) {
+    this.fieldCoordinate = coordinate;
+    this.directive = directive;
+  }
+
+  satisfies(authOnElement: AuthRequirementsOnElement | undefined): boolean {
+    if (authOnElement) {
+      const typeSatisfiesRequirements = this.type && this.type.satisfies(authOnElement);
+      const fieldSatisfiesRequirements = this.field && this.field.satisfies(authOnElement);
+      if (!typeSatisfiesRequirements && !fieldSatisfiesRequirements) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+class AuthRequirementsOnElement {
+  isAuthenticated: boolean = false;
+  scopes?: string[][];
+  policies?: string[][];
+
+  satisfies(other: AuthRequirementsOnElement): boolean {
+    const authenticatedSatisfied = this.isAuthenticated || !other.isAuthenticated;
+    const scopesSatisfied = this.isSubset(this.scopes, other.scopes);
+    const policiesSatisfied = this.isSubset(this.policies, other.policies);
+    return authenticatedSatisfied && scopesSatisfied && policiesSatisfied;
+  }
+
+  isSubset(first: string[][] | undefined, second: string[][] | undefined): boolean {
+    if (second) {
+      if (first) {
+        // outer elements follow OR rules so we just need one element to match
+        // inner elements follow AND rules so ALL has to match
+        return first.some((firstInner) => second.some((secondInner) => {
+          const s = new Set(secondInner);
+          return firstInner.length == secondInner.length && firstInner.every((elem) => s.has(elem));
+        }));
+      } else {
+        // we don't specify any auth requirements but second one requires it
+        return false;
+      }
+    } else {
+      // second one does not specify any auth requirements so we are good
+      return true;
+    }
+  }
+
+  toString(): string {
+    let result = `{ is_authenticated: ${this.isAuthenticated}`;
+    if (this.scopes) {
+      result += `, scopes: [${this.scopes.join(',')}]`;
+    }
+
+    if (this.policies) {
+      result += `, policies: [${this.policies.join(',')}]`;
+    }
+
+    result += ' }';
+    return result;
   }
 }

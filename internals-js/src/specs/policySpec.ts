@@ -6,7 +6,7 @@ import {
   FeatureUrl,
   FeatureVersion,
 } from "./coreSpec";
-import { ListType, NonNullType } from "../definitions";
+import {DirectiveDefinition, ListType, NonNullType, Schema} from "../definitions";
 import { createDirectiveSpecification, createScalarTypeSpecification } from "../directiveAndTypeSpecification";
 import { registerKnownFeature } from "../knownCoreFeatures";
 import { ARGUMENT_COMPOSITION_STRATEGIES } from "../argumentCompositionStrategies";
@@ -42,7 +42,7 @@ export class PolicySpecDefinition extends FeatureDefinition {
           assert(PolicyType, () => `Expected "${policyName}" to be defined`);
           return new NonNullType(new ListType(new NonNullType(new ListType(new NonNullType(PolicyType)))));
         },
-        compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.UNION,
+        compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.DNF_CONJUNCTION,
       }],
       locations: [
         DirectiveLocation.FIELD_DEFINITION,
@@ -54,6 +54,10 @@ export class PolicySpecDefinition extends FeatureDefinition {
       composes: true,
       supergraphSpecification: () => POLICY_VERSIONS.latest(),
     }));
+  }
+
+  policyDirective(schema: Schema): DirectiveDefinition<{policies: string[][]}> | undefined {
+    return this.directive(schema, PolicySpecDefinition.directiveName);
   }
 
   get defaultCorePurpose(): CorePurpose {
