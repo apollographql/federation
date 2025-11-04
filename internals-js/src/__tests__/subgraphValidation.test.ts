@@ -1672,15 +1672,15 @@ describe('@cacheTag', () => {
   it('applies on root field', () => {
     const doc = gql`
       extend schema
-      @link(
-        url: "https://specs.apollo.dev/federation/v2.12"
-        import: ["@cacheTag"]
-      )
+        @link(
+          url: "https://specs.apollo.dev/federation/v2.12"
+          import: ["@cacheTag"]
+        )
 
       type Query {
         f(x: Int!): String!
-        @cacheTag(format: "query-f-{$args.x}")
-        @cacheTag(format: "any-query")
+          @cacheTag(format: "query-f-{$args.x}")
+          @cacheTag(format: "any-query")
       }
     `;
     const name = 'S';
@@ -1690,10 +1690,10 @@ describe('@cacheTag', () => {
   it('applies on entity type', () => {
     const doc = gql`
       extend schema
-      @link(
-        url: "https://specs.apollo.dev/federation/v2.12"
-        import: ["@key", "@cacheTag"]
-      )
+        @link(
+          url: "https://specs.apollo.dev/federation/v2.12"
+          import: ["@key", "@cacheTag"]
+        )
 
       type P @key(fields: "id") @cacheTag(format: "p-{$.id}") {
         id: ID!
@@ -1716,10 +1716,10 @@ describe('@cacheTag', () => {
     `;
 
     expect(
-        buildForErrors(doc, {asFed2: true, includeAllImports: true}),
+      buildForErrors(doc, { asFed2: true, includeAllImports: true }),
     ).toStrictEqual(
-        // TODO
-        undefined,
+      // TODO
+      undefined,
     );
   });
 });
