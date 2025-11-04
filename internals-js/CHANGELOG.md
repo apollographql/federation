@@ -1,5 +1,112 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.12.0
+
+### Minor Changes
+
+- Federation 2.12 and Connect 0.3 ([#3276](https://github.com/apollographql/federation/pull/3276))
+
+- Add connect spec v0.2 ([#3228](https://github.com/apollographql/federation/pull/3228))
+
+- Federation v2.12 release ([#3323](https://github.com/apollographql/federation/pull/3323))
+
+- Added isSuccess argument to @connect and @source ([#3294](https://github.com/apollographql/federation/pull/3294))
+
+### Patch Changes
+
+- Preparing preview.2 release ([#3255](https://github.com/apollographql/federation/pull/3255))
+
+- Automatically propagate authorization requirements from implementing type to interface in the supergraph. ([#3321](https://github.com/apollographql/federation/pull/3321))
+
+  Authorization requirements now automatically propagate from implementing types to interfaces during composition. Direct auth specifications on interfaces are no longer allowed. Interface access requires satisfying ALL implementing types' requirements (`AND` rule), with these requirements included in the supergraph for backward compatibility with older routers.
+
+- Fix transitive auth requirements on `@requires` and `@fromcontext` ([#3321](https://github.com/apollographql/federation/pull/3321))
+
+  Adds new `postMergeValidation` check to ensure that all fields that depends on data from other parts of the supergraph through `@requires` and/or `@fromContext` directives explicitly specify matching `@authenticated`, `@requiresScopes` and/or `@policy` auth requirements, e.g.
+
+  ```graphql
+  type T @key(fields: "id") {
+    id: ID!
+    extra: String @external
+    # we need explicit `@authenticated` as it is needed to access extra
+    requiresExtra: String @requires(fields: "extra") @authenticated
+  }
+
+  type T @key(fields: "id") {
+    id: ID!
+    extra: String @authenticated
+  }
+  ```
+
+- Preparing new preview release 2.12.0-preview.3 (patch). ([#3308](https://github.com/apollographql/federation/pull/3308))
+
+- Adding new CompositionOption `maxValidationSubgraphPaths`. This value represents the maximum number of SubgraphPathInfo objects that may exist in a ValidationTraversal when checking for satisfiability. Setting this value can help composition error before running out of memory. Default is 1,000,000. ([#3275](https://github.com/apollographql/federation/pull/3275))
+
+- Fixed demand control validations ([#3314](https://github.com/apollographql/federation/pull/3314))
+
+  Updated `@cost`/`@listSize` validations to use correct federation spec to look them up in the schema.
+
+- Restrict usage of auth directives on interfaces ([#3321](https://github.com/apollographql/federation/pull/3321))
+
+  Restricts usage of `@authenticated`, `@policy` and `@requiresScopes` from being applied on interfaces, interface objects and their fields.
+
+  GraphQL spec currently does not define any interface inheritance rules and developers have to explicitly redefine all interface fields on their implementations. At runtime, GraphQL servers cannot return abstract types and always return concrete output types. Due to the above, applying auth directives on the interfaces may lead to unexpected runtime behavior as they won't have any effect at runtime.
+
+- Stricter merge rules for @requiresScopes and @policy ([#3321](https://github.com/apollographql/federation/pull/3321))
+
+  Current merge policies for `@authenticated`, `@requiresScopes` and `@policy` were inconsistent.
+
+  If a shared field uses the same authorization directives across subgraphs, composition merges them using `OR` logic. However, if a shared field uses different authorization directives across subgraphs composition merges them using `AND` logic. This simplified schema evolution, but weakened security requirements. Therefore, the behavior has been changed to always apply `AND` logic to authorization directives applied to the same field across subgraphs.
+
+  Since `@policy` and `@requiresScopes` values represent boolean conditions in Disjunctive Normal Form, we can merge them conjunctively to get the final auth requirements. For example:
+
+  ```graphql
+  # subgraph A
+  type T @authenticated {
+    # requires scopes (A1 AND A2) OR A3
+    secret: String @requiresScopes(scopes: [["A1", "A2"], ["A3"]])
+  }
+
+  # subgraph B
+  type T {
+    # requires scopes B1 OR B2
+    secret: String @requiresScopes(scopes: [["B1"], ["B2"]]
+  }
+
+  # composed supergraph
+  type T @authenticated {
+    secret: String @requiresScopes(
+      scopes: [
+        ["A1", "A2", "B1"],
+        ["A1", "A2", "B2"],
+        ["A3", "B1"],
+        ["A3", "B2"]
+      ])
+  }
+  ```
+
+  This algorithm also deduplicates redundant requirements, e.g.
+
+  ```graphql
+  # subgraph A
+  type T {
+    # requires A1 AND A2 scopes to access
+    secret: String @requiresScopes(scopes: [["A1", "A2"]])
+  }
+
+  # subgraph B
+  type T {
+    # requires only A1 scope to access
+    secret: String @requiresScopes(scopes: [["A1"]])
+  }
+
+  # composed supergraph
+  type T {
+    # requires only A1 scope to access as A2 is redundant
+    secret: String @requiresScopes(scopes: [["A1"]])
+  }
+  ```
+
 ## 2.12.0-preview.4
 
 ### Patch Changes
