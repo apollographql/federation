@@ -6,15 +6,7 @@
 
 - Federation 2.12 and Connect 0.3 ([#3276](https://github.com/apollographql/federation/pull/3276))
 
-- Add connect spec v0.2 ([#3228](https://github.com/apollographql/federation/pull/3228))
-
-- Federation v2.12 release ([#3323](https://github.com/apollographql/federation/pull/3323))
-
 - Added isSuccess argument to @connect and @source ([#3294](https://github.com/apollographql/federation/pull/3294))
-
-### Patch Changes
-
-- Preparing preview.2 release ([#3255](https://github.com/apollographql/federation/pull/3255))
 
 - Automatically propagate authorization requirements from implementing type to interface in the supergraph. ([#3321](https://github.com/apollographql/federation/pull/3321))
 
@@ -37,8 +29,6 @@
     extra: String @authenticated
   }
   ```
-
-- Preparing new preview release 2.12.0-preview.3 (patch). ([#3308](https://github.com/apollographql/federation/pull/3308))
 
 - Adding new CompositionOption `maxValidationSubgraphPaths`. This value represents the maximum number of SubgraphPathInfo objects that may exist in a ValidationTraversal when checking for satisfiability. Setting this value can help composition error before running out of memory. Default is 1,000,000. ([#3275](https://github.com/apollographql/federation/pull/3275))
 
@@ -107,39 +97,7 @@
   }
   ```
 
-## 2.12.0-preview.4
-
-### Patch Changes
-
-- Fixed demand control validations ([#3314](https://github.com/apollographql/federation/pull/3314))
-
-  Updated `@cost`/`@listSize` validations to use correct federation spec to look them up in the schema.
-
-## 2.12.0-preview.3
-
-### Patch Changes
-
-- Preparing new preview release 2.12.0-preview.3 (patch). ([#3308](https://github.com/apollographql/federation/pull/3308))
-
-## 2.12.0-preview.2
-
-### Minor Changes
-
-- Added `isSuccess` argument to `@connect` and `@source` ([#3294](https://github.com/apollographql/federation/pull/3294))
-
 - Added preview `@cacheTag` directive support ([#3274](https://github.com/apollographql/federation/pull/3274))
-
-## 2.12.0-preview.1
-
-## 2.12.0-preview.0
-
-### Minor Changes
-
-- Federation 2.12 and Connect 0.3 ([#3276](https://github.com/apollographql/federation/pull/3276))
-
-### Patch Changes
-
-- Adding new CompositionOption `maxValidationSubgraphPaths`. This value represents the maximum number of SubgraphPathInfo objects that may exist in a ValidationTraversal when checking for satisfiability. Setting this value can help composition error before running out of memory. Default is 1,000,000. ([#3275](https://github.com/apollographql/federation/pull/3275))
 
 ## 2.11.3
 
