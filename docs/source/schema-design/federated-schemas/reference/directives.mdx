@@ -441,11 +441,6 @@ To learn more, see the [Incremental migration with `@override`](/graphos/schema-
 
 <LicensedDirective />
 
-<Caution>
-
-Federation v2.9 and above doesn't allow `@authenticated` on interfaces. Applying `@authenticated` to an interface or interface field results in a composition error.
-
-</Caution>
 
 ```graphql
 directive @authenticated on
@@ -463,12 +458,6 @@ Indicates to composition that the target element is accessible only to the authe
 <MinVersionBadge version="Federation v2.5" />
 
 <LicensedDirective />
-
-<Caution>
-
-    Federation v2.9 and above doesn't allow `@requiresScopes` on interfaces. Applying `@requiresScopes` to an interface or interface field results in a composition error.
-
-</Caution>
 
 ```graphql
 directive @requiresScopes(scopes: [[federation__Scope!]!]!) on
@@ -516,12 +505,6 @@ Indicates to composition that the target element is accessible only to the authe
 <MinVersionBadge version="Federation v2.6" />
 
 <LicensedDirective />
-
-<Caution>
-
-    Federation v2.9 and above doesn't allow `@policy` on interfaces. Applying `@policy` to an interface or interface field results in a composition error.
-
-</Caution>
 
 ```graphql
 directive @policy(policies: [[federation__Policy!]!]!) on
