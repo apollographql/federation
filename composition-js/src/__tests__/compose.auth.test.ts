@@ -473,7 +473,52 @@ describe('authorization tests', () => {
           ' auth requirements to access the transitive field "T.extra" data from @requires selection set.'
       );
     })
+
+    it('works with chain of requires', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        url: 'https://Subgraph1',
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID
+            extra: String @external
+            requiresExtra: String @requires(fields: "extra") @authenticated
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        url: 'https://Subgraph2',
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID
+            secret: String @external
+            extra: String @requires(fields: "secret") @authenticated
+          }
+        `
+      }
+
+      const subgraph3 = {
+        name: 'Subgraph3',
+        url: 'https://Subgraph3',
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID
+            secret: String @authenticated @inaccessible
+          }
+        `
+      }
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2, subgraph3]);
+      assertCompositionSuccess(result);
+    })
   });
+
   describe("@context", () => {
     it('works with explicit auth', () => {
       const subgraph1 = {
@@ -711,6 +756,7 @@ describe('authorization tests', () => {
       );
     })
   });
+
   describe("interfaces", () => {
     it('propagates @authenticated from type', () => {
       const subgraph1 = {

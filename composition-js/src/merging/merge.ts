@@ -3797,21 +3797,24 @@ export class AuthValidator {
     const errors: GraphQLError[] = []
     const joinDirectivesOnRequires = field.appliedDirectivesOf(this.joinFieldDirective);
     for (const joinDirectiveOnRequires of joinDirectivesOnRequires) {
-      const requiresFieldSet = joinDirectiveOnRequires.arguments().requires!;
-      const requiresSelectionSet = parseSelectionSet({parentType: type, source: requiresFieldSet});
-      try {
-        this.verifyAuthRequirementsOnSelectionSet(authRequirementOnRequires, requiresSelectionSet);
-      } catch (e) {
-        if (!(e instanceof GraphQLError)) {
-          throw e;
-        }
-        // target subgraph info should always be provided but just in case
-        const enumSubgraphValue = joinDirectiveOnRequires.arguments().graph;
-        const subgraph = enumSubgraphValue ? this.joinSpecNamesToSubgraphNames.get(enumSubgraphValue) : undefined;
-        if (subgraph) {
-          errors.push(addSubgraphToError(e, subgraph));
-        } else {
-          errors.push(e);
+      const requiresFieldSet = joinDirectiveOnRequires.arguments().requires;
+      if (requiresFieldSet) {
+        // only verify @requires selections if it is defined on @join__field
+        const requiresSelectionSet = parseSelectionSet({parentType: type, source: requiresFieldSet});
+        try {
+          this.verifyAuthRequirementsOnSelectionSet(authRequirementOnRequires, requiresSelectionSet);
+        } catch (e) {
+          if (!(e instanceof GraphQLError)) {
+            throw e;
+          }
+          // target subgraph info should always be provided but just in case
+          const enumSubgraphValue = joinDirectiveOnRequires.arguments().graph;
+          const subgraph = enumSubgraphValue ? this.joinSpecNamesToSubgraphNames.get(enumSubgraphValue) : undefined;
+          if (subgraph) {
+            errors.push(addSubgraphToError(e, subgraph));
+          } else {
+            errors.push(e);
+          }
         }
       }
     }
@@ -3834,38 +3837,41 @@ export class AuthValidator {
     const errors: GraphQLError[] = []
     const joinDirectivesOnFromContext = field.appliedDirectivesOf(this.joinFieldDirective);
     for (const joinDirectiveOnFromContext of joinDirectivesOnFromContext) {
-      const contexts = joinDirectiveOnFromContext.arguments().contextArguments!;
-      for (const context of contexts) {
-        const name = context.context;
-        const contextSelection = context.selection;
+      const contexts = joinDirectiveOnFromContext.arguments().contextArguments;
+      if (contexts) {
+        // only verify @fromContext selections if they are defined on @join__field directive
+        for (const context of contexts) {
+          const name = context.context;
+          const contextSelection = context.selection;
 
-        const targetTypeNames = this.contexts.get(name);
-        assert(targetTypeNames, 'Contexts exists');
-        for (const targetTypeName of targetTypeNames) {
-          // we need to verify against all possible contexts
-          const targetType = this.schema.type(targetTypeName) as CompositeType;
-          assert(targetType, 'Context references valid type in the schema');
-          try {
-            const requirementsOnContextType = this.authRequirementsOnElement(targetType);
-            if (!authRequirementOnContext.satisfies(requirementsOnContextType)) {
-              const msg = `Field "${field.coordinate}" does not specify necessary @authenticated, @requiresScopes `
-                  + `and/or @policy auth requirements to access the transitive data in context ${name} from @fromContext selection set.`;
-              throw ERRORS.MISSING_TRANSITIVE_AUTH_REQUIREMENTS.err(msg);
-            }
+          const targetTypeNames = this.contexts.get(name);
+          assert(targetTypeNames, 'Contexts exists');
+          for (const targetTypeName of targetTypeNames) {
+            // we need to verify against all possible contexts
+            const targetType = this.schema.type(targetTypeName) as CompositeType;
+            assert(targetType, 'Context references valid type in the schema');
+            try {
+              const requirementsOnContextType = this.authRequirementsOnElement(targetType);
+              if (!authRequirementOnContext.satisfies(requirementsOnContextType)) {
+                const msg = `Field "${field.coordinate}" does not specify necessary @authenticated, @requiresScopes `
+                    + `and/or @policy auth requirements to access the transitive data in context ${name} from @fromContext selection set.`;
+                throw ERRORS.MISSING_TRANSITIVE_AUTH_REQUIREMENTS.err(msg);
+              }
 
-            const contextSelectionSet = parseSelectionSet({parentType: targetType, source: contextSelection});
-            this.verifyAuthRequirementsOnSelectionSet(authRequirementOnContext, contextSelectionSet);
-          } catch (e) {
-            if (!(e instanceof GraphQLError)) {
-              throw e;
-            }
-            // target subgraph info should always be provided but just in case
-            const enumSubgraphValue = joinDirectiveOnFromContext.arguments().graph;
-            const subgraph = enumSubgraphValue ? this.joinSpecNamesToSubgraphNames.get(enumSubgraphValue) : undefined;
-            if (subgraph) {
-              errors.push(addSubgraphToError(e, subgraph));
-            } else {
-              errors.push(e);
+              const contextSelectionSet = parseSelectionSet({parentType: targetType, source: contextSelection});
+              this.verifyAuthRequirementsOnSelectionSet(authRequirementOnContext, contextSelectionSet);
+            } catch (e) {
+              if (!(e instanceof GraphQLError)) {
+                throw e;
+              }
+              // target subgraph info should always be provided but just in case
+              const enumSubgraphValue = joinDirectiveOnFromContext.arguments().graph;
+              const subgraph = enumSubgraphValue ? this.joinSpecNamesToSubgraphNames.get(enumSubgraphValue) : undefined;
+              if (subgraph) {
+                errors.push(addSubgraphToError(e, subgraph));
+              } else {
+                errors.push(e);
+              }
             }
           }
         }
@@ -3874,7 +3880,7 @@ export class AuthValidator {
     return errors;
   }
 
-  private authRequirementsOnElement(element: NamedType | FieldDefinition<ObjectType>): AuthRequirementsOnElement | undefined {
+  private authRequirementsOnElement(element: NamedType | FieldDefinition<ObjectType> | FieldDefinition<InterfaceType>): AuthRequirementsOnElement | undefined {
     const requirements = new AuthRequirementsOnElement();
     if (this.authenticatedDirective) {
       const appliedDirective = element.appliedDirectivesOf(this.authenticatedDirective)?.[0];
