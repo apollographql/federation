@@ -635,7 +635,7 @@ const MAX_VALIDATION_SUBGRAPH_PATHS_EXCEEDED = makeCodeDefinition(
 
 const AUTHENTICATION_APPLIED_ON_INTERFACE = makeCodeDefinition(
     'AUTHENTICATION_APPLIED_ON_INTERFACE',
-    'The @authenticated, @requiresScopes and @policy directive cannot be applied on interface, interface object or their fields.',
+    'The @authenticated, @requiresScopes and @policy directive cannot be applied on interface, interface fields and interface object',
     { addedIn: '2.9.4' },
 );
 
