@@ -3,7 +3,7 @@ import {
   assertCompositionSuccess,
   composeAsFed2Subgraphs,
 } from "./testHelper";
-import {InterfaceType} from "@apollo/federation-internals";
+import {InterfaceType, ObjectType} from "@apollo/federation-internals";
 
 describe('authorization tests', () => {
   describe("@requires", () => {
@@ -474,6 +474,55 @@ describe('authorization tests', () => {
       );
     })
 
+    it('verifies access control on chain of requires', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        url: 'https://Subgraph1',
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID
+            extra: String @external
+            requiresExtra: String @requires(fields: "extra")
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        url: 'https://Subgraph2',
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID
+            secret: String @external
+            extra: String @requires(fields: "secret")
+          }
+        `
+      }
+
+      const subgraph3 = {
+        name: 'Subgraph3',
+        url: 'https://Subgraph3',
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID
+            secret: String @authenticated @inaccessible
+          }
+        `
+      }
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2, subgraph3]);
+      expect(result.schema).toBeUndefined();
+      expect(result.errors?.length).toBe(1);
+      expect(result.errors?.[0].message).toBe(
+          '[Subgraph2] Field "T.extra" does not specify necessary @authenticated, @requiresScopes and/or ' +
+          '@policy auth requirements to access the transitive field "T.secret" data from @requires selection set.'
+      );
+    })
+
     it('works with chain of requires', () => {
       const subgraph1 = {
         name: 'Subgraph1',
@@ -516,6 +565,140 @@ describe('authorization tests', () => {
 
       const result = composeAsFed2Subgraphs([subgraph1, subgraph2, subgraph3]);
       assertCompositionSuccess(result);
+    })
+
+    it('works with interface objects', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        url: 'https://Subgraph1',
+        typeDefs: gql`
+          type Query {
+            i: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            extra: String @external
+            requiresExtra: String @requires(fields: "extra") @authenticated
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        url: 'https://Subgraph2',
+        typeDefs: gql`
+          interface I @key(fields: "id") {
+            id: ID!
+            extra: String
+          }
+
+          type T @key(fields: "id") {
+            id: ID
+            extra: String @authenticated
+          }
+        `
+      }
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+      assertCompositionSuccess(result);
+      const interfaceI = result.schema.type("I") as InterfaceType;
+      expect(interfaceI).toBeDefined();
+      const requiresExtraField = interfaceI.field('requiresExtra');
+      expect(requiresExtraField).toBeDefined();
+      expect(requiresExtraField?.appliedDirectivesOf("authenticated")).toBeDefined();
+    })
+
+    it('works with interface object chains', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        url: 'https://Subgraph1',
+        typeDefs: gql`
+          type Query {
+            i: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            extra: String @external
+            requiresExtra: String @requires(fields: "extra") @authenticated
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        url: 'https://Subgraph2',
+        typeDefs: gql`
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            secret: String @external
+            extra: String @requires(fields: "secret") @authenticated
+          }
+        `
+      }
+
+      const subgraph3 = {
+        name: 'Subgraph3',
+        url: 'https://Subgraph3',
+        typeDefs: gql`
+          interface I @key(fields: "id") {
+            id: ID!
+            secret: String
+          }
+
+          type T implements I @key(fields: "id") {
+            id: ID!
+            secret: String @authenticated
+          }
+        `
+      }
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2, subgraph3]);
+      assertCompositionSuccess(result);
+    })
+
+    it('verifies requires on interface objects without auth', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        url: 'https://Subgraph1',
+        typeDefs: gql`
+          type Query {
+            i: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            extra: String @external
+            requiresExtra: String @requires(fields: "extra")
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        url: 'https://Subgraph2',
+        typeDefs: gql`
+          interface I @key(fields: "id") {
+            id: ID!
+            extra: String
+          }
+          
+          type T implements I @key(fields: "id") {
+            id: ID!
+            extra: String @authenticated
+          }
+        `
+      }
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+      console.log(result.supergraphSdl);
+      expect(result.schema).toBeUndefined();
+      expect(result.errors?.length).toBe(1);
+      expect(result.errors?.[0].message).toBe(
+          '[Subgraph1] Field "I.requiresExtra" does not specify necessary @authenticated, @requiresScopes and/or @policy' +
+          ' auth requirements to access the transitive field "T.extra" data from @requires selection set.'
+      );
     })
   });
 
@@ -802,7 +985,7 @@ describe('authorization tests', () => {
       assertCompositionSuccess(result);
       expect(
           result.schema.type('I')?.appliedDirectivesOf("authenticated")?.[0]
-      );
+      ).toBeDefined();
     })
 
     it('propagates @requiresScopes from type', () => {
@@ -1138,6 +1321,158 @@ describe('authorization tests', () => {
             ['P4'],
           ]
       );
+    })
+
+    it('works with interface objects', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        url: 'https://Subgraph1',
+        typeDefs: gql`
+          type Query {
+            i: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            secret: String @requiresScopes(scopes: [["S1"]])
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        url: 'https://Subgraph2',
+        typeDefs: gql`
+          interface I @key(fields: "id") {
+            id: ID!
+            extra: String
+          }
+
+          type T implements I @key(fields: "id") {
+            id: ID!
+            extra: String @authenticated
+          }
+          
+          type U implements I @key(fields: "id") {
+            id: ID!
+            extra: String
+          }
+        `
+      }
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+      assertCompositionSuccess(result);
+    })
+
+    it('works with shareable interface object fields', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        url: 'https://Subgraph1',
+        typeDefs: gql`
+          type Query {
+            i: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            secret: String @requiresScopes(scopes: [["S1"]]) @shareable
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        url: 'https://Subgraph2',
+        typeDefs: gql`
+          interface I @key(fields: "id") {
+            id: ID!
+            extra: String
+          }
+
+          type T implements I @key(fields: "id") {
+            id: ID!
+            extra: String @authenticated
+          }
+
+          type U implements I @key(fields: "id") {
+            id: ID!
+            extra: String
+          }
+        `
+      }
+
+      const subgraph3 = {
+        name: 'Subgraph3',
+        url: 'https://Subgraph3',
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID!
+            secret: String @requiresScopes(scopes: [["S2"]]) @shareable
+          }
+        `
+      }
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2, subgraph3]);
+      assertCompositionSuccess(result);
+      // interface I {
+      //   id: ID!
+      //   secret: String @requiresScopes(scopes: [["S1", "S2"]])
+      //   extra: String @authenticated
+      // }
+      const i = result.schema.type("I");
+      expect(i).toBeDefined();
+      expect(i).toBeInstanceOf(InterfaceType);
+      const secretI = (i as InterfaceType).field("secret");
+      expect(secretI?.appliedDirectivesOf("requiresScopes")
+          ?.[0]?.arguments()?.["scopes"]).toStrictEqual(
+          [
+            ['S1', 'S2'],
+          ]
+      );
+      const extraI = (i as InterfaceType).field("extra");
+      expect(extraI?.appliedDirectivesOf("authenticated")
+          ?.[0]
+      ).toBeDefined();
+
+      // type T implements I {
+      //   id: ID!
+      //   extra: String @authenticated
+      //   secret: String @requiresScopes(scopes: [["S1", "S2"]])
+      // }
+      const t = result.schema.type("T");
+      expect(t).toBeDefined();
+      expect(t).toBeInstanceOf(ObjectType);
+      const secretT = (t as ObjectType).field("secret");
+      expect(secretT?.appliedDirectivesOf("requiresScopes")
+          ?.[0]?.arguments()?.["scopes"]).toStrictEqual(
+          [
+            ['S1', 'S2'],
+          ]
+      );
+      const extraT = (t as ObjectType).field("extra");
+      expect(extraT?.appliedDirectivesOf("authenticated")
+          ?.[0]
+      ).toBeDefined();
+
+      // type U implements I {
+      //   id: ID!
+      //   extra: String
+      //   secret: String @requiresScopes(scopes: [["S1", "S2"]])
+      // }
+      const u = result.schema.type("U");
+      expect(u).toBeDefined();
+      expect(u).toBeInstanceOf(ObjectType);
+      const secretU = (u as ObjectType).field("secret");
+      expect(secretU?.appliedDirectivesOf("requiresScopes")
+          ?.[0]?.arguments()?.["scopes"]).toStrictEqual(
+          [
+            ['S1', 'S2'],
+          ]
+      );
+      const extraU = (u as ObjectType).field("extra");
+      expect(extraU?.appliedDirectivesOf("authenticated")
+          ?.[0]
+      ).toBeUndefined();
     })
   });
 });

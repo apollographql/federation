@@ -1840,7 +1840,7 @@ export class FederationBlueprint extends SchemaBlueprint {
       validateSizedFieldsAreValidLists(application, parent, errorCollector);
     }
 
-    // Validate @authenticated, @requireScopes and @policy
+    // Validate @authenticated, @requireScopes and @policy usage on interfaces and interface objects
     validateNoAuthenticationOnInterfaces(metadata, errorCollector);
 
     return errorCollector;
@@ -2906,7 +2906,7 @@ function validateNoAuthenticationOnInterfaces(metadata: FederationMetadata, erro
         return isInterfaceType(type) || isInterfaceObjectType(baseType(type));
       }
       function isAppliedOnInterfaceField(elem: SchemaElement<any, any>) {
-        return isFieldDefinition(elem) && isAppliedOnInterface(elem.parent);
+        return isFieldDefinition(elem) && isInterfaceType(elem.parent);
       }
 
       if (isAppliedOnInterface(element) || isAppliedOnInterfaceField(element)) {
@@ -2923,7 +2923,7 @@ function validateNoAuthenticationOnInterfaces(metadata: FederationMetadata, erro
             break;
         }
         errorCollector.push(ERRORS.AUTHENTICATION_APPLIED_ON_INTERFACE.err(
-            `Invalid use of @${directive.name} on ${kind} "${element.coordinate}": @${directive.name} cannot be applied on interfaces, interface objects or their fields`,
+            `Invalid use of @${directive.name} on ${kind} "${element.coordinate}": @${directive.name} cannot be applied on interfaces, interface fields and interface objects`,
             {nodes: sourceASTs(application, element.parent)},
         ));
       }
