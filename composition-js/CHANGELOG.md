@@ -1,5 +1,21 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.11.5-preview.0
+
+### Patch Changes
+
+- Fixed access control verification of transitive requirements (through `@requires` and/or `@fromContext`) to ensure it works with chains of transitive dependencies. ([#3333](https://github.com/apollographql/federation/pull/3333))
+
+- Allow interface object fields to specify access control ([#3333](https://github.com/apollographql/federation/pull/3333))
+
+  Update composition logic to allow specifying access control directives (`@authenticated`, `@requiresScopes` and `@policy`) on `@interfaceObject` fields. While we disallow access control on interface types and fields, we decided to support it on `@interfaceObject` as it is a useful pattern to define a single resolver (that may need access controls) for common interface fields. Alternative would require our users to explicitly define resolvers for all implementations which defeats the purpose of `@interfaceObject`.
+
+  This PR refactors in how we propagate access control by providing additional merge sources when merging directives on interfaces, interface fields and object fields.
+
+- Updated dependencies [[`e1c58611c3c996b4fff98a54e49f00549ff2115d`](https://github.com/apollographql/federation/commit/e1c58611c3c996b4fff98a54e49f00549ff2115d)]:
+  - @apollo/federation-internals@2.11.5-preview.0
+  - @apollo/query-graphs@2.11.5-preview.0
+
 ## 2.11.4
 
 ### Patch Changes
