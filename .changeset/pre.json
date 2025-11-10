@@ -2,13 +2,13 @@
   "mode": "pre",
   "tag": "preview",
   "initialVersions": {
-    "@apollo/composition": "2.11.4",
-    "apollo-federation-integration-testsuite": "2.11.4",
-    "@apollo/gateway": "2.11.4",
-    "@apollo/federation-internals": "2.11.4",
-    "@apollo/query-graphs": "2.11.4",
-    "@apollo/query-planner": "2.11.4",
-    "@apollo/subgraph": "2.11.4"
+    "@apollo/composition": "2.11.5",
+    "apollo-federation-integration-testsuite": "2.11.5",
+    "@apollo/gateway": "2.11.5",
+    "@apollo/federation-internals": "2.11.5",
+    "@apollo/query-graphs": "2.11.5",
+    "@apollo/query-planner": "2.11.5",
+    "@apollo/subgraph": "2.11.5"
   },
   "changesets": []
 }
