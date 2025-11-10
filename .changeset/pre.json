@@ -10,5 +10,8 @@
     "@apollo/query-planner": "2.11.5",
     "@apollo/subgraph": "2.11.5"
   },
-  "changesets": []
+  "changesets": [
+    "orange-yaks-double",
+    "shaggy-adults-help"
+  ]
 }
