@@ -1,6 +1,6 @@
 import { DocumentNode } from 'graphql';
 import gql from 'graphql-tag';
-import {asFed2SubgraphDocument, Subgraph} from '..';
+import { asFed2SubgraphDocument, Subgraph } from '..';
 import { buildSubgraph } from '../federation';
 import { defaultPrintOptions, printSchema } from '../print';
 import { buildForErrors } from './testUtils';
@@ -734,14 +734,15 @@ describe('custom error message for misnamed directives', () => {
 });
 
 function buildAndValidate(
-    doc: DocumentNode,
-    options?: {
-      subgraphName?: string,
-      asFed2?: boolean,
-      includeAllImports?: boolean,
-    }
+  doc: DocumentNode,
+  options?: {
+    subgraphName?: string;
+    asFed2?: boolean;
+    includeAllImports?: boolean;
+  },
 ): Subgraph {
-  const subgraphDoc = (options?.asFed2 ?? true) ? asFed2SubgraphDocument(doc, { ...options }) : doc;
+  const subgraphDoc =
+    options?.asFed2 ?? true ? asFed2SubgraphDocument(doc, { ...options }) : doc;
   const name = options?.subgraphName ?? 'S';
   return buildSubgraph(name, `http://${name}`, subgraphDoc).validate();
 }
@@ -1534,10 +1535,18 @@ describe('@listSize', () => {
     const doc = gql`
       type Query {
         a1: A @listSize(assumedSize: 10, sizedFields: ["nullableList"])
-        a2: A @listSize(assumedSize: 10, sizedFields: ["nullableListOfNullableInts"])
+        a2: A
+          @listSize(
+            assumedSize: 10
+            sizedFields: ["nullableListOfNullableInts"]
+          )
         a3: A @listSize(assumedSize: 10, sizedFields: ["ints"])
         a4: A! @listSize(assumedSize: 10, sizedFields: ["nullableList"])
-        a5: A! @listSize(assumedSize: 10, sizedFields: ["nullableListOfNullableInts"])
+        a5: A!
+          @listSize(
+            assumedSize: 10
+            sizedFields: ["nullableListOfNullableInts"]
+          )
         a6: A! @listSize(assumedSize: 10, sizedFields: ["ints"])
       }
 
