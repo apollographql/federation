@@ -1071,7 +1071,7 @@ function validateListSizeAppliedToList(
 ) {
   const { sizedFields = [] } = application.arguments();
   // @listSize must be applied to a list https://ibm.github.io/graphql-specs/cost-spec.html#sec-Valid-List-Size-Target
-  if (!sizedFields.length && parent.type && !isListType(parent.type)) {
+  if (!sizedFields.length && parent.type && !isListType(parent.type) && !isNonNullListType(parent.type)) {
     errorCollector.push(ERRORS.LIST_SIZE_APPLIED_TO_NON_LIST.err(
       `"${parent.coordinate}" is not a list`,
       { nodes: sourceASTs(application, parent) },
@@ -1141,8 +1141,9 @@ function validateSizedFieldsAreValidLists(
 ) {
   const { sizedFields = [] } = application.arguments();
   // Validate sizedFields https://ibm.github.io/graphql-specs/cost-spec.html#sec-Valid-Sized-Fields-Target
-  if (sizedFields.length) {
-    if (!parent.type || !isCompositeType(parent.type)) {
+  if (sizedFields.length && parent.type) {
+    const baseParentType = baseType(parent.type);
+    if (!isCompositeType(baseParentType)) {
       // The output type must have fields
       errorCollector.push(ERRORS.LIST_SIZE_INVALID_SIZED_FIELD.err(
         `Sized fields cannot be used because "${parent.type}" is not a composite type`,
@@ -1150,11 +1151,11 @@ function validateSizedFieldsAreValidLists(
       ));
     } else {
       for (const sizedFieldName of sizedFields) {
-        const sizedField = parent.type.field(sizedFieldName);
+        const sizedField = baseParentType.field(sizedFieldName);
         if (!sizedField) {
           // Sized fields must be present on the output type
           errorCollector.push(ERRORS.LIST_SIZE_INVALID_SIZED_FIELD.err(
-            `Sized field "${sizedFieldName}" is not a field on type "${parent.type.coordinate}"`,
+            `Sized field "${sizedFieldName}" is not a field on type "${baseParentType.coordinate}"`,
             { nodes: sourceASTs(application, parent) }
           ));
         } else if (!sizedField.type || !(isListType(sizedField.type) || isNonNullListType(sizedField.type))) {

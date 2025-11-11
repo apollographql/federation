@@ -1,6 +1,6 @@
 import { DocumentNode } from 'graphql';
 import gql from 'graphql-tag';
-import { Subgraph } from '..';
+import {asFed2SubgraphDocument, Subgraph} from '..';
 import { buildSubgraph } from '../federation';
 import { defaultPrintOptions, printSchema } from '../print';
 import { buildForErrors } from './testUtils';
@@ -733,9 +733,17 @@ describe('custom error message for misnamed directives', () => {
   });
 });
 
-function buildAndValidate(doc: DocumentNode): Subgraph {
-  const name = 'S';
-  return buildSubgraph(name, `http://${name}`, doc).validate();
+function buildAndValidate(
+    doc: DocumentNode,
+    options?: {
+      subgraphName?: string,
+      asFed2?: boolean,
+      includeAllImports?: boolean,
+    }
+): Subgraph {
+  const subgraphDoc = (options?.asFed2 ?? true) ? asFed2SubgraphDocument(doc, { ...options }) : doc;
+  const name = options?.subgraphName ?? 'S';
+  return buildSubgraph(name, `http://${name}`, subgraphDoc).validate();
 }
 
 describe('@core/@link handling', () => {
@@ -1507,10 +1515,46 @@ describe('@cost', () => {
 });
 
 describe('@listSize', () => {
+  it('works on lists', () => {
+    const doc = gql`
+      type Query {
+        a1: [A]! @listSize(assumedSize: 5)
+        a2: [A] @listSize(assumedSize: 5)
+      }
+
+      type A {
+        field: String
+      }
+    `;
+
+    expect(buildAndValidate(doc, { includeAllImports: true }));
+  });
+
+  it('works on valid sizedFields', () => {
+    const doc = gql`
+      type Query {
+        a1: A @listSize(assumedSize: 10, sizedFields: ["nullableList"])
+        a2: A @listSize(assumedSize: 10, sizedFields: ["nullableListOfNullableInts"])
+        a3: A @listSize(assumedSize: 10, sizedFields: ["ints"])
+        a4: A! @listSize(assumedSize: 10, sizedFields: ["nullableList"])
+        a5: A! @listSize(assumedSize: 10, sizedFields: ["nullableListOfNullableInts"])
+        a6: A! @listSize(assumedSize: 10, sizedFields: ["ints"])
+      }
+
+      type A {
+        nullableListOfNullableInts: [Int]
+        nullableList: [Int!]
+        ints: [Int!]!
+      }
+    `;
+
+    expect(buildAndValidate(doc, { includeAllImports: true }));
+  });
+
   it('rejects applications on non-lists (unless it uses sizedFields)', () => {
     const doc = gql`
       type Query {
-        a1: A @listSize(assumedSize: 5)
+        a1: A! @listSize(assumedSize: 5)
         a2: A @listSize(assumedSize: 10, sizedFields: ["ints"])
       }
 
