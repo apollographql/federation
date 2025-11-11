@@ -352,7 +352,7 @@ describe('authorization tests', () => {
       expect(result.errors?.length).toBe(1);
       expect(result.errors?.[0].message).toBe(
           '[Subgraph1] Field "T.requiresExtra" does not specify necessary @authenticated, @requiresScopes and/or @policy ' +
-          'auth requirements to access the transitive field "I1.i" data from @requires selection set.'
+          'auth requirements to access the transitive field "I.i" data from @requires selection set.'
       );
     })
 
@@ -692,13 +692,44 @@ describe('authorization tests', () => {
       }
 
       const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
-      console.log(result.supergraphSdl);
       expect(result.schema).toBeUndefined();
       expect(result.errors?.length).toBe(1);
       expect(result.errors?.[0].message).toBe(
           '[Subgraph1] Field "I.requiresExtra" does not specify necessary @authenticated, @requiresScopes and/or @policy' +
-          ' auth requirements to access the transitive field "T.extra" data from @requires selection set.'
+          ' auth requirements to access the transitive field "I.extra" data from @requires selection set.'
       );
+    })
+
+    it('works if field specifies additional auth', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        url: 'https://Subgraph1',
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID
+            extra: String @external
+            requiresExtra: String @requires(fields: "extra") @requiresScopes(scopes: [["S1", "S2"]])
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        url: 'https://Subgraph2',
+        typeDefs: gql`
+          type T @key(fields: "id") {
+            id: ID
+            extra: String @requiresScopes(scopes: [["S1"]])
+          }
+        `
+      }
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+      assertCompositionSuccess(result);
     })
   });
 

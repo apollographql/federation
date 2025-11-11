@@ -37,7 +37,7 @@ import {
   isWrapperType,
   possibleRuntimeTypes,
   isIntType,
-  Type, isFieldDefinition,
+  Type, isFieldDefinition, isElementNamedType,
 } from "./definitions";
 import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues, assertUnreachable } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -2899,11 +2899,11 @@ function validateNoAuthenticationOnInterfaces(metadata: FederationMetadata, erro
   const policyDirective = metadata.policyDirective();
   [authenticatedDirective, requiresScopesDirective, policyDirective].forEach((directive) => {
     for (const application of directive.applications()) {
-      const element = application.parent;
-      function isAppliedOnInterface(type: Type) {
-        return isInterfaceType(type) || isInterfaceObjectType(baseType(type));
+      const element: SchemaElement<any, any> = application.parent;
+      function isAppliedOnInterface(elem: SchemaElement<any, any>): elem is NamedType {
+        return isElementNamedType(elem) && (isInterfaceType(elem) || isInterfaceObjectType(elem));
       }
-      function isAppliedOnInterfaceField(elem: SchemaElement<any, any>) {
+      function isAppliedOnInterfaceField(elem: SchemaElement<any, any>): elem is FieldDefinition<any> {
         return isFieldDefinition(elem) && isInterfaceType(elem.parent);
       }
 
@@ -2920,7 +2920,7 @@ function validateNoAuthenticationOnInterfaces(metadata: FederationMetadata, erro
             kind = 'interface object';
             break;
         }
-        errorCollector.push(ERRORS.AUTHENTICATION_APPLIED_ON_INTERFACE.err(
+        errorCollector.push(ERRORS.AUTH_REQUIREMENTS_APPLIED_ON_INTERFACE.err(
             `Invalid use of @${directive.name} on ${kind} "${element.coordinate}": @${directive.name} cannot be applied on interfaces, interface fields and interface objects`,
             {nodes: sourceASTs(application, element.parent)},
         ));

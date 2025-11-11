@@ -1707,15 +1707,15 @@ describe('authentication validations', () => {
 
       expect(buildForErrors(doc, { includeAllImports: true })).toStrictEqual([
         [
-          'AUTHENTICATION_APPLIED_ON_INTERFACE',
+          'AUTH_REQUIREMENTS_APPLIED_ON_INTERFACE',
           `[S] Invalid use of ${directiveName} on field "I.x": ${directiveName} cannot be applied on interfaces, interface fields and interface objects`,
         ],
         [
-          'AUTHENTICATION_APPLIED_ON_INTERFACE',
+          'AUTH_REQUIREMENTS_APPLIED_ON_INTERFACE',
           `[S] Invalid use of ${directiveName} on interface "I": ${directiveName} cannot be applied on interfaces, interface fields and interface objects`,
         ],
         [
-          'AUTHENTICATION_APPLIED_ON_INTERFACE',
+          'AUTH_REQUIREMENTS_APPLIED_ON_INTERFACE',
           `[S] Invalid use of ${directiveName} on interface object "O": ${directiveName} cannot be applied on interfaces, interface fields and interface objects`,
         ],
       ]);

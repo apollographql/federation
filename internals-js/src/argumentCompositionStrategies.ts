@@ -65,8 +65,9 @@ function unionValues(values: any[]): any {
 /**
  * Performs conjunction of 2d arrays that represent conditions in Disjunctive Normal Form.
  *
- * * Each inner array is interpreted as the conjunction of the conditions in the array.
- * * The top-level array is interpreted as the disjunction of the inner arrays
+ * Each 2D array is interpreted as follows
+ * * Inner array is interpreted as the conjunction (an AND) of the conditions in the array.
+ * * Outer array is interpreted as the disjunction (an OR) of the inner arrays.
  *
  * Algorithm
  * * filter out duplicate entries to limit the amount of necessary computations
@@ -119,6 +120,9 @@ function filterNestedArrayDuplicates<T>(values: T[][][]): T[][][] {
   const filtered: T[][][] = [];
   const seen = new Set<string>;
   values.forEach((value) => {
+    value.forEach((inner) => {
+      inner.sort();
+    })
     value.sort();
     const key = JSON.stringify(value);
     if (!seen.has(key)) {

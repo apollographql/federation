@@ -32,6 +32,10 @@ export class RequiresScopesSpecDefinition extends FeatureDefinition {
 
     this.registerType(createScalarTypeSpecification({ name: RequiresScopesTypeName.SCOPE }));
 
+    // WARNING: we cannot declare staticArgumentTransform() as access control merge logic needs to propagate
+    // requirements upwards/downwards between types and interfaces. We hijack the merge process by providing
+    // implementations/interfaces as "additional sources". This means that we cannot apply staticArgumentTransform()
+    // as subgraph index index will be wrong/undefined.
     this.registerDirective(createDirectiveSpecification({
       name: RequiresScopesSpecDefinition.directiveName,
       args: [{
