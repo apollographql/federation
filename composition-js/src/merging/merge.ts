@@ -2997,7 +2997,7 @@ class Merger {
         // directive logic by providing "additional sources" from their interfaces/implementations. This means
         // that their corresponding subgraphIndex will be incorrect and shouldn't be used/relied on when merging
         // access control directives.
-        if (names.has(nameInSupergraph) || additionalSources.length) {
+        if (names.has(nameInSupergraph) || additionalSources.length > 0) {
           // record access control directive IF it is applied on the interface (currently not allowed)
           // OR there are some implementations with access control on them
           this.appliedDirectivesToMerge.push({
@@ -3039,7 +3039,7 @@ class Merger {
       if (!additionalSources) {
         additionalSources = [];
       }
-      if (names.has(nameInSupergraph) || additionalSources.length) {
+      if (names.has(nameInSupergraph) || additionalSources.length > 0) {
         // record if access control applied directly OR has some additional sources
         this.appliedDirectivesToMerge.push({
           names: new Set([nameInSupergraph]),
