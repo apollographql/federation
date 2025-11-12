@@ -4,6 +4,7 @@ import {
   composeAsFed2Subgraphs,
 } from "./testHelper";
 import {InterfaceType, ObjectType} from "@apollo/federation-internals";
+import {composeServices} from "../compose";
 
 describe('authorization tests', () => {
   describe("@requires", () => {
@@ -1654,6 +1655,82 @@ describe('authorization tests', () => {
       expect(
           extraI
               ?.appliedDirectivesOf("authenticated")
+              ?.[0]
+      ).toBeDefined();
+    })
+
+    it('works with renames', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        url: 'https://Subgraph1',
+        typeDefs: gql`
+          extend schema @link(
+            url: "https://specs.apollo.dev/federation/v2.9",
+            import: [ "@key", { name: "@policy", as: "@apolloPolicy" }]
+          )
+          
+          type Query {
+            i: I!
+          }
+
+          interface I {
+            id: ID
+          }
+
+          type T implements I @key(fields: "id") @apolloPolicy(policies: [["P1"]]) {
+            id: ID
+            vT: String
+          }
+
+          type U implements I @key(fields: "id") @apolloPolicy(policies: [["P2"]]) {
+            id: ID
+            vU: String
+          }
+
+          type V implements I @key(fields: "id") {
+            id: ID
+            vV: String
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        url: 'https://Subgraph2',
+        typeDefs: gql`
+          extend schema @link(
+            url: "https://specs.apollo.dev/federation/v2.9",
+            import: [ "@key", { name: "@authenticated", as: "@apolloAuthenticated" }]
+          )
+          
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID!
+            other: Int @apolloAuthenticated
+          }
+        `
+      }
+
+      const result = composeServices([subgraph1, subgraph2]);
+      assertCompositionSuccess(result);
+      expect(
+          result.schema.type('I')
+              ?.appliedDirectivesOf("apolloPolicy")
+              ?.[0]?.arguments()?.["policies"]).toStrictEqual(
+          [
+            ['P1', 'P2'],
+          ]
+      );
+      const t = result.schema.type('T');
+      expect(t).toBeDefined();
+      expect(t).toBeInstanceOf(ObjectType);
+      const otherT = (t as ObjectType).field("other");
+      expect(
+          otherT
+              ?.appliedDirectivesOf("apolloAuthenticated")
               ?.[0]
       ).toBeDefined();
     })
