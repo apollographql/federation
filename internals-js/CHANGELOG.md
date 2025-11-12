@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.11.5-preview.1
+
+### Patch Changes
+
+- Fixed demand control validations to unwrap non-nullable composite types and fields when performing validations. ([#3336](https://github.com/apollographql/federation/pull/3336))
+
 ## 2.11.5-preview.0
 
 ### Patch Changes
