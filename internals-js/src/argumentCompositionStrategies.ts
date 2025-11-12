@@ -75,7 +75,7 @@ function unionValues(values: any[]): any {
  *   * simplify combinations by dropping duplicate conditions (i.e. p ^ p = p, p ^ q = q ^ p)
  * * eliminate entries that are subsumed by others (i.e. (p ^ q) subsumes (p ^ q ^ r))
  */
-function dnfConjunction<T>(values: T[][][]): T[][] {
+export function dnfConjunction<T>(values: T[][][]): T[][] {
   // should never be the case
   if (values.length == 0) {
     return [];

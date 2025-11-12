@@ -1,115 +1,113 @@
 import {
+  addSubgraphToASTNode,
+  addSubgraphToError,
+  allSchemaRootKinds,
   ArgumentDefinition,
-  assert,
+  ArgumentMerger,
   arrayEquals,
+  assert,
+  AUTHENTICATED_VERSIONS,
+  AuthenticatedSpecDefinition,
+  baseType,
+  CompositeType,
+  CONNECT_VERSIONS,
+  connectIdentity,
+  CONTEXT_VERSIONS,
+  ContextSpecDefinition,
+  CoreFeature,
+  coreFeatureDefinitionIfKnown,
+  coreIdentity,
+  CoreImport,
+  CoreSpecDefinition,
+  didYouMean,
+  Directive,
+  DirectiveCompositionSpecification,
   DirectiveDefinition,
+  dnfConjunction,
   EnumType,
+  EnumValue,
+  errorCauses,
+  errorCode,
+  ERRORS,
+  Extension,
+  FeatureDefinition,
+  FeatureDefinitions,
+  FeatureUrl,
+  FeatureVersion,
+  FEDERATION_OPERATION_TYPES,
+  FEDERATION_VERSIONS,
+  FederationDirectiveName,
+  federationIdentity,
+  FederationMetadata,
+  federationMetadata,
   FieldDefinition,
+  FieldSelection,
+  firstOf,
+  inaccessibleIdentity,
+  InputFieldDefinition,
   InputObjectType,
   InterfaceType,
+  isCompositeType,
+  isDefined,
+  isEnumType,
+  isExecutableDirectiveLocation,
+  isFederationDirectiveDefinedInSchema,
+  isFederationField,
+  isFieldDefinition,
+  isInterfaceType,
+  isNonNullType,
+  isNullableType,
+  isObjectType,
+  isStrictSubtype,
+  JOIN_VERSIONS,
+  JoinFieldDirectiveArguments,
+  JoinSpecDefinition,
+  LINK_VERSIONS,
+  LinkDirectiveArgs,
+  linkIdentity,
+  ListType,
+  NamedSchemaElement,
+  NamedSchemaElementWithType,
   NamedType,
   newNamedType,
+  NonNullType,
+  NullableType,
   ObjectType,
+  parseContext,
+  parseFieldSetArgument,
+  parseSelectionSet,
+  POLICY_VERSIONS,
+  PolicySpecDefinition,
+  Post20FederationDirectiveDefinition,
+  printHumanReadableList,
+  printSubgraphNames,
+  REQUIRES_SCOPES_VERSIONS,
+  RequiresScopesSpecDefinition,
+  sameType,
   Schema,
   SchemaDefinition,
   SchemaElement,
-  UnionType,
-  sameType,
-  isStrictSubtype,
-  ListType,
-  NonNullType,
+  SchemaRootKind,
+  SelectionSet,
+  sourceASTs,
+  StaticArgumentsTransform,
+  Subgraph,
+  SubgraphASTNode,
+  Subgraphs,
+  suggestionList,
   Type,
-  NullableType,
-  NamedSchemaElementWithType,
+  UnionType,
   valueEquals,
   valueToString,
-  InputFieldDefinition,
-  allSchemaRootKinds,
-  Directive,
-  isFederationField,
-  SchemaRootKind,
-  CompositeType,
-  Subgraphs,
-  JOIN_VERSIONS,
-  NamedSchemaElement,
-  errorCauses,
-  isObjectType,
-  SubgraphASTNode,
-  addSubgraphToASTNode,
-  firstOf,
-  Extension,
-  isInterfaceType,
-  sourceASTs,
-  ERRORS,
-  FederationMetadata,
-  printSubgraphNames,
-  federationIdentity,
-  linkIdentity,
-  coreIdentity,
-  FEDERATION_OPERATION_TYPES,
-  LINK_VERSIONS,
-  federationMetadata,
-  errorCode,
   withModifiedErrorNodes,
-  didYouMean,
-  suggestionList,
-  EnumValue,
-  baseType,
-  isEnumType,
-  isNonNullType,
-  isExecutableDirectiveLocation,
-  parseFieldSetArgument,
-  isCompositeType,
-  isDefined,
-  addSubgraphToError,
-  printHumanReadableList,
-  ArgumentMerger,
-  JoinSpecDefinition,
-  CoreSpecDefinition,
-  FeatureVersion,
-  FEDERATION_VERSIONS,
-  LinkDirectiveArgs,
-  connectIdentity,
-  FeatureUrl,
-  isFederationDirectiveDefinedInSchema,
-  parseContext,
-  CoreFeature,
-  Subgraph,
-  StaticArgumentsTransform,
-  isNullableType,
-  isFieldDefinition,
-  Post20FederationDirectiveDefinition,
-  coreFeatureDefinitionIfKnown,
-  FeatureDefinition,
-  DirectiveCompositionSpecification,
-  CoreImport,
-  inaccessibleIdentity,
-  FeatureDefinitions,
-  CONNECT_VERSIONS,
-  AuthenticatedSpecDefinition,
-  RequiresScopesSpecDefinition,
-  PolicySpecDefinition,
-  AUTHENTICATED_VERSIONS,
-  REQUIRES_SCOPES_VERSIONS,
-  POLICY_VERSIONS,
-  parseSelectionSet,
-  FieldSelection,
-  SelectionSet,
-  JoinFieldDirectiveArguments,
-  ContextSpecDefinition,
-  CONTEXT_VERSIONS, FederationDirectiveName,
 } from "@apollo/federation-internals";
-import { ASTNode, GraphQLError, DirectiveLocation } from "graphql";
-import {
-  CompositionHint,
-  HintCodeDefinition,
-  HINTS,
-} from "../hints";
-import { ComposeDirectiveManager } from '../composeDirectiveManager';
-import { MismatchReporter } from './reporter';
-import { inspect } from "util";
-import { collectCoreDirectivesToCompose, CoreDirectiveInSubgraphs } from "./coreDirectiveCollector";
-import { CompositionOptions } from "../compose";
+import {ASTNode, DirectiveLocation, GraphQLError} from "graphql";
+import {CompositionHint, HintCodeDefinition, HINTS,} from "../hints";
+import {ComposeDirectiveManager} from '../composeDirectiveManager';
+import {MismatchReporter} from './reporter';
+import {inspect} from "util";
+import {collectCoreDirectivesToCompose, CoreDirectiveInSubgraphs} from "./coreDirectiveCollector";
+import {CompositionOptions} from "../compose";
 
 // A Sources<T> map represents the contributions from each subgraph of the given
 // element type T. The numeric keys correspond to the indexes of the subgraphs
@@ -3078,7 +3076,9 @@ class Merger {
    */
   private accessControlAdditionalSources(): Map<string, Array<ObjectType | FieldDefinition<ObjectType>>> {
     if (this.__accessControlAdditionalSources === undefined) {
-      const accessControlAdditionalSources = new Map();
+      const sourceMap = new Map();
+      // we first populate interface -> implementations and implementation -> interface maps
+      // we'll use this info to know where to propagate the requirements
       const intfToImplMap: Map<string, Set<string>> = new Map();
       const implToIntfMap: Map<string, Set<string>> = new Map();
       for (const intf of this.merged.interfaceTypes()) {
@@ -3121,12 +3121,7 @@ class Merger {
                 for (const intf of implementedInterfaces) {
                   // save implementation as additional source for impl
                   const key = `${intf}_${name}`;
-                  let sources = accessControlAdditionalSources.get(key);
-                  if (!sources) {
-                    sources = [];
-                  }
-                  sources.push(candidate);
-                  accessControlAdditionalSources.set(key, sources);
+                  this.recordAdditionalSource(sourceMap, key, candidate);
                 }
               }
             }
@@ -3140,12 +3135,21 @@ class Merger {
                   if (implementations) {
                     for (const impl of implementations) {
                       const key = `${impl}.${candidate.name}_${name}`;
-                      let additionalSources = accessControlAdditionalSources.get(key);
-                      if (!additionalSources) {
-                        additionalSources = [];
+                      this.recordAdditionalSource(sourceMap, key, candidate);
+
+                      const otherInterfaces = implToIntfMap.get(impl);
+                      if (otherInterfaces) {
+                        // we now need to propagate field access control upwards from @interfaceObject fields to any
+                        // other interfaces implemented by the given type
+                        for (const intf of otherInterfaces) {
+                          if (objectName == intf) {
+                            // skip current @interfaceObject
+                            continue;
+                          }
+                          const key = `${intf}.${candidate.name}_${name}`;
+                          this.recordAdditionalSource(sourceMap, key, candidate);
+                        }
                       }
-                      additionalSources.push(candidate);
-                      accessControlAdditionalSources.set(key, additionalSources);
                     }
                   }
                 } else {
@@ -3154,12 +3158,7 @@ class Merger {
                   if (implementedInterfaces) {
                     for (const intf of implementedInterfaces) {
                       const key = `${intf}.${candidate.name}_${name}`;
-                      let additionalSources = accessControlAdditionalSources.get(key);
-                      if (!additionalSources) {
-                        additionalSources = [];
-                      }
-                      additionalSources.push(candidate);
-                      accessControlAdditionalSources.set(key, additionalSources);
+                      this.recordAdditionalSource(sourceMap, key, candidate);
                     }
                   }
                 }
@@ -3168,9 +3167,22 @@ class Merger {
           }
         }
       });
-      this.__accessControlAdditionalSources = accessControlAdditionalSources;
+      this.__accessControlAdditionalSources = sourceMap;
     }
     return this.__accessControlAdditionalSources;
+  }
+
+  private recordAdditionalSource(
+      sourceMap: Map<string, Array<ObjectType | FieldDefinition<ObjectType>>>,
+      key: string,
+      source: ObjectType | FieldDefinition<ObjectType>
+  ) {
+    let additionalSources = sourceMap.get(key);
+    if (!additionalSources) {
+      additionalSources = [];
+    }
+    additionalSources.push(source);
+    sourceMap.set(key, additionalSources);
   }
 
   // to be called after elements are merged
@@ -3931,9 +3943,9 @@ export class AuthValidator {
     const field = type.field(fieldCoordinate[1]);
     assert(field instanceof FieldDefinition, `Field "${coordinate}" exists in the schema`);
 
-    const authRequirementOnRequires = new AuthRequirements(coordinate, '@requires');
-    authRequirementOnRequires.type = this.authRequirementsOnElement(type);
-    authRequirementOnRequires.field = this.authRequirementsOnElement(field);
+    const typeRequirements = this.authRequirementsOnElement(type);
+    const fieldRequirements = this.authRequirementsOnElement(field);
+    const authRequirementOnRequires = new AuthRequirements(coordinate, '@requires', typeRequirements, fieldRequirements);
 
     const errors: GraphQLError[] = []
     const joinDirectivesOnRequires = field.appliedDirectivesOf(this.joinFieldDirective);
@@ -3971,9 +3983,9 @@ export class AuthValidator {
     const field = type.field(fieldCoordinate[1]);
     assert(field instanceof FieldDefinition, `Field "${coordinate}" exists in the schema`);
 
-    const authRequirementOnContext = new AuthRequirements(coordinate, '@fromContext');
-    authRequirementOnContext.type = this.authRequirementsOnElement(type);
-    authRequirementOnContext.field = this.authRequirementsOnElement(field);
+    const typeRequirements = this.authRequirementsOnElement(type);
+    const fieldRequirements = this.authRequirementsOnElement(field);
+    const authRequirementOnContext = new AuthRequirements(coordinate, '@fromContext', typeRequirements, fieldRequirements);
 
     const errors: GraphQLError[] = []
     const joinDirectivesOnFromContext = field.appliedDirectivesOf(this.joinFieldDirective);
@@ -4092,21 +4104,50 @@ export class AuthValidator {
 class AuthRequirements {
   fieldCoordinate: string;
   directive: string;
-  type?: AuthRequirementsOnElement;
-  field?: AuthRequirementsOnElement;
+  requirements?: AuthRequirementsOnElement
 
-  constructor(coordinate: string, directive: string) {
+  constructor(
+      coordinate: string,
+      directive: string,
+      typeRequirements: AuthRequirementsOnElement | undefined,
+      fieldRequirements: AuthRequirementsOnElement | undefined) {
     this.fieldCoordinate = coordinate;
     this.directive = directive;
+
+    // our final requirements
+    const requirements = new AuthRequirementsOnElement();
+    requirements.isAuthenticated = (typeRequirements?.isAuthenticated ?? false) || (fieldRequirements?.isAuthenticated ?? false);
+
+    const scopesToMerge = [];
+    if (typeRequirements?.scopes) {
+      scopesToMerge.push(typeRequirements.scopes);
+    }
+    if (fieldRequirements?.scopes) {
+      scopesToMerge.push(fieldRequirements.scopes);
+    }
+    if (scopesToMerge.length > 0) {
+      requirements.scopes = dnfConjunction(scopesToMerge);
+    }
+
+    const policiesToMerge= [];
+    if (typeRequirements?.policies) {
+      policiesToMerge.push(typeRequirements.policies);
+    }
+    if (fieldRequirements?.policies) {
+      policiesToMerge.push(fieldRequirements.policies);
+    }
+    if (policiesToMerge.length > 0) {
+      requirements.policies = dnfConjunction(policiesToMerge);
+    }
+
+    if (requirements.isAuthenticated || requirements.scopes || requirements.policies) {
+      this.requirements = requirements;
+    }
   }
 
   satisfies(authOnElement: AuthRequirementsOnElement | undefined): boolean {
     if (authOnElement) {
-      const typeSatisfiesRequirements = this.type && this.type.satisfies(authOnElement);
-      const fieldSatisfiesRequirements = this.field && this.field.satisfies(authOnElement);
-      if (!typeSatisfiesRequirements && !fieldSatisfiesRequirements) {
-        return false;
-      }
+      return (this.requirements && this.requirements.satisfies(authOnElement)) ?? false;
     }
     return true;
   }
@@ -4127,12 +4168,13 @@ class AuthRequirementsOnElement {
   isSubset(first: string[][] | undefined, second: string[][] | undefined): boolean {
     if (second) {
       if (first) {
-        // outer elements follow OR rules so we just need one element to match
-        return first.some((firstInner) => second.some((secondInner) => {
+         // outer elements follow OR rules so we need all conditions to match as we don't know which one will be provided at runtime
+        return first.every((firstInner) => second.some((secondInner) => {
           // inner elements follow AND rules which means that
           // ALL elements from secondInner has to be present in the firstInner
-          const s = new Set(firstInner);
-          return firstInner.length >= secondInner.length && secondInner.every((elem) => s.has(elem));
+          const firstSet = new Set(firstInner);
+          const secondSet = new Set(secondInner);
+          return firstSet.size >= secondSet.size && secondInner.every((elem) => firstSet.has(elem));
         }));
       } else {
         // we don't specify any auth requirements but second one requires it

@@ -116,7 +116,7 @@ describe('authorization tests', () => {
             id: ID
             extra: I @external
             requiresExtra: String @requires(fields: "extra { i ... on I1 { i1 } ... on I2 { i2 } }")
-              @requiresScopes(scopes: [["S1"]["S2"]]) @policy(policies: [["P1"]])
+              @requiresScopes(scopes: [["S1", "S2"]]) @policy(policies: [["P1"]])
           }
 
           interface I {
@@ -798,7 +798,7 @@ describe('authorization tests', () => {
 
           type U @key(fields: "id") {
             id: ID!
-            field(a: String @fromContext(field: "$context { prop }")): Int! @requiresScopes(scopes: [["S1"], ["S2"]])
+            field(a: String @fromContext(field: "$context { prop }")): Int! @requiresScopes(scopes: [["S1", "S2"]])
           }
         `,
       };
@@ -1505,5 +1505,72 @@ describe('authorization tests', () => {
           ?.[0]
       ).toBeUndefined();
     })
+
+    // it('propagates access control on chains of interfaces', () => {
+    //   const subgraph1 = {
+    //     name: 'Subgraph1',
+    //     url: 'https://Subgraph1',
+    //     typeDefs: gql`
+    //       type Query {
+    //         node(id: ID!): Node
+    //       }
+    //
+    //       interface Node {
+    //         id: ID!
+    //       }
+    //
+    //       interface I1 implements Node {
+    //         id: ID!
+    //         fI1: String
+    //       }
+    //
+    //       interface I2 implements Node {
+    //         id: ID!
+    //         fI2: String
+    //       }
+    //
+    //       type T implements I @key(fields: "id") @policy(policies: [["P1"]]) {
+    //         id: ID
+    //         vT: String
+    //       }
+    //
+    //       type U implements I @key(fields: "id") @policy(policies: [["P2"]]) {
+    //         id: ID
+    //         vU: String
+    //       }
+    //
+    //       type V implements I @key(fields: "id") {
+    //         id: ID
+    //         vV: String
+    //       }
+    //     `
+    //   }
+    //
+    //   const subgraph2 = {
+    //     name: 'Subgraph2',
+    //     url: 'https://Subgraph2',
+    //     typeDefs: gql`
+    //       type Query {
+    //         t: T
+    //       }
+    //
+    //       type T @key(fields: "id") {
+    //         id: ID!
+    //         other: Int
+    //       }
+    //     `
+    //   }
+    //
+    //   const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    //   assertCompositionSuccess(result);
+    //   expect(
+    //       result.schema.type('I')
+    //           ?.appliedDirectivesOf("policy")
+    //           ?.[0]?.arguments()?.["policies"]).toStrictEqual(
+    //       [
+    //         ['P1', 'P2'],
+    //       ]
+    //   );
+    // })
   });
 });
