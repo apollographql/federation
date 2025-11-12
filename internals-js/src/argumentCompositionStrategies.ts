@@ -65,8 +65,9 @@ function unionValues(values: any[]): any {
 /**
  * Performs conjunction of 2d arrays that represent conditions in Disjunctive Normal Form.
  *
- * * Each inner array is interpreted as the conjunction of the conditions in the array.
- * * The top-level array is interpreted as the disjunction of the inner arrays
+ * Each 2D array is interpreted as follows
+ * * Inner array is interpreted as the conjunction (an AND) of the conditions in the array.
+ * * Outer array is interpreted as the disjunction (an OR) of the inner arrays.
  *
  * Algorithm
  * * filter out duplicate entries to limit the amount of necessary computations
@@ -74,10 +75,17 @@ function unionValues(values: any[]): any {
  *   * simplify combinations by dropping duplicate conditions (i.e. p ^ p = p, p ^ q = q ^ p)
  * * eliminate entries that are subsumed by others (i.e. (p ^ q) subsumes (p ^ q ^ r))
  */
-function dnfConjunction<T>(values: T[][][]): T[][] {
+export function dnfConjunction<T>(values: T[][][]): T[][] {
   // should never be the case
   if (values.length == 0) {
     return [];
+  }
+
+  // Copy the 2D arrays, as we'll be modifying them below (due to sorting).
+  for (let i = 0; i < values.length; i++) {
+    // See the doc string for `convertEmptyToTrue()` to understand why this is
+    // necessary.
+    values[i] = convertEmptyToTrue(dnfCopy(values[i]));
   }
 
   // we first filter out duplicate values from candidates
@@ -119,7 +127,14 @@ function filterNestedArrayDuplicates<T>(values: T[][][]): T[][][] {
   const filtered: T[][][] = [];
   const seen = new Set<string>;
   values.forEach((value) => {
-    value.sort();
+    value.forEach((inner) => {
+      inner.sort();
+    })
+    value.sort((a, b) => {
+      const left = JSON.stringify(a);
+      const right = JSON.stringify(b);
+      return left > right ? 1 : left < right ? -1 : 0;
+    });
     const key = JSON.stringify(value);
     if (!seen.has(key)) {
       seen.add(key);
@@ -158,6 +173,25 @@ function deduplicateSubsumedValues<T>(values: T[][]): T[][] {
     }
   }
   return result;
+}
+
+function dnfCopy<T>(value: T[][]): T[][] {
+  const newValue = new Array(value.length);
+  for (let i = 0; i < value.length; i++) {
+    newValue[i] = value[i].slice();
+  }
+  return newValue;
+}
+
+/**
+ * Normally for DNF, you'd consider [] to be always false and [[]] to be always
+ * true, and code that uses some()/every() needs no special-casing to work with
+ * these definitions. However, router special-cases [] to also mean true, and so
+ * if we're about to do any evaluation on DNFs, we need to do these conversions
+ * beforehand.
+ */
+export function convertEmptyToTrue<T>(value: T[][]): T[][] {
+  return value.length === 0 ? [[]] : value;
 }
 
 export const ARGUMENT_COMPOSITION_STRATEGIES = {
