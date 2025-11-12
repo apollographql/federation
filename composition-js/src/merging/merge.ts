@@ -4114,7 +4114,9 @@ class AuthRequirements {
     this.fieldCoordinate = coordinate;
     this.directive = directive;
 
-    // our final requirements
+    // we need to combine auth requirements from type and field to get the final reqs
+    // e.g. if type access requires being @authenticated with scope S1 and field requires scope S2 then we need
+    //  to be @authenticated and have both S1 and S2 scopes to access this field
     const requirements = new AuthRequirementsOnElement();
     requirements.isAuthenticated = (typeRequirements?.isAuthenticated ?? false) || (fieldRequirements?.isAuthenticated ?? false);
 
@@ -4129,7 +4131,7 @@ class AuthRequirements {
       requirements.scopes = dnfConjunction(scopesToMerge);
     }
 
-    const policiesToMerge= [];
+    const policiesToMerge = [];
     if (typeRequirements?.policies) {
       policiesToMerge.push(typeRequirements.policies);
     }
@@ -4147,6 +4149,7 @@ class AuthRequirements {
 
   satisfies(authOnElement: AuthRequirementsOnElement | undefined): boolean {
     if (authOnElement) {
+      // auth requirements on element have to be a subset of type + field requirements
       return (this.requirements && this.requirements.satisfies(authOnElement)) ?? false;
     }
     return true;

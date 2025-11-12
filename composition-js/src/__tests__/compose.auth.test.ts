@@ -1506,71 +1506,156 @@ describe('authorization tests', () => {
       ).toBeUndefined();
     })
 
-    // it('propagates access control on chains of interfaces', () => {
-    //   const subgraph1 = {
-    //     name: 'Subgraph1',
-    //     url: 'https://Subgraph1',
-    //     typeDefs: gql`
-    //       type Query {
-    //         node(id: ID!): Node
-    //       }
-    //
-    //       interface Node {
-    //         id: ID!
-    //       }
-    //
-    //       interface I1 implements Node {
-    //         id: ID!
-    //         fI1: String
-    //       }
-    //
-    //       interface I2 implements Node {
-    //         id: ID!
-    //         fI2: String
-    //       }
-    //
-    //       type T implements I @key(fields: "id") @policy(policies: [["P1"]]) {
-    //         id: ID
-    //         vT: String
-    //       }
-    //
-    //       type U implements I @key(fields: "id") @policy(policies: [["P2"]]) {
-    //         id: ID
-    //         vU: String
-    //       }
-    //
-    //       type V implements I @key(fields: "id") {
-    //         id: ID
-    //         vV: String
-    //       }
-    //     `
-    //   }
-    //
-    //   const subgraph2 = {
-    //     name: 'Subgraph2',
-    //     url: 'https://Subgraph2',
-    //     typeDefs: gql`
-    //       type Query {
-    //         t: T
-    //       }
-    //
-    //       type T @key(fields: "id") {
-    //         id: ID!
-    //         other: Int
-    //       }
-    //     `
-    //   }
-    //
-    //   const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
-    //   assertCompositionSuccess(result);
-    //   expect(
-    //       result.schema.type('I')
-    //           ?.appliedDirectivesOf("policy")
-    //           ?.[0]?.arguments()?.["policies"]).toStrictEqual(
-    //       [
-    //         ['P1', 'P2'],
-    //       ]
-    //   );
-    // })
+    it('propagates access control on chains of interfaces', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        url: 'https://Subgraph1',
+        typeDefs: gql`
+          type Query {
+            node(id: ID!): Node
+          }
+
+          interface Node {
+            id: ID!
+          }
+
+          interface I implements Node {
+            id: ID!
+            intf: String
+          }
+
+          type T implements Node & I @key(fields: "id") @policy(policies: [["P1"]]) {
+            id: ID!
+            intf: String
+            vT: String
+          }
+
+          type U implements Node & I @key(fields: "id") @policy(policies: [["P2"]]) {
+            id: ID!
+            intf: String
+            vU: String
+          }
+
+          type V implements Node & I @key(fields: "id") {
+            id: ID!
+            intf: String
+            vV: String
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        url: 'https://Subgraph2',
+        typeDefs: gql`
+          type Query {
+            t: T
+          }
+
+          type T @key(fields: "id") {
+            id: ID!
+            other: Int
+          }
+        `
+      }
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+      assertCompositionSuccess(result);
+      expect(
+          result.schema.type('Node')
+              ?.appliedDirectivesOf("policy")
+              ?.[0]?.arguments()?.["policies"]).toStrictEqual(
+          [
+            ['P1', 'P2'],
+          ]
+      );
+      expect(
+          result.schema.type('I')
+              ?.appliedDirectivesOf("policy")
+              ?.[0]?.arguments()?.["policies"]).toStrictEqual(
+          [
+            ['P1', 'P2'],
+          ]
+      );
+    })
+
+    it('propagates access control on chains with interface object', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        url: 'https://Subgraph1',
+        typeDefs: gql`
+          type Query {
+            i: I
+          }
+
+          type I @interfaceObject @key(fields: "id") {
+            id: ID!
+            secret: String @requiresScopes(scopes: [["S1"]])
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        url: 'https://Subgraph2',
+        typeDefs: gql`
+          interface Node {
+            id: ID!
+            secret: String
+          }
+          
+          interface I implements Node @key(fields: "id") {
+            id: ID!
+            extra: String
+            secret: String
+          }
+
+          type T implements Node & I @key(fields: "id") {
+            id: ID!
+            extra: String @authenticated
+            secret: String @external
+          }
+
+          type U implements Node & I @key(fields: "id") {
+            id: ID!
+            extra: String
+            secret: String @external
+          }
+        `
+      }
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+      assertCompositionSuccess(result);
+      const node = result.schema.type('Node');
+      expect(node).toBeDefined();
+      expect(node).toBeInstanceOf(InterfaceType);
+      const secretNode = (node as InterfaceType).field("secret");
+      expect(
+          secretNode
+              ?.appliedDirectivesOf("requiresScopes")
+              ?.[0]?.arguments()?.["scopes"]).toStrictEqual(
+          [
+            ['S1'],
+          ]
+      );
+      const i = result.schema.type('I');
+      expect(i).toBeDefined();
+      expect(i).toBeInstanceOf(InterfaceType);
+      const secretI = (i as InterfaceType).field("secret");
+      expect(
+          secretI
+              ?.appliedDirectivesOf("requiresScopes")
+              ?.[0]?.arguments()?.["scopes"]).toStrictEqual(
+          [
+            ['S1'],
+          ]
+      );
+      const extraI = (i as InterfaceType).field("extra");
+      expect(
+          extraI
+              ?.appliedDirectivesOf("authenticated")
+              ?.[0]
+      ).toBeDefined();
+    })
   });
 });
