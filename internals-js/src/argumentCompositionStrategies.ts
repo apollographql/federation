@@ -81,6 +81,13 @@ export function dnfConjunction<T>(values: T[][][]): T[][] {
     return [];
   }
 
+  // Copy the 2D arrays, as we'll be modifying them below (due to sorting).
+  for (let i = 0; i < values.length; i++) {
+    // See the doc string for `convertEmptyToTrue()` to understand why this is
+    // necessary.
+    values[i] = convertEmptyToTrue(dnfCopy(values[i]));
+  }
+
   // we first filter out duplicate values from candidates
   // this avoids exponential computation of exactly the same conditions
   const filtered = filterNestedArrayDuplicates(values);
@@ -123,7 +130,11 @@ function filterNestedArrayDuplicates<T>(values: T[][][]): T[][][] {
     value.forEach((inner) => {
       inner.sort();
     })
-    value.sort();
+    value.sort((a, b) => {
+      const left = JSON.stringify(a);
+      const right = JSON.stringify(b);
+      return left > right ? 1 : left < right ? -1 : 0;
+    });
     const key = JSON.stringify(value);
     if (!seen.has(key)) {
       seen.add(key);
@@ -162,6 +173,25 @@ function deduplicateSubsumedValues<T>(values: T[][]): T[][] {
     }
   }
   return result;
+}
+
+function dnfCopy<T>(value: T[][]): T[][] {
+  const newValue = new Array(value.length);
+  for (let i = 0; i < value.length; i++) {
+    newValue[i] = value[i].slice();
+  }
+  return newValue;
+}
+
+/**
+ * Normally for DNF, you'd consider [] to be always false and [[]] to be always
+ * true, and code that uses some()/every() needs no special-casing to work with
+ * these definitions. However, router special-cases [] to also mean true, and so
+ * if we're about to do any evaluation on DNFs, we need to do these conversions
+ * beforehand.
+ */
+export function convertEmptyToTrue<T>(value: T[][]): T[][] {
+  return value.length === 0 ? [[]] : value;
 }
 
 export const ARGUMENT_COMPOSITION_STRATEGIES = {

@@ -1489,7 +1489,7 @@ describe('authorization tests', () => {
       // type U implements I {
       //   id: ID!
       //   extra: String
-      //   secret: String @requiresScopes(scopes: [["S1", "S2"]])
+      //   secret: String @requiresScopes(scopes: [["S1"]])
       // }
       const u = result.schema.type("U");
       expect(u).toBeDefined();
@@ -1498,7 +1498,7 @@ describe('authorization tests', () => {
       expect(secretU?.appliedDirectivesOf("requiresScopes")
           ?.[0]?.arguments()?.["scopes"]).toStrictEqual(
           [
-            ['S1', 'S2'],
+            ['S1'],
           ]
       );
       const extraU = (u as ObjectType).field("extra");

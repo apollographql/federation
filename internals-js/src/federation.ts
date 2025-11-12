@@ -2900,14 +2900,14 @@ function validateNoAuthenticationOnInterfaces(metadata: FederationMetadata, erro
   [authenticatedDirective, requiresScopesDirective, policyDirective].forEach((directive) => {
     for (const application of directive.applications()) {
       const element: SchemaElement<any, any> = application.parent;
-      function isAppliedOnInterface(elem: SchemaElement<any, any>): elem is NamedType {
-        return isElementNamedType(elem) && (isInterfaceType(elem) || isInterfaceObjectType(elem));
-      }
-      function isAppliedOnInterfaceField(elem: SchemaElement<any, any>): elem is FieldDefinition<any> {
-        return isFieldDefinition(elem) && isInterfaceType(elem.parent);
-      }
-
-      if (isAppliedOnInterface(element) || isAppliedOnInterfaceField(element)) {
+      if (
+        // Is it applied on interface or interface object types?
+        (isElementNamedType(element) &&
+          (isInterfaceType(element) || isInterfaceObjectType(element))
+        ) ||
+        // Is it applied on interface fields?
+        (isFieldDefinition(element) && isInterfaceType(element.parent))
+      ) {
         let kind = '';
         switch (element.kind) {
           case 'FieldDefinition':

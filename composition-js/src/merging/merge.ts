@@ -14,6 +14,7 @@ import {
   connectIdentity,
   CONTEXT_VERSIONS,
   ContextSpecDefinition,
+  convertEmptyToTrue,
   CoreFeature,
   coreFeatureDefinitionIfKnown,
   coreIdentity,
@@ -1268,14 +1269,49 @@ class Merger {
     }
   }
 
+  /**
+   * This method is used to copy "user provided" applied directives from
+   * interface fields to an implementing object field when those fields are only
+   * provided by `@interfaceObject`s.
+   *
+   * However, we shouldn't copy the `join` spec directive as those are for the
+   * interface field but are invalid for the implementation field. Also, we
+   * do explicitly compute access control directives for the implementing field
+   * based on the access control directives for the `@interfaceObject` fields.
+   */
   private copyNonJoinAppliedDirectives(source: SchemaElement<any, any>, dest: SchemaElement<any, any>) {
-    // This method is used to copy "user provided" applied directives from interface fields to some
-    // implementation type when @interfaceObject is used. But we shouldn't copy the `join` spec directive
-    // as those are for the interface field but are invalid for the implementation field.
-    source.appliedDirectives.forEach((d) => {
-      if (!this.joinSpec.isSpecDirective(d.definition!)) {
-        dest.applyDirective(d.name, {...d.arguments()})
+    // Note this function may take in the implementing object field, but it also
+    // may take in arguments to that field.
+    if (dest instanceof FieldDefinition) {
+      for (const { name, nameInSupergraph } of this.accessControlDirectivesInSupergraph) {
+        let additionalSources = this.accessControlAdditionalSources().get(`${dest.coordinate}_${name}`);
+        if (!additionalSources) {
+          additionalSources = [];
+        }
+        // WARNING: In order to propagate access control directive requirements, we are hijacking existing merge
+        // directive logic by providing "additional sources" from their interfaces/implementations. This means
+        // that their corresponding subgraphIndex will be incorrect and shouldn't be used/relied on when merging
+        // access control directives.
+        if (additionalSources.length > 0) {
+          this.mergeAppliedDirective(
+            nameInSupergraph,
+            sourcesFromArray(additionalSources),
+            dest,
+          );
+        }
       }
+    }
+
+    source.appliedDirectives.forEach((d) => {
+      if (this.joinSpec.isSpecDirective(d.definition!)) {
+        return;
+      }
+      if (this.accessControlDirectivesInSupergraph.some(
+        ({ nameInSupergraph }) => d.name === nameInSupergraph
+      )) {
+        return;
+      }
+      dest.applyDirective(d.name, {...d.arguments()});
     });
   }
 
@@ -3133,23 +3169,27 @@ class Merger {
                   // we need to propagate field access control downwards from interface object fields to object fields
                   const implementations = intfToImplMap.get(objectName);
                   if (implementations) {
+                    const otherInterfaces: Set<string> = new Set();
                     for (const impl of implementations) {
                       const key = `${impl}.${candidate.name}_${name}`;
                       this.recordAdditionalSource(sourceMap, key, candidate);
 
-                      const otherInterfaces = implToIntfMap.get(impl);
-                      if (otherInterfaces) {
-                        // we now need to propagate field access control upwards from @interfaceObject fields to any
-                        // other interfaces implemented by the given type
-                        for (const intf of otherInterfaces) {
+                      const implementedInterfaces = implToIntfMap.get(impl);
+                      if (implementedInterfaces) {
+                        for (const intf of implementedInterfaces) {
                           if (objectName == intf) {
                             // skip current @interfaceObject
                             continue;
                           }
-                          const key = `${intf}.${candidate.name}_${name}`;
-                          this.recordAdditionalSource(sourceMap, key, candidate);
+                          otherInterfaces.add(intf);
                         }
                       }
+                    }
+                    // we now need to propagate field access control upwards from @interfaceObject fields to any
+                    // other interfaces implemented by the given type
+                    for (const intf of otherInterfaces) {
+                      const key = `${intf}.${candidate.name}_${name}`;
+                      this.recordAdditionalSource(sourceMap, key, candidate);
                     }
                   }
                 } else {
@@ -4104,7 +4144,7 @@ export class AuthValidator {
 class AuthRequirements {
   fieldCoordinate: string;
   directive: string;
-  requirements?: AuthRequirementsOnElement
+  requirements: AuthRequirementsOnElement
 
   constructor(
       coordinate: string,
@@ -4142,15 +4182,13 @@ class AuthRequirements {
       requirements.policies = dnfConjunction(policiesToMerge);
     }
 
-    if (requirements.isAuthenticated || requirements.scopes || requirements.policies) {
-      this.requirements = requirements;
-    }
+    this.requirements = requirements;
   }
 
   satisfies(authOnElement: AuthRequirementsOnElement | undefined): boolean {
     if (authOnElement) {
-      // auth requirements on element have to be a subset of type + field requirements
-      return (this.requirements && this.requirements.satisfies(authOnElement)) ?? false;
+      // auth requirements on element have to be an implication of type + field requirements
+      return this.requirements.satisfies(authOnElement);
     }
     return true;
   }
@@ -4163,30 +4201,28 @@ class AuthRequirementsOnElement {
 
   satisfies(other: AuthRequirementsOnElement): boolean {
     const authenticatedSatisfied = this.isAuthenticated || !other.isAuthenticated;
-    const scopesSatisfied = this.isSubset(this.scopes, other.scopes);
-    const policiesSatisfied = this.isSubset(this.policies, other.policies);
+    const scopesSatisfied = this.isImplication(this.scopes, other.scopes);
+    const policiesSatisfied = this.isImplication(this.policies, other.policies);
     return authenticatedSatisfied && scopesSatisfied && policiesSatisfied;
   }
 
-  isSubset(first: string[][] | undefined, second: string[][] | undefined): boolean {
-    if (second) {
-      if (first) {
-         // outer elements follow OR rules so we need all conditions to match as we don't know which one will be provided at runtime
-        return first.every((firstInner) => second.some((secondInner) => {
-          // inner elements follow AND rules which means that
-          // ALL elements from secondInner has to be present in the firstInner
-          const firstSet = new Set(firstInner);
-          const secondSet = new Set(secondInner);
-          return firstSet.size >= secondSet.size && secondInner.every((elem) => firstSet.has(elem));
-        }));
-      } else {
-        // we don't specify any auth requirements but second one requires it
-        return false;
-      }
-    } else {
-      // second one does not specify any auth requirements so we are good
-      return true;
-    }
+  // Whether the left DNF expression materially implies the right one. See:
+  // https://en.wikipedia.org/wiki/Material_conditional
+  private isImplication(first: string[][] | undefined, second: string[][] | undefined): boolean {
+    // No auth requirements are the same as auth requirements that are always
+    // true. We also run `convertEmptyToTrue()`; see its doc string to
+    // understand why this is necessary.
+    const firstNormalized = convertEmptyToTrue(first ?? [[]]);
+    const secondNormalized = convertEmptyToTrue(second ?? [[]]);
+
+    // outer elements follow OR rules so we need all conditions to match as we don't know which one will be provided at runtime
+    return firstNormalized.every((firstInner) => secondNormalized.some((secondInner) => {
+      // inner elements follow AND rules which means that
+      // ALL elements from secondInner has to be present in the firstInner
+      const firstSet = new Set(firstInner);
+      const secondSet = new Set(secondInner);
+      return firstSet.size >= secondSet.size && secondInner.every((elem) => firstSet.has(elem));
+    }));
   }
 
   toString(): string {
