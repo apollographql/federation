@@ -3825,3 +3825,7 @@ function copyDirectiveDefinitionInner(
 export function isFieldDefinition(elem: SchemaElement<any, any>): elem is FieldDefinition<any> {
   return elem instanceof FieldDefinition;
 }
+
+export function isElementNamedType(elem: SchemaElement<any, any>): elem is NamedType {
+  return elem instanceof BaseNamedType;
+}

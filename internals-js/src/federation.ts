@@ -37,7 +37,7 @@ import {
   isWrapperType,
   possibleRuntimeTypes,
   isIntType,
-  Type, isFieldDefinition,
+  Type, isFieldDefinition, isElementNamedType,
 } from "./definitions";
 import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues, assertUnreachable } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -1071,7 +1071,7 @@ function validateListSizeAppliedToList(
 ) {
   const { sizedFields = [] } = application.arguments();
   // @listSize must be applied to a list https://ibm.github.io/graphql-specs/cost-spec.html#sec-Valid-List-Size-Target
-  if (!sizedFields.length && parent.type && !isListType(parent.type)) {
+  if (!sizedFields.length && parent.type && !isListType(parent.type) && !isNonNullListType(parent.type)) {
     errorCollector.push(ERRORS.LIST_SIZE_APPLIED_TO_NON_LIST.err(
       `"${parent.coordinate}" is not a list`,
       { nodes: sourceASTs(application, parent) },
@@ -1141,8 +1141,9 @@ function validateSizedFieldsAreValidLists(
 ) {
   const { sizedFields = [] } = application.arguments();
   // Validate sizedFields https://ibm.github.io/graphql-specs/cost-spec.html#sec-Valid-Sized-Fields-Target
-  if (sizedFields.length) {
-    if (!parent.type || !isCompositeType(parent.type)) {
+  if (sizedFields.length && parent.type) {
+    const baseParentType = baseType(parent.type);
+    if (!isCompositeType(baseParentType)) {
       // The output type must have fields
       errorCollector.push(ERRORS.LIST_SIZE_INVALID_SIZED_FIELD.err(
         `Sized fields cannot be used because "${parent.type}" is not a composite type`,
@@ -1150,11 +1151,11 @@ function validateSizedFieldsAreValidLists(
       ));
     } else {
       for (const sizedFieldName of sizedFields) {
-        const sizedField = parent.type.field(sizedFieldName);
+        const sizedField = baseParentType.field(sizedFieldName);
         if (!sizedField) {
           // Sized fields must be present on the output type
           errorCollector.push(ERRORS.LIST_SIZE_INVALID_SIZED_FIELD.err(
-            `Sized field "${sizedFieldName}" is not a field on type "${parent.type.coordinate}"`,
+            `Sized field "${sizedFieldName}" is not a field on type "${baseParentType.coordinate}"`,
             { nodes: sourceASTs(application, parent) }
           ));
         } else if (!sizedField.type || !(isListType(sizedField.type) || isNonNullListType(sizedField.type))) {
@@ -1846,7 +1847,7 @@ export class FederationBlueprint extends SchemaBlueprint {
       validateSizedFieldsAreValidLists(application, parent, errorCollector);
     }
 
-    // Validate @authenticated, @requireScopes and @policy
+    // Validate @authenticated, @requireScopes and @policy usage on interfaces and interface objects
     validateNoAuthenticationOnInterfaces(metadata, errorCollector);
 
     return errorCollector;
@@ -2907,15 +2908,15 @@ function validateNoAuthenticationOnInterfaces(metadata: FederationMetadata, erro
   const policyDirective = metadata.policyDirective();
   [authenticatedDirective, requiresScopesDirective, policyDirective].forEach((directive) => {
     for (const application of directive.applications()) {
-      const element = application.parent;
-      function isAppliedOnInterface(type: Type) {
-        return isInterfaceType(type) || isInterfaceObjectType(baseType(type));
-      }
-      function isAppliedOnInterfaceField(elem: SchemaElement<any, any>) {
-        return isFieldDefinition(elem) && isAppliedOnInterface(elem.parent);
-      }
-
-      if (isAppliedOnInterface(element) || isAppliedOnInterfaceField(element)) {
+      const element: SchemaElement<any, any> = application.parent;
+      if (
+        // Is it applied on interface or interface object types?
+        (isElementNamedType(element) &&
+          (isInterfaceType(element) || isInterfaceObjectType(element))
+        ) ||
+        // Is it applied on interface fields?
+        (isFieldDefinition(element) && isInterfaceType(element.parent))
+      ) {
         let kind = '';
         switch (element.kind) {
           case 'FieldDefinition':
@@ -2928,8 +2929,8 @@ function validateNoAuthenticationOnInterfaces(metadata: FederationMetadata, erro
             kind = 'interface object';
             break;
         }
-        errorCollector.push(ERRORS.AUTHENTICATION_APPLIED_ON_INTERFACE.err(
-            `Invalid use of @${directive.name} on ${kind} "${element.coordinate}": @${directive.name} cannot be applied on interfaces, interface objects or their fields`,
+        errorCollector.push(ERRORS.AUTH_REQUIREMENTS_APPLIED_ON_INTERFACE.err(
+            `Invalid use of @${directive.name} on ${kind} "${element.coordinate}": @${directive.name} cannot be applied on interfaces, interface fields and interface objects`,
             {nodes: sourceASTs(application, element.parent)},
         ));
       }

@@ -1,6 +1,6 @@
 import { DocumentNode } from 'graphql';
 import gql from 'graphql-tag';
-import { Subgraph } from '..';
+import { asFed2SubgraphDocument, Subgraph } from '..';
 import { buildSubgraph } from '../federation';
 import { defaultPrintOptions, printSchema } from '../print';
 import { buildForErrors } from './testUtils';
@@ -733,9 +733,18 @@ describe('custom error message for misnamed directives', () => {
   });
 });
 
-function buildAndValidate(doc: DocumentNode): Subgraph {
-  const name = 'S';
-  return buildSubgraph(name, `http://${name}`, doc).validate();
+function buildAndValidate(
+  doc: DocumentNode,
+  options?: {
+    subgraphName?: string;
+    asFed2?: boolean;
+    includeAllImports?: boolean;
+  },
+): Subgraph {
+  const subgraphDoc =
+    options?.asFed2 ?? true ? asFed2SubgraphDocument(doc, { ...options }) : doc;
+  const name = options?.subgraphName ?? 'S';
+  return buildSubgraph(name, `http://${name}`, subgraphDoc).validate();
 }
 
 describe('@core/@link handling', () => {
@@ -824,7 +833,7 @@ describe('@core/@link handling', () => {
       }
     `;
 
-    validateFullSchema(buildAndValidate(doc));
+    validateFullSchema(buildAndValidate(doc, { asFed2: false }));
   });
 
   it('expands definitions if both the federation spec and link spec are linked', () => {
@@ -838,11 +847,13 @@ describe('@core/@link handling', () => {
       }
     `;
 
-    validateFullSchema(buildAndValidate(doc));
+    validateFullSchema(buildAndValidate(doc, { asFed2: false }));
   });
 
   it('is valid if a schema is complete from the get-go', () => {
-    validateFullSchema(buildAndValidate(gql(expectedFullSchema)));
+    validateFullSchema(
+      buildAndValidate(gql(expectedFullSchema), { asFed2: false }),
+    );
   });
 
   it('expands missing definitions when some are partially provided', () => {
@@ -929,7 +940,7 @@ describe('@core/@link handling', () => {
     // calls the graphQL-js validation, so we can be somewhat sure that if something necessary wasn't expanded
     // properly, we would have an issue. The main reason we did validate the full schema in prior tests is
     // so we had at least one full example of a subgraph expansion in the tests.
-    docs.forEach((doc) => buildAndValidate(doc));
+    docs.forEach((doc) => buildAndValidate(doc, { asFed2: false }));
   });
 
   it('allows known directives with incomplete but compatible definitions', () => {
@@ -1033,7 +1044,7 @@ describe('@core/@link handling', () => {
     ];
 
     // Like above, we really only care that the examples validate.
-    docs.forEach((doc) => buildAndValidate(doc));
+    docs.forEach((doc) => buildAndValidate(doc, { asFed2: false }));
   });
 
   it('errors on invalid known directive location', () => {
@@ -1187,7 +1198,7 @@ describe('@core/@link handling', () => {
     `;
 
     // Just making sure this don't error out.
-    buildAndValidate(doc);
+    buildAndValidate(doc, { asFed2: false });
   });
 
   it('allows defining a repeatable directive as non-repeatable but validates usages', () => {
@@ -1229,7 +1240,7 @@ describe('federation 1 schema', () => {
       directive @requires on FIELD_DEFINITION
     `;
 
-    buildAndValidate(doc);
+    buildAndValidate(doc, { asFed2: false });
   });
 
   it('accepts federation directive definitions with nullable arguments', () => {
@@ -1251,7 +1262,7 @@ describe('federation 1 schema', () => {
       directive @requires(fields: String) on FIELD_DEFINITION
     `;
 
-    buildAndValidate(doc);
+    buildAndValidate(doc, { asFed2: false });
   });
 
   it('accepts federation directive definitions with "FieldSet" type instead of "_FieldSet"', () => {
@@ -1268,7 +1279,7 @@ describe('federation 1 schema', () => {
       directive @key(fields: FieldSet) on OBJECT | INTERFACE
     `;
 
-    buildAndValidate(doc);
+    buildAndValidate(doc, { asFed2: false });
   });
 
   it('rejects federation directive definition with unknown arguments', () => {
@@ -1507,10 +1518,54 @@ describe('@cost', () => {
 });
 
 describe('@listSize', () => {
+  it('works on lists', () => {
+    const doc = gql`
+      type Query {
+        a1: [A]! @listSize(assumedSize: 5)
+        a2: [A] @listSize(assumedSize: 5)
+      }
+
+      type A {
+        field: String
+      }
+    `;
+
+    expect(buildAndValidate(doc, { includeAllImports: true }));
+  });
+
+  it('works on valid sizedFields', () => {
+    const doc = gql`
+      type Query {
+        a1: A @listSize(assumedSize: 10, sizedFields: ["nullableList"])
+        a2: A
+          @listSize(
+            assumedSize: 10
+            sizedFields: ["nullableListOfNullableInts"]
+          )
+        a3: A @listSize(assumedSize: 10, sizedFields: ["ints"])
+        a4: A! @listSize(assumedSize: 10, sizedFields: ["nullableList"])
+        a5: A!
+          @listSize(
+            assumedSize: 10
+            sizedFields: ["nullableListOfNullableInts"]
+          )
+        a6: A! @listSize(assumedSize: 10, sizedFields: ["ints"])
+      }
+
+      type A {
+        nullableListOfNullableInts: [Int]
+        nullableList: [Int!]
+        ints: [Int!]!
+      }
+    `;
+
+    expect(buildAndValidate(doc, { includeAllImports: true }));
+  });
+
   it('rejects applications on non-lists (unless it uses sizedFields)', () => {
     const doc = gql`
       type Query {
-        a1: A @listSize(assumedSize: 5)
+        a1: A! @listSize(assumedSize: 5)
         a2: A @listSize(assumedSize: 10, sizedFields: ["ints"])
       }
 
@@ -1763,20 +1818,16 @@ describe('authentication validations', () => {
 
       expect(buildForErrors(doc, { includeAllImports: true })).toStrictEqual([
         [
-          'AUTHENTICATION_APPLIED_ON_INTERFACE',
-          `[S] Invalid use of ${directiveName} on field "I.x": ${directiveName} cannot be applied on interfaces, interface objects or their fields`,
+          'AUTH_REQUIREMENTS_APPLIED_ON_INTERFACE',
+          `[S] Invalid use of ${directiveName} on field "I.x": ${directiveName} cannot be applied on interfaces, interface fields and interface objects`,
         ],
         [
-          'AUTHENTICATION_APPLIED_ON_INTERFACE',
-          `[S] Invalid use of ${directiveName} on interface "I": ${directiveName} cannot be applied on interfaces, interface objects or their fields`,
+          'AUTH_REQUIREMENTS_APPLIED_ON_INTERFACE',
+          `[S] Invalid use of ${directiveName} on interface "I": ${directiveName} cannot be applied on interfaces, interface fields and interface objects`,
         ],
         [
-          'AUTHENTICATION_APPLIED_ON_INTERFACE',
-          `[S] Invalid use of ${directiveName} on field "O.y": ${directiveName} cannot be applied on interfaces, interface objects or their fields`,
-        ],
-        [
-          'AUTHENTICATION_APPLIED_ON_INTERFACE',
-          `[S] Invalid use of ${directiveName} on interface object "O": ${directiveName} cannot be applied on interfaces, interface objects or their fields`,
+          'AUTH_REQUIREMENTS_APPLIED_ON_INTERFACE',
+          `[S] Invalid use of ${directiveName} on interface object "O": ${directiveName} cannot be applied on interfaces, interface fields and interface objects`,
         ],
       ]);
     },
