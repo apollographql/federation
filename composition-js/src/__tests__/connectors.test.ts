@@ -6,7 +6,7 @@ describe("connect spec and join__directive", () => {
   const subgraphSdl = `
       extend schema
       @link(
-          url: "https://specs.apollo.dev/federation/v2.10"
+          url: "https://specs.apollo.dev/federation/v2.12"
           import: ["@key"]
       )
       @link(
@@ -26,77 +26,75 @@ describe("connect spec and join__directive", () => {
       }
   `;
 
-  const expectedSupergraphSdl = `
-    "schema
-      @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
-      @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-      @link(url: \\"https://specs.apollo.dev/connect/v0.3\\", for: EXECUTION)
-      @join__directive(graphs: [WITH_CONNECTORS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@connect\\", \\"@source\\"]})
-      @join__directive(graphs: [WITH_CONNECTORS], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
-    {
-      query: Query
-    }
+  const expectedSupergraphSdl = `schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/join/v0.5", for: EXECUTION)
+  @link(url: "https://specs.apollo.dev/connect/v0.4", for: EXECUTION)
+  @join__directive(graphs: [WITH_CONNECTORS], name: "link", args: {url: "https://specs.apollo.dev/connect/v0.1", import: ["@connect", "@source"]})
+  @join__directive(graphs: [WITH_CONNECTORS], name: "source", args: {name: "v1", http: {baseURL: "http://v1"}})
+{
+  query: Query
+}
 
-    directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
-    directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
-    directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
 
-    directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
 
-    directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
 
-    directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
 
-    directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
-    directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
+directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
 
-    enum link__Purpose {
-      \\"\\"\\"
-      \`SECURITY\` features provide metadata necessary to securely resolve fields.
-      \\"\\"\\"
-      SECURITY
+enum link__Purpose {
+  """
+  \`SECURITY\` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
 
-      \\"\\"\\"
-      \`EXECUTION\` features provide metadata necessary for operation execution.
-      \\"\\"\\"
-      EXECUTION
-    }
+  """
+  \`EXECUTION\` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
+}
 
-    scalar link__Import
+scalar link__Import
 
-    enum join__Graph {
-      WITH_CONNECTORS @join__graph(name: \\"with-connectors\\", url: \\"\\")
-    }
+enum join__Graph {
+  WITH_CONNECTORS @join__graph(name: "with-connectors", url: "")
+}
 
-    scalar join__FieldSet
+scalar join__FieldSet
 
-    scalar join__DirectiveArguments
+scalar join__DirectiveArguments
 
-    scalar join__FieldValue
+scalar join__FieldValue
 
-    input join__ContextArgument {
-      name: String!
-      type: String!
-      context: String!
-      selection: join__FieldValue!
-    }
+input join__ContextArgument {
+  name: String!
+  type: String!
+  context: String!
+  selection: join__FieldValue!
+}
 
-    type Query
-      @join__type(graph: WITH_CONNECTORS)
-    {
-      resources: [Resource!]! @join__directive(graphs: [WITH_CONNECTORS], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\"}, selection: \\"\\"})
-    }
+type Query
+  @join__type(graph: WITH_CONNECTORS)
+{
+  resources: [Resource!]! @join__directive(graphs: [WITH_CONNECTORS], name: "connect", args: {source: "v1", http: {GET: "/resources"}, selection: ""})
+}
 
-    type Resource
-      @join__type(graph: WITH_CONNECTORS, key: \\"id\\")
-    {
-      id: ID!
-      name: String!
-    }"
-  `;
+type Resource
+  @join__type(graph: WITH_CONNECTORS, key: "id")
+{
+  id: ID!
+  name: String!
+}`;
 
   const expectedApiSdl = `
     "type Query {
@@ -120,7 +118,7 @@ describe("connect spec and join__directive", () => {
     const result = composeServices(subgraphs);
     expect(result.errors ?? []).toEqual([]);
     const printed = printSchema(result.schema!);
-    expect(printed).toMatchInlineSnapshot(expectedSupergraphSdl);
+    expect(printed).toEqual(expectedSupergraphSdl);
 
     if (result.schema) {
       expect(printSchema(result.schema.toAPISchema())).toMatchInlineSnapshot(
@@ -144,7 +142,7 @@ describe("connect spec and join__directive", () => {
     const result = composeServices(subgraphs);
     expect(result.errors ?? []).toEqual([]);
     const printed = printSchema(result.schema!);
-    expect(printed).toMatchInlineSnapshot(expectedSupergraphSdl);
+    expect(printed).toEqual(expectedSupergraphSdl);
 
     if (result.schema) {
       expect(printSchema(result.schema.toAPISchema())).toMatchInlineSnapshot(
@@ -185,77 +183,12 @@ describe("connect spec and join__directive", () => {
     const result = composeServices(subgraphs);
     expect(result.errors ?? []).toEqual([]);
     const printed = printSchema(result.schema!);
-    expect(printed).toMatchInlineSnapshot(`
-      "schema
-        @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
-        @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.3\\", for: EXECUTION)
-        @join__directive(graphs: [WITH_CONNECTORS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@source\\"]})
-        @join__directive(graphs: [WITH_CONNECTORS], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
-      {
-        query: Query
-      }
-
-      directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
-
-      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
-
-      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
-
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
-
-      directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
-
-      directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
-
-      directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
-
-      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
-
-      enum link__Purpose {
-        \\"\\"\\"
-        \`SECURITY\` features provide metadata necessary to securely resolve fields.
-        \\"\\"\\"
-        SECURITY
-
-        \\"\\"\\"
-        \`EXECUTION\` features provide metadata necessary for operation execution.
-        \\"\\"\\"
-        EXECUTION
-      }
-
-      scalar link__Import
-
-      enum join__Graph {
-        WITH_CONNECTORS @join__graph(name: \\"with-connectors\\", url: \\"\\")
-      }
-
-      scalar join__FieldSet
-
-      scalar join__DirectiveArguments
-
-      scalar join__FieldValue
-
-      input join__ContextArgument {
-        name: String!
-        type: String!
-        context: String!
-        selection: join__FieldValue!
-      }
-
-      type Query
-        @join__type(graph: WITH_CONNECTORS)
-      {
-        resources: [Resource!]! @join__directive(graphs: [WITH_CONNECTORS], name: \\"connect\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\"}, selection: \\"\\"})
-      }
-
-      type Resource
-        @join__type(graph: WITH_CONNECTORS, key: \\"id\\")
-      {
-        id: ID!
-        name: String!
-      }"
-    `);
+    expect(printed).toEqual(
+      expectedSupergraphSdl.replace(
+        'import: ["@connect", "@source"]',
+        'import: ["@source"]',
+      )
+    );
 
     if (result.schema) {
       expect(printSchema(result.schema.toAPISchema())).toMatchInlineSnapshot(`
@@ -307,7 +240,7 @@ describe("connect spec and join__directive", () => {
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.3\\", for: EXECUTION)
+        @link(url: \\"https://specs.apollo.dev/connect/v0.4\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
       {
@@ -422,77 +355,15 @@ describe("connect spec and join__directive", () => {
     const result = composeServices(subgraphs);
     expect(result.errors ?? []).toEqual([]);
     const printed = printSchema(result.schema!);
-    expect(printed).toMatchInlineSnapshot(`
-      "schema
-        @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
-        @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.3\\", for: EXECUTION)
-        @join__directive(graphs: [WITH_CONNECTORS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", as: \\"http\\", import: [\\"@source\\"]})
-        @join__directive(graphs: [WITH_CONNECTORS], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
-      {
-        query: Query
-      }
-
-      directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
-
-      directive @join__graph(name: String!, url: String!) on ENUM_VALUE
-
-      directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
-
-      directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean, overrideLabel: String, contextArguments: [join__ContextArgument!]) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
-
-      directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
-
-      directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
-
-      directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
-
-      directive @join__directive(graphs: [join__Graph!], name: String!, args: join__DirectiveArguments) repeatable on SCHEMA | OBJECT | INTERFACE | FIELD_DEFINITION
-
-      enum link__Purpose {
-        \\"\\"\\"
-        \`SECURITY\` features provide metadata necessary to securely resolve fields.
-        \\"\\"\\"
-        SECURITY
-
-        \\"\\"\\"
-        \`EXECUTION\` features provide metadata necessary for operation execution.
-        \\"\\"\\"
-        EXECUTION
-      }
-
-      scalar link__Import
-
-      enum join__Graph {
-        WITH_CONNECTORS @join__graph(name: \\"with-connectors\\", url: \\"\\")
-      }
-
-      scalar join__FieldSet
-
-      scalar join__DirectiveArguments
-
-      scalar join__FieldValue
-
-      input join__ContextArgument {
-        name: String!
-        type: String!
-        context: String!
-        selection: join__FieldValue!
-      }
-
-      type Query
-        @join__type(graph: WITH_CONNECTORS)
-      {
-        resources: [Resource!]! @join__directive(graphs: [WITH_CONNECTORS], name: \\"http\\", args: {source: \\"v1\\", http: {GET: \\"/resources\\"}, selection: \\"\\"})
-      }
-
-      type Resource
-        @join__type(graph: WITH_CONNECTORS, key: \\"id\\")
-      {
-        id: ID!
-        name: String!
-      }"
-    `);
+    expect(printed).toEqual(
+      expectedSupergraphSdl.replace(
+        'import: ["@connect", "@source"]',
+        'as: "http", import: ["@source"]',
+      ).replace(
+        'name: "connect"',
+        'name: "http"',
+      )
+    );
 
     if (result.schema) {
       expect(printSchema(result.schema.toAPISchema())).toMatchInlineSnapshot(`
@@ -588,7 +459,7 @@ describe("connect spec and join__directive", () => {
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.3\\", for: EXECUTION)
+        @link(url: \\"https://specs.apollo.dev/connect/v0.4\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.2\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
@@ -772,7 +643,7 @@ describe("connect spec and join__directive", () => {
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.3\\", for: EXECUTION)
+        @link(url: \\"https://specs.apollo.dev/connect/v0.4\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_3_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.3\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
@@ -913,7 +784,7 @@ describe("connect spec and join__directive", () => {
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.3\\", for: EXECUTION)
+        @link(url: \\"https://specs.apollo.dev/connect/v0.4\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", as: \\"http\\", import: [{name: \\"@connect\\", as: \\"@http\\"}, {name: \\"@source\\", as: \\"@api\\"}]})
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"api\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
       {
