@@ -746,9 +746,9 @@ const MAX_VALIDATION_SUBGRAPH_PATHS_EXCEEDED = makeCodeDefinition(
   { addedIn: '2.8.0' },
 );
 
-const AUTHENTICATION_APPLIED_ON_INTERFACE = makeCodeDefinition(
-    'AUTHENTICATION_APPLIED_ON_INTERFACE',
-    'The @authenticated, @requiresScopes and @policy directive cannot be applied on interface, interface object or their fields.',
+const AUTH_REQUIREMENTS_APPLIED_ON_INTERFACE = makeCodeDefinition(
+    'AUTH_REQUIREMENTS_APPLIED_ON_INTERFACE',
+    'The @authenticated, @requiresScopes and @policy directive cannot be applied on interface, interface fields and interface object',
     { addedIn: '2.9.4' },
 );
 
@@ -879,7 +879,7 @@ export const ERRORS = {
   LIST_SIZE_INVALID_SIZED_FIELD,
   LIST_SIZE_INVALID_SLICING_ARGUMENT,
   MAX_VALIDATION_SUBGRAPH_PATHS_EXCEEDED,
-  AUTHENTICATION_APPLIED_ON_INTERFACE,
+  AUTH_REQUIREMENTS_APPLIED_ON_INTERFACE,
   MISSING_TRANSITIVE_AUTH_REQUIREMENTS,
 };
 

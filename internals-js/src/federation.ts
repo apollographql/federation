@@ -37,7 +37,7 @@ import {
   isWrapperType,
   possibleRuntimeTypes,
   isIntType,
-  Type, isFieldDefinition,
+  Type, isFieldDefinition, isElementNamedType,
 } from "./definitions";
 import { assert, MultiMap, printHumanReadableList, OrderedMap, mapValues, assertUnreachable } from "./utils";
 import { SDLValidationRule } from "graphql/validation/ValidationContext";
@@ -1875,7 +1875,7 @@ export class FederationBlueprint extends SchemaBlueprint {
       validateSizedFieldsAreValidLists(application, parent, errorCollector);
     }
 
-    // Validate @authenticated, @requireScopes and @policy
+    // Validate @authenticated, @requireScopes and @policy usage on interfaces and interface objects
     validateNoAuthenticationOnInterfaces(metadata, errorCollector);
 
     return errorCollector;
@@ -2936,15 +2936,15 @@ function validateNoAuthenticationOnInterfaces(metadata: FederationMetadata, erro
   const policyDirective = metadata.policyDirective();
   [authenticatedDirective, requiresScopesDirective, policyDirective].forEach((directive) => {
     for (const application of directive.applications()) {
-      const element = application.parent;
-      function isAppliedOnInterface(type: Type) {
-        return isInterfaceType(type) || isInterfaceObjectType(baseType(type));
-      }
-      function isAppliedOnInterfaceField(elem: SchemaElement<any, any>) {
-        return isFieldDefinition(elem) && isAppliedOnInterface(elem.parent);
-      }
-
-      if (isAppliedOnInterface(element) || isAppliedOnInterfaceField(element)) {
+      const element: SchemaElement<any, any> = application.parent;
+      if (
+        // Is it applied on interface or interface object types?
+        (isElementNamedType(element) &&
+          (isInterfaceType(element) || isInterfaceObjectType(element))
+        ) ||
+        // Is it applied on interface fields?
+        (isFieldDefinition(element) && isInterfaceType(element.parent))
+      ) {
         let kind = '';
         switch (element.kind) {
           case 'FieldDefinition':
@@ -2957,8 +2957,8 @@ function validateNoAuthenticationOnInterfaces(metadata: FederationMetadata, erro
             kind = 'interface object';
             break;
         }
-        errorCollector.push(ERRORS.AUTHENTICATION_APPLIED_ON_INTERFACE.err(
-            `Invalid use of @${directive.name} on ${kind} "${element.coordinate}": @${directive.name} cannot be applied on interfaces, interface objects or their fields`,
+        errorCollector.push(ERRORS.AUTH_REQUIREMENTS_APPLIED_ON_INTERFACE.err(
+            `Invalid use of @${directive.name} on ${kind} "${element.coordinate}": @${directive.name} cannot be applied on interfaces, interface fields and interface objects`,
             {nodes: sourceASTs(application, element.parent)},
         ));
       }
