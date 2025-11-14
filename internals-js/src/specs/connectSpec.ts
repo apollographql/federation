@@ -387,9 +387,7 @@ export const CONNECT_VERSIONS = new FeatureDefinitions<ConnectSpecDefinition>(
   .add(
     new ConnectSpecDefinition(
       new FeatureVersion(0, 4),
-      // TODO This minimum version will probably change before connect/v0.4 is
-      // released, but for now we want to use a minimum version that exists.
-      new FeatureVersion(2, 12),
+      new FeatureVersion(2, 13),
     ),
   );
 
