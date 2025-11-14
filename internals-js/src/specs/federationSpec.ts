@@ -1,26 +1,34 @@
+import { InputType, NonNullType, Schema } from '../definitions';
 import {
-  InputType,
-  NonNullType,
-  Schema,
-} from "../definitions";
-import { FeatureDefinition, FeatureDefinitions, FeatureUrl, FeatureVersion } from "./coreSpec";
+  FeatureDefinition,
+  FeatureDefinitions,
+  FeatureUrl,
+  FeatureVersion,
+} from './coreSpec';
 import {
   ArgumentSpecification,
   createDirectiveSpecification,
   createScalarTypeSpecification,
-} from "../directiveAndTypeSpecification";
-import { DirectiveLocation } from "graphql";
-import { assert } from "../utils";
-import { TAG_VERSIONS } from "./tagSpec";
-import { federationMetadata } from "../federation";
-import { registerKnownFeature } from "../knownCoreFeatures";
-import { INACCESSIBLE_VERSIONS } from "./inaccessibleSpec";
-import { AUTHENTICATED_VERSIONS } from "./authenticatedSpec";
-import { REQUIRES_SCOPES_VERSIONS } from "./requiresScopesSpec";
+} from '../directiveAndTypeSpecification';
+import { DirectiveLocation } from 'graphql';
+import { assert } from '../utils';
+import { TAG_VERSIONS } from './tagSpec';
+import { federationMetadata } from '../federation';
+import { registerKnownFeature } from '../knownCoreFeatures';
+import { INACCESSIBLE_VERSIONS } from './inaccessibleSpec';
+import { AUTHENTICATED_VERSIONS } from './authenticatedSpec';
+import { REQUIRES_SCOPES_VERSIONS } from './requiresScopesSpec';
 import { POLICY_VERSIONS } from './policySpec';
 import { CONTEXT_VERSIONS } from './contextSpec';
-import { COST_VERSIONS } from "./costSpec";
-import { CACHE_TAG_VERSIONS, CACHE_TAG as CACHE_TAG_DIRECTIVE_NAME } from "./cacheTagSpec";
+import { COST_VERSIONS } from './costSpec';
+import {
+  CACHE_TAG_VERSIONS,
+  CACHE_TAG as CACHE_TAG_DIRECTIVE_NAME,
+} from './cacheTagSpec';
+import {
+  CACHE_INVALIDATION_VERSIONS,
+  CACHE_INVALIDATION as CACHE_INVALIDATION_DIRECTIVE_NAME,
+} from './cacheInvalidationSpec';
 
 export const federationIdentity = 'https://specs.apollo.dev/federation';
 
@@ -49,11 +57,17 @@ export enum FederationDirectiveName {
   COST = 'cost',
   LIST_SIZE = 'listSize',
   CACHE_TAG = CACHE_TAG_DIRECTIVE_NAME,
+  CACHE_INVALIDATION = CACHE_INVALIDATION_DIRECTIVE_NAME,
 }
 
-const fieldSetTypeSpec = createScalarTypeSpecification({ name: FederationTypeName.FIELD_SET });
+const fieldSetTypeSpec = createScalarTypeSpecification({
+  name: FederationTypeName.FIELD_SET,
+});
 
-const fieldsArgument: ArgumentSpecification = { name: 'fields', type: (schema) => fieldSetType(schema) };
+const fieldsArgument: ArgumentSpecification = {
+  name: 'fields',
+  type: (schema) => fieldSetType(schema),
+};
 
 const keyDirectiveSpec = createDirectiveSpecification({
   name: FederationDirectiveName.KEY,
@@ -61,8 +75,12 @@ const keyDirectiveSpec = createDirectiveSpecification({
   repeatable: true,
   args: [
     fieldsArgument,
-    { name: 'resolvable', type: (schema) => schema.booleanType(), defaultValue: true },
-  ]
+    {
+      name: 'resolvable',
+      type: (schema) => schema.booleanType(),
+      defaultValue: true,
+    },
+  ],
 });
 
 const extendsDirectiveSpec = createDirectiveSpecification({
@@ -88,9 +106,7 @@ const providesDirectiveSpec = createDirectiveSpecification({
   args: [fieldsArgument],
 });
 
-const legacyFederationTypes = [
-  fieldSetTypeSpec,
-];
+const legacyFederationTypes = [fieldSetTypeSpec];
 
 const legacyFederationDirectives = [
   keyDirectiveSpec,
@@ -105,7 +121,6 @@ const legacyFederationDirectives = [
 
 export const FEDERATION1_TYPES = legacyFederationTypes;
 export const FEDERATION1_DIRECTIVES = legacyFederationDirectives;
-
 
 function fieldSetType(schema: Schema): InputType {
   const metadata = federationMetadata(schema);
@@ -125,51 +140,78 @@ export class FederationSpecDefinition extends FeatureDefinition {
       this.registerDirective(directive);
     }
 
-    this.registerDirective(createDirectiveSpecification({
-      name: FederationDirectiveName.SHAREABLE,
-      locations: [DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION],
-      repeatable: version.gte(new FeatureVersion(2, 2)),
-    }));
+    this.registerDirective(
+      createDirectiveSpecification({
+        name: FederationDirectiveName.SHAREABLE,
+        locations: [
+          DirectiveLocation.OBJECT,
+          DirectiveLocation.FIELD_DEFINITION,
+        ],
+        repeatable: version.gte(new FeatureVersion(2, 2)),
+      }),
+    );
 
-    this.registerSubFeature(INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(version));
+    this.registerSubFeature(
+      INACCESSIBLE_VERSIONS.getMinimumRequiredVersion(version),
+    );
 
     if (version.gte(new FeatureVersion(2, 7))) {
-      this.registerDirective(createDirectiveSpecification({
-        name: FederationDirectiveName.OVERRIDE,
-        locations: [DirectiveLocation.FIELD_DEFINITION],
-        args: [
-          { name: 'from', type: (schema) => new NonNullType(schema.stringType()) },
-          { name: 'label', type: (schema) => schema.stringType() },
-        ],
-      }));
+      this.registerDirective(
+        createDirectiveSpecification({
+          name: FederationDirectiveName.OVERRIDE,
+          locations: [DirectiveLocation.FIELD_DEFINITION],
+          args: [
+            {
+              name: 'from',
+              type: (schema) => new NonNullType(schema.stringType()),
+            },
+            { name: 'label', type: (schema) => schema.stringType() },
+          ],
+        }),
+      );
     } else {
-      this.registerDirective(createDirectiveSpecification({
-        name: FederationDirectiveName.OVERRIDE,
-        locations: [DirectiveLocation.FIELD_DEFINITION],
-        args: [{ name: 'from', type: (schema) => new NonNullType(schema.stringType()) }],
-      }));
+      this.registerDirective(
+        createDirectiveSpecification({
+          name: FederationDirectiveName.OVERRIDE,
+          locations: [DirectiveLocation.FIELD_DEFINITION],
+          args: [
+            {
+              name: 'from',
+              type: (schema) => new NonNullType(schema.stringType()),
+            },
+          ],
+        }),
+      );
     }
 
     if (version.gte(new FeatureVersion(2, 1))) {
-      this.registerDirective(createDirectiveSpecification({
-        name: FederationDirectiveName.COMPOSE_DIRECTIVE,
-        locations: [DirectiveLocation.SCHEMA],
-        repeatable: true,
-        args: [{ name: 'name', type: (schema) => schema.stringType() }],
-      }));
+      this.registerDirective(
+        createDirectiveSpecification({
+          name: FederationDirectiveName.COMPOSE_DIRECTIVE,
+          locations: [DirectiveLocation.SCHEMA],
+          repeatable: true,
+          args: [{ name: 'name', type: (schema) => schema.stringType() }],
+        }),
+      );
     }
 
     if (version.gte(new FeatureVersion(2, 3))) {
-      this.registerDirective(createDirectiveSpecification({
-        name: FederationDirectiveName.INTERFACE_OBJECT,
-        locations: [DirectiveLocation.OBJECT],
-      }));
+      this.registerDirective(
+        createDirectiveSpecification({
+          name: FederationDirectiveName.INTERFACE_OBJECT,
+          locations: [DirectiveLocation.OBJECT],
+        }),
+      );
       this.registerSubFeature(TAG_VERSIONS.find(new FeatureVersion(0, 3))!);
     }
 
     if (version.gte(new FeatureVersion(2, 5))) {
-      this.registerSubFeature(AUTHENTICATED_VERSIONS.find(new FeatureVersion(0, 1))!);
-      this.registerSubFeature(REQUIRES_SCOPES_VERSIONS.find(new FeatureVersion(0, 1))!);
+      this.registerSubFeature(
+        AUTHENTICATED_VERSIONS.find(new FeatureVersion(0, 1))!,
+      );
+      this.registerSubFeature(
+        REQUIRES_SCOPES_VERSIONS.find(new FeatureVersion(0, 1))!,
+      );
     }
 
     if (version.gte(new FeatureVersion(2, 6))) {
@@ -185,32 +227,65 @@ export class FederationSpecDefinition extends FeatureDefinition {
     }
 
     if (version.gte(new FeatureVersion(2, 12))) {
-      this.registerDirective(createDirectiveSpecification({
-        name: FederationDirectiveName.CACHE_TAG,
-        locations: [DirectiveLocation.OBJECT, DirectiveLocation.FIELD_DEFINITION],
-        repeatable: true,
-        args: [{ name: 'format', type: (schema) => new NonNullType(schema.stringType()) }],
-        composes: true,
-        supergraphSpecification: (fedVersion) => CACHE_TAG_VERSIONS.getMinimumRequiredVersion(fedVersion),
-        useJoinDirective: true,
-      }));
+      this.registerDirective(
+        createDirectiveSpecification({
+          name: FederationDirectiveName.CACHE_TAG,
+          locations: [
+            DirectiveLocation.OBJECT,
+            DirectiveLocation.FIELD_DEFINITION,
+          ],
+          repeatable: true,
+          args: [
+            {
+              name: 'format',
+              type: (schema) => new NonNullType(schema.stringType()),
+            },
+          ],
+          composes: true,
+          supergraphSpecification: (fedVersion) =>
+            CACHE_TAG_VERSIONS.getMinimumRequiredVersion(fedVersion),
+          useJoinDirective: true,
+        }),
+      );
+      this.registerDirective(
+        createDirectiveSpecification({
+          name: FederationDirectiveName.CACHE_INVALIDATION,
+          locations: [DirectiveLocation.FIELD_DEFINITION],
+          repeatable: true,
+          args: [
+            {
+              name: 'cacheTag',
+              type: (schema) => schema.stringType(),
+            },
+            {
+              name: 'type',
+              type: (schema) => schema.stringType(),
+            },
+          ],
+          composes: true,
+          supergraphSpecification: (fedVersion) =>
+            CACHE_INVALIDATION_VERSIONS.getMinimumRequiredVersion(fedVersion),
+          useJoinDirective: true,
+        }),
+      );
     }
   }
 }
 
-export const FEDERATION_VERSIONS = new FeatureDefinitions<FederationSpecDefinition>(federationIdentity)
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 0)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 1)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 2)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 3)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 4)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 5)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 6)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 7)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 8)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 9)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 10)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 11)))
-  .add(new FederationSpecDefinition(new FeatureVersion(2, 12)));
+export const FEDERATION_VERSIONS =
+  new FeatureDefinitions<FederationSpecDefinition>(federationIdentity)
+    .add(new FederationSpecDefinition(new FeatureVersion(2, 0)))
+    .add(new FederationSpecDefinition(new FeatureVersion(2, 1)))
+    .add(new FederationSpecDefinition(new FeatureVersion(2, 2)))
+    .add(new FederationSpecDefinition(new FeatureVersion(2, 3)))
+    .add(new FederationSpecDefinition(new FeatureVersion(2, 4)))
+    .add(new FederationSpecDefinition(new FeatureVersion(2, 5)))
+    .add(new FederationSpecDefinition(new FeatureVersion(2, 6)))
+    .add(new FederationSpecDefinition(new FeatureVersion(2, 7)))
+    .add(new FederationSpecDefinition(new FeatureVersion(2, 8)))
+    .add(new FederationSpecDefinition(new FeatureVersion(2, 9)))
+    .add(new FederationSpecDefinition(new FeatureVersion(2, 10)))
+    .add(new FederationSpecDefinition(new FeatureVersion(2, 11)))
+    .add(new FederationSpecDefinition(new FeatureVersion(2, 12)));
 
 registerKnownFeature(FEDERATION_VERSIONS);
