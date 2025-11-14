@@ -1,5 +1,12 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.13.0-preview.0
+
+### Patch Changes
+
+- Updated dependencies [[`4c64006b1604471940e20aa1aa46a0f75a6396df`](https://github.com/apollographql/federation/commit/4c64006b1604471940e20aa1aa46a0f75a6396df)]:
+  - @apollo/federation-internals@2.13.0-preview.0
+
 ## 2.12.0
 
 ### Minor Changes
@@ -7,7 +14,8 @@
 - Federation 2.12 and Connect 0.3 ([#3276](https://github.com/apollographql/federation/pull/3276))
 
 ### Patch Changes
-- 
+
+-
 - When a `GraphQLScalarType` resolver is provided to `buildSubgraphSchema()`, omitted configuration options in the `GraphQLScalarType` no longer cause the corresponding properties in the GraphQL document/AST to be cleared. To explicitly clear these properties, use `null` for the configuration option instead. ([#3287](https://github.com/apollographql/federation/pull/3287))
 
 - Updated dependencies [[`3e2b0a8569a9fe46726182887ed0b4bfc0b52468`](https://github.com/apollographql/federation/commit/3e2b0a8569a9fe46726182887ed0b4bfc0b52468), [`bb4614d338ae03bac51a5fc2439590f172c4e54d`](https://github.com/apollographql/federation/commit/bb4614d338ae03bac51a5fc2439590f172c4e54d), [`99f2da21de88f9ad9a32ee7ed64b2d4a92887b40`](https://github.com/apollographql/federation/commit/99f2da21de88f9ad9a32ee7ed64b2d4a92887b40), [`468f27842608f4e390cfc88bc7e6b4b0945f95ff`](https://github.com/apollographql/federation/commit/468f27842608f4e390cfc88bc7e6b4b0945f95ff), [`3fd5157b309f1d3439b2d87c67b0601fb246d04c`](https://github.com/apollographql/federation/commit/3fd5157b309f1d3439b2d87c67b0601fb246d04c), [`b734ea04d118db09cf6077fdd968c8f04a96327a`](https://github.com/apollographql/federation/commit/b734ea04d118db09cf6077fdd968c8f04a96327a), [`4bda3a498eba36e187dfd9ae673eca12d3f3502c`](https://github.com/apollographql/federation/commit/4bda3a498eba36e187dfd9ae673eca12d3f3502c), [`e7e67579908d5cd2fa6fe558228dffe4808cd98d`](https://github.com/apollographql/federation/commit/e7e67579908d5cd2fa6fe558228dffe4808cd98d), [`faea2d1174d80593264f2227cfde9a2ba1a59b96`](https://github.com/apollographql/federation/commit/faea2d1174d80593264f2227cfde9a2ba1a59b96), [`97b9d2edfcfeed99124f9e115f992cbef3804682`](https://github.com/apollographql/federation/commit/97b9d2edfcfeed99124f9e115f992cbef3804682), [`f6af504f1ba8283fd00af0d6e3c9c1a665d62736`](https://github.com/apollographql/federation/commit/f6af504f1ba8283fd00af0d6e3c9c1a665d62736), [`a595235d3cf8f67611efd8395332b64d067b5f1f`](https://github.com/apollographql/federation/commit/a595235d3cf8f67611efd8395332b64d067b5f1f)]:
