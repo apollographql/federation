@@ -10,5 +10,7 @@
     "@apollo/query-planner": "2.12.0",
     "@apollo/subgraph": "2.12.0"
   },
-  "changesets": []
+  "changesets": [
+    "polite-zoos-obey"
+  ]
 }
