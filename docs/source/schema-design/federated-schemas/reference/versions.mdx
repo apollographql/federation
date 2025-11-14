@@ -41,7 +41,7 @@ Federation v2.12 is a prerequisite for the Connector specification version 0.3.
 
 #### `@cacheTag`
 
-Introduced. [Learn more](/graphos/schema-design/federated-schemas/reference/directives#cacheTag).
+Introduction of new `@cacheTag` directive which allows you to set cache tags that can be associated with cached entries in Apollo Router using [Response Caching](https://www.apollographql.com/docs/graphos/routing/performance/caching/response-caching/overview). Thanks to `@cacheTag` you're able to tag your cached entries with a label you can re-use to invalidate specific data in your schema. [Learn more](/graphos/schema-design/federated-schemas/reference/directives#cacheTag).
 
 ```graphql showLineNumbers=false disableCopy=true
 directive @cacheTag(format: String!) repeatable on FIELD_DEFINITION | OBJECT
