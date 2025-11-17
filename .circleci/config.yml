@@ -30,6 +30,24 @@ jobs:
           command: npm run coverage:upload
       - store_test_results:
           path: junit.xml
+  Lint:
+    description: "Run a lint command using a specific Node.js version"
+    parameters:
+      script:
+        type: string
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - node/install:
+          node-version: '22'
+      - node/install-packages
+      - run:
+          name: Compile
+          command: npm run compile
+      - run:
+          name: Run lint
+          command: npm run << parameters.script >>
 
 workflows:
   Build:
@@ -44,19 +62,13 @@ workflows:
                 - "18"
                 - "20"
                 - "22"
-      - node/run:
-          name: Check Error Code Doc
-          npm-run: error-code-doc:check
-      - node/run:
-          name: Check GraphQL Types
-          npm-run: codegen:check
-      - node/run:
-          name: Check Hints Code Doc
-          override-ci-command: npm ci && npm run compile
-          npm-run: hints-doc:check
-      - node/run:
-          name: Check Spelling
-          npm-run: spell:check
-      - node/run:
-          name: Check Prettier (tests)
-          npm-run: prettier:check
+      - Lint:
+          name: Lint - << matrix.script >>
+          matrix:
+            parameters:
+              script:
+                - "error-code-doc:check"
+                - "codegen:check"
+                - "hints-doc:check"
+                - "spell:check"
+                - "prettier:check"
