@@ -63,7 +63,7 @@ workflows:
                 - "20"
                 - "22"
       - Lint:
-          name: Lint - executing << matrix.script >>
+          name: Lint - << matrix.script >>
           matrix:
             parameters:
               script:
