@@ -1164,6 +1164,146 @@ The default value is `true`.
 </tbody>
 </table>
 
+## Managing cache invalidation
+
+### `@cacheTag`
+
+<MinVersionBadge version="Federation v2.12" />
+
+```graphql
+directive @cacheTag(format: String!) repeatable on FIELD_DEFINITION | OBJECT
+```
+
+Assigns cache tags to cached data in the Apollo Router for [active cache invalidation](/graphos/routing/performance/caching/response-caching/invalidation#active-invalidation). Use cache tags to remove specific cached entries on demand when data changes, rather than waiting for time-to-live (TTL) expiration.
+
+```graphql {7-8}
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.12",
+        import: ["@key", "@cacheTag"])
+
+type Query {
+  users: [User!]! @cacheTag(format: "users-list")
+  user(id: ID!): User @cacheTag(format: "user-{$args.id}")
+}
+
+type User @key(fields: "id") @cacheTag(format: "user-{$key.id}") {
+  id: ID!
+  name: String!
+}
+```
+
+<Note>
+
+The `@cacheTag` directive is defined in your subgraph schema, but it's only interpreted by the router—your subgraph doesn't use it at all. This differs from `@cacheControl`, which is both defined and interpreted at the subgraph level.
+
+</Note>
+
+You can combine `@cacheTag` with `@cacheControl` to set reasonable TTLs as a safety net while maintaining the ability to invalidate data immediately when needed.
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr class="required">
+<td>
+
+##### `format`
+
+`String!`
+
+</td>
+<td>
+
+**Required.** A string template that defines the cache tag. Can include interpolated variables:
+- For root fields: `{$args.fieldName}` to interpolate field arguments
+- For entities: `{$key.fieldName}` to interpolate entity key fields
+
+The `format` must always generate a valid string (not an object).
+
+Examples:
+
+* `"users-list"` (static tag)
+* `"user-{$args.id}"` (root field with argument)
+* `"product-{$key.upc}"` (entity with key field)
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+#### Usage
+
+Apply `@cacheTag` to root query fields or entity types (types with `@key` where `resolvable` is unset or `true`).
+
+**Multiple cache tags:** You can apply `@cacheTag` multiple times to assign multiple tags:
+
+```graphql
+type Query {
+  users: [User!]!
+    @cacheTag(format: "profile")
+    @cacheTag(format: "users-list")
+}
+```
+
+**Entity key constraints:** If you have multiple `@key` directives, you can only interpolate fields present in _every_ `@key` directive:
+
+```graphql
+# ✅ Valid: 'id' is in both @key directives
+type Product
+  @key(fields: "id")
+  @key(fields: "id sku")
+  @cacheTag(format: "product-{$key.id}") {
+  id: ID!
+  sku: String!
+}
+
+# ❌ Invalid: 'sku' is not in all @key directives
+type Product
+  @key(fields: "id")
+  @key(fields: "sku")
+  @cacheTag(format: "product-{$key.sku}") {
+  id: ID!
+  sku: String!
+}
+```
+
+**Nested fields:** You can access nested fields in entity keys, but the final value must be a scalar or enum type:
+
+```graphql
+# ❌ Invalid: country is an object
+type Product
+  @key(fields: "upc country { name }")
+  @cacheTag(format: "product-{$key.country}") {
+  upc: String!
+  country: Country!
+}
+
+# ✅ Valid: country.name is a scalar
+type Product
+  @key(fields: "upc country { name }")
+  @cacheTag(format: "product-{$key.country.name}") {
+  upc: String!
+  country: Country!
+}
+```
+
+<MinVersionBadge version="Federation v2.13" />
+
+Enum types are supported in the `format` argument starting in Federation v2.13.
+
+**Programmatic tags:** To set cache tags programmatically (when tags don't depend on root field arguments or entity keys), set `apolloEntityCacheTags` or `apolloCacheTags` in your subgraph response extensions. See the [router documentation](/graphos/routing/performance/caching/response-caching/invalidation#by-cache-tag) for details.
+
+For complete information on cache invalidation, including how to send invalidation requests to the router, see [Response cache invalidation](/graphos/routing/performance/caching/response-caching/invalidation).
+
 ## Connectors
 
 <MinVersionBadge version="Federation v2.10" />
