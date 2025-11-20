@@ -1176,7 +1176,7 @@ directive @cacheTag(format: String!) repeatable on FIELD_DEFINITION | OBJECT
 
 Assigns cache tags to cached data in the Apollo Router for [active cache invalidation](/graphos/routing/performance/caching/response-caching/invalidation#active-invalidation). Use cache tags to remove specific cached entries on demand when data changes, rather than waiting for time-to-live (TTL) expiration.
 
-```graphql {7-8}
+```graphql {6-7, 10}
 extend schema
   @link(url: "https://specs.apollo.dev/federation/v2.12",
         import: ["@key", "@cacheTag"])
