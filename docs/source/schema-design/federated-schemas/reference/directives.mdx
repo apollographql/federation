@@ -1225,77 +1225,12 @@ The `@cacheTag` directive is defined in your subgraph schema, but it's only inte
 - For entities: `{$key.fieldName}` to interpolate entity key fields
 
 
-Examples:
 
-* `"users-list"` (static tag)
-* `"user-{$args.id}"` (root field with argument)
-* `"product-{$key.upc}"` (entity with key field)
+<Note>
 
-</td>
-</tr>
+Enum types are supported in the `format` argument. If you encounter composition errors when using enums, ensure you're using Router v2.8.2 or later, which includes a fix for enum validation.
 
-</tbody>
-</table>
-
-#### Usage
-
-Apply `@cacheTag` to root query fields or entity types.
-
-**Multiple cache tags:** You can apply `@cacheTag` multiple times to assign multiple tags:
-
-```graphql
-type Query {
-  users: [User!]!
-    @cacheTag(format: "profile")
-    @cacheTag(format: "users-list")
-}
-```
-
-**Entity key constraints:** If you have multiple `@key` directives, you can only interpolate fields present in _every_ `@key` directive:
-
-```graphql
-# ✅ Valid: 'id' is in both @key directives
-type Product
-  @key(fields: "id")
-  @key(fields: "id sku")
-  @cacheTag(format: "product-{$key.id}") {
-  id: ID!
-  sku: String!
-}
-
-# ❌ Invalid: 'sku' is not in all @key directives
-type Product
-  @key(fields: "id")
-  @key(fields: "sku")
-  @cacheTag(format: "product-{$key.sku}") {
-  id: ID!
-  sku: String!
-}
-```
-
-**Nested fields:** You can access nested fields in entity keys, but the final value must be a scalar or enum type:
-
-```graphql
-# ❌ Invalid: country is an object
-type Product
-  @key(fields: "upc country { name }")
-  @cacheTag(format: "product-{$key.country}") {
-  upc: String!
-  country: Country!
-}
-
-# ✅ Valid: country.name is a scalar
-type Product
-  @key(fields: "upc country { name }")
-  @cacheTag(format: "product-{$key.country.name}") {
-  upc: String!
-  country: Country!
-}
-```
-
-<MinVersionBadge version="Federation v2.13" />
-
-Enum types are supported in the `format` argument starting in Federation v2.13.
+</Note>
 
 **Programmatic tags:** To set cache tags programmatically (when tags don't depend on root field arguments or entity keys), set `apolloEntityCacheTags` or `apolloCacheTags` in your subgraph response extensions. See the [router documentation](/graphos/routing/performance/caching/response-caching/invalidation#by-cache-tag) for details.
 
