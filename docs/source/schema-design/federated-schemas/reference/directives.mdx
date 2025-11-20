@@ -1232,11 +1232,11 @@ The `@cacheTag` directive is defined in your subgraph schema, but it's only inte
 
 <Note>
 
-Enum types are supported in the `format` argument. If you encounter composition errors when using enums, ensure you're using Router v2.8.2 or later, which includes a fix for enum validation.
+Enum types are supported in the `format` argument. If you encounter composition errors when using enums, use Apollo Router v2.8.2 or later, which includes a fix for enum validation.
 
 </Note>
 
-**Programmatic tags:** To set cache tags programmatically (when tags don't depend on root field arguments or entity keys), set `apolloEntityCacheTags` or `apolloCacheTags` in your subgraph response extensions. See the [router documentation](/graphos/routing/performance/caching/response-caching/invalidation#by-cache-tag) for details.
+**Programmatic tags:** To set cache tags programmatically (when tags don't depend on root field arguments or entity keys), add `apolloEntityCacheTags` or `apolloCacheTags` to your subgraph response extensions. For details, see [Programmatic cache tags](/graphos/routing/performance/caching/response-caching/invalidation#by-cache-tag).
 
 For complete information on cache invalidation, including how to send invalidation requests to the router, see [Response cache invalidation](/graphos/routing/performance/caching/response-caching/invalidation).
 
