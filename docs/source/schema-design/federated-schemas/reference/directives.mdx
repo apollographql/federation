@@ -1174,7 +1174,7 @@ The default value is `true`.
 directive @cacheTag(format: String!) repeatable on FIELD_DEFINITION | OBJECT
 ```
 
-Assigns cache tags to cached data in the Apollo Router for [active cache invalidation](/graphos/routing/performance/caching/response-caching/invalidation#active-invalidation). Use cache tags to remove specific cached entries on demand when data changes, rather than waiting for time-to-live (TTL) expiration.
+Assigns cache tags to cached data in the Apollo Router for [active cache invalidation](/graphos/routing/performance/caching/response-caching/invalidation#active-invalidation). Use cache tags to remove specific cached entries on demand when data changes, instead of waiting for time-to-live (TTL) expiration.
 
 ```graphql {6-7, 10}
 extend schema
@@ -1194,7 +1194,7 @@ type User @key(fields: "id") @cacheTag(format: "user-{$key.id}") {
 
 <Note>
 
-The `@cacheTag` directive is defined in your subgraph schema, but it's only interpreted by the Apollo Router. Your subgraph doesn't use it at all. This differs from `@cacheControl`, which is both defined and interpreted at the subgraph level.
+You define the `@cacheTag` directive in your subgraph schema, but only the Apollo Router interprets it. Your subgraph ignores it. This differs from `@cacheControl`, which is both defined and interpreted at the subgraph level.
 
 </Note>
 
@@ -1234,7 +1234,7 @@ Interpolated variables must be either a scalar or enum type.
 </tbody>
 </table>
 
-For more information on how to apply cache invalidation with cache tags, see the documentation on [response cache invalidation](/graphos/routing/performance/caching/response-caching/invalidation#by-cache-tag).
+For details on applying cache invalidation with cache tags, see [Response cache invalidation](/graphos/routing/performance/caching/response-caching/invalidation#by-cache-tag).
 
 ## Connectors
 
