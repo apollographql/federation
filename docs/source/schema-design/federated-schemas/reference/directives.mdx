@@ -1192,12 +1192,6 @@ type User @key(fields: "id") @cacheTag(format: "user-{$key.id}") {
 }
 ```
 
-<Note>
-
-You define the `@cacheTag` directive in your subgraph schema, but only the Apollo Router interprets it. Your subgraph ignores it. This differs from `@cacheControl`, which is both defined and interpreted at the subgraph level.
-
-</Note>
-
 #### Arguments
 
 <table class="field-table">
