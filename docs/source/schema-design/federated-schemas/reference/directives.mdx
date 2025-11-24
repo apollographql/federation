@@ -1164,6 +1164,72 @@ The default value is `true`.
 </tbody>
 </table>
 
+## Managing cache invalidation
+
+### `@cacheTag`
+
+<MinVersionBadge version="Federation v2.12" />
+
+```graphql
+directive @cacheTag(format: String!) repeatable on FIELD_DEFINITION | OBJECT
+```
+
+Assigns cache tags to cached data in the Apollo Router for [active cache invalidation](/graphos/routing/performance/caching/response-caching/invalidation#active-invalidation). Use cache tags to remove specific cached entries on demand when data changes, instead of waiting for time-to-live (TTL) expiration.
+
+```graphql {6-7, 10}
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.12",
+        import: ["@key", "@cacheTag"])
+
+type Query {
+  users: [User!]! @cacheTag(format: "users-list")
+  user(id: ID!): User @cacheTag(format: "user-{$args.id}")
+}
+
+type User @key(fields: "id") @cacheTag(format: "user-{$key.id}") {
+  id: ID!
+  name: String!
+}
+```
+
+#### Arguments
+
+<table class="field-table">
+  <thead>
+    <tr>
+      <th>Name /<br/>Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+
+<tbody>
+
+<tr class="required">
+<td>
+
+##### `format`
+
+`String!`
+
+</td>
+<td>
+
+**Required.** A string template that defines the cache tag. Can include interpolated variables:
+- For root fields: `{$args.fieldName}` to interpolate field arguments
+- For entities: `{$key.fieldName}` to interpolate entity key fields
+
+Interpolated variables must be either a scalar or enum type.
+
+<MinVersionBadge version="Router v2.8.2" />
+
+</td>
+</tr>
+
+</tbody>
+</table>
+
+For details on applying cache invalidation with cache tags, see [Response cache invalidation](/graphos/routing/performance/caching/response-caching/invalidation#by-cache-tag).
+
 ## Connectors
 
 <MinVersionBadge version="Federation v2.10" />
