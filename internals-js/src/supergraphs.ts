@@ -1,13 +1,17 @@
 import { DocumentNode, GraphQLError } from "graphql";
 import { CoreFeatures, Schema, sourceASTs } from "./definitions";
-import { ErrCoreCheckFailed, FeatureUrl, FeatureVersion } from "./specs/coreSpec";
+import {
+  ErrCoreCheckFailed,
+  FeatureUrl,
+  FeatureVersion,
+} from './specs/coreSpec';
 import { joinIdentity, JoinSpecDefinition, JOIN_VERSIONS } from "./specs/joinSpec";
 import { CONTEXT_VERSIONS, ContextSpecDefinition } from "./specs/contextSpec";
 import { COST_VERSIONS, costIdentity, CostSpecDefinition } from "./specs/costSpec";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { extractSubgraphsNamesAndUrlsFromSupergraph, extractSubgraphsFromSupergraph } from "./extractSubgraphsFromSupergraph";
 import { ERRORS } from "./error";
-import { Subgraphs } from ".";
+import { Subgraphs } from './federation';
 
 export const DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
   'https://specs.apollo.dev/core/v0.1',
@@ -24,7 +28,7 @@ export const DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
   'https://specs.apollo.dev/inaccessible/v0.2',
 ]);
 
-export const ROUTER_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
+export const ROUTER_SUPPORTED_SUPERGRAPH_FEATURES: Set<string> = new Set([
   'https://specs.apollo.dev/core/v0.1',
   'https://specs.apollo.dev/core/v0.2',
   'https://specs.apollo.dev/join/v0.1',
@@ -40,10 +44,11 @@ export const ROUTER_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
   'https://specs.apollo.dev/authenticated/v0.1',
   'https://specs.apollo.dev/requiresScopes/v0.1',
   'https://specs.apollo.dev/policy/v0.1',
-  'https://specs.apollo.dev/source/v0.1',
   'https://specs.apollo.dev/context/v0.1',
   'https://specs.apollo.dev/cost/v0.1',
   'https://specs.apollo.dev/connect/v0.1',
+  'https://specs.apollo.dev/connect/v0.2',
+  'https://specs.apollo.dev/connect/v0.3',
   'https://specs.apollo.dev/cacheTag/v0.1',
 ]);
 
