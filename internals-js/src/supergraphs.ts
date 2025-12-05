@@ -1,10 +1,7 @@
 import { DocumentNode, GraphQLError } from "graphql";
 import { CoreFeatures, Schema, sourceASTs } from "./definitions";
 import {
-  CORE_VERSIONS,
   ErrCoreCheckFailed,
-  FeatureDefinition,
-  FeatureDefinitions,
   FeatureUrl,
   FeatureVersion,
 } from './specs/coreSpec';
@@ -14,16 +11,7 @@ import { COST_VERSIONS, costIdentity, CostSpecDefinition } from "./specs/costSpe
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
 import { extractSubgraphsNamesAndUrlsFromSupergraph, extractSubgraphsFromSupergraph } from "./extractSubgraphsFromSupergraph";
 import { ERRORS } from "./error";
-import {
-  AUTHENTICATED_VERSIONS,
-  CACHE_TAG_VERSIONS,
-  CONNECT_VERSIONS,
-  INACCESSIBLE_VERSIONS,
-  POLICY_VERSIONS,
-  REQUIRES_SCOPES_VERSIONS,
-  Subgraphs,
-  TAG_VERSIONS,
-} from '.';
+import { Subgraphs } from './federation';
 
 export const DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
   'https://specs.apollo.dev/core/v0.1',
@@ -40,19 +28,29 @@ export const DEFAULT_SUPPORTED_SUPERGRAPH_FEATURES = new Set([
   'https://specs.apollo.dev/inaccessible/v0.2',
 ]);
 
-export const ROUTER_SUPPORTED_SUPERGRAPH_FEATURES: Set<string> = new Set();
-
-configureRouterFeatureSpecs(CORE_VERSIONS);
-configureRouterFeatureSpecs(JOIN_VERSIONS);
-configureRouterFeatureSpecs(TAG_VERSIONS);
-configureRouterFeatureSpecs(INACCESSIBLE_VERSIONS);
-configureRouterFeatureSpecs(AUTHENTICATED_VERSIONS);
-configureRouterFeatureSpecs(REQUIRES_SCOPES_VERSIONS);
-configureRouterFeatureSpecs(POLICY_VERSIONS);
-configureRouterFeatureSpecs(CONTEXT_VERSIONS);
-configureRouterFeatureSpecs(COST_VERSIONS);
-configureRouterFeatureSpecs(CONNECT_VERSIONS);
-configureRouterFeatureSpecs(CACHE_TAG_VERSIONS);
+export const ROUTER_SUPPORTED_SUPERGRAPH_FEATURES: Set<string> = new Set([
+  'https://specs.apollo.dev/core/v0.1',
+  'https://specs.apollo.dev/core/v0.2',
+  'https://specs.apollo.dev/join/v0.1',
+  'https://specs.apollo.dev/join/v0.2',
+  'https://specs.apollo.dev/join/v0.3',
+  'https://specs.apollo.dev/join/v0.4',
+  'https://specs.apollo.dev/join/v0.5',
+  'https://specs.apollo.dev/tag/v0.1',
+  'https://specs.apollo.dev/tag/v0.2',
+  'https://specs.apollo.dev/tag/v0.3',
+  'https://specs.apollo.dev/inaccessible/v0.1',
+  'https://specs.apollo.dev/inaccessible/v0.2',
+  'https://specs.apollo.dev/authenticated/v0.1',
+  'https://specs.apollo.dev/requiresScopes/v0.1',
+  'https://specs.apollo.dev/policy/v0.1',
+  'https://specs.apollo.dev/context/v0.1',
+  'https://specs.apollo.dev/cost/v0.1',
+  'https://specs.apollo.dev/connect/v0.1',
+  'https://specs.apollo.dev/connect/v0.2',
+  'https://specs.apollo.dev/connect/v0.3',
+  'https://specs.apollo.dev/cacheTag/v0.1',
+]);
 
 const coreVersionZeroDotOneUrl = FeatureUrl.parse('https://specs.apollo.dev/core/v0.1');
 
@@ -90,12 +88,6 @@ function checkFeatureSupport(coreFeatures: CoreFeatures, supportedFeatures: Set<
   if (errors.length > 0) {
     throw ErrCoreCheckFailed(errors);
   }
-}
-
-function configureRouterFeatureSpecs<T extends FeatureDefinition>(definitions: FeatureDefinitions<T>) {
-  definitions?.definitions().forEach((spec) => {
-    ROUTER_SUPPORTED_SUPERGRAPH_FEATURES.add(spec.toString());
-  })
 }
 
 export function validateSupergraph(supergraph: Schema): [

@@ -606,10 +606,6 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
     return this._definitions.find((def) => def.version.equals(requested));
   }
 
-  definitions(): T[] {
-    return this._definitions;
-  }
-
   versions(): FeatureVersion[] {
     return this._definitions.map(def => def.version);
   }
