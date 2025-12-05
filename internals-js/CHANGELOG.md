@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.12.2
+
+### Patch Changes
+
+- Add missing connect specs to the list of router supported features ([#3357](https://github.com/apollographql/federation/pull/3357))
+
 ## 2.12.1
 
 ### Patch Changes
