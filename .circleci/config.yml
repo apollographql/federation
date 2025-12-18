@@ -57,11 +57,10 @@ workflows:
           matrix:
             parameters:
               node-version:
-                - "14"
-                - "16"
                 - "18"
                 - "20"
                 - "22"
+                - "24"
       - Lint:
           name: Lint - << matrix.script >>
           matrix:
