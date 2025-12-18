@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.13.0-preview.1
+
+### Patch Changes
+
+- Releasing with latest changes from main ([#3360](https://github.com/apollographql/federation/pull/3360))
+
 ## 2.13.0-preview.0
 
 ### Minor Changes
