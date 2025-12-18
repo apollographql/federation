@@ -383,6 +383,12 @@ export const CONNECT_VERSIONS = new FeatureDefinitions<ConnectSpecDefinition>(
       new FeatureVersion(0, 3),
       new FeatureVersion(2, 12),
     ),
+  )
+  .add(
+    new ConnectSpecDefinition(
+      new FeatureVersion(0, 4),
+      new FeatureVersion(2, 13),
+    ),
   );
 
 registerKnownFeature(CONNECT_VERSIONS);

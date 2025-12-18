@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.13.0-preview.0
+
+### Minor Changes
+
+- Adding initial support for federation v2.13 and connect/v0.4 to unblock further development. ([#3349](https://github.com/apollographql/federation/pull/3349))
+
 ## 2.12.2
 
 ### Patch Changes

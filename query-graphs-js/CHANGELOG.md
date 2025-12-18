@@ -1,5 +1,16 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.13.0-preview.0
+
+### Minor Changes
+
+- Adding initial support for federation v2.13 and connect/v0.4 to unblock further development. ([#3349](https://github.com/apollographql/federation/pull/3349))
+
+### Patch Changes
+
+- Updated dependencies [[`4c64006b1604471940e20aa1aa46a0f75a6396df`](https://github.com/apollographql/federation/commit/4c64006b1604471940e20aa1aa46a0f75a6396df)]:
+  - @apollo/federation-internals@2.13.0-preview.0
+
 ## 2.12.2
 
 ### Patch Changes
