@@ -61,6 +61,7 @@ workflows:
                 - "20"
                 - "22"
                 - "24"
+                - "latest"
       - Lint:
           name: Lint - << matrix.script >>
           matrix:
