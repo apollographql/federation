@@ -21,7 +21,7 @@
   "author": "Apollo <packages@apollographql.com>",
   "license": "Elastic-2.0",
   "engines": {
-    "node": ">=14.15.0"
+    "node": ">=18"
   },
   "publishConfig": {
     "access": "public"

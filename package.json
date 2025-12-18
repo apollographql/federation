@@ -34,8 +34,8 @@
     "git:configure": "git config core.hooksPath .git-hooks; git config blame.ignoreRevsFile .git-blame-ignore-revs"
   },
   "engines": {
-    "node": ">=14.15.0",
-    "npm": "<=11"
+    "node": ">=18",
+    "npm": "<12"
   },
   "workspaces": [
     "internals-js",
