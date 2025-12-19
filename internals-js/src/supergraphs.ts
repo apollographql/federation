@@ -49,6 +49,7 @@ export const ROUTER_SUPPORTED_SUPERGRAPH_FEATURES: Set<string> = new Set([
   'https://specs.apollo.dev/connect/v0.1',
   'https://specs.apollo.dev/connect/v0.2',
   'https://specs.apollo.dev/connect/v0.3',
+  'https://specs.apollo.dev/connect/v0.4',
   'https://specs.apollo.dev/cacheTag/v0.1',
 ]);
 
