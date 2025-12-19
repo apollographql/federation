@@ -1,5 +1,15 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.13.0-preview.2
+
+### Minor Changes
+
+- - Drop Node.js 14/16 support, require Node.js 18+ ([#3364](https://github.com/apollographql/federation/pull/3364))
+
+### Patch Changes
+
+- Allow connect/v0.4 in ROUTER_SUPPORTED_SUPERGRAPH_FEATURES. ([#3366](https://github.com/apollographql/federation/pull/3366))
+
 ## 2.13.0-preview.1
 
 ### Patch Changes

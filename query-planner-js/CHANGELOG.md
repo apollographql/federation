@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.13.0-preview.2
+
+### Minor Changes
+
+- - Drop Node.js 14/16 support, require Node.js 18+ ([#3364](https://github.com/apollographql/federation/pull/3364))
+
+### Patch Changes
+
+- Updated dependencies [[`f4d2f4a1f50a92be37ea7179eddb3681f36d9d15`](https://github.com/apollographql/federation/commit/f4d2f4a1f50a92be37ea7179eddb3681f36d9d15), [`ecbe182423313b3a94c185dee6b659573435b141`](https://github.com/apollographql/federation/commit/ecbe182423313b3a94c185dee6b659573435b141)]:
+  - @apollo/query-graphs@2.13.0-preview.2
+  - @apollo/federation-internals@2.13.0-preview.2
+
 ## 2.13.0-preview.1
 
 ### Patch Changes
