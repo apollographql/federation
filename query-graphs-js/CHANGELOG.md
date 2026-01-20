@@ -1,5 +1,36 @@
 # CHANGELOG for `@apollo/query-graphs`
 
+## 2.13.0-preview.2
+
+### Minor Changes
+
+- - Drop Node.js 14/16 support, require Node.js 18+ ([#3364](https://github.com/apollographql/federation/pull/3364))
+
+### Patch Changes
+
+- Updated dependencies [[`f4d2f4a1f50a92be37ea7179eddb3681f36d9d15`](https://github.com/apollographql/federation/commit/f4d2f4a1f50a92be37ea7179eddb3681f36d9d15), [`ecbe182423313b3a94c185dee6b659573435b141`](https://github.com/apollographql/federation/commit/ecbe182423313b3a94c185dee6b659573435b141)]:
+  - @apollo/federation-internals@2.13.0-preview.2
+
+## 2.13.0-preview.1
+
+### Patch Changes
+
+- Releasing with latest changes from main ([#3360](https://github.com/apollographql/federation/pull/3360))
+
+- Updated dependencies [[`523b13b715e75033f0bdbc176416e59ac01de8f0`](https://github.com/apollographql/federation/commit/523b13b715e75033f0bdbc176416e59ac01de8f0)]:
+  - @apollo/federation-internals@2.13.0-preview.1
+
+## 2.13.0-preview.0
+
+### Minor Changes
+
+- Adding initial support for federation v2.13 and connect/v0.4 to unblock further development. ([#3349](https://github.com/apollographql/federation/pull/3349))
+
+### Patch Changes
+
+- Updated dependencies [[`4c64006b1604471940e20aa1aa46a0f75a6396df`](https://github.com/apollographql/federation/commit/4c64006b1604471940e20aa1aa46a0f75a6396df)]:
+  - @apollo/federation-internals@2.13.0-preview.0
+
 ## 2.12.2
 
 ### Patch Changes

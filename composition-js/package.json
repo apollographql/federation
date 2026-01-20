@@ -1,6 +1,6 @@
 {
   "name": "@apollo/composition",
-  "version": "2.12.2",
+  "version": "2.13.0-preview.2",
   "description": "Apollo Federation composition utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,14 +21,14 @@
   "author": "Apollo <packages@apollographql.com>",
   "license": "Elastic-2.0",
   "engines": {
-    "node": ">=14.15.0"
+    "node": ">=18"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "@apollo/federation-internals": "2.12.2",
-    "@apollo/query-graphs": "2.12.2"
+    "@apollo/federation-internals": "2.13.0-preview.2",
+    "@apollo/query-graphs": "2.13.0-preview.2"
   },
   "peerDependencies": {
     "graphql": "^16.5.0"

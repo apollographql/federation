@@ -1,0 +1,19 @@
+{
+  "mode": "pre",
+  "tag": "preview",
+  "initialVersions": {
+    "@apollo/composition": "2.12.0",
+    "apollo-federation-integration-testsuite": "2.12.0",
+    "@apollo/gateway": "2.12.0",
+    "@apollo/federation-internals": "2.12.0",
+    "@apollo/query-graphs": "2.12.0",
+    "@apollo/query-planner": "2.12.0",
+    "@apollo/subgraph": "2.12.0"
+  },
+  "changesets": [
+    "brave-sails-study",
+    "mighty-kangaroos-kiss",
+    "perfect-kangaroos-yawn",
+    "polite-zoos-obey"
+  ]
+}
