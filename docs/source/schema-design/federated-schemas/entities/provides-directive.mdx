@@ -1,5 +1,5 @@
 ---
-title: Using the @provides directive
+title: Using the @provides Directive
 subtitle: Optimize query performance by resolving fields from specific query paths
 description: Learn how to use the `@provides` directive to optimize query performance in Apollo Federation. Understand common patterns and when to use this directive.
 ---
@@ -27,7 +27,7 @@ The `@provides` directive is a performance optimization that doesn't change the 
 
 Apollo recommends using `@provides` to reduce the number of subgraphs your router communicates with to resolve operations.
 
-## Use Cases
+## Use cases
 
 Use the `@provides` directive for:
 
@@ -69,7 +69,7 @@ type Query {
 }
 ```
 
-### Provide fields from a subgraph
+### Providing fields from a subgraph
 
 You can provide the value of nested fields in the `@provides` directive:
 
@@ -164,9 +164,9 @@ type SearchResult {
 }
 ```
 
-**Better approach**: Address performance at the subgraph level (database optimization, caching, query tuning, and others), not with `@provides`.
+Better approach: Address performance at the subgraph level (database optimization, caching, query tuning, and others), not with `@provides`.
 
-❌ **To Introduce Logical Differences**
+### To introduce logical differences
 
 Don't use `@provides` to introduce logical differences or alternate data sources. The provided data must match the source data exactly.
 
@@ -178,9 +178,9 @@ type SearchResult {
 }
 ```
 
-❌ **When Data Divergence is Possible**
+### When data divergence is possible
 
-If there's any chance of data divergence, don't use `@provides`. This includes scenarios where:
+If there's any possibility of data divergence, don't use `@provides`. This includes scenarios where:
 - Data retention policies differ significantly and can't be mitigated through query scope
 - Eventual consistency delays are unacceptable for your use case
 - Different subgraphs might resolve the field differently.
@@ -189,7 +189,7 @@ If there's any chance of data divergence, don't use `@provides`. This includes s
 
 Avoid `@provides` on fields that you frequently mutate, because synchronization delays can cause data inconsistencies.
 
-❌ **User-specific or context-dependent data**
+### User-specific or context-dependent data
 
 Fields whose values depend on the requesting user or context shouldn't use `@provides`, because different subgraphs might have different context.
 
@@ -206,7 +206,7 @@ type SearchResult {
 }
 ```
 
-❌ **To Paper Over Data Inconsistencies**
+### To paper over data inconsistencies
 
 Never use `@provides` to hide the fact that two subgraphs have conflicting data. Fix the data at the source.
 
@@ -219,7 +219,7 @@ type SearchResult {
 }
 ```
 
-❌ **For Sensitive Data Without Compliance**
+### For sensitive data without compliance
 
 Don't use `@provides` for sensitive data (PII, financial information, and others) unless the providing subgraph's storage system is approved and compliant with all relevant regulations.
 
@@ -298,7 +298,7 @@ If a subgraph `@provides` an entity field:
 
 - The subgraph must define that field and mark it as `@external`
 - The entity field must be marked as either `@shareable` or `@external` in every subgraph that defines it
-- The entity field must be marked as `@shareable` in at least one other subgraph (i.e., there's at least one subgraph that can always resolve the field)
+- The entity field must be marked as `@shareable` in at least one other subgraph (for example, there's at least one subgraph that can always resolve the field)
 
 Violating any of these rules causes composition to fail.
 
@@ -331,7 +331,7 @@ query {
 }
 ```
 
-**Query plan**: 2 subgraph calls
+Query plan: 2 subgraph calls
 - Call 1: Search subgraph (id, name)
 - Call 2: Products subgraph (price)
 
@@ -349,10 +349,10 @@ query {
 }
 ```
 
-**Query plan**: 1 subgraph call
+Query plan: 1 subgraph call
 - Call 1: Search subgraph (id, name, price)
 
-**Performance benefit**: Reduced latency, fewer network round trips, lower overall query time.
+Performance benefit: Reduced latency, fewer network round trips, reduced overall query time.
 
 ### Ensure complete field coverage
 
@@ -367,7 +367,7 @@ If the router still needs to call the source subgraph because your `@provides` d
 # Optimization: FAILED (no benefit)
 ```
 
-**Example of successful optimization:**
+### Example of successful optimization
 
 ```graphql
 # Query requests: id, name, price
@@ -427,7 +427,7 @@ type Query {
 }
 ```
 
-**Why this works**: The query typically requests `{ id, name, price }`, and `@provides` covers all three fields. The router can satisfy the entire query from the Search subgraph, eliminating the need to call Products.
+Why this works: The query typically requests `{ id, name, price }`, and `@provides` covers all three fields. The router can satisfy the entire query from the Search subgraph, eliminating the need to call Products.
 
 ### Data retention with documented scope
 
@@ -460,7 +460,7 @@ type Query {
 }
 ```
 
-**Why this works**: The query only searches products from the last 30 days, and Elasticsearch retains 30+ days of data. The query path itself limits the scope, making `@provides` valid even though overall retention differs.
+Why this works: The query only searches products from the last 30 days, and Elasticsearch retains 30+ days of data. The query path itself limits the scope, making `@provides` valid even though overall retention differs.
 
 ### Privacy-aware field selection
 
@@ -500,7 +500,7 @@ type Query {
 }
 ```
 
-**Why this works**: Only non-sensitive fields are provided. Sensitive fields (`email`, `phoneNumber`, `ssn`) remain in the Users subgraph even though Elasticsearch may have access to them, ensuring compliance with privacy and security requirements.
+Why this works: Only non-sensitive fields are provided. Sensitive fields (`email`, `phoneNumber`, `ssn`) remain in the Users subgraph even though Elasticsearch might have access to them, ensuring compliance with privacy and security requirements.
 
 ### Incomplete field coverage
 
@@ -517,9 +517,9 @@ type Query {
 }
 ```
 
-**Why this fails**: The router still needs to call Products for `id` and `name`, losing the optimization. The performance benefit is entirely lost.
+Why this fails: The router still needs to call Products for `id` and `name`, losing the optimization. The performance benefit is lost.
 
-**Better approach**: Provide all fields needed for the query:
+Better approach: Provide all fields needed for the query:
 
 ```graphql
 type SearchResult {
@@ -538,9 +538,9 @@ type SearchResult {
 }
 ```
 
-**Why this fails**: Providing extra fields adds complexity and management overhead without performance benefit. The optimization works, but you're maintaining more than necessary.
+Why this fails: Providing extra fields adds complexity and management overhead without performance benefit. The optimization works, but you're maintaining more than necessary.
 
-**Better approach**: Provide exactly what's needed:
+Better approach: Provide exactly what's needed:
 
 ```graphql
 type SearchResult {
@@ -551,15 +551,15 @@ type SearchResult {
 ### Using @provides to hide performance issues
 
 ```graphql
-# Products subgraph is slow, so we use @provides to bypass it
+# Products subgraph is slow, so @provides is used to bypass it
 type SearchResult {
   products: [Product!]! @provides(fields: "price")  # ❌ Hiding problem
 }
 ```
 
-**Why this fails**: This hides the underlying performance problem. The slow subgraph will still be slow, and you've added complexity without solving the root cause.
+Why this fails: This hides the underlying performance problem. The slow subgraph will still be slow, and you've added complexity without solving the root cause.
 
-**Better approach**: Fix performance at the subgraph level (database optimization, caching, query tuning, and others), not with `@provides`.
+Better approach: Fix performance at the subgraph level (database optimization, caching, query tuning, and others), not with `@provides`.
 
 ## Composition rules and migration
 
@@ -569,7 +569,7 @@ Follow these composition rules if a subgraph `@provides` an entity field:
 
 - The subgraph must define that field and mark it as `@external`
 - The entity field must be marked as either `@shareable` or `@external` in every subgraph that defines it
-- The entity field must be marked as `@shareable` in at least one other subgraph (i.e., there's at least one subgraph that can always resolve the field)
+- The entity field must be marked as `@shareable` in at least one other subgraph (for example, there's at least one subgraph that can always resolve the field)
 
 Violating any of these rules causes composition to fail.
 
@@ -597,9 +597,9 @@ Remove `@provides` from a query:
 
 Although composition rules ensure your schema is valid, they don't guarantee that your data is consistent. You are responsible for maintaining data consistency.
 
-**Data retention**: When you use `@provides`, the providing subgraph and the source of truth subgraph might have different data retention policies. This is acceptable as long as the providing subgraph has all the data needed for the queries that use `@provides`. Document the query's scope clearly.
+Data retention: When you use `@provides`, the providing subgraph and the source of truth subgraph might have different data retention policies. This is acceptable as long as the providing subgraph has all the data needed for the queries that use `@provides`. Document the query's scope clearly.
 
-**Eventual consistency**: When you use `@provides`, account for eventual consistency. This is the time delay between when data is updated in the source of truth and when it's synchronized to the providing subgraph. Only use `@provides` when eventual consistency is acceptable for your use case.
+Eventual consistency: When you use `@provides`, account for eventual consistency. This is the time delay between when data is updated in the source of truth and when it's synchronized to the providing subgraph. Only use `@provides` when eventual consistency is acceptable for your use case.
 
 ## Troubleshooting and FAQ
 
@@ -654,17 +654,17 @@ type Product @key(fields: "id") {
 }
 ```
 
-**Q: Do I need @shareable if I'm using @provides?**
+### Do I need @shareable if I'm using @provides?
 
-A: Yes! The field must be marked as `@shareable` in at least one other subgraph (the source of truth) before it can be provided. `@provides` requires `@shareable` as a prerequisite.
+Yes. The field must be marked as `@shareable` in at least one other subgraph (the source of truth) before it can be provided. `@provides` requires `@shareable` as a prerequisite.
 
-**Q: What happens if I don't mark a field as @shareable in the source of truth?**
+### What happens if I don't mark a field as @shareable in the source of truth?
 
-A: Composition fails with an error. You must mark the field as `@shareable` in at least one subgraph (the source of truth) for `@provides` to work.
+Composition fails with an error. You must mark the field as `@shareable` in at least one subgraph (the source of truth) for `@provides` to work.
 
-**Q: How can I tell if `@provides` improves performance?**
+### How can I tell if @provides improves performance?
 
-A: Monitor these metrics in Apollo Studio:
+Monitor these metrics in Apollo Studio:
 
 - Query execution time (end-to-end latency).
 - Subgraph calls per query
@@ -745,4 +745,4 @@ This is acceptable as long as the providing subgraph has all the data needed for
 
 Document version: v1.0  
 Last updated: 2025  
-**Federation Version**: Apollo Federation v2.3.0 or later
+Federation version: Apollo Federation v2.3.0 or later
