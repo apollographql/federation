@@ -127,6 +127,6 @@ Violating any of these rules causes composition to fail.
 - If a subgraph `@provides` a field that it can't always resolve, the subgraph must mark that field as `@external` and must not mark it as `@shareable`.
   - Remember, a `@shareable` field can always be resolved by a particular subgraph, which removes the need for `@provides`.
 - To include a field in a `@provides` directive, that field must be marked as `@shareable` or `@external` in every subgraph that defines it.
-- The entity field must be marked as `@shareable` in at least one other subgraph (i.e., there's at least one subgraph that can always resolve the field).
+- The entity field must be marked as `@shareable` in at least one other subgraph. This ensures at least one subgraph can always resolve the field.
 
-For comprehensive guidance on when and how to use `@provides`, including best practices, troubleshooting, and detailed examples, see [Best Practices for Using the `@provides` Directive](/graphos/schema-design/federated-schemas/entities/provides-directive).
+For more information, see [Best Practices for Using the @provides Directive](/graphos/schema-design/federated-schemas/entities/provides-directive).
