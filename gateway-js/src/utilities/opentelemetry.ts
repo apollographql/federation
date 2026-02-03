@@ -1,7 +1,10 @@
 import type { Attributes, Exception, Span } from '@opentelemetry/api';
 import opentelemetry from '@opentelemetry/api';
 import type { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interface';
+import { cpuCountSync } from 'node-cpu-count';
+import * as os from 'node:os';
 import { OperationContext } from '../operationContext';
+import {ATTR_OS_TYPE, ATTR_HOST_ARCH} from '@opentelemetry/semantic-conventions/incubating';
 import {
   AggregationTemporalitySelector,
   ConsoleMetricExporter,
@@ -170,6 +173,61 @@ export function configureOpenTelemetry(): MeterProvider {
       })
     ],
   });
+}
+
+export function configureOpenTelemetryWithDataCollection(): MeterProvider {
+    const meterProvider = configureOpenTelemetry();
+
+    const os_type = os.type();
+    const host_arch = os.arch();
+    const meter = meterProvider.getMeter("apollo/gateway");
+
+    // gateway.instance
+
+    const instanceGauge = meter.createObservableGauge("gateway.instance", {
+      "description": "The number of instances of the gateway running"
+    })
+    instanceGauge.addCallback((result) => {
+      result.observe(1,  {
+        [ATTR_OS_TYPE]: os_type,
+        [ATTR_HOST_ARCH]: host_arch,
+        "deployment_type": "gateway"
+      })
+    })
+
+    // gateway.instance.cpu_freq
+    const cpuFreqGauge = meter.createObservableGauge("gateway.instance.cpu_freq", {
+      "description": "The CPU frequency of the underlying instance the router is deployed to",
+      "unit": "Mhz"
+    })
+    cpuFreqGauge.addCallback((result) => {
+      const cpus = os.cpus();
+      const average_frequency = os.cpus().map((a) => a.speed).reduce((partialSum, a) => partialSum + a, 0) / cpus.length
+      result.observe(average_frequency)
+    })
+
+    // gateway.instance.cpu_count
+    const cpuCountGauge = meter.createObservableGauge("gateway.instance.cpu_count", {
+      "description": "The number of CPUs reported by the instance the gateway is running on"
+    })
+    cpuCountGauge.addCallback((result) => {
+      result.observe(cpuCountSync(), {
+        [ATTR_HOST_ARCH]: host_arch,
+      });
+    })
+
+    // gateway.instance.total_memory
+    const totalMemoryGauge = meter.createObservableGauge("gateway.instance.total_memory", {
+      "description": "The amount of memory reported by the instance the router is running on",
+      "unit": "bytes"
+    })
+    totalMemoryGauge.addCallback((result) => {
+      result.observe(os.totalmem(), {
+        [ATTR_HOST_ARCH]: host_arch,
+      });
+    })
+
+    return meterProvider
 }
 
 /**

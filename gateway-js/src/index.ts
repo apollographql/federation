@@ -48,7 +48,7 @@ import {
   operationContextSpanAttributes,
   recordExceptions,
   OpenTelemetryAttributeNames,
-  configureOpenTelemetry,
+  configureOpenTelemetryWithDataCollection,
 } from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
@@ -71,10 +71,6 @@ import {
   GatewayGraphQLRequestContext,
   GatewayExecutionResult,
 } from '@apollo/server-gateway-interface';
-import * as os from 'node:os';
-import { cpuCountSync } from 'node-cpu-count';
-import { MeterProvider } from '@opentelemetry/sdk-metrics';
-import {ATTR_OS_TYPE, ATTR_HOST_ARCH} from '@opentelemetry/semantic-conventions/incubating';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -225,7 +221,10 @@ export class ApolloGateway implements GatewayInterface {
 
     this.validateConfigAndEmitWarnings();
 
-    this.initializeTelemetry();
+    // Users can opt out of Apollo collecting anonymous metrics using the same env variable as Rover/Router
+    if (process.env.APOLLO_TELEMETRY_DISABLED !== 'true' && process.env.APOLLO_TELEMETRY_DISABLED !== '1') {
+      configureOpenTelemetryWithDataCollection();
+    }
 
     this.logger.debug('Gateway successfully initialized (but not yet loaded)');
     this.state = { phase: 'initialized' };
@@ -291,74 +290,6 @@ export class ApolloGateway implements GatewayInterface {
         'The poll interval is now defined by Uplink, this option will only be used if it is greater than the value defined by Uplink or as a fallback.',
       );
     }
-  }
-
-  private initializeTelemetry() : MeterProvider {
-    const meterProvider = configureOpenTelemetry();
-
-    const os_type = os.type();
-    const host_arch = os.arch();
-    const meter = meterProvider.getMeter("apollo/gateway");
-
-    // gateway.instance
-
-    const instanceGauge = meter.createObservableGauge("gateway.instance", {
-      "description": "The number of instances of the gateway running"
-    })
-    instanceGauge.addCallback((result) => {
-      result.observe(1,  {
-        [ATTR_OS_TYPE]: os_type,
-        [ATTR_HOST_ARCH]: host_arch,
-        "deployment_type": "gateway"
-      })
-    })
-
-    // gateway.instance.cpu_freq
-    const cpuFreqGauge = meter.createObservableGauge("gateway.instance.cpu_freq", {
-      "description": "The CPU frequency of the underlying instance the router is deployed to",
-      "unit": "Mhz"
-    })
-    cpuFreqGauge.addCallback((result) => {
-      const cpus = os.cpus();
-      const average_frequency = os.cpus().map((a) => a.speed).reduce((partialSum, a) => partialSum + a, 0) / cpus.length
-      result.observe(average_frequency)
-    })
-
-    // gateway.instance.cpu_count
-    const cpuCountGauge = meter.createObservableGauge("gateway.instance.cpu_count", {
-      "description": "The number of CPUs reported by the instance the gateway is running on"
-    })
-    cpuCountGauge.addCallback((result) => {
-      result.observe(cpuCountSync(), {
-        [ATTR_HOST_ARCH]: host_arch,
-      });
-    })
-
-    // gateway.instance.total_memory
-    const totalMemoryGauge = meter.createObservableGauge("gateway.instance.total_memory", {
-      "description": "The amount of memory reported by the instance the router is running on",
-      "unit": "bytes"
-    })
-    totalMemoryGauge.addCallback((result) => {
-      result.observe(os.totalmem(), {
-        [ATTR_HOST_ARCH]: host_arch,
-      });
-    })
-
-    // gateway.instance.schema
-    const schemaGauge = meter.createObservableGauge("gateway.instance.schema", {
-      "description": "Details about the current in-use schema"
-    })
-    schemaGauge.addCallback((result) => {
-      if (this.supergraphSdl) {
-        const hash = this.getIdForSupergraphSdl(this.supergraphSdl)
-        result.observe(1, {
-          schema_hash: hash
-        })
-      }
-    })
-
-    return meterProvider
   }
 
   public async load(options?: {
