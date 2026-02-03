@@ -8,22 +8,17 @@ import { Headers as NodeFetchHeaders, Request as NodeFetchRequest } from 'node-f
 import { Fetcher, FetcherRequestInit, FetcherResponse } from '@apollo/utils.fetcher';
 import { GraphQLError, GraphQLErrorExtensions } from 'graphql';
 import { GatewayCacheHint, GatewayCachePolicy, GatewayGraphQLRequest, GatewayGraphQLRequestContext, GatewayGraphQLResponse } from '@apollo/server-gateway-interface';
-import { MeterProvider } from '@opentelemetry/sdk-metrics';
-import { Counter } from '@opentelemetry/api';
 
 export class RemoteGraphQLDataSource<
   TContext extends Record<string, any> = Record<string, any>,
 > implements GraphQLDataSource<TContext>
 {
   fetcher: Fetcher;
-  fetch_request_size_counter: (Counter | undefined);
-  fetch_response_size_counter: (Counter | undefined);
 
   constructor(
     config?: Partial<RemoteGraphQLDataSource<TContext>> &
       object &
       ThisType<RemoteGraphQLDataSource<TContext>>,
-    meterProvider?: MeterProvider,
   ) {
     this.fetcher = fetcher.defaults({
       // Allow an arbitrary number of sockets per subgraph. This is the default
@@ -36,22 +31,12 @@ export class RemoteGraphQLDataSource<
       // intact.
       retry: false,
     });
-    if (meterProvider) {
-      const meter = meterProvider.getMeter('apollo/gateway');
-      this.fetch_request_size_counter = meter.createCounter("apollo.gateway.operations.fetch.request_size", {
-        unit: 'bytes',
-      });
-      this.fetch_response_size_counter = meter.createCounter("apollo.gateway.operations.fetch.response_size", {
-        unit: 'bytes',
-      });
-    }
     if (config) {
       return Object.assign(this, config);
     }
   }
 
   url!: string;
-  name!: string;
 
   /**
    * Whether the downstream request should be made with automated persisted
@@ -164,7 +149,7 @@ export class RemoteGraphQLDataSource<
           request: requestWithoutQuery,
           context,
           overallCachePolicy,
-          pathInIncomingRequest,
+          pathInIncomingRequest
         });
       }
     }
@@ -182,7 +167,7 @@ export class RemoteGraphQLDataSource<
       request: requestWithQuery,
       context,
       overallCachePolicy,
-      pathInIncomingRequest,
+      pathInIncomingRequest
     });
   }
 
@@ -216,9 +201,6 @@ export class RemoteGraphQLDataSource<
     let fetchResponse: FetcherResponse | undefined;
 
     try {
-      this.fetch_request_size_counter?.add(Buffer.byteLength(stringifiedRequestWithoutHttp), {
-        "subgraph.name": this.name
-      })
       // Use our local `fetcher` to allow for fetch injection
       // Use the fetcher's `Request` implementation for compatibility
       fetchResponse = await this.fetcher(http.url, requestInit);
@@ -233,22 +215,12 @@ export class RemoteGraphQLDataSource<
         throw new Error(`Expected JSON response body, but received: ${body}`);
       }
 
-      this.fetch_response_size_counter?.add(Buffer.byteLength(body.toString()), {
-        "subgraph.name": this.name
-      })
-
       return {
         ...body,
         http: fetchResponse,
       };
     } catch (error) {
-      this.didEncounterError(
-        error,
-        fetchRequest,
-        fetchResponse,
-        context,
-        request,
-      );
+      this.didEncounterError(error, fetchRequest, fetchResponse, context, request);
       throw error;
     }
   }
@@ -262,22 +234,17 @@ export class RemoteGraphQLDataSource<
     request,
     context,
     overallCachePolicy,
-    pathInIncomingRequest,
+    pathInIncomingRequest
   }: {
     response: GatewayGraphQLResponse;
     request: GatewayGraphQLRequest;
     context: TContext;
     overallCachePolicy: GatewayCachePolicy | null;
-    pathInIncomingRequest?: ResponsePath;
+    pathInIncomingRequest?: ResponsePath
   }): Promise<GatewayGraphQLResponse> {
     const processedResponse =
       typeof this.didReceiveResponse === 'function'
-        ? await this.didReceiveResponse({
-            response,
-            request,
-            context,
-            pathInIncomingRequest,
-          })
+        ? await this.didReceiveResponse({ response, request, context, pathInIncomingRequest })
         : response;
 
     if (overallCachePolicy) {
@@ -308,11 +275,8 @@ export class RemoteGraphQLDataSource<
 
   public didReceiveResponse?(
     requestContext: Required<
-      Pick<
-        GatewayGraphQLRequestContext<TContext>,
-        'request' | 'response' | 'context'
-      >
-    > & { pathInIncomingRequest?: ResponsePath },
+      Pick<GatewayGraphQLRequestContext<TContext>, 'request' | 'response' | 'context'>
+    > & { pathInIncomingRequest?: ResponsePath }
   ): GatewayGraphQLResponse | Promise<GatewayGraphQLResponse>;
 
   public didEncounterError(

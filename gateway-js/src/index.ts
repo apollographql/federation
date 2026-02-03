@@ -47,7 +47,8 @@ import {
   requestContextSpanAttributes,
   operationContextSpanAttributes,
   recordExceptions,
-  OpenTelemetryAttributeNames, configureOpenTelemetry,
+  OpenTelemetryAttributeNames,
+  configureOpenTelemetry,
 } from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
@@ -69,7 +70,6 @@ import {
   GatewayUnsubscriber,
   GatewayGraphQLRequestContext,
   GatewayExecutionResult,
-  GatewayGraphQLRequest, GatewayGraphQLResponse,
 } from '@apollo/server-gateway-interface';
 import * as os from 'node:os';
 import { cpuCountSync } from 'node-cpu-count';
@@ -158,7 +158,6 @@ export class ApolloGateway implements GatewayInterface {
   private compositionId?: string;
   private state: GatewayState;
   private _supergraphManager?: SupergraphManager;
-  private openTelemetryMeterProvider: MeterProvider;
 
   // Observe query plan, service info, and operation info prior to execution.
   // The information made available here will give insight into the resulting
@@ -226,7 +225,7 @@ export class ApolloGateway implements GatewayInterface {
 
     this.validateConfigAndEmitWarnings();
 
-    this.openTelemetryMeterProvider = this.initializeTelemetry();
+    this.initializeTelemetry();
 
     this.logger.debug('Gateway successfully initialized (but not yet loaded)');
     this.state = { phase: 'initialized' };
@@ -819,9 +818,8 @@ export class ApolloGateway implements GatewayInterface {
     return this.config.buildService
       ? this.config.buildService(serviceDef)
       : new RemoteGraphQLDataSource({
-          name: serviceDef.name,
           url: serviceDef.url
-        }, this.openTelemetryMeterProvider);
+        });
   }
 
   private createServices(services: readonly ServiceEndpointDefinition[]) {
@@ -957,10 +955,6 @@ export class ApolloGateway implements GatewayInterface {
             });
           }
 
-          this.openTelemetryMeterProvider.getMeter("apollo/gateway").createCounter("apollo.gateway.operations.request_size", {
-            unit: "bytes"
-          }).add(this.calculate_request_size(request));
-
           const response = await executeQueryPlan(
             queryPlan,
             serviceMap,
@@ -970,10 +964,6 @@ export class ApolloGateway implements GatewayInterface {
             this.apiSchema!,
             this.config.telemetry
           );
-
-          this.openTelemetryMeterProvider.getMeter("apollo/gateway").createCounter("apollo.gateway.operations.response_size", {
-            unit: "bytes"
-          }).add(this.calculate_response_size(response));
 
           const shouldShowQueryPlan =
             this.config.__exposeQueryPlanExperimental &&
@@ -1038,39 +1028,6 @@ export class ApolloGateway implements GatewayInterface {
       },
     );
   };
-
-  private calculate_request_size(request: GatewayGraphQLRequest) {
-    let total = 0;
-
-    if (request.http?.headers) {
-      total += Array.from(request.http.headers).reduce((size, headerPair )=> size + Buffer.byteLength(headerPair[0]) + Buffer.byteLength(headerPair[1]), 0);
-    }
-    if (request.query) {
-      total += Buffer.byteLength(request.query);
-    }
-    if (request.variables) {
-      total += Object.entries(request.variables).reduce((accumulator, variable_pair) =>
-        accumulator + Buffer.byteLength(variable_pair[0]) + Buffer.byteLength(variable_pair[1].toString())
-      , 0);
-    }
-
-    return total
-  }
-
-  private calculate_response_size(response: GatewayGraphQLResponse) {
-    let total = 0;
-
-    if (response.http?.headers) {
-      total += Array.from(response.http.headers).reduce((size, headerPair )=> size + Buffer.byteLength(headerPair[0]) + Buffer.byteLength(headerPair[1]), 0);
-    }
-    if (response.data) {
-      total += Object.entries(response.data).reduce((accumulator, data_pair) =>
-          accumulator + Buffer.byteLength(data_pair[0]) + Buffer.byteLength(JSON.stringify(data_pair[1]))
-        , 0);
-    }
-
-    return total
-  }
 
   private validateIncomingRequest(
     requestContext: GatewayGraphQLRequestContext,
