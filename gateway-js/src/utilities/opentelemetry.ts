@@ -4,7 +4,7 @@ import type { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interf
 import { cpuCountSync } from 'node-cpu-count';
 import * as os from 'node:os';
 import { OperationContext } from '../operationContext';
-import {ATTR_OS_TYPE, ATTR_HOST_ARCH} from '@opentelemetry/semantic-conventions/incubating';
+import {ATTR_OS_TYPE, ATTR_HOST_ARCH, OS_TYPE_VALUE_LINUX, ATTR_OS_NAME} from '@opentelemetry/semantic-conventions/incubating';
 import {
   AggregationTemporalitySelector,
   ConsoleMetricExporter,
@@ -28,7 +28,7 @@ import {
   azureFunctionsDetector,
   azureVmDetector,
 } from '@opentelemetry/resource-detector-azure';
-import { detectResourcesSync, Resource } from '@opentelemetry/resources';
+import { detectResourcesSync, hostDetectorSync, Resource } from '@opentelemetry/resources';
 import { ExportResult, ExportResultCode } from '@opentelemetry/core';
 
 export type OpenTelemetryConfig = {
@@ -148,14 +148,14 @@ export function recordExceptions(
   }
 }
 
-export function configureOpenTelemetry(): MeterProvider {
+export function configureOpenTelemetryWithDataCollection(): MeterProvider {
   const resource = detectResourcesSync({
     detectors: [alibabaCloudEcsDetector, awsEc2Detector, awsBeanstalkDetector, awsEcsDetector, awsEksDetector, awsLambdaDetector, gcpDetector, azureVmDetector, azureFunctionsDetector, azureAppServiceDetector],
   })
 
   const metricExporter = new ConsoleMetricExporter();
   const resourceExporter = new ConsoleResourceMetricExporter();
-  return new MeterProvider({
+  const meterProvider = new MeterProvider({
     resource: resource.merge(
       new Resource ({
         // Replace with any string to identify this service in your system
@@ -173,61 +173,62 @@ export function configureOpenTelemetry(): MeterProvider {
       })
     ],
   });
-}
 
-export function configureOpenTelemetryWithDataCollection(): MeterProvider {
-    const meterProvider = configureOpenTelemetry();
+  const hostAttrs = hostDetectorSync.detect().attributes
+  const osType = hostAttrs[ATTR_OS_TYPE]
+  const hostArch = hostAttrs[ATTR_HOST_ARCH]
+  const meter = meterProvider.getMeter("apollo/gateway")
 
-    const os_type = os.type();
-    const host_arch = os.arch();
-    const meter = meterProvider.getMeter("apollo/gateway");
+  // gateway.instance
 
-    // gateway.instance
+  const instanceGauge = meter.createObservableGauge("gateway.instance", {
+    "description": "The number of instances of the gateway running"
+  })
 
-    const instanceGauge = meter.createObservableGauge("gateway.instance", {
-      "description": "The number of instances of the gateway running"
-    })
-    instanceGauge.addCallback((result) => {
-      result.observe(1,  {
-        [ATTR_OS_TYPE]: os_type,
-        [ATTR_HOST_ARCH]: host_arch,
-        "deployment_type": "gateway"
-      })
-    })
+  let instanceAttrs: Attributes = {
+    [ATTR_OS_TYPE]: osType,
+    [ATTR_HOST_ARCH]: hostArch
+  }
+  if (osType === OS_TYPE_VALUE_LINUX) {
+    instanceAttrs["linux.distribution"] = hostAttrs[ATTR_OS_NAME];
+  }
+  instanceGauge.addCallback((result) => {
+    result.observe(1, instanceAttrs)
+  })
 
-    // gateway.instance.cpu_freq
-    const cpuFreqGauge = meter.createObservableGauge("gateway.instance.cpu_freq", {
-      "description": "The CPU frequency of the underlying instance the router is deployed to",
-      "unit": "Mhz"
-    })
-    cpuFreqGauge.addCallback((result) => {
-      const cpus = os.cpus();
-      const average_frequency = os.cpus().map((a) => a.speed).reduce((partialSum, a) => partialSum + a, 0) / cpus.length
-      result.observe(average_frequency)
-    })
+  // gateway.instance.cpu_freq
+  const cpuFreqGauge = meter.createObservableGauge("gateway.instance.cpu_freq", {
+    "description": "The CPU frequency of the underlying instance the router is deployed to",
+    "unit": "Mhz"
+  })
+  cpuFreqGauge.addCallback((result) => {
+    const cpus = os.cpus();
+    const average_frequency = os.cpus().map((a) => a.speed).reduce((partialSum, a) => partialSum + a, 0) / cpus.length
+    result.observe(average_frequency)
+  })
 
-    // gateway.instance.cpu_count
-    const cpuCountGauge = meter.createObservableGauge("gateway.instance.cpu_count", {
-      "description": "The number of CPUs reported by the instance the gateway is running on"
-    })
-    cpuCountGauge.addCallback((result) => {
-      result.observe(cpuCountSync(), {
-        [ATTR_HOST_ARCH]: host_arch,
-      });
-    })
+  // gateway.instance.cpu_count
+  const cpuCountGauge = meter.createObservableGauge("gateway.instance.cpu_count", {
+    "description": "The number of CPUs reported by the instance the gateway is running on"
+  })
+  cpuCountGauge.addCallback((result) => {
+    result.observe(cpuCountSync(), {
+      [ATTR_HOST_ARCH]: hostArch,
+    });
+  })
 
-    // gateway.instance.total_memory
-    const totalMemoryGauge = meter.createObservableGauge("gateway.instance.total_memory", {
-      "description": "The amount of memory reported by the instance the router is running on",
-      "unit": "bytes"
-    })
-    totalMemoryGauge.addCallback((result) => {
-      result.observe(os.totalmem(), {
-        [ATTR_HOST_ARCH]: host_arch,
-      });
-    })
+  // gateway.instance.total_memory
+  const totalMemoryGauge = meter.createObservableGauge("gateway.instance.total_memory", {
+    "description": "The amount of memory reported by the instance the router is running on",
+    "unit": "bytes"
+  })
+  totalMemoryGauge.addCallback((result) => {
+    result.observe(os.totalmem(), {
+      [ATTR_HOST_ARCH]: hostArch,
+    });
+  })
 
-    return meterProvider
+  return meterProvider
 }
 
 /**
