@@ -48,7 +48,7 @@ import {
   operationContextSpanAttributes,
   recordExceptions,
   OpenTelemetryAttributeNames,
-  configureOpenTelemetryWithDataCollection,
+  createDataCollectionExporter,
 } from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
@@ -223,7 +223,8 @@ export class ApolloGateway implements GatewayInterface {
 
     // Users can opt out of Apollo collecting anonymous metrics using the same env variable as Rover/Router
     if (process.env.APOLLO_TELEMETRY_DISABLED !== 'true' && process.env.APOLLO_TELEMETRY_DISABLED !== '1') {
-      configureOpenTelemetryWithDataCollection();
+      const meterProvider = createDataCollectionExporter();
+      this.toDispose.push(() => meterProvider.shutdown());
     }
 
     this.logger.debug('Gateway successfully initialized (but not yet loaded)');

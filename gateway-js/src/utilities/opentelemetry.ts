@@ -6,11 +6,6 @@ import * as os from 'node:os';
 import { OperationContext } from '../operationContext';
 import {ATTR_OS_TYPE, ATTR_HOST_ARCH, OS_TYPE_VALUE_LINUX, ATTR_OS_NAME} from '@opentelemetry/semantic-conventions/incubating';
 import {
-  AggregationTemporalitySelector,
-  ConsoleMetricExporter,
-  ResourceMetrics,
-} from '@opentelemetry/sdk-metrics';
-import {
   MeterProvider,
   PeriodicExportingMetricReader,
 } from '@opentelemetry/sdk-metrics';
@@ -29,7 +24,8 @@ import {
   azureVmDetector,
 } from '@opentelemetry/resource-detector-azure';
 import { detectResourcesSync, hostDetectorSync, Resource } from '@opentelemetry/resources';
-import { ExportResult, ExportResultCode } from '@opentelemetry/core';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
+import { randomUUID } from 'node:crypto';
 
 export type OpenTelemetryConfig = {
   /**
@@ -77,6 +73,8 @@ export enum OpenTelemetryAttributeNames {
 
 const { name, version } = require('../../package.json');
 export const tracer = opentelemetry.trace.getTracer(`${name}/${version}`);
+
+const APOLLO_OTEL_ENDPOINT = "https://usage-reporting.api.apollographql.com";
 
 export interface SpanAttributes extends Attributes {
   /**
@@ -148,18 +146,29 @@ export function recordExceptions(
   }
 }
 
-export function configureOpenTelemetryWithDataCollection(): MeterProvider {
+export function createDataCollectionExporter(): MeterProvider {
+  // cloud resource detectors
   const resource = detectResourcesSync({
-    detectors: [alibabaCloudEcsDetector, awsEc2Detector, awsBeanstalkDetector, awsEcsDetector, awsEksDetector, awsLambdaDetector, gcpDetector, azureVmDetector, azureFunctionsDetector, azureAppServiceDetector],
+    detectors: [
+      alibabaCloudEcsDetector,
+      awsEc2Detector,
+      awsBeanstalkDetector,
+      awsEcsDetector,
+      awsEksDetector,
+      awsLambdaDetector,
+      gcpDetector,
+      azureVmDetector,
+      azureFunctionsDetector,
+      azureAppServiceDetector
+    ],
   })
 
-  const metricExporter = new ConsoleMetricExporter();
-  const resourceExporter = new ConsoleResourceMetricExporter();
+  const metricExporter = new OTLPMetricExporter({ url: APOLLO_OTEL_ENDPOINT })
   const meterProvider = new MeterProvider({
     resource: resource.merge(
       new Resource ({
-        // Replace with any string to identify this service in your system
         'service.name': 'gateway',
+        'apollo.gateway.id': randomUUID()
       }),
     ),
     readers: [
@@ -167,13 +176,10 @@ export function configureOpenTelemetryWithDataCollection(): MeterProvider {
         exporter: metricExporter,
         exportIntervalMillis: 10000,
       }),
-      new PeriodicExportingMetricReader({
-        exporter: resourceExporter,
-        exportIntervalMillis: 10000,
-      })
     ],
-  });
+  })
 
+  // grab the host attributes explicitly so we can create `linux.distribution`
   const hostAttrs = hostDetectorSync.detect().attributes
   const osType = hostAttrs[ATTR_OS_TYPE]
   const hostArch = hostAttrs[ATTR_HOST_ARCH]
@@ -214,7 +220,7 @@ export function configureOpenTelemetryWithDataCollection(): MeterProvider {
   cpuCountGauge.addCallback((result) => {
     result.observe(cpuCountSync(), {
       [ATTR_HOST_ARCH]: hostArch,
-    });
+    })
   })
 
   // gateway.instance.total_memory
@@ -225,42 +231,8 @@ export function configureOpenTelemetryWithDataCollection(): MeterProvider {
   totalMemoryGauge.addCallback((result) => {
     result.observe(os.totalmem(), {
       [ATTR_HOST_ARCH]: hostArch,
-    });
+    })
   })
 
   return meterProvider
-}
-
-/**
- * Console exporter that logs ONLY the `metrics.resource` portion
- * of every export request.  Useful when you just want to inspect
- * the attributes attached to the resource (service name, version,
- * environment, etc.) and not the individual metric datapoints.
- */
-export class ConsoleResourceMetricExporter extends ConsoleMetricExporter {
-  /** Re-expose the constructor so callers can still pass options through */
-  constructor(options?: { temporalitySelector?: AggregationTemporalitySelector }) {
-    super(options);
-  }
-
-  /** Override the export hook to log the resource and nothing else. */
-  override export(
-    metrics: ResourceMetrics,
-    resultCallback: (result: ExportResult) => void
-  ): void {
-    if (this._shutdown) {
-      // follow spec: once shutdown, every call must fail fast
-      setImmediate(resultCallback, { code: ExportResultCode.FAILED });
-      return;
-    }
-
-    // The only new behaviour: print the resource object.
-    console.dir(metrics.resource, { depth: null });
-
-    // report success to the SDK
-    setImmediate(resultCallback, { code: ExportResultCode.SUCCESS });
-  }
-
-  /* All other behaviour (forceFlush, shutdown, temporality, etc.)
-   * inherits directly from ConsoleMetricExporter with no change */
 }
