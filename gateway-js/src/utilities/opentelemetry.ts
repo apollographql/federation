@@ -75,6 +75,7 @@ const { name, version } = require('../../package.json');
 export const tracer = opentelemetry.trace.getTracer(`${name}/${version}`);
 
 const APOLLO_OTEL_ENDPOINT = "https://usage-reporting.api.apollographql.com";
+const ONE_HOUR_MILLIS = 1000 * 60 * 60; // one hour
 
 export interface SpanAttributes extends Attributes {
   /**
@@ -167,14 +168,14 @@ export function createDataCollectionExporter(): MeterProvider {
   const meterProvider = new MeterProvider({
     resource: resource.merge(
       new Resource ({
-        'service.name': 'gateway',
-        'apollo.gateway.id': randomUUID()
+        'service.name': 'router-js',
+        'apollo.router-js.id': randomUUID()
       }),
     ),
     readers: [
       new PeriodicExportingMetricReader({
         exporter: metricExporter,
-        exportIntervalMillis: 10000,
+        exportIntervalMillis: ONE_HOUR_MILLIS,
       }),
     ],
   })
@@ -183,12 +184,12 @@ export function createDataCollectionExporter(): MeterProvider {
   const hostAttrs = hostDetectorSync.detect().attributes
   const osType = hostAttrs[ATTR_OS_TYPE]
   const hostArch = hostAttrs[ATTR_HOST_ARCH]
-  const meter = meterProvider.getMeter("apollo/gateway")
+  const meter = meterProvider.getMeter("apollo/router-js")
 
-  // gateway.instance
+  // router-js.instance
 
-  const instanceGauge = meter.createObservableGauge("gateway.instance", {
-    "description": "The number of instances of the gateway running"
+  const instanceGauge = meter.createObservableGauge("router-js.instance", {
+    "description": "The number of instances of the JS federation gateway running"
   })
 
   let instanceAttrs: Attributes = {
@@ -202,9 +203,9 @@ export function createDataCollectionExporter(): MeterProvider {
     result.observe(1, instanceAttrs)
   })
 
-  // gateway.instance.cpu_freq
-  const cpuFreqGauge = meter.createObservableGauge("gateway.instance.cpu_freq", {
-    "description": "The CPU frequency of the underlying instance the router is deployed to",
+  // router-js.instance.cpu_freq
+  const cpuFreqGauge = meter.createObservableGauge("router-js.instance.cpu_freq", {
+    "description": "The CPU frequency of the underlying instance the JS federation gateway is deployed to",
     "unit": "Mhz"
   })
   cpuFreqGauge.addCallback((result) => {
@@ -213,9 +214,9 @@ export function createDataCollectionExporter(): MeterProvider {
     result.observe(average_frequency)
   })
 
-  // gateway.instance.cpu_count
-  const cpuCountGauge = meter.createObservableGauge("gateway.instance.cpu_count", {
-    "description": "The number of CPUs reported by the instance the gateway is running on"
+  // router-js.instance.cpu_count
+  const cpuCountGauge = meter.createObservableGauge("router-js.instance.cpu_count", {
+    "description": "The number of CPUs reported by the instance the JS federation gateway is running on"
   })
   cpuCountGauge.addCallback((result) => {
     result.observe(cpuCountSync(), {
@@ -223,8 +224,8 @@ export function createDataCollectionExporter(): MeterProvider {
     })
   })
 
-  // gateway.instance.total_memory
-  const totalMemoryGauge = meter.createObservableGauge("gateway.instance.total_memory", {
+  // router-js.instance.total_memory
+  const totalMemoryGauge = meter.createObservableGauge("router-js.instance.total_memory", {
     "description": "The amount of memory reported by the instance the router is running on",
     "unit": "bytes"
   })
