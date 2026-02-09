@@ -54,7 +54,7 @@ describe('composition', () => {
         type T @key(fields: "k") {
           k: ID
           a: Int
-          b: String @deprecated
+          b: String
         }
 
         enum E {
@@ -149,7 +149,7 @@ describe('composition', () => {
       {
         k: ID
         a: Int @join__field(graph: SUBGRAPH2)
-        b: String @join__field(graph: SUBGRAPH2) @deprecated(reason: "No longer supported")
+        b: String @join__field(graph: SUBGRAPH2)
       }
 
       union U
@@ -177,7 +177,7 @@ describe('composition', () => {
       type T {
         k: ID
         a: Int
-        b: String @deprecated(reason: "No longer supported")
+        b: String
       }
 
       union U = S | T
@@ -1939,7 +1939,7 @@ describe('composition', () => {
       const [_, api] = schemas(result);
       expect(printSchema(api)).toMatchString(`
         type Query {
-          a: String @deprecated
+          a: String @deprecated(reason: "No longer supported")
           b: String
         }
       `);
