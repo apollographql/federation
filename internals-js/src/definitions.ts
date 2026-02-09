@@ -3260,6 +3260,12 @@ export class Directive<
     const args = entries.length == 0 ? '' : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v, this.argumentType(n))}`).join(', ') + ')';
     return `@${this.name}${args}`;
   }
+
+  toStringWithDefaultValues(): string {
+    const entries = Object.entries(this.arguments(true)).filter(([_, v]) => v !== undefined);
+    const args = entries.length == 0 ? '' : '(' + entries.map(([n, v]) => `${n}: ${valueToString(v, this.argumentType(n))}`).join(', ') + ')';
+    return `@${this.name}${args}`;
+  }
 }
 
 /**

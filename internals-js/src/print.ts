@@ -24,6 +24,7 @@ import {
 } from "./definitions";
 import { assert } from "./utils";
 import { valueToString } from "./values";
+import { GraphQLDeprecatedDirective } from 'graphql/type';
 
 export type PrintOptions = {
   indentString: string;
@@ -235,7 +236,13 @@ function printAppliedDirectives(
     return "";
   }
   const joinStr = onNewLines ? '\n' + options.indentString : ' ';
-  const directives = appliedDirectives.map(d => d.toString()).join(joinStr);
+  const directives = appliedDirectives.map(d => {
+    if (GraphQLDeprecatedDirective.name === d.name) {
+      return d.toStringWithDefaultValues();
+    } else {
+      return d.toString();
+    }
+  }).join(joinStr);
   return onNewLines ? '\n' + options.indentString + directives + (endWithNewLine ? '\n' : '') : ' ' + directives;
 }
 

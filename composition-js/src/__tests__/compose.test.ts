@@ -54,7 +54,7 @@ describe('composition', () => {
         type T @key(fields: "k") {
           k: ID
           a: Int
-          b: String
+          b: String @deprecated
         }
 
         enum E {
@@ -149,7 +149,7 @@ describe('composition', () => {
       {
         k: ID
         a: Int @join__field(graph: SUBGRAPH2)
-        b: String @join__field(graph: SUBGRAPH2)
+        b: String @join__field(graph: SUBGRAPH2) @deprecated(reason: "No longer supported")
       }
 
       union U
@@ -177,7 +177,7 @@ describe('composition', () => {
       type T {
         k: ID
         a: Int
-        b: String
+        b: String @deprecated(reason: "No longer supported")
       }
 
       union U = S | T
