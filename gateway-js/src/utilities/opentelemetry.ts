@@ -4,7 +4,7 @@ import type { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interf
 import { cpuCountSync } from 'node-cpu-count';
 import * as os from 'node:os';
 import { OperationContext } from '../operationContext';
-import {ATTR_OS_TYPE, ATTR_HOST_ARCH, OS_TYPE_VALUE_LINUX, ATTR_OS_NAME, METRIC_SYSTEM_MEMORY_LIMIT, METRIC_SYSTEM_CPU_LOGICAL_COUNT, METRIC_SYSTEM_CPU_FREQUENCY, ATTR_SERVICE_NAME, ATTR_SERVICE_INSTANCE_ID} from '@opentelemetry/semantic-conventions/incubating';
+import {ATTR_OS_TYPE, ATTR_HOST_ARCH, OS_TYPE_VALUE_LINUX, ATTR_OS_NAME, METRIC_SYSTEM_MEMORY_LIMIT, METRIC_SYSTEM_CPU_LOGICAL_COUNT, METRIC_SYSTEM_CPU_FREQUENCY, ATTR_SERVICE_NAME, ATTR_SERVICE_INSTANCE_ID, METRIC_PROCESS_UPTIME} from '@opentelemetry/semantic-conventions/incubating';
 import {
   MeterProvider,
   PeriodicExportingMetricReader,
@@ -188,7 +188,7 @@ export function createDataCollectionExporter(): MeterProvider {
   const hostArch = hostAttrs[ATTR_HOST_ARCH]
   const meter = meterProvider.getMeter("apollo/gateway-js")
 
-  const uptimeGauge = meter.createObservableGauge("system.uptime", {
+  const uptimeGauge = meter.createObservableGauge(METRIC_PROCESS_UPTIME, {
     "description": "The uptime of the JS federation gateway running"
   })
 
