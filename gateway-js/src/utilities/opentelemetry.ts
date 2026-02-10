@@ -4,7 +4,7 @@ import type { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interf
 import { cpuCountSync } from 'node-cpu-count';
 import * as os from 'node:os';
 import { OperationContext } from '../operationContext';
-import {ATTR_OS_TYPE, ATTR_HOST_ARCH, OS_TYPE_VALUE_LINUX, ATTR_OS_NAME} from '@opentelemetry/semantic-conventions/incubating';
+import {ATTR_OS_TYPE, ATTR_HOST_ARCH, OS_TYPE_VALUE_LINUX, ATTR_OS_NAME, METRIC_SYSTEM_MEMORY_LIMIT, METRIC_SYSTEM_CPU_LOGICAL_COUNT, METRIC_SYSTEM_CPU_FREQUENCY, ATTR_SERVICE_NAME, ATTR_SERVICE_INSTANCE_ID} from '@opentelemetry/semantic-conventions/incubating';
 import {
   MeterProvider,
   PeriodicExportingMetricReader,
@@ -75,7 +75,9 @@ const { name, version } = require('../../package.json');
 export const tracer = opentelemetry.trace.getTracer(`${name}/${version}`);
 
 const APOLLO_OTEL_ENDPOINT = "https://usage-reporting.api.apollographql.com";
-const ONE_HOUR_MILLIS = 1000 * 60 * 60; // one hour
+const EXPORT_INTERVAL_SECONDS = 60 * 60; // one hour
+const EXPORT_INTERVAL_MILLIS = 1000 * EXPORT_INTERVAL_SECONDS;
+const SI_MEGA = 1000000;
 
 export interface SpanAttributes extends Attributes {
   /**
@@ -168,14 +170,14 @@ export function createDataCollectionExporter(): MeterProvider {
   const meterProvider = new MeterProvider({
     resource: resource.merge(
       new Resource ({
-        'service.name': 'router-js',
-        'apollo.router-js.id': randomUUID()
+        [ATTR_SERVICE_NAME]: 'router-js',
+        [ATTR_SERVICE_INSTANCE_ID]: randomUUID()
       }),
     ),
     readers: [
       new PeriodicExportingMetricReader({
         exporter: metricExporter,
-        exportIntervalMillis: ONE_HOUR_MILLIS,
+        exportIntervalMillis: EXPORT_INTERVAL_MILLIS,
       }),
     ],
   })
@@ -186,10 +188,8 @@ export function createDataCollectionExporter(): MeterProvider {
   const hostArch = hostAttrs[ATTR_HOST_ARCH]
   const meter = meterProvider.getMeter("apollo/router-js")
 
-  // router-js.instance
-
-  const instanceGauge = meter.createObservableGauge("router-js.instance", {
-    "description": "The number of instances of the JS federation gateway running"
+  const uptimeGauge = meter.createObservableGauge("system.uptime", {
+    "description": "The uptime of the JS federation gateway running"
   })
 
   let instanceAttrs: Attributes = {
@@ -199,23 +199,24 @@ export function createDataCollectionExporter(): MeterProvider {
   if (osType === OS_TYPE_VALUE_LINUX) {
     instanceAttrs["linux.distribution"] = hostAttrs[ATTR_OS_NAME];
   }
-  instanceGauge.addCallback((result) => {
-    result.observe(1, instanceAttrs)
+
+  let uptime = 0;
+  uptimeGauge.addCallback((result) => {
+    result.observe(uptime, instanceAttrs)
+    uptime = uptime + EXPORT_INTERVAL_SECONDS; 
   })
 
-  // router-js.instance.cpu_freq
-  const cpuFreqGauge = meter.createObservableGauge("router-js.instance.cpu_freq", {
+  const cpuFreqGauge = meter.createObservableGauge(METRIC_SYSTEM_CPU_FREQUENCY, {
     "description": "The CPU frequency of the underlying instance the JS federation gateway is deployed to",
-    "unit": "Mhz"
+    "unit": "Hz"
   })
   cpuFreqGauge.addCallback((result) => {
     const cpus = os.cpus();
-    const average_frequency = os.cpus().map((a) => a.speed).reduce((partialSum, a) => partialSum + a, 0) / cpus.length
+    const average_frequency = os.cpus().map((a) => a.speed * SI_MEGA).reduce((partialSum, a) => partialSum + a, 0) / cpus.length
     result.observe(average_frequency)
   })
 
-  // router-js.instance.cpu_count
-  const cpuCountGauge = meter.createObservableGauge("router-js.instance.cpu_count", {
+  const cpuCountGauge = meter.createObservableGauge(METRIC_SYSTEM_CPU_LOGICAL_COUNT, {
     "description": "The number of CPUs reported by the instance the JS federation gateway is running on"
   })
   cpuCountGauge.addCallback((result) => {
@@ -224,8 +225,7 @@ export function createDataCollectionExporter(): MeterProvider {
     })
   })
 
-  // router-js.instance.total_memory
-  const totalMemoryGauge = meter.createObservableGauge("router-js.instance.total_memory", {
+  const totalMemoryGauge = meter.createObservableGauge(METRIC_SYSTEM_MEMORY_LIMIT, {
     "description": "The amount of memory reported by the instance the router is running on",
     "unit": "bytes"
   })
