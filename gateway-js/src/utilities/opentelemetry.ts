@@ -170,7 +170,7 @@ export function createDataCollectionExporter(): MeterProvider {
   const meterProvider = new MeterProvider({
     resource: resource.merge(
       new Resource ({
-        [ATTR_SERVICE_NAME]: 'router-js',
+        [ATTR_SERVICE_NAME]: 'gateway-js',
         [ATTR_SERVICE_INSTANCE_ID]: randomUUID()
       }),
     ),
@@ -186,7 +186,7 @@ export function createDataCollectionExporter(): MeterProvider {
   const hostAttrs = hostDetectorSync.detect().attributes
   const osType = hostAttrs[ATTR_OS_TYPE]
   const hostArch = hostAttrs[ATTR_HOST_ARCH]
-  const meter = meterProvider.getMeter("apollo/router-js")
+  const meter = meterProvider.getMeter("apollo/gateway-js")
 
   const uptimeGauge = meter.createObservableGauge("system.uptime", {
     "description": "The uptime of the JS federation gateway running"
@@ -226,7 +226,7 @@ export function createDataCollectionExporter(): MeterProvider {
   })
 
   const totalMemoryGauge = meter.createObservableGauge(METRIC_SYSTEM_MEMORY_LIMIT, {
-    "description": "The amount of memory reported by the instance the router is running on",
+    "description": "The amount of memory reported by the instance the JS federation gateway is running on",
     "unit": "bytes"
   })
   totalMemoryGauge.addCallback((result) => {
