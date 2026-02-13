@@ -8,6 +8,7 @@ import {ATTR_OS_TYPE, ATTR_HOST_ARCH, OS_TYPE_VALUE_LINUX, ATTR_OS_NAME, METRIC_
 import {
   MeterProvider,
   PeriodicExportingMetricReader,
+  PushMetricExporter,
 } from '@opentelemetry/sdk-metrics';
 import { alibabaCloudEcsDetector } from '@opentelemetry/resource-detector-alibaba-cloud';
 import {
@@ -23,7 +24,7 @@ import {
   azureFunctionsDetector,
   azureVmDetector,
 } from '@opentelemetry/resource-detector-azure';
-import { detectResourcesSync, hostDetectorSync, Resource } from '@opentelemetry/resources';
+import { detectResourcesSync, hostDetectorSync, osDetectorSync, Resource } from '@opentelemetry/resources';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { randomUUID } from 'node:crypto';
 
@@ -149,7 +150,8 @@ export function recordExceptions(
   }
 }
 
-export function createDataCollectionExporter(): MeterProvider {
+// Exposed for unit testing with a testable exporter
+export function createDataCollectionMeterProvider(metricExporter: PushMetricExporter): MeterProvider {
   // cloud resource detectors
   const resource = detectResourcesSync({
     detectors: [
@@ -166,7 +168,6 @@ export function createDataCollectionExporter(): MeterProvider {
     ],
   })
 
-  const metricExporter = new OTLPMetricExporter({ url: APOLLO_OTEL_ENDPOINT })
   const meterProvider = new MeterProvider({
     resource: resource.merge(
       new Resource ({
@@ -182,9 +183,10 @@ export function createDataCollectionExporter(): MeterProvider {
     ],
   })
 
-  // grab the host attributes explicitly so we can create `linux.distribution`
+  // grab the host and OS attributes explicitly so we can create `linux.distribution`
   const hostAttrs = hostDetectorSync.detect().attributes
-  const osType = hostAttrs[ATTR_OS_TYPE]
+  const osAttrs = osDetectorSync.detect().attributes
+  const osType = osAttrs[ATTR_OS_TYPE]
   const hostArch = hostAttrs[ATTR_HOST_ARCH]
   const meter = meterProvider.getMeter("apollo/gateway-js")
 
@@ -197,7 +199,7 @@ export function createDataCollectionExporter(): MeterProvider {
     [ATTR_HOST_ARCH]: hostArch
   }
   if (osType === OS_TYPE_VALUE_LINUX) {
-    instanceAttrs["linux.distribution"] = hostAttrs[ATTR_OS_NAME];
+    instanceAttrs["linux.distribution"] = osAttrs[ATTR_OS_NAME];
   }
 
   let uptime = 0;
@@ -236,4 +238,8 @@ export function createDataCollectionExporter(): MeterProvider {
   })
 
   return meterProvider
+}
+
+export function createDataCollectionExporter(): MeterProvider {
+  return createDataCollectionMeterProvider(new OTLPMetricExporter({ url: APOLLO_OTEL_ENDPOINT }));
 }
