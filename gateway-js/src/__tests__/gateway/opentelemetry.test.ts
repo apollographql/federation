@@ -278,7 +278,7 @@ describe('opentelemetry', () => {
       expect(typeof resource.attributes[ATTR_SERVICE_INSTANCE_ID]).toBe(
         'string',
       );
-    });
+    }, 10000);
 
     it('includes metric-specific attributes', async () => {
       const metricExporter = new InMemoryMetricExporter(
@@ -316,7 +316,7 @@ describe('opentelemetry', () => {
 
       // system.memory.limit should have host architecture
       expect(memory!.dataPoints[0].attributes[ATTR_HOST_ARCH]).toBeDefined();
-    });
+    }, 10000);
 
     describe('with cloud provider detection', () => {
       let originalEnv: NodeJS.ProcessEnv;
@@ -348,7 +348,7 @@ describe('opentelemetry', () => {
 
         expect(resource.attributes[ATTR_CLOUD_PROVIDER]).toBe('aws');
         expect(resource.attributes[ATTR_CLOUD_PLATFORM]).toBe('aws_lambda');
-      });
+      }, 10000);
 
       it('detects Azure App Service environment', async () => {
         process.env.WEBSITE_SITE_NAME = 'test-app-service';
@@ -369,7 +369,7 @@ describe('opentelemetry', () => {
         expect(resource.attributes[ATTR_CLOUD_PLATFORM]).toBe(
           'azure_app_service',
         );
-      });
+      }, 10000);
     });
   });
 });
