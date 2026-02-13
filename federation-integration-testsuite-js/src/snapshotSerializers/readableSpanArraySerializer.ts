@@ -1,5 +1,5 @@
 import { Plugin } from 'pretty-format';
-import { ReadableSpan } from '@opentelemetry/tracing'
+import { ReadableSpan } from '@opentelemetry/sdk-trace-base';
 
 export default {
     test(value: any) {

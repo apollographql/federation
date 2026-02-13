@@ -160,6 +160,9 @@ optimise
 Optimises
 organised
 orignal
+otel
+OTel
+OTEL
 othe
 Othewise
 OTLP

@@ -1,5 +1,7 @@
 const { defaults } = require("jest-config");
 
+process.env.APOLLO_TELEMETRY_DISABLED = '1';
+
 /** @typedef {import('ts-jest/dist/types')} */
 /** @type {import('@jest/types').Config.InitialOptions} */
 module.exports = {
