@@ -16,7 +16,7 @@ import {
   GraphQLDataSource,
   GraphQLDataSourceRequestKind,
 } from './datasources/types';
-import { RemoteGraphQLDataSource } from './datasources/RemoteGraphQLDataSource';
+import { RemoteGraphQLDataSource } from './datasources';
 import { getVariableValues } from 'graphql/execution/values';
 import {
   QueryPlanner,
@@ -47,7 +47,8 @@ import {
   requestContextSpanAttributes,
   operationContextSpanAttributes,
   recordExceptions,
-  OpenTelemetryAttributeNames
+  OpenTelemetryAttributeNames,
+  createDataCollectionExporter,
 } from './utilities/opentelemetry';
 import { addExtensions } from './schema-helper/addExtensions';
 import {
@@ -64,7 +65,12 @@ import {
   Supergraph,
 } from '@apollo/federation-internals';
 import { getDefaultLogger } from './logger';
-import {GatewayInterface, GatewayUnsubscriber, GatewayGraphQLRequestContext, GatewayExecutionResult} from '@apollo/server-gateway-interface';
+import {
+  GatewayInterface,
+  GatewayUnsubscriber,
+  GatewayGraphQLRequestContext,
+  GatewayExecutionResult,
+} from '@apollo/server-gateway-interface';
 
 type DataSourceMap = {
   [serviceName: string]: { url?: string; dataSource: GraphQLDataSource };
@@ -214,6 +220,12 @@ export class ApolloGateway implements GatewayInterface {
     }
 
     this.validateConfigAndEmitWarnings();
+
+    // Users can opt out of Apollo collecting anonymous metrics using the same env variable as Rover/Router
+    if (process.env.APOLLO_TELEMETRY_DISABLED !== 'true' && process.env.APOLLO_TELEMETRY_DISABLED !== '1') {
+      const meterProvider = createDataCollectionExporter();
+      this.toDispose.push(() => meterProvider.shutdown());
+    }
 
     this.logger.debug('Gateway successfully initialized (but not yet loaded)');
     this.state = { phase: 'initialized' };
@@ -738,7 +750,7 @@ export class ApolloGateway implements GatewayInterface {
     return this.config.buildService
       ? this.config.buildService(serviceDef)
       : new RemoteGraphQLDataSource({
-          url: serviceDef.url,
+          url: serviceDef.url
         });
   }
 
@@ -782,6 +794,7 @@ export class ApolloGateway implements GatewayInterface {
   public executor = async (
     requestContext: GatewayGraphQLRequestContext,
   ): Promise<GatewayExecutionResult> => {
+
     return tracer.startActiveSpan(
       OpenTelemetrySpanNames.REQUEST,
       { attributes: requestContextSpanAttributes(requestContext, this.config.telemetry) },
@@ -1044,6 +1057,8 @@ export class ApolloGateway implements GatewayInterface {
       queryPlanner: this.queryPlanner,
     };
   }
+
+
 }
 
 ApolloGateway.prototype.onSchemaChange = deprecate(
