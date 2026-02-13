@@ -10,7 +10,10 @@ import {
   SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
-import { InMemoryMetricExporter, AggregationTemporality } from '@opentelemetry/sdk-metrics';
+import {
+  InMemoryMetricExporter,
+  AggregationTemporality,
+} from '@opentelemetry/sdk-metrics';
 import { createDataCollectionMeterProvider } from '../../utilities/opentelemetry';
 import {
   ATTR_SERVICE_NAME,
@@ -214,7 +217,9 @@ describe('opentelemetry', () => {
 
   describe('with apollo telemetry enabled', () => {
     it('exports reasonable metric values', async () => {
-      const metricExporter = new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE);
+      const metricExporter = new InMemoryMetricExporter(
+        AggregationTemporality.CUMULATIVE,
+      );
       const meterProvider = createDataCollectionMeterProvider(metricExporter);
 
       await meterProvider.shutdown();
@@ -222,10 +227,18 @@ describe('opentelemetry', () => {
       const metrics = metricExporter.getMetrics();
       const gauges = metrics[0].scopeMetrics[0].metrics;
 
-      const cpuCount = gauges.find(m => m.descriptor.name === METRIC_SYSTEM_CPU_LOGICAL_COUNT);
-      const cpuFreq = gauges.find(m => m.descriptor.name === METRIC_SYSTEM_CPU_FREQUENCY);
-      const memory = gauges.find(m => m.descriptor.name === METRIC_SYSTEM_MEMORY_LIMIT);
-      const uptime = gauges.find(m => m.descriptor.name === METRIC_PROCESS_UPTIME);
+      const cpuCount = gauges.find(
+        (m) => m.descriptor.name === METRIC_SYSTEM_CPU_LOGICAL_COUNT,
+      );
+      const cpuFreq = gauges.find(
+        (m) => m.descriptor.name === METRIC_SYSTEM_CPU_FREQUENCY,
+      );
+      const memory = gauges.find(
+        (m) => m.descriptor.name === METRIC_SYSTEM_MEMORY_LIMIT,
+      );
+      const uptime = gauges.find(
+        (m) => m.descriptor.name === METRIC_PROCESS_UPTIME,
+      );
 
       expect(cpuCount).toBeDefined();
       expect(cpuFreq).toBeDefined();
@@ -250,7 +263,9 @@ describe('opentelemetry', () => {
     }, 10000);
 
     it('includes default resource attributes', async () => {
-      const metricExporter = new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE);
+      const metricExporter = new InMemoryMetricExporter(
+        AggregationTemporality.CUMULATIVE,
+      );
       const meterProvider = createDataCollectionMeterProvider(metricExporter);
 
       await meterProvider.shutdown();
@@ -260,11 +275,15 @@ describe('opentelemetry', () => {
 
       expect(resource.attributes[ATTR_SERVICE_NAME]).toBe('gateway-js');
       expect(resource.attributes[ATTR_SERVICE_INSTANCE_ID]).toBeDefined();
-      expect(typeof resource.attributes[ATTR_SERVICE_INSTANCE_ID]).toBe('string');
+      expect(typeof resource.attributes[ATTR_SERVICE_INSTANCE_ID]).toBe(
+        'string',
+      );
     });
 
     it('includes metric-specific attributes', async () => {
-      const metricExporter = new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE);
+      const metricExporter = new InMemoryMetricExporter(
+        AggregationTemporality.CUMULATIVE,
+      );
       const meterProvider = createDataCollectionMeterProvider(metricExporter);
 
       await meterProvider.shutdown();
@@ -272,10 +291,18 @@ describe('opentelemetry', () => {
       const metrics = metricExporter.getMetrics();
       const gauges = metrics[0].scopeMetrics[0].metrics;
 
-      const uptime = gauges.find(m => m.descriptor.name === METRIC_PROCESS_UPTIME);
-      const cpuFreq = gauges.find(m => m.descriptor.name === METRIC_SYSTEM_CPU_FREQUENCY);
-      const cpuCount = gauges.find(m => m.descriptor.name === METRIC_SYSTEM_CPU_LOGICAL_COUNT);
-      const memory = gauges.find(m => m.descriptor.name === METRIC_SYSTEM_MEMORY_LIMIT);
+      const uptime = gauges.find(
+        (m) => m.descriptor.name === METRIC_PROCESS_UPTIME,
+      );
+      const cpuFreq = gauges.find(
+        (m) => m.descriptor.name === METRIC_SYSTEM_CPU_FREQUENCY,
+      );
+      const cpuCount = gauges.find(
+        (m) => m.descriptor.name === METRIC_SYSTEM_CPU_LOGICAL_COUNT,
+      );
+      const memory = gauges.find(
+        (m) => m.descriptor.name === METRIC_SYSTEM_MEMORY_LIMIT,
+      );
 
       // process.uptime should have OS type and host architecture
       expect(uptime!.dataPoints[0].attributes[ATTR_OS_TYPE]).toBeDefined();
@@ -309,7 +336,9 @@ describe('opentelemetry', () => {
         process.env.AWS_REGION = 'us-east-1';
         process.env.AWS_EXECUTION_ENV = 'AWS_Lambda_nodejs20.x';
 
-        const metricExporter = new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE);
+        const metricExporter = new InMemoryMetricExporter(
+          AggregationTemporality.CUMULATIVE,
+        );
         const meterProvider = createDataCollectionMeterProvider(metricExporter);
 
         await meterProvider.shutdown();
@@ -326,7 +355,9 @@ describe('opentelemetry', () => {
         process.env.WEBSITE_INSTANCE_ID = 'test-instance';
         process.env.WEBSITE_HOME_STAMPNAME = 'test-stamp';
 
-        const metricExporter = new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE);
+        const metricExporter = new InMemoryMetricExporter(
+          AggregationTemporality.CUMULATIVE,
+        );
         const meterProvider = createDataCollectionMeterProvider(metricExporter);
 
         await meterProvider.shutdown();
@@ -335,7 +366,9 @@ describe('opentelemetry', () => {
         const resource = metrics[0].resource;
 
         expect(resource.attributes[ATTR_CLOUD_PROVIDER]).toBe('azure');
-        expect(resource.attributes[ATTR_CLOUD_PLATFORM]).toBe('azure_app_service');
+        expect(resource.attributes[ATTR_CLOUD_PLATFORM]).toBe(
+          'azure_app_service',
+        );
       });
     });
   });

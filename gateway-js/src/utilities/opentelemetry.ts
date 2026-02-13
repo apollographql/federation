@@ -194,7 +194,7 @@ export function createDataCollectionMeterProvider(metricExporter: PushMetricExpo
     "description": "The uptime of the JS federation gateway running"
   })
 
-  let instanceAttrs: Attributes = {
+  const instanceAttrs: Attributes = {
     [ATTR_OS_TYPE]: osType,
     [ATTR_HOST_ARCH]: hostArch
   }
