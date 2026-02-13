@@ -249,9 +249,10 @@ describe('opentelemetry', () => {
       const cpuCountValue = cpuCount!.dataPoints[0].value as number;
       expect(cpuCountValue).toBeGreaterThanOrEqual(1);
 
-      // CPU frequency should be positive (in Hz)
+      // CPU frequency should be positive (in Hz), or 0 if the environment does
+      // not provide that information (such as in containerized environments)
       const cpuFreqValue = cpuFreq!.dataPoints[0].value as number;
-      expect(cpuFreqValue).toBeGreaterThan(0);
+      expect(cpuFreqValue).toBeGreaterThanOrEqual(0);
 
       // Memory should be positive (in bytes)
       const memoryValue = memory!.dataPoints[0].value as number;
