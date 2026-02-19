@@ -1,5 +1,18 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.14.0
+
+### Minor Changes
+
+- Add opt-out anonymous deployment environment telemetry. To opt-out, set APOLLO_TELEMETRY_DISABLED=1 in your environment. ([#3289](https://github.com/apollographql/federation/pull/3289))
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/composition@2.14.0
+  - @apollo/federation-internals@2.14.0
+  - @apollo/query-planner@2.14.0
+
 ## 2.13.1
 
 ### Patch Changes
