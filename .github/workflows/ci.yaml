@@ -1,4 +1,4 @@
-name: Test
+name: Continuous Integration
 
 on:
   push:
@@ -38,7 +38,6 @@ jobs:
         with:
           fail_ci_if_error: true
           files: ./junit.xml
-          #token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Archive failure results
         uses: actions/upload-artifact@v4
@@ -48,3 +47,26 @@ jobs:
           path: |
             junit.xml
           retention-days: 7
+
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        lint: ['error-code-doc:check', 'codegen:check', 'hints-doc:check', 'spell:check', 'prettier:check']
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Run lint
+        run: npm run ${{ matrix.lint }}
