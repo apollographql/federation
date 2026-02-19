@@ -1,4 +1,4 @@
-name: Continuous Integration
+name: CI
 
 on:
   push:
@@ -14,6 +14,7 @@ on:
 
 jobs:
   test:
+    name: test (node ${{ matrix.version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
