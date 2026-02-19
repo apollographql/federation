@@ -1,0 +1,46 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+      - next
+      - version-*
+  pull_request:
+    branches:
+      - main
+      - next
+      - version-*
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: ['18', '20', '22', '24', 'latest']
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.version }}
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm run test:ci
+
+      - name: Upload coverage
+        run: npm run coverage:upload
+
+      - name: Archive failure results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results
+          path: |
+            junit.xml
+          retention-days: 7

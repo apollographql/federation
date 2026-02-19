@@ -1,0 +1,37 @@
+name: Lint
+
+on:
+  push:
+    branches:
+      - main
+      - next
+      - version-*
+  pull_request:
+    branches:
+      - main
+      - next
+      - version-*
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        lint: ['error-code-doc:check', 'codegen:check', 'hints-doc:check', 'spell:check', 'prettier:check']
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Run lint
+        run: npm run ${{ matrix.lint }}
