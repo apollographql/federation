@@ -36,6 +36,7 @@ jobs:
         run: npm run test:ci
 
       - name: Upload coverage
+        if: ${{ matrix.version == '18' }}
         uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true
