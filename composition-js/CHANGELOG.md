@@ -1,13 +1,5 @@
 # CHANGELOG for `@apollo/composition`
 
-## 2.13.1
-
-### Patch Changes
-
-- Updated dependencies []:
-  - @apollo/federation-internals@2.13.1
-  - @apollo/query-graphs@2.13.1
-
 ## 2.13.0
 
 ### Minor Changes
