@@ -86,7 +86,7 @@
     "nock": "13.4.0",
     "node-fetch": "2.7.0",
     "prettier": "3.1.1",
-    "prettier-2": "npm:prettier@2.8.8",
+    "prettier-2": "npm:prettier@3.8.1",
     "semver": "7.5.4",
     "strip-indent": "3.0.0",
     "ts-jest": "29.1.1",
