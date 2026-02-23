@@ -12,6 +12,9 @@ on:
       - next
       - version-*
 
+permissions:
+  id-token: write
+
 jobs:
   test:
     name: test (node ${{ matrix.version }})
@@ -39,10 +42,9 @@ jobs:
         if: ${{ matrix.version == '18' }}
         uses: codecov/codecov-action@v5
         with:
+          use_oidc: true
           fail_ci_if_error: true
           files: ./junit.xml
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Archive failure results
         uses: actions/upload-artifact@v4
