@@ -1221,10 +1221,10 @@ class Merger {
   }
 
   private addMissingInterfaceObjectFieldsToImplementations() {
-    // For each merged object types, we check if we're missing a field from one of the implemented interface.
+    // For each merged object and interface types, we check if we're missing a field from one of the implemented interface.
     // If we do, then we look if one of the subgraph provides that field as a (non-external) interface object
     // type, and if that's the case, we add the field to the object.
-    for (const type of this.merged.objectTypes()) {
+    for (const type of [...this.merged.objectTypes(), ...this.merged.interfaceTypes()]) {
       for (const implementedItf of type.interfaces()) {
         for (const itfField of implementedItf.fields()) {
           if (type.field(itfField.name)) {

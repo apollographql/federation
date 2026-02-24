@@ -4214,6 +4214,59 @@ describe('composition', () => {
       result = composeAsFed2Subgraphs([subgraph2, subgraph1]);
       assertCompositionSuccess(result);
     })
+
+    it('composes interface object chain', () => {
+      const s1 = {
+        name: "S1",
+        url: "http://s1",
+        typeDefs: gql`
+        type Query {
+          i: I1
+        }
+
+        interface I1 @key(fields: "id") {
+          id: ID!
+          data: String!
+        }
+
+        interface I2 implements I1 @key(fields: "id") {
+          id: ID!
+          data: String!
+          data2: String!
+        }
+
+        type T implements I1 & I2 @key(fields: "id") {
+          id: ID!
+          data: String!
+          data2: String!
+        }
+      `
+      };
+      const s2 = {
+        name: "S2",
+        url: "http://s2",
+        typeDefs: gql`
+        type I1 @interfaceObject @key(fields: "id") {
+          id: ID!
+          data3: Int
+        }
+      `
+      }
+
+      const s3 = {
+        name: "S3",
+        url: "http://s3",
+        typeDefs: gql`
+        type I2 @interfaceObject @key(fields: "id") {
+          id: ID!
+          data4: Int
+        }
+      `
+      }
+
+      const result = composeAsFed2Subgraphs([s1, s2, s3]);
+      assertCompositionSuccess(result);
+    });
   });
 
   describe('@authenticated', () => {
