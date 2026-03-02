@@ -32,7 +32,7 @@ import {
   Subgraph,
   Subgraphs,
 } from "./federation";
-import { assert, firstOf, MultiMap } from "./utils";
+import { assert, firstOf, MultiMap, SetMultiMap } from "./utils";
 import { valueEquals } from "./values";
 import { FEDERATION1_TYPES } from "./specs/federationSpec";
 
@@ -230,7 +230,8 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
 
   const subgraphs = new Subgraphs();
   let errors: GraphQLError[] = [];
-  const subgraphsUsingInterfaceObject = [];
+  const fed2InterfaceObjectTypesToSubgraphs = new SetMultiMap<string, string>();
+  const fed1InterfaceKeyTypesToSubgraphs = new SetMultiMap<string, string>();
   
   // build a data structure to help us do computation only once
   const objectTypeMap = new Map<string, Map<string, [ObjectType | InterfaceType, FederationMetadata]>>();
@@ -256,8 +257,9 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
   for (const subgraph of inputs.values()) {
     if (subgraph.isFed2Subgraph()) {
       subgraphs.add(subgraph);
-      if (subgraph.metadata().interfaceObjectDirective().applications().size > 0) {
-        subgraphsUsingInterfaceObject.push(subgraph.name);
+      for (const application of subgraph.metadata().interfaceObjectDirective().applications()) {
+        const typeName = (application.parent as NamedType).name;
+        fed2InterfaceObjectTypesToSubgraphs.add(typeName, subgraph.name);
       }
     } else {
       const res = new SchemaUpgrader(subgraph, inputs.values(), objectTypeMap).upgrade();
@@ -266,16 +268,21 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
       } else {
         subgraphs.add(res.upgraded);
         changes.set(subgraph.name, res.changes);
+        for (const typeName of res.interfaceKeyTypes) {
+          fed1InterfaceKeyTypesToSubgraphs.add(typeName, subgraph.name);
+        }
       }
     }
   }
-  if (errors.length === 0 && subgraphsUsingInterfaceObject.length > 0) {
-    const fed1Subgraphs = inputs.values().filter((s) => !s.isFed2Subgraph()).map((s) => s.name);
-    // Note that we exit this method early if everything is a fed2 schema, so we know at least one of them wasn't.
-    errors = [ ERRORS.INTERFACE_OBJECT_USAGE_ERROR.err(
-      'The @interfaceObject directive can only be used if all subgraphs have federation 2 subgraph schema (schema with a `@link` to "https://specs.apollo.dev/federation" version 2.0 or newer): '
-      + `@interfaceObject is used in ${printSubgraphNames(subgraphsUsingInterfaceObject)} but ${printSubgraphNames(fed1Subgraphs)} ${fed1Subgraphs.length > 1 ? 'are not' : 'is not a'} federation 2 subgraph schema.`,
-    )];
+  if (errors.length === 0) {
+    for (const [typeName, interfaceObjectSubgraphs] of fed2InterfaceObjectTypesToSubgraphs) {
+      const interfaceKeySubgraphs = fed1InterfaceKeyTypesToSubgraphs.get(typeName);
+      if (interfaceKeySubgraphs) {
+        errors.push(ERRORS.INTERFACE_OBJECT_USAGE_ERROR.err(
+          `The @interfaceObject directive is used on type "${typeName}" in ${printSubgraphNames([...interfaceObjectSubgraphs])}, which requires other subgraphs to resolve its type name via an interface @key. However, interface @key in federation 1 subgraphs cannot resolve type name in this way. For ${printSubgraphNames([...interfaceKeySubgraphs])}, either upgrade them to federation 2 subgraphs or remove @key from the type.`,
+        ));
+      }
+    }
   }
 
   return errors.length === 0 ? { subgraphs, changes } : { errors };
@@ -324,6 +331,7 @@ class SchemaUpgrader {
   private readonly subgraph: Subgraph;
   private readonly metadata: FederationMetadata;
   private readonly errors: GraphQLError[] = [];
+  private readonly interfaceKeyTypes: Set<string> = new Set();
 
   constructor(private readonly originalSubgraph: Subgraph, private readonly allSubgraphs: readonly Subgraph[], private readonly objectTypeMap: Map<string, Map<string, [ObjectType | InterfaceType, FederationMetadata]>>) {
     // Note that as we clone the original schema, the 'sourceAST' values in the elements of the new schema will be those of the original schema
@@ -413,7 +421,7 @@ class SchemaUpgrader {
     }
   }
 
-  upgrade(): { upgraded: Subgraph, changes: UpgradeChanges, errors?: never } | { errors: GraphQLError[] } {
+  upgrade(): { upgraded: Subgraph, changes: UpgradeChanges, interfaceKeyTypes: Set<string>, errors?: never } | { errors: GraphQLError[] } {
     this.preUpgradeValidations();
 
     this.fixFederationDirectivesArguments();
@@ -452,6 +460,7 @@ class SchemaUpgrader {
       return {
         upgraded: this.subgraph,
         changes: this.changes,
+        interfaceKeyTypes: this.interfaceKeyTypes,
       };
     } catch (e) {
       const errors = errorCauses(e);
@@ -679,6 +688,7 @@ class SchemaUpgrader {
     for (const type of this.schema.interfaceTypes()) {
       for (const application of type.appliedDirectivesOf(this.metadata.keyDirective())) {
         this.addChange(new KeyOnInterfaceRemoval(type.name));
+        this.interfaceKeyTypes.add(type.name);
         application.remove();
       }
       for (const field of type.fields()) {
