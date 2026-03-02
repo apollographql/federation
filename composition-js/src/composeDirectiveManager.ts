@@ -80,6 +80,11 @@ export class ComposeDirectiveManager {
   // map of directive names to identity,origName
   directiveIdentityMap: Map<string, [string,string]>;
 
+  // map of directive names to a resolved DirectiveDefinition, sourced from the subgraph
+  // that actually imported each directive (not necessarily the "latest" subgraph for that spec).
+  // This avoids the FED-849 bug where the latest-spec subgraph may not have imported the directive.
+  directiveDefinitionMap: Map<string, DirectiveDefinition>;
+
   mismatchReporter: MismatchReporter;
 
   constructor(
@@ -90,6 +95,7 @@ export class ComposeDirectiveManager {
     this.mergeDirectiveMap = new Map();
     this.latestFeatureMap = new Map();
     this.directiveIdentityMap = new Map();
+    this.directiveDefinitionMap = new Map();
     this.mismatchReporter = new MismatchReporter(subgraphs.names(), pushError, pushHint);
   }
 
@@ -436,6 +442,33 @@ export class ComposeDirectiveManager {
       this.mergeDirectiveMap.set(subgraph, directivesForSubgraph);
     }
 
+    // Build a direct mapping from directive name to its definition, sourced from the subgraph
+    // with the highest minor version that actually imported it. This is the fix for FED-849:
+    // instead of resolving through latestFeatureMap (spec → one subgraph that may not have
+    // imported the directive), we track exactly which subgraph imported each directive.
+    for (const [directiveName, items] of itemsByDirectiveName.entries()) {
+      if (wontMergeDirectiveNames.has(directiveName)) {
+        continue;
+      }
+      // Sort by minor version descending so we pick the highest compatible version first.
+      const candidates = items
+        .filter(item => !wontMergeFeatures.has(item.feature.url.identity))
+        .sort((a, b) => b.feature.url.version.minor - a.feature.url.version.minor);
+
+      for (const item of candidates) {
+        const sg = this.subgraphs.get(item.sgName);
+        assert(sg, `subgraph "${item.sgName}" does not exist`);
+        const nameInSchema = sg.schema.coreFeatures
+          ?.getByIdentity(item.feature.url.identity)
+          ?.directiveNameInSchema(item.directiveName);
+        const def = nameInSchema ? sg.schema.directive(nameInSchema) : undefined;
+        if (def) {
+          this.directiveDefinitionMap.set(directiveName, def);
+          break;
+        }
+      }
+    }
+
     return {
       errors,
       hints,
@@ -455,33 +488,11 @@ export class ComposeDirectiveManager {
   }
 
   getLatestDirectiveDefinition(directiveName: string): DirectiveDefinition | undefined {
-    const val = this.directiveIdentityMap.get(directiveName);
-    if (val) {
-      const [identity, origName] = val;
-      const entry = this.latestFeatureMap.get(identity);
-      assert(entry, 'core feature identity must exist in map');
-      const [feature, subgraphName] = entry;
-      const subgraph = this.subgraphs.get(subgraphName);
-      assert(subgraph, `subgraph "${subgraphName}" does not exist`);
-
-      // we need to convert from the name that is used in the schemas that export the directive
-      // to the name used in the schema that is the latest version, which may or may not export
-      // See test "exported directive not imported everywhere. imported with different name"
-      const nameInSchema = subgraph.schema.coreFeatures?.getByIdentity(identity)?.directiveNameInSchema(origName);
-      if (nameInSchema) {
-        const directive = subgraph.schema.directive(nameInSchema);
-        if (!directive) {
-          this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
-            `Core feature "${identity}" in subgraph "${subgraphName}" does not have a directive definition for "@${directiveName}"`,
-            {
-              nodes: feature.directive.sourceAST,
-            },
-          ));
-        }
-        return directive;
-      }
-    }
-    return undefined;
+    // Resolve directly from the per-directive map that was populated in validate().
+    // Each entry is sourced from the highest-minor-version subgraph that actually imported
+    // the directive, avoiding the FED-849 bug where the "latest spec" subgraph may not
+    // have imported every directive from that spec.
+    return this.directiveDefinitionMap.get(directiveName);
   }
 
   private directivesForFeature(identity: string): [string,string][] {
