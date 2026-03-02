@@ -156,6 +156,75 @@ describe('composing custom core directives', () => {
     expectDirectiveOnElement(schema, 'User.a', 'foo', { name: 'a' });
   });
 
+  // FED-849: composition should succeed when subgraphs import different subsets
+  // of directives from the same custom spec (e.g. SG1 imports [@foo, @bar], SG2 imports [@foo]).
+  it('two subgraphs with same spec but disjoint directive imports (FED-849)', () => {
+    // subgraphA imports both @foo and @bar from the spec and requests both to be composed
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo", "@bar"])',
+      composeText: '@composeDirective(name: "@foo") @composeDirective(name: "@bar")',
+      directiveText: `
+        directive @foo(name: String!) on FIELD_DEFINITION
+        directive @bar(tag: String!) on FIELD_DEFINITION
+      `,
+      usage: '@foo(name: "a") @bar(tag: "t")',
+    });
+
+    // subgraphB imports only @foo from the same spec and requests only @foo to be composed
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "b")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result);
+
+    // both directives must be present in the supergraph
+    expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectDirectiveDefinition(schema, 'bar', [DirectiveLocation.FIELD_DEFINITION], ['tag']);
+
+    // usages must be carried over correctly
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'foo', { name: 'a' });
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'bar', { tag: 't' });
+    expectDirectiveOnElement(schema, 'User.subgraphB', 'foo', { name: 'b' });
+  });
+
+  // FED-849 (disjoint variant): one subgraph imports only @foo, the other imports only @bar.
+  // The resolve path must not go through the "latest feature" subgraph which may not have imported
+  // the directive being resolved.
+  it('two subgraphs with same spec importing completely disjoint directives (FED-849)', () => {
+    // subgraphA imports only @foo
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "a")',
+    });
+
+    // subgraphB imports only @bar from the same spec
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@bar"])',
+      composeText: '@composeDirective(name: "@bar")',
+      directiveText: 'directive @bar(tag: String!) on FIELD_DEFINITION',
+      usage: '@bar(tag: "t")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result);
+
+    expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectDirectiveDefinition(schema, 'bar', [DirectiveLocation.FIELD_DEFINITION], ['tag']);
+
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'foo', { name: 'a' });
+    expectDirectiveOnElement(schema, 'User.subgraphB', 'bar', { tag: 't' });
+  });
+
   it('different major versions of core feature results in hint if not composed', () => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
@@ -549,7 +618,11 @@ describe('composing custom core directives', () => {
     expectDirectiveOnElement(schema, 'User.subgraphB', 'bar', { name: 'b' });
   });
 
-  it('exported directive not imported everywhere. no definition', () => {
+  // FED-849 (version mismatch variant): subgraphA is at foo/v1.1 and only imports @foo;
+  // subgraphB is at foo/v1.0 and only imports @bar. The "latest" subgraph (A, v1.1) does not
+  // have @bar in its schema, but the fix resolves @bar's definition directly from subgraphB,
+  // so composition must succeed instead of raising a false "no definition" error.
+  it('exported directive not imported everywhere. no definition in latest-version subgraph should still compose (FED-849)', () => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
       linkText: '@link(url: "https://specs.apollo.dev/foo/v1.1", import: ["@foo"])',
@@ -570,14 +643,14 @@ describe('composing custom core directives', () => {
       usage: '@bar(name: "b")',
     });
 
+    // @bar's definition is resolved from subgraphB (the only subgraph that imported it),
+    // so composition should succeed without errors.
     const result = composeServices([subgraphA, subgraphB]);
-    expect(errors(result)).toStrictEqual([
-      [
-      'DIRECTIVE_COMPOSITION_ERROR',
-      'Core feature "https://specs.apollo.dev/foo" in subgraph "subgraphA" does not have a directive definition for "@bar"',
-      ]
-    ]);
-    expect(hints(result)).toStrictEqual([]);
+    const schema = expectNoErrors(result);
+    expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectDirectiveDefinition(schema, 'bar', [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT], ['name', 'address']);
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'foo', { name: 'a' });
+    expectDirectiveOnElement(schema, 'User.subgraphB', 'bar', { name: 'b' });
   });
 
   it.todo('composing same major version, but incompatible directives results in error');
