@@ -235,12 +235,11 @@ test('remove tag on external field if found on definition', () => {
   ).toStrictEqual(['@tag(name: "a tag")']);
 });
 
-test('reject @interfaceObject usage if not all subgraphs are fed2', () => {
-  // Note that this test both validates the rejection of fed1 subgraph when @interfaceObject is used somewhere, but also
-  // illustrate why we do so: fed1 schema can use @key on interface for backward compatibility, but it is ignored and
-  // the schema upgrader removes them. Given that actual support for @key on interfaces is necesarry to make @interfaceObject
-  // work, it would be really confusing to not reject the example below right away, since it "looks" like it the @key on
-  // the interface in the 2nd subgraph should work, but it actually won't.
+test('reject @interfaceObject usage when a fed1 subgraph has @key on the same interface type', () => {
+  // This test validates that when a fed2 subgraph uses @interfaceObject on a type, and a fed1 subgraph
+  // has @key on an interface of the same name, we produce an error. Fed1 subgraphs ignore @key on
+  // interfaces entirely (the schema upgrader removes them), so they cannot resolve type names via an
+  // interface @key, which is required for @interfaceObject to work correctly.
 
   const s1 = `
     extend schema
@@ -273,9 +272,47 @@ test('reject @interfaceObject usage if not all subgraphs are fed2', () => {
   subgraphs.add(buildSubgraph('s2', 'http://s2', s2));
   const res = upgradeSubgraphsIfNecessary(subgraphs);
   expect(res.errors?.map((e) => e.message)).toStrictEqual([
-    'The @interfaceObject directive can only be used if all subgraphs have federation 2 subgraph schema (schema with a `@link` to "https://specs.apollo.dev/federation" version 2.0 or newer): ' +
-      '@interfaceObject is used in subgraph "s1" but subgraph "s2" is not a federation 2 subgraph schema.',
+    'The @interfaceObject directive is used on type "A" in subgraph "s1", which requires other subgraphs to resolve its type name via an interface @key. However, interface @key in federation 1 subgraphs cannot resolve type name in this way. For subgraph "s2", either upgrade them to federation 2 subgraphs or remove @key from the type.',
   ]);
+});
+
+test('allow @interfaceObject in fed2 subgraph when no fed1 subgraph has @key on the same interface type', () => {
+  // When a fed2 subgraph uses @interfaceObject on a type but no fed1 subgraph has @key on an interface
+  // of the same name, composition should succeed. The fed1 subgraph may define an object type with the
+  // same name, but since it has no @interfaceObject-incompatible interface @key, no error is expected.
+
+  const s1 = `
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.3", import: [ "@key", "@interfaceObject"])
+
+    type Query {
+      a: A
+    }
+
+    type A @key(fields: "id") @interfaceObject {
+      id: String
+      x: Int
+    }
+  `;
+
+  // s2 is a fed1 subgraph that defines A as an interface but does NOT put @key on the interface itself.
+  const s2 = `
+    interface A {
+      id: String
+      y: Int
+    }
+
+    type X implements A @key(fields: "id") {
+      id: String
+      y: Int
+    }
+  `;
+
+  const subgraphs = new Subgraphs();
+  subgraphs.add(buildSubgraph('s1', 'http://s1', s1));
+  subgraphs.add(buildSubgraph('s2', 'http://s2', s2));
+  const res = upgradeSubgraphsIfNecessary(subgraphs);
+  expect(res.errors).toBeUndefined();
 });
 
 test('handles the addition of @shareable when an @external is used on a type', () => {
