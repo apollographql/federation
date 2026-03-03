@@ -237,9 +237,9 @@ test('remove tag on external field if found on definition', () => {
 
 test('reject @interfaceObject usage when a fed1 subgraph has @key on the same interface type', () => {
   // This test validates that when a fed2 subgraph uses @interfaceObject on a type, and a fed1 subgraph
-  // has @key on an interface of the same name, we produce an error. Fed1 subgraphs ignore @key on
-  // interfaces entirely (the schema upgrader removes them), so they cannot resolve type names via an
-  // interface @key, which is required for @interfaceObject to work correctly.
+  // has @key on an interface of the same name, we produce an error. @key on an interface in a Fed 1
+  // subgraph does not indicate it can resolve type names for that interface via _entities, which is
+  // required for @interfaceObject to work correctly.
 
   const s1 = `
     extend schema
@@ -272,14 +272,14 @@ test('reject @interfaceObject usage when a fed1 subgraph has @key on the same in
   subgraphs.add(buildSubgraph('s2', 'http://s2', s2));
   const res = upgradeSubgraphsIfNecessary(subgraphs);
   expect(res.errors?.map((e) => e.message)).toStrictEqual([
-    'The @interfaceObject directive is used on type "A" in subgraph "s1", which requires other subgraphs to resolve its type name via an interface @key. However, interface @key in federation 1 subgraphs cannot resolve type name in this way. For subgraph "s2", either upgrade them to federation 2 subgraphs or remove @key from the type.',
+    'The @interfaceObject directive is used on type "A" in subgraph "s1", which requires other subgraphs to resolve its type name via an interface @key. However, @key on an interface in a federation 1 subgraph does not mean it can fulfill the __typename-resolution requirement that @interfaceObject depends on. For subgraph "s2", either upgrade them to federation 2 subgraphs or remove @key from the type.',
   ]);
 });
 
 test('allow @interfaceObject in fed2 subgraph when no fed1 subgraph has @key on the same interface type', () => {
   // When a fed2 subgraph uses @interfaceObject on a type but no fed1 subgraph has @key on an interface
-  // of the same name, composition should succeed. The fed1 subgraph may define an object type with the
-  // same name, but since it has no @interfaceObject-incompatible interface @key, no error is expected.
+  // of the same name, composition should succeed. The fed1 subgraph may define an interface type with
+  // the same name, but since it has no @interfaceObject-incompatible interface @key, no error is expected.
 
   const s1 = `
     extend schema
@@ -491,7 +491,7 @@ test('error message includes all fed2 subgraphs using @interfaceObject on the sa
   subgraphs.add(buildSubgraph('s3', 'http://s3', s3));
   const res = upgradeSubgraphsIfNecessary(subgraphs);
   expect(res.errors?.map((e) => e.message)).toStrictEqual([
-    'The @interfaceObject directive is used on type "A" in subgraphs "s1" and "s2", which requires other subgraphs to resolve its type name via an interface @key. However, interface @key in federation 1 subgraphs cannot resolve type name in this way. For subgraph "s3", either upgrade them to federation 2 subgraphs or remove @key from the type.',
+    'The @interfaceObject directive is used on type "A" in subgraphs "s1" and "s2", which requires other subgraphs to resolve its type name via an interface @key. However, @key on an interface in a federation 1 subgraph does not mean it can fulfill the __typename-resolution requirement that @interfaceObject depends on. For subgraph "s3", either upgrade them to federation 2 subgraphs or remove @key from the type.',
   ]);
 });
 
@@ -538,7 +538,7 @@ test('error message includes all fed1 subgraphs with @key on the same interface 
   subgraphs.add(buildSubgraph('s3', 'http://s3', s3));
   const res = upgradeSubgraphsIfNecessary(subgraphs);
   expect(res.errors?.map((e) => e.message)).toStrictEqual([
-    'The @interfaceObject directive is used on type "A" in subgraph "s1", which requires other subgraphs to resolve its type name via an interface @key. However, interface @key in federation 1 subgraphs cannot resolve type name in this way. For subgraphs "s2" and "s3", either upgrade them to federation 2 subgraphs or remove @key from the type.',
+    'The @interfaceObject directive is used on type "A" in subgraph "s1", which requires other subgraphs to resolve its type name via an interface @key. However, @key on an interface in a federation 1 subgraph does not mean it can fulfill the __typename-resolution requirement that @interfaceObject depends on. For subgraphs "s2" and "s3", either upgrade them to federation 2 subgraphs or remove @key from the type.',
   ]);
 });
   const s1 = `
