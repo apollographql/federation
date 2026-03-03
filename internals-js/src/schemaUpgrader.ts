@@ -274,14 +274,12 @@ export function upgradeSubgraphsIfNecessary(inputs: Subgraphs): UpgradeResult {
       }
     }
   }
-  if (errors.length === 0) {
-    for (const [typeName, interfaceObjectSubgraphs] of fed2InterfaceObjectTypesToSubgraphs) {
-      const interfaceKeySubgraphs = fed1InterfaceKeyTypesToSubgraphs.get(typeName);
-      if (interfaceKeySubgraphs) {
-        errors.push(ERRORS.INTERFACE_OBJECT_USAGE_ERROR.err(
-          `The @interfaceObject directive is used on type "${typeName}" in ${printSubgraphNames([...interfaceObjectSubgraphs])}, which requires other subgraphs to resolve its type name via an interface @key. However, interface @key in federation 1 subgraphs cannot resolve type name in this way. For ${printSubgraphNames([...interfaceKeySubgraphs])}, either upgrade them to federation 2 subgraphs or remove @key from the type.`,
-        ));
-      }
+  for (const [typeName, interfaceObjectSubgraphs] of fed2InterfaceObjectTypesToSubgraphs) {
+    const interfaceKeySubgraphs = fed1InterfaceKeyTypesToSubgraphs.get(typeName);
+    if (interfaceKeySubgraphs) {
+      errors.push(ERRORS.INTERFACE_OBJECT_USAGE_ERROR.err(
+        `The @interfaceObject directive is used on type "${typeName}" in ${printSubgraphNames([...interfaceObjectSubgraphs])}, which requires other subgraphs to resolve its type name via an interface @key. However, @key on an interface in a federation 1 subgraph does not mean it can fulfill the __typename-resolution requirement that @interfaceObject depends on. For ${printSubgraphNames([...interfaceKeySubgraphs])}, either upgrade them to federation 2 subgraphs or remove @key from the type.`,
+      ));
     }
   }
 
