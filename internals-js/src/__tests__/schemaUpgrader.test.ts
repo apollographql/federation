@@ -315,7 +315,232 @@ test('allow @interfaceObject in fed2 subgraph when no fed1 subgraph has @key on 
   expect(res.errors).toBeUndefined();
 });
 
-test('handles the addition of @shareable when an @external is used on a type', () => {
+test('allow @interfaceObject usage when all subgraphs are fed2', () => {
+  // When all subgraphs are fed2, the upgrader is never invoked, so @interfaceObject
+  // combined with @key on an interface in another fed2 subgraph is perfectly valid.
+  const s1 = `
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.3", import: [ "@key", "@interfaceObject"])
+
+    type Query {
+      a: A
+    }
+
+    type A @key(fields: "id") @interfaceObject {
+      id: String
+      x: Int
+    }
+  `;
+
+  // s2 is also a fed2 subgraph with @key on interface A.
+  const s2 = `
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.3", import: [ "@key"])
+
+    interface A @key(fields: "id") {
+      id: String
+      y: Int
+    }
+
+    type X implements A @key(fields: "id") {
+      id: String
+      y: Int
+    }
+  `;
+
+  const subgraphs = new Subgraphs();
+  subgraphs.add(buildSubgraph('s1', 'http://s1', s1));
+  subgraphs.add(buildSubgraph('s2', 'http://s2', s2));
+  const res = upgradeSubgraphsIfNecessary(subgraphs);
+  // Should NOT error: all subgraphs are fed2, no upgrader involved.
+  expect(res.errors).toBeUndefined();
+});
+
+test('allow @key on interface in fed1 subgraph when no fed2 subgraph uses @interfaceObject on that type', () => {
+  // A fed1 subgraph with @key on an interface is fine on its own — the key is simply
+  // stripped during upgrade. No error should be raised when no fed2 subgraph uses
+  // @interfaceObject on that same type name.
+  const s1 = `
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.3", import: [ "@key", "@interfaceObject"])
+
+    type Query {
+      b: B
+    }
+
+    type B @key(fields: "id") @interfaceObject {
+      id: String
+      x: Int
+    }
+  `;
+
+  // s2 is a fed1 subgraph with @key on interface A — but no fed2 subgraph uses
+  // @interfaceObject on type A.
+  const s2 = `
+    interface A @key(fields: "id") {
+      id: String
+      y: Int
+    }
+
+    type X implements A @key(fields: "id") {
+      id: String
+      y: Int
+    }
+  `;
+
+  const subgraphs = new Subgraphs();
+  subgraphs.add(buildSubgraph('s1', 'http://s1', s1));
+  subgraphs.add(buildSubgraph('s2', 'http://s2', s2));
+  const res = upgradeSubgraphsIfNecessary(subgraphs);
+  // Should NOT error: no fed2 subgraph uses @interfaceObject on type A.
+  expect(res.errors).toBeUndefined();
+});
+
+test('reports separate errors for each conflicting type', () => {
+  // When a fed2 subgraph uses @interfaceObject on two different types (A and B), and a
+  // fed1 subgraph has @key on both interface A and interface B, two separate errors must
+  // be emitted — one per conflicting type.
+  const s1 = `
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.3", import: [ "@key", "@interfaceObject"])
+
+    type Query {
+      a: A
+    }
+
+    type A @key(fields: "id") @interfaceObject {
+      id: String
+    }
+
+    type B @key(fields: "id") @interfaceObject {
+      id: String
+    }
+  `;
+
+  const s2 = `
+    interface A @key(fields: "id") {
+      id: String
+    }
+
+    type XA implements A @key(fields: "id") {
+      id: String
+    }
+
+    interface B @key(fields: "id") {
+      id: String
+    }
+
+    type XB implements B @key(fields: "id") {
+      id: String
+    }
+  `;
+
+  const subgraphs = new Subgraphs();
+  subgraphs.add(buildSubgraph('s1', 'http://s1', s1));
+  subgraphs.add(buildSubgraph('s2', 'http://s2', s2));
+  const res = upgradeSubgraphsIfNecessary(subgraphs);
+  expect(res.errors).toHaveLength(2);
+  expect(res.errors?.map((e) => e.message)).toEqual(
+    expect.arrayContaining([
+      expect.stringContaining('type "A"'),
+      expect.stringContaining('type "B"'),
+    ]),
+  );
+});
+
+test('error message includes all fed2 subgraphs using @interfaceObject on the same type', () => {
+  // When multiple fed2 subgraphs all use @interfaceObject on the same type, all their
+  // names must appear in the error message.
+  const s1 = `
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.3", import: [ "@key", "@interfaceObject"])
+
+    type Query {
+      a: A
+    }
+
+    type A @key(fields: "id") @interfaceObject {
+      id: String
+      x: Int
+    }
+  `;
+
+  const s2 = `
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.3", import: [ "@key", "@interfaceObject"])
+
+    type A @key(fields: "id") @interfaceObject {
+      id: String
+      y: Int
+    }
+  `;
+
+  const s3 = `
+    interface A @key(fields: "id") {
+      id: String
+    }
+
+    type X implements A @key(fields: "id") {
+      id: String
+    }
+  `;
+
+  const subgraphs = new Subgraphs();
+  subgraphs.add(buildSubgraph('s1', 'http://s1', s1));
+  subgraphs.add(buildSubgraph('s2', 'http://s2', s2));
+  subgraphs.add(buildSubgraph('s3', 'http://s3', s3));
+  const res = upgradeSubgraphsIfNecessary(subgraphs);
+  expect(res.errors?.map((e) => e.message)).toStrictEqual([
+    'The @interfaceObject directive is used on type "A" in subgraphs "s1" and "s2", which requires other subgraphs to resolve its type name via an interface @key. However, interface @key in federation 1 subgraphs cannot resolve type name in this way. For subgraph "s3", either upgrade them to federation 2 subgraphs or remove @key from the type.',
+  ]);
+});
+
+test('error message includes all fed1 subgraphs with @key on the same interface type', () => {
+  // When multiple fed1 subgraphs all have @key on the same interface type, all their
+  // names must appear in the error message (the "For ..." part).
+  const s1 = `
+    extend schema
+      @link(url: "https://specs.apollo.dev/federation/v2.3", import: [ "@key", "@interfaceObject"])
+
+    type Query {
+      a: A
+    }
+
+    type A @key(fields: "id") @interfaceObject {
+      id: String
+      x: Int
+    }
+  `;
+
+  const s2 = `
+    interface A @key(fields: "id") {
+      id: String
+    }
+
+    type X implements A @key(fields: "id") {
+      id: String
+    }
+  `;
+
+  const s3 = `
+    interface A @key(fields: "id") {
+      id: String
+    }
+
+    type Y implements A @key(fields: "id") {
+      id: String
+    }
+  `;
+
+  const subgraphs = new Subgraphs();
+  subgraphs.add(buildSubgraph('s1', 'http://s1', s1));
+  subgraphs.add(buildSubgraph('s2', 'http://s2', s2));
+  subgraphs.add(buildSubgraph('s3', 'http://s3', s3));
+  const res = upgradeSubgraphsIfNecessary(subgraphs);
+  expect(res.errors?.map((e) => e.message)).toStrictEqual([
+    'The @interfaceObject directive is used on type "A" in subgraph "s1", which requires other subgraphs to resolve its type name via an interface @key. However, interface @key in federation 1 subgraphs cannot resolve type name in this way. For subgraphs "s2" and "s3", either upgrade them to federation 2 subgraphs or remove @key from the type.',
+  ]);
+});
   const s1 = `
     type Query {
       t1: T
