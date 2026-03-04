@@ -225,6 +225,46 @@ describe('composing custom core directives', () => {
     expectDirectiveOnElement(schema, 'User.subgraphB', 'bar', { tag: 't' });
   });
 
+  // FED-849 (cross-version variant): subgraphA is at foo/v1.0 and imports both @foo and @bar;
+  // subgraphB is at foo/v1.1 (newer minor) but only imports @foo.
+  // Without the fix, latestFeatureMap elects subgraphB (higher minor version) as the canonical
+  // source for the entire spec, so resolving @bar fails because subgraphB never imported it.
+  // With the fix, @bar is resolved directly from subgraphA — the only subgraph that imported it.
+  it('older subgraph imports superset of directives, newer subgraph imports subset (FED-849)', () => {
+    // subgraphA is on the older spec version but imports both directives
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo", "@bar"])',
+      composeText: '@composeDirective(name: "@foo") @composeDirective(name: "@bar")',
+      directiveText: `
+        directive @foo(name: String!) on FIELD_DEFINITION
+        directive @bar(tag: String!) on FIELD_DEFINITION
+      `,
+      usage: '@foo(name: "a") @bar(tag: "t")',
+    });
+
+    // subgraphB is on the newer spec version but only imports @foo — does NOT import @bar
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.1", import: ["@foo"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "b")',
+    });
+
+    // @bar must be resolved from subgraphA, not from subgraphB (which has the newer spec version
+    // but never imported @bar). Composition should succeed.
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result);
+
+    expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectDirectiveDefinition(schema, 'bar', [DirectiveLocation.FIELD_DEFINITION], ['tag']);
+
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'foo', { name: 'a' });
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'bar', { tag: 't' });
+    expectDirectiveOnElement(schema, 'User.subgraphB', 'foo', { name: 'b' });
+  });
+
   it('different major versions of core feature results in hint if not composed', () => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
