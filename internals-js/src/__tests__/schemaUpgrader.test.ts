@@ -541,6 +541,8 @@ test('error message includes all fed1 subgraphs with @key on the same interface 
     'The @interfaceObject directive is used on type "A" in subgraph "s1", which requires other subgraphs to resolve its type name via an interface @key. However, @key on an interface in a federation 1 subgraph does not mean it can fulfill the __typename-resolution requirement that @interfaceObject depends on. For subgraphs "s2" and "s3", either upgrade them to federation 2 subgraphs or remove @key from the type.',
   ]);
 });
+
+test('handles the addition of @shareable when an @external is used on a type', () => {
   const s1 = `
     type Query {
       t1: T
