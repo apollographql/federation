@@ -659,4 +659,70 @@ describe('gateway post-processing', () => {
       }
     `);
   });
+
+  describe('prototype manipulation prevention', () => {
+    it('does not allow default variable value collection to change prototypes', () => {
+      const schema = buildSchemaFromAST(gql`
+        type Query {
+          hello(arg: JSON): String!
+        }
+
+        scalar JSON
+      `);
+
+      const operation = parseOperation(
+        schema,
+        `#graphql
+        query(
+          $normalArg: Boolean,
+          $__proto__: JSON = { normalArg: true }
+        ) {
+          hello(arg: $__proto__) @skip(if: $normalArg)
+        }
+      `,
+      );
+
+      expect(
+        operation.collectDefaultedVariableValues().normalArg,
+      ).toBeUndefined();
+    });
+
+    it('sets own property during default variable value collection', () => {
+      const schema = buildSchemaFromAST(gql`
+        type Query {
+          hello: String!
+        }
+      `);
+
+      const input = {
+        skipped: 'world',
+        included: 'world',
+      };
+
+      const operation = parseOperation(
+        schema,
+        `#graphql
+        query($__proto__: Boolean = true) {
+          skipped: hello @skip(if: $__proto__)
+          included: hello @include(if: $__proto__)
+        }
+      `,
+      );
+
+      expect(
+        computeResponse({
+          operation,
+          input,
+          introspectionHandling,
+        }),
+      ).toMatchInlineSnapshot(`
+        Object {
+          "data": Object {
+            "included": "world",
+          },
+          "errors": Array [],
+        }
+      `);
+    });
+  });
 });
