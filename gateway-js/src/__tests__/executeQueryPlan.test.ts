@@ -9,13 +9,15 @@ import gql from 'graphql-tag';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
+import { RemoteGraphQLDataSource } from '../datasources/RemoteGraphQLDataSource';
+import { Response } from 'node-fetch';
 import {
   astSerializer,
   queryPlanSerializer,
   superGraphWithInaccessible,
 } from 'apollo-federation-integration-testsuite';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
-import { ApolloGateway } from '..';
+import { ApolloGateway, GraphQLDataSource } from '..';
 import { ApolloServer } from '@apollo/server';
 import { getFederatedTestingSchema } from './execution-utils';
 import {
@@ -64,7 +66,7 @@ describe('executeQueryPlan', () => {
     operation: Operation,
     executeRequestContext?: GatewayGraphQLRequestContext,
     executeSchema?: Schema,
-    executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource },
+    executeServiceMap?: { [serviceName: string]: GraphQLDataSource },
   ): Promise<GatewayExecutionResult> {
     const supergraphSchema = executeSchema ?? schema;
     const apiSchema = supergraphSchema.toAPISchema();
@@ -7711,6 +7713,247 @@ describe('executeQueryPlan', () => {
           field: 'field2',
         },
       },
+    });
+  });
+
+  describe('prototype manipulation prevention', () => {
+    it('does not allow `constructor` payloads to pollute prototypes when merging entities', async () => {
+      const serviceA = {
+        name: 'a',
+        typeDefs: gql`
+          type Query {
+            user: User
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            user() {
+              return { id: '1' };
+            },
+          },
+        },
+      };
+
+      const serviceB = {
+        name: 'b',
+        typeDefs: gql`
+          extend type User @key(fields: "id") {
+            id: ID! @external
+            homePage: HomePage
+          }
+
+          type HomePage {
+            userControlledField: JSON
+          }
+
+          scalar JSON
+        `,
+        resolvers: {
+          User: {
+            __resolveReference() {
+              return { name: 'safe-name' };
+            },
+          },
+        },
+      };
+
+      const local = getFederatedTestingSchema([serviceA, serviceB]);
+
+      const remoteServiceA = new RemoteGraphQLDataSource({
+        url: 'https://a.example.com/graphql',
+        fetcher: async () =>
+          new Response(
+            JSON.stringify({
+              data: {
+                user: {
+                  __typename: 'User',
+                  id: '1',
+                },
+              },
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+      });
+
+      const remoteServiceB = new RemoteGraphQLDataSource({
+        url: 'https://b.example.com/graphql',
+        fetcher: async () =>
+          new Response(
+            JSON.stringify({
+              data: {
+                _entities: [
+                  {
+                    constructor: {
+                      prototype: { maliciousPayload: true },
+                    },
+                  },
+                ],
+              },
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+      });
+      let serviceMap: {
+        [k: string]: GraphQLDataSource<Record<string, any>>;
+      } = local.serviceMap;
+      serviceMap.a = remoteServiceA;
+      serviceMap.b = remoteServiceB;
+
+      const operation = parseOp(
+        `#graphql
+          query {
+            user {
+              constructor: homePage {
+                prototype: userControlledField
+              }
+            }
+          }
+        `,
+        local.schema,
+      );
+      const queryPlan = buildPlan(operation, local.queryPlanner);
+      const result = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        local.schema,
+        serviceMap,
+      );
+
+      expect(({} as Record<string, unknown>).maliciousPayload).toBeUndefined();
+      expect(result.errors).toBeUndefined();
+      expect(result.data).toMatchObject({
+        user: {
+          constructor: {
+            prototype: { maliciousPayload: true },
+          },
+        },
+      });
+    });
+
+    it('does not allow `__proto__` payloads to pollute prototypes when merging entities', async () => {
+      const serviceA = {
+        name: 'a',
+        typeDefs: gql`
+          type Query {
+            user: User
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            user() {
+              return { id: '1' };
+            },
+          },
+        },
+      };
+
+      const serviceB = {
+        name: 'b',
+        typeDefs: gql`
+          extend type User @key(fields: "id") {
+            id: ID! @external
+            userControlledField: JSON
+          }
+
+          scalar JSON
+        `,
+        resolvers: {
+          User: {
+            __resolveReference() {
+              return { name: 'safe-name' };
+            },
+          },
+        },
+      };
+
+      const local = getFederatedTestingSchema([serviceA, serviceB]);
+
+      const remoteServiceA = new RemoteGraphQLDataSource({
+        url: 'https://a.example.com/graphql',
+        fetcher: async () =>
+          new Response(
+            JSON.stringify({
+              data: {
+                user: {
+                  __typename: 'User',
+                  id: '1',
+                },
+              },
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+      });
+
+      const remoteServiceB = new RemoteGraphQLDataSource({
+        url: 'https://b.example.com/graphql',
+        fetcher: async () =>
+          new Response(
+            JSON.stringify({
+              data: {
+                _entities: [
+                  {
+                    ['__proto__']: { maliciousPayload: true },
+                  },
+                ],
+              },
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          ),
+      });
+
+      let serviceMap: {
+        [k: string]: GraphQLDataSource<Record<string, any>>;
+      } = local.serviceMap;
+      serviceMap.a = remoteServiceA;
+      serviceMap.b = remoteServiceB;
+
+      const operation = parseOp(
+        `#graphql
+          query {
+            user {
+              __proto__: userControlledField
+            }
+          }
+        `,
+        local.schema,
+      );
+      const queryPlan = buildPlan(operation, local.queryPlanner);
+      const result = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        local.schema,
+        serviceMap,
+      );
+
+      expect(({} as Record<string, unknown>).maliciousPayload).toBeUndefined();
+      expect(result.errors).toBeUndefined();
+      expect(result.data).toMatchObject({
+        user: {
+          ['__proto__']: { maliciousPayload: true },
+        },
+      });
     });
   });
 });
