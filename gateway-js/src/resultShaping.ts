@@ -71,6 +71,7 @@ export function computeResponse({
   const parameters = {
     schema: operation.schema(),
     variables: {
+      __proto__: null,
       ...operation.collectDefaultedVariableValues(),
       // overwrite any defaulted variables if they are provided
       ...variables,
