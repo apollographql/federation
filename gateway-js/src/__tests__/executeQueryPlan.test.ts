@@ -7982,5 +7982,136 @@ describe('executeQueryPlan', () => {
         },
       });
     });
+
+    it('does not read prototype fields when computing responses', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            user: User
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+          }
+        `,
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            erroringField: JSON!
+          }
+
+          scalar JSON
+        `,
+      };
+
+      const { schema, queryPlanner } = getFederatedTestingSchema([s1, s2]);
+      const operation = parseOp(
+        `#graphql
+          query {
+            user {
+              __proto__: erroringField
+            }
+          }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                user {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "user") {
+              Fetch(service: "S2") {
+                {
+                  ... on User {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on User {
+                    __proto__: erroringField
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      // Note that LocalGraphQLDataSource uses null-prototype objects, which
+      // don't elicit this bug. So we instead have to mock the responses using
+      // RemoteGraphQLDataSource.
+      const remoteServiceMap = {
+        S1: new RemoteGraphQLDataSource({
+          url: 'https://s1.example.com/graphql',
+          fetcher: async () =>
+            new Response(
+              JSON.stringify({
+                data: {
+                  user: {
+                    __typename: 'User',
+                    id: '1',
+                  },
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+              },
+            ),
+        }),
+        S2: new RemoteGraphQLDataSource({
+          url: 'https://s2.example.com/graphql',
+          fetcher: async () =>
+            new Response(
+              JSON.stringify({
+                data: {
+                  _entities: [null],
+                },
+                errors: [
+                  {
+                    message: 'Error',
+                    path: ['_entities', 0, '__proto__'],
+                  },
+                ],
+              }),
+              {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+              },
+            ),
+        }),
+      };
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        remoteServiceMap,
+      );
+      expect(response.errors).toMatchObject([
+        {
+          message: 'Error',
+          path: ['user', '__proto__'],
+        },
+      ]);
+      expect(response.extensions).toBeUndefined();
+      expect(response.data).toMatchObject({
+        user: null,
+      });
+    });
   });
 });
