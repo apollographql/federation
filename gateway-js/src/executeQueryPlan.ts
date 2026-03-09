@@ -794,7 +794,7 @@ function executeSelectionSet(
         const responseName = getResponseName(selection as QueryPlanFieldNode);
         const selections = (selection as QueryPlanFieldNode).selections;
 
-        if (typeof source[responseName] === 'undefined') {
+        if (!hasOwn(source, responseName) || typeof source[responseName] === 'undefined') {
           // This method is called to collect the inputs/requires of a fetch. So, assuming query plans are correct
           // (and we have not reason to assume otherwise here), all inputs should be fetched beforehand and the
           // only reason for not finding one of the inputs is that we had an error fetching it _and_ that field
