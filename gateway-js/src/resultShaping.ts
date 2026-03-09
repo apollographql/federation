@@ -21,6 +21,7 @@ import {
 } from "@apollo/federation-internals";
 import { ResponsePath } from "@apollo/query-planner";
 import { GraphQLError } from "graphql";
+import { getOwn } from './utilities/own';
 
 /**
  * Performs post-query plan execution processing of internally fetched data to produce the final query response.
@@ -179,7 +180,7 @@ function applySelectionSet({
         continue;
       }
 
-      let inputValue = input[responseName] ?? null;
+      let inputValue = getOwn(input, responseName) ?? null;
 
       // We handle __typename separately because there is some cases where the internal data may either not have
       // the value (despite __typename always having a value), or an actually incorrect value that should not be
