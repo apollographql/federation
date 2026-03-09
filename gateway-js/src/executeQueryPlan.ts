@@ -30,12 +30,14 @@ import {
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
+import { getOwn } from './utilities/own';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetryConfig, OpenTelemetrySpanNames, recordExceptions, tracer } from "./utilities/opentelemetry";
 import { assert, defaultRootName, errorCodeDef, ERRORS, Operation, operationFromDocument, Schema } from '@apollo/federation-internals';
 import { GatewayGraphQLRequestContext, GatewayExecutionResult } from '@apollo/server-gateway-interface';
 import { computeResponse } from './resultShaping';
 import { applyRewrites, isObjectOfType } from './dataRewrites';
+
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -124,7 +126,12 @@ function executeIntrospection(
     () => `Introspection query for ${JSON.stringify(introspectionSelection)} should not have failed but got ${JSON.stringify(errors)}`
   );
   assert(data, () => `Introspection query for ${JSON.stringify(introspectionSelection)} should not have failed`);
-  return data[introspectionSelection.alias?.value ?? introspectionSelection.name.value];
+  // Note that it's not necessary to call getOwn() here since introspection
+  // fields can't currently error, and the callsite of executeIntrospection()
+  // ensures this field won't be skipped. However, if those constraints change
+  // or this function is reused, then the alias may refer to a non-own property,
+  // so we defensively use getOwn() here.
+  return getOwn(data, introspectionSelection.alias?.value ?? introspectionSelection.name.value);
 }
 
 export async function executeQueryPlan(
