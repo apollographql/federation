@@ -7,3 +7,18 @@ export function getOwn<T, K extends keyof T>(obj: T, prop: K): T[K] | undefined 
     ? obj[prop]
     : undefined;
 }
+
+export function defineOwn(obj: object, prop: PropertyKey) {
+  if (!hasOwn(obj, prop) && prop in obj) {
+    Object.defineProperty(
+      obj,
+      prop,
+      {
+        configurable: true,
+        enumerable: true,
+        value: undefined,
+        writable: true,
+      }
+    );
+  }
+}

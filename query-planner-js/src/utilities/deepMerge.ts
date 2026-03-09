@@ -1,4 +1,4 @@
-import { hasOwn } from './own';
+import { defineOwn } from './own';
 import { isObject } from './predicates';
 
 export function deepMerge(target: any, source: any): any {
@@ -12,18 +12,7 @@ export function deepMerge(target: any, source: any): any {
     // the property is absent from `target`, we don't want to accidentally
     // fetch the property in `target`'s prototype chain (if present), and
     // accordingly we define the property on `target` in such cases.
-    if (!hasOwn(target, key) && key in target) {
-      Object.defineProperty(
-        target,
-        key,
-        {
-          configurable: true,
-          enumerable: true,
-          value: undefined,
-          writable: true,
-        }
-      );
-    }
+    defineOwn(target, key);
 
     if (target[key] && isObject(source[key])) {
       deepMerge(target[key], source[key]);
