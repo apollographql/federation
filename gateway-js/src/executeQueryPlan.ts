@@ -757,7 +757,7 @@ export function generateHydratedPaths(
         parent.pop();
       }
     } else {
-      if (head in data) {
+      if (hasOwn(data, head)) {
         const value = data[head];
         parent.push(head);
         generateHydratedPaths(parent, path.slice(1), value, result);
