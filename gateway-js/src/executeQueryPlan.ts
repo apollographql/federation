@@ -862,7 +862,7 @@ function flattenResultsAtPath(value: ResultCursor['data'] | undefined | null, pa
     // Note that this typecheck because `value[current]` is of type `any` and so the typechecker "trusts us", but in
     // practice this only work because we use this on path that do not point to leaf types, and the `value[current]`
     // is never a base type (non-object nor null/undefined).
-    return flattenResultsAtPath(value[current], rest);
+    return flattenResultsAtPath(getOwn(value, current), rest);
   }
 }
 
