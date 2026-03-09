@@ -8340,5 +8340,107 @@ describe('executeQueryPlan', () => {
         user: { isObject: false },
       });
     });
+
+    it('does not read prototype fields for condition nodes', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            user: User
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            user() {
+              return { id: '1' };
+            },
+          },
+        },
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            hello: String!
+          }
+        `,
+        resolvers: {
+          User: {
+            __resolveReference() {
+              return {};
+            },
+            hello() {
+              return 'world';
+            },
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
+      const operation = parseOp(
+        `#graphql
+          query($__proto__: Boolean! = true) {
+            user @include(if: $__proto__) {
+              hello
+            }
+          }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Include(if: $__proto__) {
+            Sequence {
+              Fetch(service: "S1") {
+                {
+                  user {
+                    __typename
+                    id
+                  }
+                }
+              },
+              Flatten(path: "user") {
+                Fetch(service: "S2") {
+                  {
+                    ... on User {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on User {
+                      hello
+                    }
+                  }
+                },
+              },
+            }
+          },
+        }
+      `);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+      expect(response.errors).toBeUndefined();
+      expect(response.extensions).toBeUndefined();
+      expect(response.data).toMatchObject({
+        user: { hello: 'world' },
+      });
+    });
   });
 });
