@@ -30,7 +30,7 @@ import {
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
-import { getOwn } from './utilities/own';
+import { getOwn, hasOwn } from './utilities/own';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetryConfig, OpenTelemetrySpanNames, recordExceptions, tracer } from "./utilities/opentelemetry";
 import { assert, defaultRootName, errorCodeDef, ERRORS, Operation, operationFromDocument, Schema } from '@apollo/federation-internals';
@@ -456,6 +456,7 @@ async function executeFetch(
           const providedVariables = context.requestContext.request.variables;
           if (
               providedVariables &&
+              hasOwn(providedVariables, variableName) &&
               typeof providedVariables[variableName] !== 'undefined'
           ) {
             variables[variableName] = providedVariables[variableName];
