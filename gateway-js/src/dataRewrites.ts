@@ -1,6 +1,7 @@
 import { FetchDataRewrite } from "@apollo/query-planner";
 import { assert } from "@apollo/federation-internals";
 import { GraphQLSchema, isAbstractType, isInterfaceType, isObjectType } from "graphql";
+import { defineOwn, getOwn } from './utilities/own';
 
 const FRAGMENT_PREFIX = '... on ';
 
@@ -31,13 +32,17 @@ function rewriteAtPathFunction(rewrite: FetchDataRewrite, fieldAtPath: string): 
   switch (rewrite.kind) {
     case 'ValueSetter':
       return (obj) => {
+        defineOwn(obj, fieldAtPath);
         obj[fieldAtPath] = rewrite.setValueTo;
       };
     case 'KeyRenamer':
       return (obj) => {
-        const objAtPath = obj[fieldAtPath];
+        const objAtPath = getOwn(obj, fieldAtPath);
         if (objAtPath) {
-          obj[rewrite.renameKeyTo] = obj[fieldAtPath];
+          defineOwn(obj, rewrite.renameKeyTo);
+          obj[rewrite.renameKeyTo] = objAtPath;
+          // No need to define the property here, since it's guaranteed to exist
+          // by the if clause.
           obj[fieldAtPath] = undefined;
         }
       };
@@ -79,7 +84,7 @@ function applyAtPath(schema: GraphQLSchema, path: string[], value: any, fct: (ob
   const { kind, value: eltValue } = parsePathElement(first);
   switch (kind) {
     case 'fieldName':
-      applyAtPath(schema, rest, value[eltValue], fct);
+      applyAtPath(schema, rest, getOwn(value, eltValue), fct);
       break;
     case 'typeName':
       // When we apply rewrites, we don't always have the __typename of all object we would need to, but the code expects that
