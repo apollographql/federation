@@ -46,7 +46,6 @@ jobs:
           version: npm run changeset-version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Sleep for 20 seconds (arbitrary, give NPM time to populate new `latest` versions)
         if: steps.changesets.outputs.published == 'true'
