@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/query-planner`
 
+## 2.12.3
+
+### Patch Changes
+
+- Fixed several code paths that access response objects to prevent JavaScript prototype pollution and unintended access to the prototype chain. ([#3397](https://github.com/apollographql/federation/pull/3397))
+
+  See the associated GitHub Advisories [GHSA-pfjj-6f4p-rvmh](https://github.com/apollographql/federation/security/advisories/GHSA-pfjj-6f4p-rvmh) for more information.
+
+- Updated dependencies [[`4393ceca349aca68981362f210cca023ed3fb97b`](https://github.com/apollographql/federation/commit/4393ceca349aca68981362f210cca023ed3fb97b)]:
+  - @apollo/federation-internals@2.12.3
+  - @apollo/query-graphs@2.12.3
+
 ## 2.12.2
 
 ### Patch Changes
