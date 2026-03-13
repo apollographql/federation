@@ -1123,7 +1123,7 @@ export class Operation extends DirectiveTargetElement<Operation> {
   }
 
   collectDefaultedVariableValues(): Record<string, any> {
-    const defaultedVariableValues: Record<string, any> = {};
+    const defaultedVariableValues: Record<string, any> = Object.create(null);
     for (const { variable, defaultValue } of this.variableDefinitions.definitions()) {
       if (defaultValue !== undefined) {
         defaultedVariableValues[variable.name] = defaultValue;

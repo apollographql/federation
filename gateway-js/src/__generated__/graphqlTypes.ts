@@ -10,6 +10,7 @@ export type Scalars = {
   Boolean: boolean;
   Int: number;
   Float: number;
+  Long: any;
   Timestamp: any;
 };
 
@@ -98,6 +99,12 @@ export type QueryRouterEntitlementsArgs = {
   ref: Scalars['String'];
 };
 
+export type RateLimit = {
+  __typename?: 'RateLimit';
+  count: Scalars['Long'];
+  durationMs: Scalars['Long'];
+};
+
 export type RouterConfigResponse = FetchError | RouterConfigResult | Unchanged;
 
 export type RouterConfigResult = {
@@ -121,6 +128,8 @@ export type RouterEntitlement = {
   /** RFC 8037 Ed25519 JWT signed representation of sibling fields. */
   jwt: Scalars['String'];
   subject: Scalars['String'];
+  /** Router should service requests only till the throughput limits specified in this map. */
+  throughputLimit?: Maybe<RateLimit>;
   /** Router should warn users after this time if commercial features are in use. */
   warnAt?: Maybe<Scalars['Timestamp']>;
 };
