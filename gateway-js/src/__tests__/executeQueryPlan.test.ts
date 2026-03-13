@@ -9,13 +9,15 @@ import gql from 'graphql-tag';
 import { buildOperationContext } from '../operationContext';
 import { executeQueryPlan } from '../executeQueryPlan';
 import { LocalGraphQLDataSource } from '../datasources/LocalGraphQLDataSource';
+import { RemoteGraphQLDataSource } from '../datasources/RemoteGraphQLDataSource';
+import { Response } from 'node-fetch';
 import {
   astSerializer,
   queryPlanSerializer,
   superGraphWithInaccessible,
 } from 'apollo-federation-integration-testsuite';
 import { QueryPlan, QueryPlanner } from '@apollo/query-planner';
-import { ApolloGateway } from '..';
+import { ApolloGateway, GraphQLDataSource } from '..';
 import { ApolloServer } from '@apollo/server';
 import { getFederatedTestingSchema } from './execution-utils';
 import {
@@ -64,7 +66,7 @@ describe('executeQueryPlan', () => {
     operation: Operation,
     executeRequestContext?: GatewayGraphQLRequestContext,
     executeSchema?: Schema,
-    executeServiceMap?: { [serviceName: string]: LocalGraphQLDataSource },
+    executeServiceMap?: { [serviceName: string]: GraphQLDataSource },
   ): Promise<GatewayExecutionResult> {
     const supergraphSchema = executeSchema ?? schema;
     const apiSchema = supergraphSchema.toAPISchema();
@@ -7711,6 +7713,734 @@ describe('executeQueryPlan', () => {
           field: 'field2',
         },
       },
+    });
+  });
+
+  describe('prototype manipulation prevention', () => {
+    it('does not allow `constructor` payloads to pollute prototypes when merging entities', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            user: User
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+          }
+        `,
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            homePage: HomePage
+          }
+
+          type HomePage {
+            userControlledField: JSON
+          }
+
+          scalar JSON
+        `,
+      };
+
+      const { schema, queryPlanner } = getFederatedTestingSchema([s1, s2]);
+      const operation = parseOp(
+        `#graphql
+          query {
+            user {
+              constructor: homePage {
+                prototype: userControlledField
+              }
+            }
+          }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                user {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "user") {
+              Fetch(service: "S2") {
+                {
+                  ... on User {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on User {
+                    constructor: homePage {
+                      prototype: userControlledField
+                    }
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      // Note that LocalGraphQLDataSource uses null-prototype objects, which
+      // don't elicit this bug. So we instead have to mock the responses using
+      // RemoteGraphQLDataSource.
+      const remoteServiceMap = {
+        S1: new RemoteGraphQLDataSource({
+          url: 'https://s1.example.com/graphql',
+          fetcher: async () =>
+            new Response(
+              JSON.stringify({
+                data: {
+                  user: {
+                    __typename: 'User',
+                    id: '1',
+                  },
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+              },
+            ),
+        }),
+        S2: new RemoteGraphQLDataSource({
+          url: 'https://s2.example.com/graphql',
+          fetcher: async () =>
+            new Response(
+              JSON.stringify({
+                data: {
+                  _entities: [
+                    {
+                      constructor: {
+                        prototype: { maliciousPayload: true },
+                      },
+                    },
+                  ],
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+              },
+            ),
+        }),
+      };
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        remoteServiceMap,
+      );
+      expect(({} as Record<string, unknown>).maliciousPayload).toBeUndefined();
+      expect(response.errors).toBeUndefined();
+      expect(response.extensions).toBeUndefined();
+      expect(response.data).toMatchObject({
+        user: {
+          constructor: {
+            prototype: { maliciousPayload: true },
+          },
+        },
+      });
+    });
+
+    it('does not allow `__proto__` payloads to pollute prototypes when merging entities', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            user: User
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+          }
+        `,
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            userControlledField: JSON
+          }
+
+          scalar JSON
+        `,
+      };
+
+      const { schema, queryPlanner } = getFederatedTestingSchema([s1, s2]);
+      const operation = parseOp(
+        `#graphql
+          query {
+            user {
+              __proto__: userControlledField
+            }
+          }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                user {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "user") {
+              Fetch(service: "S2") {
+                {
+                  ... on User {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on User {
+                    __proto__: userControlledField
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      // Note that LocalGraphQLDataSource uses null-prototype objects, which
+      // don't elicit this bug. So we instead have to mock the responses using
+      // RemoteGraphQLDataSource.
+      const remoteServiceMap = {
+        S1: new RemoteGraphQLDataSource({
+          url: 'https://s1.example.com/graphql',
+          fetcher: async () =>
+            new Response(
+              JSON.stringify({
+                data: {
+                  user: {
+                    __typename: 'User',
+                    id: '1',
+                  },
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+              },
+            ),
+        }),
+        S2: new RemoteGraphQLDataSource({
+          url: 'https://s2.example.com/graphql',
+          fetcher: async () =>
+            new Response(
+              JSON.stringify({
+                data: {
+                  _entities: [
+                    {
+                      ['__proto__']: { maliciousPayload: true },
+                    },
+                  ],
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+              },
+            ),
+        }),
+      };
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        remoteServiceMap,
+      );
+      expect(({} as Record<string, unknown>).maliciousPayload).toBeUndefined();
+      expect(response.errors).toBeUndefined();
+      expect(response.extensions).toBeUndefined();
+      expect(response.data).toMatchObject({
+        user: {
+          ['__proto__']: { maliciousPayload: true },
+        },
+      });
+    });
+
+    it('does not read prototype fields when computing responses', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            user: User
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+          }
+        `,
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            erroringField: JSON!
+          }
+
+          scalar JSON
+        `,
+      };
+
+      const { schema, queryPlanner } = getFederatedTestingSchema([s1, s2]);
+      const operation = parseOp(
+        `#graphql
+          query {
+            user {
+              __proto__: erroringField
+            }
+          }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                user {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "user") {
+              Fetch(service: "S2") {
+                {
+                  ... on User {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on User {
+                    __proto__: erroringField
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      // Note that LocalGraphQLDataSource uses null-prototype objects, which
+      // don't elicit this bug. So we instead have to mock the responses using
+      // RemoteGraphQLDataSource.
+      const remoteServiceMap = {
+        S1: new RemoteGraphQLDataSource({
+          url: 'https://s1.example.com/graphql',
+          fetcher: async () =>
+            new Response(
+              JSON.stringify({
+                data: {
+                  user: {
+                    __typename: 'User',
+                    id: '1',
+                  },
+                },
+              }),
+              {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+              },
+            ),
+        }),
+        S2: new RemoteGraphQLDataSource({
+          url: 'https://s2.example.com/graphql',
+          fetcher: async () =>
+            new Response(
+              JSON.stringify({
+                data: {
+                  _entities: [null],
+                },
+                errors: [
+                  {
+                    message: 'Error',
+                    path: ['_entities', 0, '__proto__'],
+                  },
+                ],
+              }),
+              {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+              },
+            ),
+        }),
+      };
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        remoteServiceMap,
+      );
+      expect(response.errors).toMatchObject([
+        {
+          message: 'Error',
+          path: ['user', '__proto__'],
+        },
+      ]);
+      expect(response.extensions).toBeUndefined();
+      expect(response.data).toMatchObject({
+        user: null,
+      });
+    });
+
+    // There appears to be a bug in graphql-js, where it reads non-own property
+    // names from variables. Until it's fixed, this test won't work as-is, and
+    // we have a separate test below that uses RemoteGraphQLDataSource as a
+    // workaround.
+    it.skip('does not read prototype fields for provided variables', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            user: User
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            user() {
+              return { id: '1' };
+            },
+          },
+        },
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            isObject(value: JSON): Boolean!
+          }
+
+          scalar JSON
+        `,
+        resolvers: {
+          User: {
+            __resolveReference() {
+              return {};
+            },
+            isObject(value: object | null | undefined) {
+              return !!value;
+            },
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
+      const operation = parseOp(
+        `#graphql
+          query($__proto__: JSON) {
+            user {
+              isObject(value: $__proto__)
+            }
+          }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                user {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "user") {
+              Fetch(service: "S2") {
+                {
+                  ... on User {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on User {
+                    isObject(value: $__proto__)
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+      expect(response.errors).toBeUndefined();
+      expect(response.extensions).toBeUndefined();
+      expect(response.data).toMatchObject({
+        user: { isObject: false },
+      });
+    });
+
+    // This test is a workaround test; see the comment on the test immediately
+    // above for why this exists.
+    it('does not read prototype fields for provided variables (workaround)', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            user: User
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            user() {
+              return { id: '1' };
+            },
+          },
+        },
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            isObject(value: JSON): Boolean!
+          }
+
+          scalar JSON
+        `,
+      };
+
+      const { schema, queryPlanner, ...rest } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
+      const operation = parseOp(
+        `#graphql
+          query($__proto__: JSON) {
+            user {
+              isObject(value: $__proto__)
+            }
+          }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Sequence {
+            Fetch(service: "S1") {
+              {
+                user {
+                  __typename
+                  id
+                }
+              }
+            },
+            Flatten(path: "user") {
+              Fetch(service: "S2") {
+                {
+                  ... on User {
+                    __typename
+                    id
+                  }
+                } =>
+                {
+                  ... on User {
+                    isObject(value: $__proto__)
+                  }
+                }
+              },
+            },
+          },
+        }
+      `);
+      let serviceMap: {
+        [k: string]: GraphQLDataSource;
+      } = rest.serviceMap;
+      serviceMap.S2 = new RemoteGraphQLDataSource({
+        url: 'https://s2.example.com/graphql',
+        fetcher: async (_, init) => {
+          const variables = {
+            __proto__: null,
+            ...JSON.parse(init?.body as string)['variables'],
+          };
+          return new Response(
+            JSON.stringify({
+              data: {
+                _entities: [
+                  {
+                    isObject: !!variables['__proto__'],
+                  },
+                ],
+              },
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          );
+        },
+      });
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+      expect(response.errors).toBeUndefined();
+      expect(response.extensions).toBeUndefined();
+      expect(response.data).toMatchObject({
+        user: { isObject: false },
+      });
+    });
+
+    it('does not read prototype fields for condition nodes', async () => {
+      const s1 = {
+        name: 'S1',
+        typeDefs: gql`
+          type Query {
+            user: User
+          }
+
+          type User @key(fields: "id") {
+            id: ID!
+          }
+        `,
+        resolvers: {
+          Query: {
+            user() {
+              return { id: '1' };
+            },
+          },
+        },
+      };
+
+      const s2 = {
+        name: 'S2',
+        typeDefs: gql`
+          type User @key(fields: "id") {
+            id: ID!
+            hello: String!
+          }
+        `,
+        resolvers: {
+          User: {
+            __resolveReference() {
+              return {};
+            },
+            hello() {
+              return 'world';
+            },
+          },
+        },
+      };
+
+      const { serviceMap, schema, queryPlanner } = getFederatedTestingSchema([
+        s1,
+        s2,
+      ]);
+      const operation = parseOp(
+        `#graphql
+          query($__proto__: Boolean! = true) {
+            user @include(if: $__proto__) {
+              hello
+            }
+          }
+        `,
+        schema,
+      );
+
+      const queryPlan = buildPlan(operation, queryPlanner);
+      expect(queryPlan).toMatchInlineSnapshot(`
+        QueryPlan {
+          Include(if: $__proto__) {
+            Sequence {
+              Fetch(service: "S1") {
+                {
+                  user {
+                    __typename
+                    id
+                  }
+                }
+              },
+              Flatten(path: "user") {
+                Fetch(service: "S2") {
+                  {
+                    ... on User {
+                      __typename
+                      id
+                    }
+                  } =>
+                  {
+                    ... on User {
+                      hello
+                    }
+                  }
+                },
+              },
+            }
+          },
+        }
+      `);
+      const response = await executePlan(
+        queryPlan,
+        operation,
+        undefined,
+        schema,
+        serviceMap,
+      );
+      expect(response.errors).toBeUndefined();
+      expect(response.extensions).toBeUndefined();
+      expect(response.data).toMatchObject({
+        user: { hello: 'world' },
+      });
     });
   });
 });

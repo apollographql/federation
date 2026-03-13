@@ -1,0 +1,24 @@
+export function hasOwn(obj: object, prop: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(obj, prop)
+}
+
+export function getOwn<T, K extends keyof T>(obj: T, prop: K): T[K] | undefined {
+  return Object.prototype.hasOwnProperty.call(obj, prop)
+    ? obj[prop]
+    : undefined;
+}
+
+export function defineOwn(obj: object, prop: PropertyKey) {
+  if (!hasOwn(obj, prop) && prop in obj) {
+    Object.defineProperty(
+      obj,
+      prop,
+      {
+        configurable: true,
+        enumerable: true,
+        value: undefined,
+        writable: true,
+      }
+    );
+  }
+}
