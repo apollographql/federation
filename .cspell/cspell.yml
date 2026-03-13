@@ -34,6 +34,10 @@ overrides:
   - filename: '**/CHANGELOG*.md'
     ignoreRegExpList:
       - "@[-\\w]+"
+  # Ignore GitHub GHSA IDs.
+  - filename: '**/*.md*'
+    ignoreRegExpList:
+      - "GHSA-[2-9cfghjmpqrvwx]{4}-[2-9cfghjmpqrvwx]{4}-[2-9cfghjmpqrvwx]{4}"
   # Ignore the targets of links and YouTube IDs in Markdown/MDX files.
   - filename: '**/*.md*'
     ignoreRegExpList:
