@@ -37,7 +37,7 @@ jobs:
     steps:
       - checkout
       - node/install:
-          node-version: '22'
+          node-version: '24'
       - node/install-packages
       - run:
           name: Compile
