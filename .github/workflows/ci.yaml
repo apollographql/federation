@@ -41,8 +41,6 @@ jobs:
         with:
           fail_ci_if_error: true
           files: ./junit.xml
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Archive failure results
         uses: actions/upload-artifact@v4
