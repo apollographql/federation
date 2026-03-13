@@ -1,5 +1,13 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.13.2
+
+### Patch Changes
+
+- Fixed several code paths that access response objects to prevent JavaScript prototype pollution and unintended access to the prototype chain. ([#3396](https://github.com/apollographql/federation/pull/3396))
+
+  See the associated GitHub Advisories [GHSA-pfjj-6f4p-rvmh](https://github.com/apollographql/federation/security/advisories/GHSA-pfjj-6f4p-rvmh) for more information.
+
 ## 2.13.1
 
 ## 2.13.0
