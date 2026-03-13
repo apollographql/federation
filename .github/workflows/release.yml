@@ -18,10 +18,11 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v3
 
-      - name: Setup Node.js 16
-        uses: actions/setup-node@v3
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install Dependencies
         run: npm i
