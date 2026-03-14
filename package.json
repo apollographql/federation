@@ -95,6 +95,9 @@
     "winston": "3.11.0",
     "winston-transport": "4.6.0"
   },
+  "overrides": {
+    "@inquirer/external-editor": "1.0.0"
+  },
   "jest": {
     "projects": [
       "<rootDir>/composition-js",
