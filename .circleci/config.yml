@@ -20,7 +20,11 @@ jobs:
           node-version: << parameters.node-version >>
       # node v14 defaults to npm 6, which is too old for our package-lock.json
       # should be able to remove this step when we drop node v14
-      - run: npm install -g npm@9
+      - when:
+          condition:
+            equal: [ "14", << parameters.node-version >> ]
+          steps:
+            - run: npm install -g npm@9
       - node/install-packages
       - run:
           name: Run tests
@@ -61,6 +65,9 @@ workflows:
                 - "16"
                 - "18"
                 - "20"
+                - "22"
+                - "24"
+                - "latest"
       - Lint:
           name: Lint - << matrix.script >>
           matrix:
