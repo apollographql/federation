@@ -32,9 +32,6 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Set env
-        run: echo "FEDERATION_VERSION=$(npm --prefix ./internals-js version --json |jq -r '.["@apollo/federation-internals"]')" >> $GITHUB_ENV
-
       - name: Create Release Pull Request or Publish to npm
         id: changesets
         uses: changesets/action@v1
