@@ -27,10 +27,10 @@
     "changeset-version": "changeset version && npm i",
     "build-and-publish": "npm run compile && changeset publish",
     "spell:check": "cspell lint --no-progress --config .cspell/cspell.yml  || (echo 'Add any real words to ./cspell/cspell-dict.txt.'; exit 1)",
-    "//": "This only needs to use prettier@2 for as long as jest disallows using prettier@3",
+    "__comment_for_prettier": "This only needs to use prettier@2 for as long as jest disallows using prettier@3",
     "prettier:check": "node ./node_modules/prettier-2/bin-prettier.js --check ./**/__tests__/**/*.test.ts",
     "prettier:fix": "node ./node_modules/prettier-2/bin-prettier.js --write ./**/__tests__/**/*.test.ts",
-    "//": "Optional: run this to configure git hooks and blame ignore revs",
+    "__comment_for_git:configure": "Optional: run this to configure git hooks and blame ignore revs",
     "git:configure": "git config core.hooksPath .git-hooks; git config blame.ignoreRevsFile .git-blame-ignore-revs"
   },
   "engines": {
@@ -95,6 +95,9 @@
     "winston": "3.11.0",
     "winston-transport": "4.6.0"
   },
+  "overrides": {
+    "@inquirer/external-editor": "1.0.0"
+  },
   "jest": {
     "projects": [
       "<rootDir>/composition-js",
@@ -106,7 +109,7 @@
     ]
   },
   "volta": {
-    "node": "20.10.0",
-    "npm": "10.2.4"
+    "node": "24.14.0",
+    "npm": "11.9.0"
   }
 }
