@@ -13,6 +13,7 @@ jobs:
         type: string
     docker:
       - image: cimg/base:stable
+    resource_class: large
     steps:
       - checkout
       - node/install:
