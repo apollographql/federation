@@ -578,6 +578,10 @@ export class CoreSpecDefinition extends FeatureDefinition {
   }
 }
 
+interface FeatureDefinitionAddOptions {
+  preview?: boolean;
+}
+
 export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition> {
   // The list of definition corresponding to the known version of the particular feature this object handles,
   // sorted by _decreased_ versions.
@@ -587,7 +591,7 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
   constructor(readonly identity: string) {
   }
 
-  add(definition: T, options?: { preview?: boolean }): FeatureDefinitions<T> {
+  add(definition: T, options?: FeatureDefinitionAddOptions): FeatureDefinitions<T> {
     if (definition.identity !== this.identity) {
       throw buildError(`Cannot add definition for ${definition} to the versions of definitions for ${this.identity}`);
     }
