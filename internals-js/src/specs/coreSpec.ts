@@ -582,11 +582,12 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
   // The list of definition corresponding to the known version of the particular feature this object handles,
   // sorted by _decreased_ versions.
   private readonly _definitions: T[] = [];
+  private readonly _previewVersions = new Set<string>();
 
   constructor(readonly identity: string) {
   }
 
-  add(definition: T): FeatureDefinitions<T> {
+  add(definition: T, options?: { preview?: boolean }): FeatureDefinitions<T> {
     if (definition.identity !== this.identity) {
       throw buildError(`Cannot add definition for ${definition} to the versions of definitions for ${this.identity}`);
     }
@@ -594,13 +595,21 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
       return this;
     }
     this._definitions.push(definition);
-    // We sort by decreased versions sa it feels somewhat natural anyway to have more recent versions first.
+    // We sort by decreased versions as it feels somewhat natural anyway to have more recent versions first.
     this._definitions.sort((def1, def2) => -def1.version.compareTo(def2.version));
+    if (options?.preview) {
+      this._previewVersions.add(definition.version.toString());
+    }
     return this;
+  }
+
+  private isPreview(def: T): boolean {
+    return this._previewVersions.has(def.version.toString());
   }
 
   /**
    * Returns the definition corresponding to the requested version if known.
+   * Finds both stable and preview versions.
    */
   find(requested: FeatureVersion): T | undefined {
     return this._definitions.find((def) => def.version.equals(requested));
@@ -612,14 +621,16 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
 
   latest(): T {
     assert(this._definitions.length > 0, 'Trying to get latest when no definitions exist');
-    return this._definitions[0];
+    return this._definitions.find(def => !this.isPreview(def)) ?? this._definitions[0];
   }
 
   getMinimumRequiredVersion(fedVersion: FeatureVersion): T {
     // this._definitions is already sorted with the most recent first
     // get the first definition that is compatible with the federation version
     // if the minimum version is not present, assume that we won't look for an older version
-    const def = this._definitions.find(def => def.minimumFederationVersion ? fedVersion.gte(def.minimumFederationVersion) : true);
+    const def = this._definitions.find(def =>
+      !this.isPreview(def) && (def.minimumFederationVersion ? fedVersion.gte(def.minimumFederationVersion) : true)
+    );
     assert(def, `No compatible definition exists for federation version ${fedVersion}`);
 
     // note that it's necessary that we can only get versions that have the same major version as the latest,
@@ -627,7 +638,7 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
     // the same major version as the latest.
     const latestMajor = this.latest().version.major;
     if (def.version.major !== latestMajor) {
-      return findLast(this._definitions, def => def.version.major === latestMajor) ?? this.latest();
+      return findLast(this._definitions, def => def.version.major === latestMajor && !this.isPreview(def)) ?? this.latest();
     }
     return def;
   }
