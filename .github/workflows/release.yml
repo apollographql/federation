@@ -9,6 +9,11 @@ on:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
+permissions:
+  id-token: write  # Required for OIDC
+  contents: write  # Required for changesets to push release branch
+  pull-requests: write  # Required for changesets to create release PR
+
 jobs:
   release:
     name: Release
@@ -16,7 +21,7 @@ jobs:
     if: github.repository == 'apollographql/federation'
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v4
