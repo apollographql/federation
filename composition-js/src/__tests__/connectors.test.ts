@@ -29,7 +29,7 @@ describe("connect spec and join__directive", () => {
   const expectedSupergraphSdl = `schema
   @link(url: "https://specs.apollo.dev/link/v1.0")
   @link(url: "https://specs.apollo.dev/join/v0.5", for: EXECUTION)
-  @link(url: "https://specs.apollo.dev/connect/v0.4", for: EXECUTION)
+  @link(url: "https://specs.apollo.dev/connect/v0.3", for: EXECUTION)
   @join__directive(graphs: [WITH_CONNECTORS], name: "link", args: {url: "https://specs.apollo.dev/connect/v0.1", import: ["@connect", "@source"]})
   @join__directive(graphs: [WITH_CONNECTORS], name: "source", args: {name: "v1", http: {baseURL: "http://v1"}})
 {
@@ -240,7 +240,7 @@ type Resource
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.4\\", for: EXECUTION)
+        @link(url: \\"https://specs.apollo.dev/connect/v0.3\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
       {
@@ -459,7 +459,7 @@ type Resource
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.4\\", for: EXECUTION)
+        @link(url: \\"https://specs.apollo.dev/connect/v0.3\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_2_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.2\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
@@ -643,7 +643,7 @@ type Resource
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.4\\", for: EXECUTION)
+        @link(url: \\"https://specs.apollo.dev/connect/v0.3\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_3_], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.3\\", import: [\\"@connect\\", \\"@source\\"]})
         @join__directive(graphs: [WITH_CONNECTORS_V0_1_], name: \\"source\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
@@ -744,6 +744,81 @@ type Resource
     }
   });
 
+  it("uses v0.4 in supergraph @link when a subgraph explicitly links to v0.4", () => {
+    const subgraphs = [
+      {
+        name: "with-connectors-v0_4",
+        typeDefs: parse(`
+                    extend schema
+                    @link(
+                        url: "https://specs.apollo.dev/federation/v2.13"
+                        import: ["@key"]
+                    )
+                    @link(
+                        url: "https://specs.apollo.dev/connect/v0.4"
+                        import: ["@connect", "@source"]
+                    )
+                    @source(name: "v1", http: { baseURL: "http://v1" })
+
+                    type Query {
+                        resources: [Resource!]!
+                        @connect(source: "v1", http: { GET: "/resources" }, selection: "")
+                    }
+
+                    type Resource @key(fields: "id") {
+                        id: ID!
+                        name: String!
+                    }
+                `),
+      },
+    ];
+
+    const result = composeServices(subgraphs);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+    expect(printed).toContain(
+      '@link(url: "https://specs.apollo.dev/connect/v0.4", for: EXECUTION)'
+    );
+  });
+
+  it("uses v0.3 (not v0.4) in supergraph @link when subgraphs only use v0.3 and earlier", () => {
+    const subgraphs = [
+      {
+        name: "with-connectors-v0_3",
+        typeDefs: parse(`
+                    extend schema
+                    @link(
+                        url: "https://specs.apollo.dev/federation/v2.12"
+                        import: ["@key"]
+                    )
+                    @link(
+                        url: "https://specs.apollo.dev/connect/v0.3"
+                        import: ["@connect", "@source"]
+                    )
+                    @source(name: "v1", http: { baseURL: "http://v1" })
+
+                    type Query {
+                        resources: [Resource!]!
+                        @connect(source: "v1", http: { GET: "/resources" }, selection: "")
+                    }
+
+                    type Resource @key(fields: "id") {
+                        id: ID!
+                        name: String!
+                    }
+                `),
+      },
+    ];
+
+    const result = composeServices(subgraphs);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+    expect(printed).toContain(
+      '@link(url: "https://specs.apollo.dev/connect/v0.3", for: EXECUTION)'
+    );
+    expect(printed).not.toContain('connect/v0.4');
+  });
+
   it("composes with renames", () => {
     const subgraphs = [
       {
@@ -784,7 +859,7 @@ type Resource
       "schema
         @link(url: \\"https://specs.apollo.dev/link/v1.0\\")
         @link(url: \\"https://specs.apollo.dev/join/v0.5\\", for: EXECUTION)
-        @link(url: \\"https://specs.apollo.dev/connect/v0.4\\", for: EXECUTION)
+        @link(url: \\"https://specs.apollo.dev/connect/v0.3\\", for: EXECUTION)
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"link\\", args: {url: \\"https://specs.apollo.dev/connect/v0.1\\", as: \\"http\\", import: [{name: \\"@connect\\", as: \\"@http\\"}, {name: \\"@source\\", as: \\"@api\\"}]})
         @join__directive(graphs: [WITH_CONNECTORS], name: \\"api\\", args: {name: \\"v1\\", http: {baseURL: \\"http://v1\\"}})
       {
