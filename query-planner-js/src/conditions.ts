@@ -13,6 +13,7 @@ import {
 } from "@apollo/federation-internals";
 import { extractOperationConditionals } from "@apollo/query-graphs";
 import { ConditionNode } from ".";
+import { getOwn } from './utilities/own';
 
 export type VariableCondition = {
   variable: Variable,
@@ -240,7 +241,7 @@ export function evaluateCondition(
   values: Record<string, any> | undefined,
 ): boolean {
   const variable = condition.condition;
-  let val = values ? values[variable] : undefined;
+  let val = values ? getOwn(values, variable) : undefined;
   if (val === undefined) {
     val = variables.definition(variable)?.defaultValue;
   }

@@ -30,12 +30,14 @@ import {
 } from '@apollo/query-planner';
 import { deepMerge } from './utilities/deepMerge';
 import { isNotNullOrUndefined } from './utilities/array';
+import { getOwn, hasOwn } from './utilities/own';
 import { SpanStatusCode } from "@opentelemetry/api";
 import { OpenTelemetryConfig, OpenTelemetrySpanNames, recordExceptions, tracer } from "./utilities/opentelemetry";
 import { assert, defaultRootName, errorCodeDef, ERRORS, Operation, operationFromDocument, Schema } from '@apollo/federation-internals';
 import { GatewayGraphQLRequestContext, GatewayExecutionResult } from '@apollo/server-gateway-interface';
 import { computeResponse } from './resultShaping';
 import { applyRewrites, isObjectOfType } from './dataRewrites';
+
 
 export type ServiceMap = {
   [serviceName: string]: GraphQLDataSource;
@@ -124,7 +126,12 @@ function executeIntrospection(
     () => `Introspection query for ${JSON.stringify(introspectionSelection)} should not have failed but got ${JSON.stringify(errors)}`
   );
   assert(data, () => `Introspection query for ${JSON.stringify(introspectionSelection)} should not have failed`);
-  return data[introspectionSelection.alias?.value ?? introspectionSelection.name.value];
+  // Note that it's not necessary to call getOwn() here since introspection
+  // fields can't currently error, and the callsite of executeIntrospection()
+  // ensures this field won't be skipped. However, if those constraints change
+  // or this function is reused, then the alias may refer to a non-own property,
+  // so we defensively use getOwn() here.
+  return getOwn(data, introspectionSelection.alias?.value ?? introspectionSelection.name.value);
 }
 
 export async function executeQueryPlan(
@@ -449,6 +456,7 @@ async function executeFetch(
           const providedVariables = context.requestContext.request.variables;
           if (
               providedVariables &&
+              hasOwn(providedVariables, variableName) &&
               typeof providedVariables[variableName] !== 'undefined'
           ) {
             variables[variableName] = providedVariables[variableName];
@@ -749,7 +757,7 @@ export function generateHydratedPaths(
         parent.pop();
       }
     } else {
-      if (head in data) {
+      if (hasOwn(data, head)) {
         const value = data[head];
         parent.push(head);
         generateHydratedPaths(parent, path.slice(1), value, result);
@@ -786,7 +794,7 @@ function executeSelectionSet(
         const responseName = getResponseName(selection as QueryPlanFieldNode);
         const selections = (selection as QueryPlanFieldNode).selections;
 
-        if (typeof source[responseName] === 'undefined') {
+        if (!hasOwn(source, responseName) || typeof source[responseName] === 'undefined') {
           // This method is called to collect the inputs/requires of a fetch. So, assuming query plans are correct
           // (and we have not reason to assume otherwise here), all inputs should be fetched beforehand and the
           // only reason for not finding one of the inputs is that we had an error fetching it _and_ that field
@@ -854,7 +862,7 @@ function flattenResultsAtPath(value: ResultCursor['data'] | undefined | null, pa
     // Note that this typecheck because `value[current]` is of type `any` and so the typechecker "trusts us", but in
     // practice this only work because we use this on path that do not point to leaf types, and the `value[current]`
     // is never a base type (non-object nor null/undefined).
-    return flattenResultsAtPath(value[current], rest);
+    return flattenResultsAtPath(getOwn(value, current), rest);
   }
 }
 

@@ -578,15 +578,25 @@ export class CoreSpecDefinition extends FeatureDefinition {
   }
 }
 
+/**
+ * Options for {@link FeatureDefinitions.add}. Currently only used for the
+ * connect spec, where v0.4 is a preview version that should not be
+ * automatically selected by {@link FeatureDefinitions.latestNonPreview}.
+ */
+interface FeatureDefinitionAddOptions {
+  preview?: boolean;
+}
+
 export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition> {
   // The list of definition corresponding to the known version of the particular feature this object handles,
   // sorted by _decreased_ versions.
   private readonly _definitions: T[] = [];
+  private readonly _previewVersions = new Set<string>();
 
   constructor(readonly identity: string) {
   }
 
-  add(definition: T): FeatureDefinitions<T> {
+  add(definition: T, options?: FeatureDefinitionAddOptions): FeatureDefinitions<T> {
     if (definition.identity !== this.identity) {
       throw buildError(`Cannot add definition for ${definition} to the versions of definitions for ${this.identity}`);
     }
@@ -594,8 +604,11 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
       return this;
     }
     this._definitions.push(definition);
-    // We sort by decreased versions sa it feels somewhat natural anyway to have more recent versions first.
+    // We sort by decreased versions as it feels somewhat natural anyway to have more recent versions first.
     this._definitions.sort((def1, def2) => -def1.version.compareTo(def2.version));
+    if (options?.preview) {
+      this._previewVersions.add(definition.version.toString());
+    }
     return this;
   }
 
@@ -613,6 +626,18 @@ export class FeatureDefinitions<T extends FeatureDefinition = FeatureDefinition>
   latest(): T {
     assert(this._definitions.length > 0, 'Trying to get latest when no definitions exist');
     return this._definitions[0];
+  }
+
+  /**
+   * Like {@link latest}, but skips versions marked as preview. Used by
+   * `addJoinDirectiveDirectives` in the composition merger to avoid
+   * stamping a preview spec version (e.g. connect/v0.4) into the
+   * supergraph `@link` when no subgraph explicitly uses it. Falls back
+   * to {@link latest} if all versions are preview.
+   */
+  latestNonPreview(): T {
+    assert(this._definitions.length > 0, 'Trying to get latest when no definitions exist');
+    return this._definitions.find(def => !this._previewVersions.has(def.version.toString())) ?? this._definitions[0];
   }
 
   getMinimumRequiredVersion(fedVersion: FeatureVersion): T {

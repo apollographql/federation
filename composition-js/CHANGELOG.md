@@ -1,5 +1,23 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.13.3
+
+### Patch Changes
+
+- Mark connect/v0.4 as a preview version so composition does not inject it into the supergraph `@link` unless a subgraph explicitly uses it. Previously, upgrading to Federation v2.13 would unconditionally stamp `connect/v0.4` into the supergraph, causing Router to require the `connectors.preview_connect_v0_4` flag even when no subgraph used v0.4 features. (RH-1321) ([#3413](https://github.com/apollographql/federation/pull/3413))
+
+- Updated dependencies [[`b5c17ffa73e2de49bd63182a84a7d5837c0ab2d5`](https://github.com/apollographql/federation/commit/b5c17ffa73e2de49bd63182a84a7d5837c0ab2d5)]:
+  - @apollo/federation-internals@2.13.3
+  - @apollo/query-graphs@2.13.3
+
+## 2.13.2
+
+### Patch Changes
+
+- Updated dependencies [[`84e9226b606b176ede097410f5ba35ba03d140ed`](https://github.com/apollographql/federation/commit/84e9226b606b176ede097410f5ba35ba03d140ed)]:
+  - @apollo/federation-internals@2.13.2
+  - @apollo/query-graphs@2.13.2
+
 ## 2.13.1
 
 ### Patch Changes

@@ -3522,7 +3522,7 @@ class Merger {
     // (The original feature version is still recorded in a @join__directive
     // so we're not losing any information.)
     const latestOrHighestLinkByIdentity = [...linksToPersist].reduce((map, link) => {
-      let latest = this.joinDirectiveFeatureDefinitionsByIdentity.get(link.identity)?.latest();
+      let latest = this.joinDirectiveFeatureDefinitionsByIdentity.get(link.identity)?.latestNonPreview();
 
       const existing = map.get(link.identity) ?? link;
       if (!latest || existing?.version.gt(latest.version)) {

@@ -1,5 +1,27 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.13.3
+
+### Patch Changes
+
+- Updated dependencies [[`b5c17ffa73e2de49bd63182a84a7d5837c0ab2d5`](https://github.com/apollographql/federation/commit/b5c17ffa73e2de49bd63182a84a7d5837c0ab2d5)]:
+  - @apollo/composition@2.13.3
+  - @apollo/federation-internals@2.13.3
+  - @apollo/query-planner@2.13.3
+
+## 2.13.2
+
+### Patch Changes
+
+- Fixed several code paths that access response objects to prevent JavaScript prototype pollution and unintended access to the prototype chain. ([#3396](https://github.com/apollographql/federation/pull/3396))
+
+  See the associated GitHub Advisories [GHSA-pfjj-6f4p-rvmh](https://github.com/apollographql/federation/security/advisories/GHSA-pfjj-6f4p-rvmh) for more information.
+
+- Updated dependencies [[`84e9226b606b176ede097410f5ba35ba03d140ed`](https://github.com/apollographql/federation/commit/84e9226b606b176ede097410f5ba35ba03d140ed)]:
+  - @apollo/query-planner@2.13.2
+  - @apollo/federation-internals@2.13.2
+  - @apollo/composition@2.13.2
+
 ## 2.13.1
 
 ### Patch Changes
