@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  node: circleci/node@5.1.0
+  node: circleci/node@7.2.0
 
 jobs:
   # Unfortunately cimg/node doesn't tag its images with major only, you have to specify a minor version.
@@ -20,7 +20,11 @@ jobs:
           node-version: << parameters.node-version >>
       # node v14 defaults to npm 6, which is too old for our package-lock.json
       # should be able to remove this step when we drop node v14
-      - run: npm install -g npm@9
+      - when:
+          condition:
+            equal: [ "14", << parameters.node-version >> ]
+          steps:
+            - run: npm install -g npm@9
       - node/install-packages
       - run:
           name: Run tests
@@ -30,6 +34,24 @@ jobs:
           command: npm run coverage:upload
       - store_test_results:
           path: junit.xml
+  Lint:
+    description: "Run a lint command using a specific Node.js version"
+    parameters:
+      script:
+        type: string
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - node/install:
+          node-version: '24'
+      - node/install-packages
+      - run:
+          name: Compile
+          command: npm run compile
+      - run:
+          name: Run lint
+          command: npm run << parameters.script >>
 
 workflows:
   Build:
@@ -43,34 +65,16 @@ workflows:
                 - "16"
                 - "18"
                 - "20"
-      - node/run:
-          name: Check Error Code Doc
-          npm-run: error-code-doc:check
-          setup:
-            - node/install:
-                node-version: "20"
-      - node/run:
-          name: Check GraphQL Types
-          npm-run: codegen:check
-          setup:
-            - node/install:
-                node-version: "20"
-      - node/run:
-          name: Check Hints Code Doc
-          override-ci-command: npm ci && npm run compile
-          npm-run: hints-doc:check
-          setup:
-            - node/install:
-                node-version: "20"
-      - node/run:
-          name: Check Spelling
-          npm-run: spell:check
-          setup:
-            - node/install:
-                node-version: "20"
-      - node/run:
-          name: Check Prettier (tests)
-          npm-run: prettier:check
-          setup:
-            - node/install:
-                node-version: "20"
+                - "22"
+                - "24"
+                - "latest"
+      - Lint:
+          name: Lint - << matrix.script >>
+          matrix:
+            parameters:
+              script:
+                - "error-code-doc:check"
+                - "codegen:check"
+                - "hints-doc:check"
+                - "spell:check"
+                - "prettier:check"
