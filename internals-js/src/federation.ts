@@ -1170,6 +1170,36 @@ function validateSizedFieldsAreValidLists(
   }
 }
 
+// Quick Guide to @listSize:
+// 
+// directive @listSize(
+//   assumedSize: Int,  # size of list must be, at most, this amount
+//   slicingArguments: [String!],  # list of the field's arguments of numeric type that define the size of the list field
+//                                 # if not present in schema, assume present in query
+//                                 # if more than 1 arg specified, the largest value becomes the assumed size
+//   sizedFields: [String!],  # setting this indicates that `assumedSize` refers to a sub-field, not the field itself
+//                            # (such as a Cursor object's sub fields)
+//   requireOneSlicingArgument: Boolean = true  # on by default
+//                                              # indicates that exactly 1 `slicingArgument` can be specified
+//                                              # if `slicingArguments` is null, this argument is ignored
+// ) on FIELD_DEFINITION  # the field must be a list
+
+/**
+ * @todo: Implement to validate listSize repeatable
+ */
+function validateRepeatedListSizeDirectivesNonConflicting(
+  listSizeApplications: ReadonlySet<Directive<any, ListSizeDirectiveArguments>>,
+  errorCollector: GraphQLError[]
+
+) {
+  // Iterate through listSizeApplications
+  // For any two or more applications which share a parent AND only set assumedSize,
+  //    ensure that both assumedSize args are equal
+  // For any two or more applications which set sizedFields AND have fields in that 
+  //    list in common with each other, ensure that assumedSize args are equal
+  // If there are any conflicts, validation should fail
+}
+
 export class FederationMetadata {
   private _externalTester?: ExternalTester;
   private _sharingPredicate?: (field: FieldDefinition<CompositeType>) => boolean;
@@ -1306,6 +1336,7 @@ export class FederationMetadata {
     return this.schema.directive(this.federationDirectiveNameInSchema(name)) as DirectiveDefinition<TApplicationArgs> | undefined;
   }
 
+  // TODO: This may need to be updated to call getFederationDirective() multiple times
   private getPost20FederationDirective<TApplicationArgs extends {[key: string]: any}>(
     name: FederationDirectiveName
   ): Post20FederationDirectiveDefinition<TApplicationArgs> {
@@ -1846,6 +1877,7 @@ export class FederationBlueprint extends SchemaBlueprint {
       validateSlicingArgumentsAreValidIntegers(application, parent, errorCollector);
       validateSizedFieldsAreValidLists(application, parent, errorCollector);
     }
+    validateRepeatedListSizeDirectivesNonConflicting(listSizeDirective.applications(), errorCollector);
 
     // Validate @authenticated, @requireScopes and @policy usage on interfaces and interface objects
     validateNoAuthenticationOnInterfaces(metadata, errorCollector);
