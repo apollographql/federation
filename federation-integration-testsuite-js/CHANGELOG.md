@@ -1,5 +1,11 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.14.0
+
+### Minor Changes
+
+- Add opt-out anonymous deployment environment telemetry. To opt-out, set APOLLO_TELEMETRY_DISABLED=1 in your environment. ([#3379](https://github.com/apollographql/federation/pull/3379))
+
 ## 2.13.3
 
 ## 2.13.2
