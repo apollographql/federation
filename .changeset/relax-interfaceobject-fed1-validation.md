@@ -1,5 +1,5 @@
 ---
-"@apollo/federation-internals": patch
+"@apollo/federation-internals": minor
 ---
 
 Relax `@interfaceObject` validation for Fed 1 subgraphs
