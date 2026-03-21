@@ -96,7 +96,7 @@
     "winston-transport": "4.6.0"
   },
   "overrides": {
-    "@inquirer/external-editor": "1.0.0"
+    "@inquirer/external-editor": "2.0.4"
   },
   "jest": {
     "projects": [
