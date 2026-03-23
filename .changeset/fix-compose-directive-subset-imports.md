@@ -1,8 +1,8 @@
 ---
-"@apollo/composition": patch
+"@apollo/composition": minor
 ---
 
-Fix `@composeDirective` failing with a false `DIRECTIVE_COMPOSITION_ERROR` when subgraphs import different subsets of directives from the same custom spec.
+Update `@composeDirective` merge logic to allow subgraphs to import different directives from the same spec. Previously, all subgraphs had to import ALL (exactly the same) custom directives (even if they did not use them) as otherwise composition would fail with a false `DIRECTIVE_COMPOSITION_ERROR`.
 
 **Affected scenario:** two or more subgraphs `@link` the same custom spec URL but import different directives from it:
 
