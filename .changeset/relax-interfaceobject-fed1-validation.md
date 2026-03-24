@@ -2,7 +2,7 @@
 "@apollo/federation-internals": minor
 ---
 
-Relax `@interfaceObject` validation for Fed 1 subgraphs
+Relax `@interfaceObject` validation for Fed 1 subgraphs.
 
 Previously, any use of `@interfaceObject` in a Fed 2 subgraph caused an `INTERFACE_OBJECT_USAGE_ERROR` if any Fed 1 subgraph was present in the composition, regardless of whether the types conflicted.
 
