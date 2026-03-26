@@ -1104,7 +1104,7 @@ export class CoreFeatures {
       if (directFeature && isDirective) {
         return {
           feature: directFeature,
-          nameInFeature: element.name,
+          nameInFeature: directFeature.url.name,
           isImported: false,
         };
       }
