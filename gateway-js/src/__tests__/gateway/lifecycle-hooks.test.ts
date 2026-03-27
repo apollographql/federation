@@ -104,6 +104,7 @@ describe('lifecycle hooks', () => {
       });
 
     const mockDidUpdate = jest.fn();
+    const mockOnSchemaWillBeUsed = jest.fn();
 
     const gateway = new ApolloGateway({
       experimental_updateServiceDefinitions: mockUpdate,
@@ -113,6 +114,7 @@ describe('lifecycle hooks', () => {
     // for testing purposes, a short pollInterval is ideal so we'll override here
     gateway['pollIntervalInMs'] = 100;
 
+    gateway.onSchemaWillBeUsed(mockOnSchemaWillBeUsed);
     const schemaChangeBlocker1 = resolvable();
     const schemaChangeBlocker2 = resolvable();
 
@@ -154,6 +156,7 @@ describe('lifecycle hooks', () => {
     // second call should have previous info in the second arg
     expect(secondCall[1]!.compositionId).toEqual(expectedFirstId);
 
+    expect(mockOnSchemaWillBeUsed).toHaveBeenCalledTimes(2);
     await gateway.stop();
   });
 
