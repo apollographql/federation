@@ -396,7 +396,7 @@ test('allow @key on interface in fed1 subgraph when no fed2 subgraph uses @inter
   expect(res.errors).toBeUndefined();
 });
 
-test('reports separate errors for each conflicting type', () => {
+test('reports separate errors for each conflicting @interfaceObject type', () => {
   // When a fed2 subgraph uses @interfaceObject on two different types (A and B), and a
   // fed1 subgraph has @key on both interface A and interface B, two separate errors must
   // be emitted — one per conflicting type.
