@@ -249,12 +249,13 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       directive @connect(
         source: String
         id: String
-        http: ConnectHTTP!
+        http: ConnectHTTP
         batch: ConnectBatch
         errors: ConnectorErrors
         selection: JSONSelection!
         entity: Boolean = false
         isSuccess: JSONSelection
+        mappingOnly: Boolean = false # added in v0.5, validation enforced in rust
       ) repeatable on FIELD_DEFINITION
         | OBJECT # added in v0.2, validation enforced in rust
     */
@@ -277,7 +278,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
             type: (schema, feature) => {
               const connectHttpType =
                   lookupFeatureTypeInSchema<InputObjectType>(CONNECT_HTTP, 'InputObjectType', schema, feature);
-              return new NonNullType(connectHttpType);
+              return connectHttpType;
             }
           },
           {
@@ -307,6 +308,11 @@ export class ConnectSpecDefinition extends FeatureDefinition {
             name: 'isSuccess',
             type: (schema, feature) =>
                 lookupFeatureTypeInSchema<ScalarType>(JSON_SELECTION, 'ScalarType', schema, feature)
+          },
+          {
+            name: 'mappingOnly',
+            type: (schema) => schema.booleanType(),
+            defaultValue: false
           }
         ],
         // We "compose" these directives using the  `@join__directive` mechanism,
@@ -388,6 +394,13 @@ export const CONNECT_VERSIONS = new FeatureDefinitions<ConnectSpecDefinition>(
     new ConnectSpecDefinition(
       new FeatureVersion(0, 4),
       new FeatureVersion(2, 13),
+    ),
+    { preview: true },
+  )
+  .add(
+    new ConnectSpecDefinition(
+      new FeatureVersion(0, 5),
+      new FeatureVersion(2, 14),
     ),
     { preview: true },
   );

@@ -979,28 +979,67 @@ type Resource
     expect(error.extensions.code).toEqual("INVALID_GRAPHQL");
   });
 
-  it("requires the http arg for @connect", () => {
+  it("composes mappingOnly connector with v0.5", () => {
     const subgraphs = [
       {
         name: "with-connectors",
         typeDefs: parse(`
           extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.10"
+            url: "https://specs.apollo.dev/federation/v2.14"
             import: ["@key"]
           )
           @link(
-            url: "https://specs.apollo.dev/connect/v0.1"
+            url: "https://specs.apollo.dev/connect/v0.5"
+            import: ["@connect"]
+          )
+
+          type Query {
+            me: User @connect(mappingOnly: true, selection: "id: $context.userId")
+          }
+
+          type User {
+            id: ID!
+          }
+        `),
+      },
+    ];
+
+    const result = composeServices(subgraphs);
+    expect(result.errors).toBeUndefined();
+  });
+
+  it("composes mappingOnly connector for mutation namespacing", () => {
+    const subgraphs = [
+      {
+        name: "with-connectors",
+        typeDefs: parse(`
+          extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.14"
+            import: ["@key"]
+          )
+          @link(
+            url: "https://specs.apollo.dev/connect/v0.5"
             import: ["@connect", "@source"]
           )
           @source(name: "v1", http: {baseURL: "http://127.0.0.1"})
 
           type Query {
-            resources: [Resource!]!
-            @connect(source: "v1", selection: "")
+            user(id: ID!): User
+            @connect(source: "v1", http: { GET: "/users/{$args.id}" }, selection: "id name")
           }
 
-          type Resource {
+          type Mutation {
+            user: UserMutations @connect(mappingOnly: true, selection: "$({})")
+          }
+
+          type UserMutations {
+            create(name: String!): User
+            @connect(source: "v1", http: { POST: "/users" }, selection: "id name")
+          }
+
+          type User {
             id: ID!
             name: String!
           }
@@ -1009,11 +1048,6 @@ type Resource
     ];
 
     const result = composeServices(subgraphs);
-    expect(result.errors?.length).toBe(1);
-    const error = result.errors![0];
-    expect(error.message).toEqual(
-      '[with-connectors] Directive "@connect" argument "http" of type "connect__ConnectHTTP!" is required, but it was not provided.'
-    );
-    expect(error.extensions.code).toEqual("INVALID_GRAPHQL");
+    expect(result.errors).toBeUndefined();
   });
 });
