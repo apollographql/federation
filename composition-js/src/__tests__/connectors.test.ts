@@ -979,18 +979,18 @@ type Resource
     expect(error.extensions.code).toEqual("INVALID_GRAPHQL");
   });
 
-  it("composes mappingOnly connector with v0.5", () => {
+  it("composes mappingOnly connector with v0.4", () => {
     const subgraphs = [
       {
         name: "with-connectors",
         typeDefs: parse(`
           extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.14"
+            url: "https://specs.apollo.dev/federation/v2.13"
             import: ["@key"]
           )
           @link(
-            url: "https://specs.apollo.dev/connect/v0.5"
+            url: "https://specs.apollo.dev/connect/v0.4"
             import: ["@connect"]
           )
 
@@ -1016,11 +1016,11 @@ type Resource
         typeDefs: parse(`
           extend schema
           @link(
-            url: "https://specs.apollo.dev/federation/v2.14"
+            url: "https://specs.apollo.dev/federation/v2.13"
             import: ["@key"]
           )
           @link(
-            url: "https://specs.apollo.dev/connect/v0.5"
+            url: "https://specs.apollo.dev/connect/v0.4"
             import: ["@connect", "@source"]
           )
           @source(name: "v1", http: {baseURL: "http://127.0.0.1"})
