@@ -13,7 +13,7 @@ it('subgraph names are truncated correctly', () => {
   expect(printedNames).toEqual(
     'subgraphs "some-graphql-service", "another-graphql-service", "third-graphql-service-name", ...',
   );
-})
+});
 
 describe('OrderedMap', () => {
   it('updating value works', () => {
