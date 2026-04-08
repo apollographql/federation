@@ -375,15 +375,18 @@ export function printHumanReadableList(
 
   const { lastIdx } = names.reduce(
     ({ lastIdx, length }, name) => {
-      if (length + name.length > cutoff) {
+      const newLength = length + name.length;
+      if (newLength > cutoff) {
+        // there is no short-circuit logic in reduce
+        // if we already exceeded the cutoff length we need to pass the length that exceeded cutoff
         return {
           lastIdx,
-          length,
+          length: newLength,
         };
       }
       return {
         lastIdx: lastIdx + 1,
-        length: length + name.length,
+        length: newLength,
       };
     },
     { lastIdx: 0, length: 0}

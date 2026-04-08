@@ -1,4 +1,19 @@
 import { OrderedMap } from '../utils';
+import { printSubgraphNames } from '../federation';
+
+it('subgraph names are truncated correctly', () => {
+  const printedNames = printSubgraphNames([
+    'some-graphql-service',
+    'another-graphql-service',
+    'third-graphql-service-name',
+    // total length 112 which is greater than 100 limit
+    'some-very-long-graphql-service-name',
+    'short-service-name',
+  ]);
+  expect(printedNames).toEqual(
+    'subgraphs "some-graphql-service", "another-graphql-service", "third-graphql-service-name", ...',
+  );
+})
 
 describe('OrderedMap', () => {
   it('updating value works', () => {
