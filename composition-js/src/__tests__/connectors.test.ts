@@ -979,7 +979,7 @@ type Resource
     expect(error.extensions.code).toEqual("INVALID_GRAPHQL");
   });
 
-  it("composes mappingOnly connector with v0.4", () => {
+  it("composes connector without http arg", () => {
     const subgraphs = [
       {
         name: "with-connectors",
@@ -995,7 +995,7 @@ type Resource
           )
 
           type Query {
-            me: User @connect(mappingOnly: true, selection: "id: $context.userId")
+            me: User @connect(selection: "id: $context.userId")
           }
 
           type User {
@@ -1009,7 +1009,7 @@ type Resource
     expect(result.errors).toBeUndefined();
   });
 
-  it("composes mappingOnly connector for mutation namespacing", () => {
+  it("composes connector without http for mutation namespacing", () => {
     const subgraphs = [
       {
         name: "with-connectors",
@@ -1031,7 +1031,7 @@ type Resource
           }
 
           type Mutation {
-            user: UserMutations @connect(mappingOnly: true, selection: "$({})")
+            user: UserMutations @connect(selection: "$({})")
           }
 
           type UserMutations {

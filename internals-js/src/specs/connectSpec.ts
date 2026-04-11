@@ -255,7 +255,6 @@ export class ConnectSpecDefinition extends FeatureDefinition {
         selection: JSONSelection!
         entity: Boolean = false
         isSuccess: JSONSelection
-        mappingOnly: Boolean = false # added in v0.5, validation enforced in rust
       ) repeatable on FIELD_DEFINITION
         | OBJECT # added in v0.2, validation enforced in rust
     */
@@ -308,11 +307,6 @@ export class ConnectSpecDefinition extends FeatureDefinition {
             name: 'isSuccess',
             type: (schema, feature) =>
                 lookupFeatureTypeInSchema<ScalarType>(JSON_SELECTION, 'ScalarType', schema, feature)
-          },
-          {
-            name: 'mappingOnly',
-            type: (schema) => schema.booleanType(),
-            defaultValue: false
           }
         ],
         // We "compose" these directives using the  `@join__directive` mechanism,
