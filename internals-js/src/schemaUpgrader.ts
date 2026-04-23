@@ -420,6 +420,13 @@ class SchemaUpgrader {
   }
 
   upgrade(): { upgraded: Subgraph, changes: UpgradeChanges, interfaceKeyTypes: Set<string>, errors?: never } | { errors: GraphQLError[] } {
+    // If there's already errors from constructor, we may not have inserted all
+    // directive definitions we need for upgrading (which may cause the methods
+    // below to throw). To avoid this, we return early in that case.
+    if (this.errors.length > 0) {
+      return { errors: this.errors };
+    }
+
     this.preUpgradeValidations();
 
     this.fixFederationDirectivesArguments();

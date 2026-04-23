@@ -791,23 +791,23 @@ describe('composing custom core directives', () => {
   it('composed directive must be the same original directive in all subgraphs', () => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
-      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])',
-      composeText: '@composeDirective(name: "@foo")',
-      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
-      usage: '@foo(name: "a")',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@baz"])',
+      composeText: '@composeDirective(name: "@baz")',
+      directiveText: 'directive @baz(name: String!) on FIELD_DEFINITION',
+      usage: '@baz(name: "a")',
     });
     const subgraphB = generateSubgraph({
       name: 'subgraphB',
-      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: [{ name: "@bar", as: "@foo" }])',
-      composeText: '@composeDirective(name: "@foo")',
-      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
-      usage: '@foo(name: "a")',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: [{ name: "@bar", as: "@baz" }])',
+      composeText: '@composeDirective(name: "@baz")',
+      directiveText: 'directive @baz(name: String!) on FIELD_DEFINITION',
+      usage: '@baz(name: "a")',
     });
 
     const result = composeServices([subgraphA, subgraphB]);
     expect(hints(result)).toEqual([]);
     expect(errors(result)).toStrictEqual([
-      ['DIRECTIVE_COMPOSITION_ERROR', `Composed directive "@foo" does not refer to the same directive in every subgraph`],
+      ['DIRECTIVE_COMPOSITION_ERROR', `Composed directive "@baz" does not refer to the same directive in every subgraph`],
     ]);
   });
 
@@ -874,8 +874,8 @@ describe('composing custom core directives', () => {
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
       [
-        'DIRECTIVE_COMPOSITION_ERROR',
-        `Directive "${directive}" in subgraph "subgraphA" cannot be composed because it is not a member of a core feature`,
+        'INVALID_LINK_DIRECTIVE_USAGE',
+        `Cannot import "@foo" as "${directive}" from feature "https://specs.apollo.dev/foo" since it can be confused with a namespaced name from previously-linked feature "https://specs.apollo.dev/join". Please rename the import or feature to avoid conflicts via "as".`,
       ]
     ]);
   });

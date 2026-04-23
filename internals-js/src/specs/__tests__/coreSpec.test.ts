@@ -170,7 +170,7 @@ describe('removeAllCoreFeatures', () => {
       directive @foo__directive on FIELD
 
       # Should remove imports (prefixed or not)
-      type bar implements foo__bar {
+      type bar {
         someField: foo!
       }
       interface foo__bar {

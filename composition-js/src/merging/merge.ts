@@ -104,7 +104,7 @@ import {
 } from "@apollo/federation-internals";
 import {ASTNode, DirectiveLocation, GraphQLError} from "graphql";
 import {CompositionHint, HintCodeDefinition, HINTS,} from "../hints";
-import {ComposeDirectiveManager} from '../composeDirectiveManager';
+import {ComposeDirectiveManager, shortestNonPrefixAlias} from '../composeDirectiveManager';
 import {MismatchReporter} from './reporter';
 import {inspect} from "util";
 import {collectCoreDirectivesToCompose, CoreDirectiveInSubgraphs} from "./coreDirectiveCollector";
@@ -688,9 +688,32 @@ class Merger {
   }
 
   merge(): MergeResult {
-
     this.composeDirectiveManager.validate();
-    this.addCoreFeatures();
+    // If compose directive manager detected errors, the same errors will likely
+    // be re-caught by `this.addCoreFeatures()` (but with less helpful error
+    // messages, since they're caught at the schema level). To avoid this
+    // double-listing of errors, we return early in that case.
+    if (this.errors.length > 0) {
+      return { errors: this.errors };
+    }
+    try {
+      this.addCoreFeatures();
+    } catch (e) {
+      const causes = errorCauses(e);
+      if (causes) {
+        causes.forEach((c) => this.errors.push(c));
+      } else {
+        // An unexpected exception, rethrow.
+        throw e;
+      }
+    }
+    // If core feature addition detected errors, the schema's `@link`s may be in
+    // an incomplete state, which could cause later code to throw. To avoid
+    // this, we return early in that case.
+    if (this.errors.length > 0) {
+      return { errors: this.errors };
+    }
+
     // We first create empty objects for all the types and directives definitions that will exists in the
     // supergraph. This allow to be able to reference those from that point on.
     this.addTypesShallow();
@@ -887,6 +910,50 @@ class Merger {
 
   private addCoreFeatures() {
     const features = this.composeDirectiveManager.allComposedCoreFeatures();
+    let prefix: string | null = null;
+    let prefixIndex: number = 0;
+    // `computePrefix()` is a function that helps us handle the case where:
+    // 1. directives of some spec are being composed via @composeDirective,
+    // 2. those directives don't actually have any conflicts, and
+    // 3. the spec itself has conflicts when linked with the spec's name.
+    //
+    // Normally you'd think we could just use the `@link(as:)` rename from the
+    // subgraph, but when we established @composeDirective we never mandated
+    // that the spec aliases/name-in-schemas are the same (just their composed
+    // directive name-in-schemas). The reason we focused on directives was that
+    // downstream consumers were expecting certain directive names, so it makes
+    // sense to force agreement on a single name per directive across subgraphs
+    // As part of that, we explicitly generate imports for all those directives,
+    // so the spec alias is never used for namedspaced names via "__", and
+    // consumers consequently don't deal or care about those aliases much.
+    //
+    // We could make a breaking change to force alignment on a spec alias to use
+    // in the supergraph, but alias agreement likely isn't valuable enough for a
+    // breakage. So instead, when we detect a conflict, we generate a unique
+    // alias. The gist is we use a trie to determine a GraphQL name that isn't a
+    // prefix of any existing aliases (this prefix also doesn't use "_" outside
+    // the first character, so it should be safe for aliases). We then add an
+    // incrementing index to it, to account for core features that have the same
+    // spec name. Finally, we need to add some separator to avoid the case where
+    // the spec's name starts with a number and blends into the index (note spec
+    // names don't have to be valid GraphQL names, just name-in-schemas do). The
+    // separator also can't end in "_", since the spec name may begin with "_".
+    // We've arbitrarily chosen the separator "_composed" here.
+    const computePrefix = (): string => {
+      if (prefix === null) {
+        const allAliasConflicts = [
+          ...(this.merged.coreFeatures?.aliasTrieConflicts() ?? []),
+          ...(features.flatMap(([feature, directives]) =>
+            [
+              feature.url.name,
+              ...directives.map(([asName]) => asName),
+            ]
+          )),
+        ];
+        prefix = shortestNonPrefixAlias(allAliasConflicts);
+      }
+      return `${prefix}${prefixIndex++}_composed`;
+    }
     for (const [feature, directives] of features) {
       const imports = directives.map(([asName, origName]) => {
         if (asName === origName) {
@@ -898,6 +965,32 @@ class Merger {
           };
         }
       });
+      try {
+        // Check to see whether we can just use the feature's name as the alias.
+        this.merged.coreFeatures?.validateAlias(new CoreFeature(
+          feature.url,
+          feature.url.name,
+          feature.directive,
+          directives.map(([asName, origName]) => {
+            if (asName === origName) {
+              return { name: `@${asName}` };
+            } else {
+              return {
+                name: `@${origName}`,
+                as: `@${asName}`,
+              };
+            }
+          })
+        ));
+      } catch (_) {
+        // If not, we'll have to prefix it.
+        this.merged.schemaDefinition.applyDirective('link', {
+          url: feature.url.toString(),
+          as: computePrefix() + feature.url.name,
+          import: imports,
+        });
+        continue;
+      }
       this.merged.schemaDefinition.applyDirective('link', {
         url: feature.url.toString(),
         import: imports,
@@ -3449,7 +3542,11 @@ class Merger {
         // the fully qualified directive name in the subgraph schema (re-assigned below).
         let directiveNameForJoinDirective = directive.name;
 
-        if (sourceFeature && sourceFeature.feature.url.identity == linkIdentity) {
+        if (
+          sourceFeature &&
+          sourceFeature.nameInFeature !== null &&
+          sourceFeature.feature.url.identity == linkIdentity
+        ) {
           const { url } = directive.arguments();
           const parsedUrl = FeatureUrl.maybeParse(url);
           if (typeof url === 'string' && parsedUrl) {
@@ -3475,7 +3572,7 @@ class Merger {
             && this.directivesUsingJoinDirective.has(directive.name)
           ) {
             shouldIncludeAsJoinDirective = true;
-            if (sourceFeature) {
+            if (sourceFeature && sourceFeature.nameInFeature !== null) {
               // Compute the fully qualified directive name in the subgraph schema without using
               // `import`, so it can be referenced in the extracted subgraph schema via
               // `@join__directive`.

@@ -286,8 +286,13 @@ export class ComposeDirectiveManager {
           if (featureDetails) {
             const identity = featureDetails.feature.url.identity;
 
-            // make sure that core feature is not blacklisted
-            if (DISALLOWED_IDENTITIES.includes(identity)) {
+            if (featureDetails.nameInFeature === null) {
+              this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
+                `Directive "@${name}" in subgraph "${sg.name}" cannot be composed because it is imported to a different name`,
+                { nodes: composeInstance.sourceAST },
+              ));
+            } else if (DISALLOWED_IDENTITIES.includes(identity)) {
+              // make sure that core feature is not blacklisted
               this.forFederationDirective(sg, composeInstance, directive);
             } else if (tagNamesInSubgraphs.includes(name)) {
               const subgraphs: string[] = [];
@@ -537,3 +542,76 @@ export class ComposeDirectiveManager {
       ]));
   }
 }
+
+const ALIAS_START = [
+  '_',
+  'abcdefghijklmnopqrstuvwxyz',
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+].join('');
+
+const ALIAS_CONTINUE = [
+  'abcdefghijklmnopqrstuvwxyz',
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  '0123456789',
+].join('');
+
+type TrieNode = {
+  children: Map<string, TrieNode>;
+  parent: TrieNode | null;
+  char: string;
+};
+
+/**
+ * Return the shortest GraphQL name that isn't a prefix of any of the given
+ * strings, with the additional restriction that the name can't use "_" after
+ * the first character.
+ *
+ * This restriction means the name is usable as the prefix of an alias (not
+ * to be confused with namespaced names, i.e. using an alias as a prefix). We
+ * use this to avoid alias collisions. Note that ties are broken using the
+ * order of the characters above (so commonly, this function may just return
+ * "_").
+ */
+export function shortestNonPrefixAlias(strings: string[]): string {
+  const root: TrieNode = { children: new Map(), parent: null, char: '' };
+
+  // Populate the trie.
+  for (const string of strings) {
+    let node = root;
+    for (const char of string) {
+      let child = node.children.get(char);
+      if (!child) {
+        child = { children: new Map(), parent: node, char };
+        node.children.set(char, child);
+      }
+      node = child;
+    }
+  }
+
+  // Note that we never really remove elements from this queue, we just advance
+  // the index pointing to the head of the queue. This is fine since its size
+  // is bounded above by the number of nodes in trie.
+  const queue: TrieNode[] = [root];
+  let head = 0;
+  while (head < queue.length) {
+    const possibleChars = head === 0
+      ? ALIAS_START
+      : ALIAS_CONTINUE;
+    const node = queue[head++];
+    for (const char of possibleChars) {
+      const child = node.children.get(char);
+      if (child) {
+        queue.push(child);
+      } else {
+        const chars = [char];
+        for (
+          let cur: TrieNode | null = node; cur?.parent; cur = cur.parent) {
+          chars.push(cur.char);
+        }
+        return chars.reverse().join('');
+      }
+    }
+  }
+
+  assert(false, `Unexpectedly exhausted trie without finding non-prefix`);
+};
