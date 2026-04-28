@@ -878,7 +878,7 @@ class Merger {
         // leading to that type. But the error here is a bit more "direct"/user friendly than what post-merging
         // validation would return, so we make this a hard error, not just a warning.
         this.errors.push(ERRORS.INTERFACE_OBJECT_USAGE_ERROR.err(
-          `Type "${itfObjectType}" is declared with @interfaceObject in all the subgraphs in which is is defined (it is defined in ${printSubgraphNames(subgraphsWithType.map((s) => s.name))} but should be defined as an interface in at least one subgraph)`,
+          `Type "${itfObjectType}" is declared with @interfaceObject in all the subgraphs in which it is defined (it is defined in ${printSubgraphNames(subgraphsWithType.map((s) => s.name))} but should be defined as an interface in at least one subgraph)`,
           { nodes: sourceASTs(...subgraphsWithType.map((s) => s.schema.type(itfObjectType))) },
         ));
       }
