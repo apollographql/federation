@@ -3787,7 +3787,7 @@ describe('composition', () => {
       expect(result.errors).toBeDefined();
       expect(errors(result)).toStrictEqual([[
         'INTERFACE_OBJECT_USAGE_ERROR',
-        'Type "I" is declared with @interfaceObject in all the subgraphs in which is is defined (it is defined in subgraphs "subgraphA" and "subgraphB" but should be defined as an interface in at least one subgraph)'
+        'Type "I" is declared with @interfaceObject in all the subgraphs in which it is defined (it is defined in subgraphs "subgraphA" and "subgraphB" but should be defined as an interface in at least one subgraph)'
       ]]);
     });
 
