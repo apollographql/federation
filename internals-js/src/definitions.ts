@@ -1020,6 +1020,11 @@ export class CoreFeature {
   }
 }
 
+export type ImportConflictsByIdentity = Map<
+  string,
+  { self: Set<string>, other: Set<string> }
+>;
+
 export class CoreFeatures {
   readonly coreDefinition: CoreSpecDefinition;
   /**
@@ -1094,7 +1099,7 @@ export class CoreFeatures {
           ? importInSchema.slice(1)
           : importInSchema;
         this.byImportName.delete(importInSchema);
-        const split = this.splitPrefixedName(nameInSchema);
+        const split = CoreFeatures.splitPrefixedName(nameInSchema);
         if (!split) {
           continue;
         }
@@ -1142,7 +1147,91 @@ export class CoreFeatures {
     }
 
     const alias = feature.nameInSchema;
-    this.validateAlias(feature);
+    // Normally we'd always forbid "__" in aliases. However, there are some
+    // older supergraph schemas that link the "tag" and "inaccessible" specs to
+    // the aliases "federation__tag" and "federation__inaccessible". This is
+    // due to bugs in older versions of composition, but is technically fine
+    // since these specs have no types and directives other than the default
+    // directive, so they never prefix anything with "__". So we make a very
+    // specific exception here for that case. We may remove this exception in
+    // the future, once support has been dropped for those bugged composition
+    // versions.
+    if (
+      !(identity === tagIdentity &&
+        alias === 'federation__tag' &&
+        feature.imports.length === 0) &&
+      !(identity === inaccessibleIdentity &&
+        alias === 'federation__inaccessible' &&
+        feature.imports.length === 0)
+    ) {
+      // Don't allow spec name-in-schemas/aliases to have "__" in them, as
+      // namespace splitting splits on the earliest "__" (so a namespaced name
+      // with an alias containing "__" would be erroneously split mid-alias).
+      if (alias.indexOf('__') !== -1) {
+        throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+          `Cannot link feature "${identity}" as "${alias}" since it contains "__". Please rename to a compliant name via "as".`,
+        );
+      }
+    }
+    // Don't allow spec name-in-schemas/aliases to end in "_", as namespace
+    // splitting splits on the earliest "__" (so a namespaced name with an alias
+    // ending with "_" would end up with "___", and be split before the ending
+    // "_" instead of after).
+    if (alias.charAt(alias.length - 1) === '_') {
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Cannot link feature "${identity}" as "${alias}" since it ends in "_". Please rename to a compliant name via "as".`,
+      );
+    }
+    // Don't allow spec name-in-schemas/aliases to not be valid GraphQL names,
+    // since they may be used as prefixes for namespaced schema element names,
+    // and those have to be valid GraphQL names.
+    if (!nameRegexp.test(alias)) {
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Cannot link feature "${identity}" as "${alias}" since it is not a valid GraphQL name. Please rename to a compliant name via "as".`,
+      );
+    }
+    // Don't allow spec name-in-schemas/aliases to conflict with previous
+    // imports using "__" with that alias.
+    const conflicts = this.conflictsByAlias.get(alias);
+    if (conflicts) {
+      const importInSchema = conflicts?.values()?.next()?.value;
+      assert(importInSchema !== undefined, `Unexpectedly empty conflicts set`);
+      const entry = this.byImportName.get(importInSchema);
+      assert(entry, `Unexpectedly cannot find feature for import`);
+      const [conflictFeature, importInSpec] = entry;
+      const conflictIdentity = conflictFeature.url.identity;
+      this.checkTagInaccessibleConflict(conflictIdentity, identity);
+      const importInErrorMessage = importInSchema !== importInSpec
+        ? `"${importInSpec}" as "${importInSchema}"`
+        : `"${importInSpec}"`;
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Cannot import ${importInErrorMessage} from feature "${conflictIdentity}" since it can be confused with a namespaced name from another linked feature "${identity}". Please rename the import or feature to avoid conflicts via "as".`,
+      );
+    }
+    // Don't allow spec name-in-schemas/aliases to have default directive names
+    // that conflict with previous imports.
+    const importInSchema = "@" + alias;
+    const entry = this.byImportName.get(importInSchema);
+    if (entry) {
+      const [conflictFeature, importInSpec] = entry;
+      const conflictIdentity = conflictFeature.url.identity;
+      this.checkTagInaccessibleConflict(conflictIdentity, identity);
+      const importInErrorMessage = importInSchema !== importInSpec
+        ? `"${importInSpec}" as "${importInSchema}"`
+        : `"${importInSpec}"`;
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Cannot import ${importInErrorMessage} from feature "${conflictIdentity}" since it can be confused with a namespaced name from another linked feature "${identity}". Please rename the import or feature to avoid conflicts via "as".`,
+      );
+    }
+    // The alias can't be already mapped to another @link/CoreFeature.
+    const existingFeature = this.byAlias.get(alias);
+    if (existingFeature !== undefined) {
+      const existingIdentity = existingFeature.url.identity;
+      this.checkTagInaccessibleConflict(existingIdentity, identity);
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Cannot link feature ${identity} as "${alias}" since another feature "${existingIdentity}" already uses that alias. Please rename the feature to avoid conflicts via "as".`,
+      );
+    }
 
     const importsMap: Map<string, string> = new Map();
     for (const { name: importInSpec, as } of feature.imports) {
@@ -1160,7 +1249,7 @@ export class CoreFeatures {
 
       // Only allow mapping to a name with "__" if it's a no-op import or if
       // it uses a non-existent spec alias.
-      const split = this.splitPrefixedName(nameInSchema);
+      const split = CoreFeatures.splitPrefixedName(nameInSchema);
       if (split) {
         const [splitAlias, splitNameInSpec] = split;
         if (splitAlias === alias) {
@@ -1178,7 +1267,7 @@ export class CoreFeatures {
             const conflictIdentity = conflictFeature.url.identity;
             this.checkTagInaccessibleConflict(conflictIdentity, identity);
             throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
-              `Cannot import ${importInErrorMessage} from feature "${identity}" since it can be confused with a namespaced name from previously-linked feature "${conflictIdentity}". Please rename the import or feature to avoid conflicts via "as".`,
+              `Cannot import ${importInErrorMessage} from feature "${identity}" since it can be confused with a namespaced name from another linked feature "${conflictIdentity}". Please rename the import or feature to avoid conflicts via "as".`,
             );
           } else {
             // As mentioned in the docs for `this.conflictsByAlias`, we have to
@@ -1203,7 +1292,7 @@ export class CoreFeatures {
             const conflictIdentity = conflictFeature.url.identity;
             this.checkTagInaccessibleConflict(conflictIdentity, identity);
             throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
-              `Cannot import ${importInErrorMessage} from feature "${identity}" since it can be confused with a namespaced name from previously-linked feature "${conflictIdentity}". Please rename the import or feature to avoid conflicts via "as".`,
+              `Cannot import ${importInErrorMessage} from feature "${identity}" since it can be confused with a namespaced name from another linked feature "${conflictIdentity}". Please rename the import or feature to avoid conflicts via "as".`,
             );
           }
         }
@@ -1244,105 +1333,202 @@ export class CoreFeatures {
   }
 
   /**
-   * Checks whether the alias has a valid name and has no conflicts with other
-   * features and imports.
+   * Returns whether the spec alias would pass the checks in `validate()`,
+   * except import conflicts are taken from the given map, which should be
+   * computed via `computeAliasConflicts()`.
    */
-  validateAlias(feature: CoreFeature) {
-    const identity = feature.url.identity;
-    const alias = feature.nameInSchema;
-    // Normally we'd always forbid "__" in aliases. However, there are some
-    // older supergraph schemas that link the "tag" and "inaccessible" specs to
-    // the aliases "federation__tag" and "federation__inaccessible". This is
-    // due to bugs in older versions of composition, but is technically fine
-    // since these specs have no types and directives other than the default
-    // directive, so they never prefix anything with "__". So we make a very
-    // specific exception here for that case. We may remove this exception in
-    // the future, once support has been dropped for those bugged composition
-    // versions.
-    if (
-      !(identity === tagIdentity &&
-        alias === 'federation__tag' &&
-        feature.imports.length === 0) &&
-      !(identity === inaccessibleIdentity &&
-        alias === 'federation__inaccessible' &&
-        feature.imports.length === 0)
-    ) {
-      // Don't allow spec name-in-schemas/aliases to have "__" in them.
-      if (alias.indexOf('__') !== -1) {
-        throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
-          `Cannot link feature "${identity}" as "${alias}" since it contains "__". Please rename to a compliant name via "as".`,
-        );
-      }
+  isAliasValid(
+    alias: string,
+    identity: string,
+    importConflictsByIdentity: ImportConflictsByIdentity,
+  ) {
+    // Don't allow aliases to have "__" in them. Note that this function is only
+    // used in merging, so we don't need the exception for "federation__tag" and
+    // "federation__inaccessible" here.
+    if (alias.indexOf('__') !== -1) {
+      return false;
     }
-    // Don't allow spec name-in-schemas/aliases to start with a number.
-    if (/^\d/.test(alias)) {
-      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
-        `Cannot link feature "${identity}" as "${alias}" since it starts with a number. Please rename to a compliant name via "as".`,
-      );
-    }
-    // Don't allow spec name-in-schemas/aliases to end in "_".
+    // Don't allow aliases to end in "_".
     if (alias.charAt(alias.length - 1) === '_') {
-      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
-        `Cannot link feature "${identity}" as "${alias}" since it ends in "_". Please rename to a compliant name via "as".`,
-      );
+      return false;
     }
-    // Don't allow spec name-in-schemas/aliases to conflict with previous
-    // imports using "__" with that alias.
-    const conflicts = this.conflictsByAlias.get(alias);
-    if (conflicts) {
-      const importInSchema = conflicts?.values()?.next()?.value;
-      assert(importInSchema !== undefined, `Unexpectedly empty conflicts set`);
-      const entry = this.byImportName.get(importInSchema);
-      assert(entry, `Unexpectedly cannot find feature for import`);
-      const [conflictFeature, importInSpec] = entry;
-      const conflictIdentity = conflictFeature.url.identity;
-      this.checkTagInaccessibleConflict(conflictIdentity, identity);
-      const importInErrorMessage = importInSchema !== importInSpec
-        ? `"${importInSpec}" as "${importInSchema}"`
-        : `"${importInSpec}"`;
-      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
-        `Cannot import ${importInErrorMessage} from feature "${conflictIdentity}" since it can be confused with a namespaced name from previously-linked feature "${identity}". Please rename the import or feature to avoid conflicts via "as".`,
-      );
+    // Don't allow aliases to not be valid GraphQL names.
+    if (!nameRegexp.test(alias)) {
+      return false;
     }
-    // Don't allow spec name-in-schemas/aliases to have default directive names
-    // that conflict with previous imports.
-    const importInSchema = "@" + alias;
-    const entry = this.byImportName.get(importInSchema);
-    if (entry) {
-      const [conflictFeature, importInSpec] = entry;
-      const conflictIdentity = conflictFeature.url.identity;
-      this.checkTagInaccessibleConflict(conflictIdentity, identity);
-      const importInErrorMessage = importInSchema !== importInSpec
-        ? `"${importInSpec}" as "${importInSchema}"`
-        : `"${importInSpec}"`;
-      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
-        `Cannot import ${importInErrorMessage} from feature "${conflictIdentity}" since it can be confused with a namespaced name from previously-linked feature "${identity}". Please rename the import or feature to avoid conflicts via "as".`,
-      );
+    for (const [otherIdentity, importConflicts] of importConflictsByIdentity.entries()) {
+      if (identity === otherIdentity) {
+        // For import names namespaced using this alias, only allow them if
+        // their no-op imports.
+        if (importConflicts.self.has(alias)) {
+          return false;
+        }
+      } else {
+        // Don't allow imports of other specs that are namespaced by this alias.
+        if (importConflicts.other.has(alias)) {
+          return false;
+        }
+      }
     }
     // The alias can't be already mapped to another @link/CoreFeature.
-    const existingFeature = this.byAlias.get(alias);
-    if (existingFeature !== undefined) {
-      const existingIdentity = existingFeature.url.identity;
-      this.checkTagInaccessibleConflict(existingIdentity, identity);
-      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
-        `Cannot link feature ${identity} as "${alias}" since another feature "${existingIdentity}" already uses that alias. Please rename the feature to avoid conflicts via "as".`,
-      );
+    if (this.byAlias.has(alias)) {
+      return false;
     }
+    return true;
   }
 
-  /**
-   * Return all strings that should be inserted into a trie to generate a
-   * prefix that would avoid conflicts with aliases.
+  /** 
+   * This is a method that helps us handle the case where:
+   * 1. directives of some spec are being composed into the supergraph (due to
+   *    them being Apollo specs or via `@composeDirective`),
+   * 2. those directives don't actually have any conflicts, and
+   * 3. the spec itself has alias conflicts when linked with the spec's name.
+   *
+   * For the `@composeDirective` case at least, you might think we could just
+   * use the `@link(as:)` rename from the subgraph, but when we established
+   * `@composeDirective` we never mandated that the spec aliases be the same
+   * (just their composed directive name-in-schemas). The reason we focused on
+   * directives was that downstream consumers were expecting certain directive
+   * names, so it makes sense to force agreement on a single name per directive
+   * across subgraphs. As part of that, we explicitly generate imports for all
+   * those directives, so the spec alias is never used for namespaced names via
+   * "__", and consumers consequently don't deal or care about those aliases
+   * much. We could make a breaking change to force alignment on a spec alias to
+   * use in the supergraph, but alias agreement likely isn't valuable enough for
+   * a breakage. More importantly, it also doesn't really solve the case for
+   * conflicts linking Apollo specs.
+   *
+   * So instead, when we detect a conflict, we generate a unique alias. This
+   * method does two things:
+   * 1. Outputs data that can be used to efficiently detect import conflicts.
+   * 2. Outputs a function that can be used to generate unique aliases.
+   *
+   * For unique alias computation, we compute a non-conflicting prefix by using
+   * a trie to determine a GraphQL name that isn't a prefix of any existing
+   * names (this prefix also doesn't use "_" outside the first character, so it
+   * should be safe for aliases). We then add an incrementing index to it, to
+   * account for core features that have the same spec name. Finally, we add
+   * the spec name but without any non-letter characters.
    */
-  aliasTrieConflicts(): string[] {
-    const conflicts = [];
-    conflicts.push(...this.byAlias.keys());
-    for (const importName of this.byImportName.keys()) {
-      if (importName.charAt(0) === '@') {
-        conflicts.push(importName.slice(1));
+  static computeAliasConflicts(
+    specAliases: {
+      url: FeatureUrl,
+      alias: string,
+      imports: CoreImport[],
+    }[],
+    elementNames: Set<string>,
+  ): {
+    importConflictsByIdentity: ImportConflictsByIdentity,
+    computeUniqueAlias: (specName: string) => string,
+  } {
+    // Generate `importConflictsByIdentity` and track names for the trie.
+    const trieNames = elementNames;
+    const importConflictsByIdentity: ImportConflictsByIdentity = new Map();
+    for (const { url, alias, imports } of specAliases) {
+      trieNames.add(alias);
+      const self = new Set<string>();
+      const other = new Set<string>();
+      for (const { name: importInSpec, as } of imports) {
+        const importInSchema = as ?? importInSpec;
+        const isDirective = importInSpec.charAt(0) === "@";
+        const nameInSpec = isDirective
+          ? importInSpec.slice(1)
+          : importInSpec;
+        const nameInSchema = isDirective
+          ? importInSchema.slice(1)
+          : importInSchema;
+        trieNames.add(nameInSchema);
+        const split = CoreFeatures.splitPrefixedName(nameInSchema);
+        if (split) {
+          const [splitAlias, splitNameInSpec] = split;
+          if (splitNameInSpec !== nameInSpec) {
+            // Alias being `splitAlias` would generate a conflict due to the
+            // import not being a no-op import for a namespaced name.
+            self.add(splitAlias);
+          }
+          // Alias being `splitAlias` would generate a conflict due to this
+          // import from some other identity being namespaced to it.
+          other.add(splitAlias);
+        }
+        if (isDirective) {
+          // Alias being 'nameInSchema' would generate a conflict due to the
+          // import not being a no-op import for the default directive.
+          if (nameInSpec !== url.name) {
+            self.add(nameInSchema);
+          }
+          // Alias being `nameInSchema` would generate a conflict due to this
+          // import from some other identity being the default directive for it.
+          other.add(nameInSchema)
+        }
       }
+      importConflictsByIdentity.set(url.identity, { self, other });
     }
-    return conflicts;
+    // Create the closure for computing unique aliases via a trie.
+    let prefix: string | null = null;
+    let index: number = 0;
+    let computeUniqueAlias = (specName: string): string => {
+      if (prefix === null) {
+        const aliasStart = [
+          '_',
+          'abcdefghijklmnopqrstuvwxyz',
+          'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+        ].join('');
+        const aliasContinue = [
+          'abcdefghijklmnopqrstuvwxyz',
+          'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+          '0123456789',
+        ].join('');
+        type TrieNode = {
+          children: Map<string, TrieNode>;
+          parent: TrieNode | null;
+          char: string;
+        };
+        const root: TrieNode = { children: new Map(), parent: null, char: '' };
+
+        // Populate the trie.
+        for (const name of trieNames) {
+          let node = root;
+          for (const char of name) {
+            let child = node.children.get(char);
+            if (!child) {
+              child = { children: new Map(), parent: node, char };
+              node.children.set(char, child);
+            }
+            node = child;
+          }
+        }
+
+        // Note that we never really remove elements from this queue, we just
+        // advance the index pointing to the head of the queue. This is fine
+        // since its size is bounded above by the number of nodes in trie.
+        const queue: TrieNode[] = [root];
+        let head = 0;
+        while (prefix === null) {
+          const possibleChars = head === 0 ? aliasStart : aliasContinue;
+          const node = queue[head++];
+          for (const char of possibleChars) {
+            const child = node.children.get(char);
+            if (child) {
+              queue.push(child);
+            } else {
+              const chars = [char];
+              for (let cur: TrieNode | null = node; cur?.parent; cur = cur.parent) {
+                chars.push(cur.char);
+              }
+              prefix = chars.reverse().join('');
+              break;
+            }
+          }
+        }
+      }
+      const suffix = specName.replace(/[^a-zA-Z]/g, '');
+      return `${prefix}${index++}${suffix}`;
+    }
+
+    return {
+      importConflictsByIdentity,
+      computeUniqueAlias,
+    };
   }
 
   /**
@@ -1456,7 +1642,7 @@ export class CoreFeatures {
         continue;
       }
       const isUsed = element instanceof DirectiveDefinition
-        ? element.appliedDirectives.length !== 0
+        ? element.applications().size !== 0
         : this.getReferencingRootElements(element)
           .some((referencer) => {
             return referencer.kind === 'SchemaDefinition'
@@ -1577,7 +1763,7 @@ export class CoreFeatures {
     name: string,
   ): [CoreFeature, string] | undefined {
     // Handle the alias-prefixed case first.
-    const split = this.splitPrefixedName(name);
+    const split = CoreFeatures.splitPrefixedName(name);
     if (split) {
       const [alias, nameInSpec] = split;
       const feature = this.byAlias.get(alias);
@@ -1604,7 +1790,7 @@ export class CoreFeatures {
   /**
    * Splits alias-prefixed names into their spec alias and their name-in-spec.
    */
-  private splitPrefixedName(name: string): [string, string] | undefined {
+  private static splitPrefixedName(name: string): [string, string] | undefined {
     const splitIndex = name.indexOf('__');
     return splitIndex !== -1
       ? [name.slice(0, splitIndex), name.slice(splitIndex + 2)]
@@ -1672,8 +1858,10 @@ export type StreamDirectiveArgs = {
   if?: boolean,
 }
 
+// A valid GraphQL name.
+const nameRegexp = /^[_A-Za-z][_0-9A-Za-z]*$/;
 
-// A coordinate is up to 3 "graphQL name" ([_A-Za-z][_0-9A-Za-z]*).
+// A coordinate is up to 3 GraphQL names ([_A-Za-z][_0-9A-Za-z]*).
 const coordinateRegexp = /^@?[_A-Za-z][_0-9A-Za-z]*(\.[_A-Za-z][_0-9A-Za-z]*)?(\([_A-Za-z][_0-9A-Za-z]*:\))?$/;
 
 export type SchemaConfig = {

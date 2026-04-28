@@ -62,7 +62,7 @@ describe('core v0.1', () => {
         @core(feature: "https://specs.apollo.dev/core/v0.1")
         @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
         @core(
-          feature: "https://specs.apollo.dev/something-unsupported/v0.1"
+          feature: "https://specs.apollo.dev/something_unsupported/v0.1"
           for: SECURITY
         ) {
         query: Query
@@ -112,7 +112,7 @@ describe('core v0.1', () => {
     expect(() => gateway.load()).rejects.toMatchInlineSnapshot(`
       Array [
         "the \`for:\` argument is unsupported by version v0.1 of the core spec. Please upgrade to at least @core v0.2 (https://specs.apollo.dev/core/v0.2).",
-        "feature https://specs.apollo.dev/something-unsupported/v0.1 is for: SECURITY but is unsupported",
+        "feature https://specs.apollo.dev/something_unsupported/v0.1 is for: SECURITY but is unsupported",
       ]
     `);
   });
@@ -194,7 +194,7 @@ describe('core v0.2', () => {
         @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
         @core(feature: "https://specs.apollo.dev/tag/v0.2")
-        @core(feature: "https://specs.apollo.dev/unsupported-feature/v0.1") {
+        @core(feature: "https://specs.apollo.dev/unsupported_feature/v0.1") {
         query: Query
       }
 
@@ -264,7 +264,7 @@ describe('core v0.2', () => {
         @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
         @core(
-          feature: "https://specs.apollo.dev/unsupported-feature/v0.1"
+          feature: "https://specs.apollo.dev/unsupported_feature/v0.1"
           for: EXECUTION
         ) {
         query: Query
@@ -329,7 +329,7 @@ describe('core v0.2', () => {
 
     expect(() => gateway.load()).rejects.toMatchInlineSnapshot(`
       Array [
-        "feature https://specs.apollo.dev/unsupported-feature/v0.1 is for: EXECUTION but is unsupported",
+        "feature https://specs.apollo.dev/unsupported_feature/v0.1 is for: EXECUTION but is unsupported",
       ]
     `);
   });
@@ -340,7 +340,7 @@ describe('core v0.2', () => {
         @core(feature: "https://specs.apollo.dev/core/v0.2")
         @core(feature: "https://specs.apollo.dev/join/v0.1", for: EXECUTION)
         @core(
-          feature: "https://specs.apollo.dev/unsupported-feature/v0.1"
+          feature: "https://specs.apollo.dev/unsupported_feature/v0.1"
           for: SECURITY
         ) {
         query: Query
@@ -405,7 +405,7 @@ describe('core v0.2', () => {
 
     expect(() => gateway.load()).rejects.toMatchInlineSnapshot(`
       Array [
-        "feature https://specs.apollo.dev/unsupported-feature/v0.1 is for: SECURITY but is unsupported",
+        "feature https://specs.apollo.dev/unsupported_feature/v0.1 is for: SECURITY but is unsupported",
       ]
     `);
   });

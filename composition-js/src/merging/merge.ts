@@ -101,10 +101,12 @@ import {
   FederationDirectiveName,
   dnfConjunction,
   convertEmptyToTrue,
+  ImportConflictsByIdentity,
+  CoreFeatures,
 } from "@apollo/federation-internals";
 import {ASTNode, DirectiveLocation, GraphQLError} from "graphql";
 import {CompositionHint, HintCodeDefinition, HINTS,} from "../hints";
-import {ComposeDirectiveManager, shortestNonPrefixAlias} from '../composeDirectiveManager';
+import {ComposeDirectiveManager} from '../composeDirectiveManager';
 import {MismatchReporter} from './reporter';
 import {inspect} from "util";
 import {collectCoreDirectivesToCompose, CoreDirectiveInSubgraphs} from "./coreDirectiveCollector";
@@ -367,6 +369,18 @@ interface MergedDirectiveInfo {
   staticArgumentTransform?: StaticArgumentsTransform;
 }
 
+type SupergraphInfoByIdentity = Map<
+  string,
+  {
+    specInSupergraph: FeatureDefinition;
+    directives: {
+      nameInFeature: string;
+      nameInSupergraph: string;
+      compositionSpec: DirectiveCompositionSpecification;
+    }[];
+  }
+>;
+
 class Merger {
   readonly names: readonly string[];
   readonly subgraphsSchema: readonly Schema[];
@@ -396,6 +410,8 @@ class Merger {
   private fieldsWithRequires: Set<string>;
   private accessControlDirectivesInSupergraph: { name: string, nameInSupergraph: string }[] = [];
   private __accessControlAdditionalSources?: Map<string, Array<ObjectType | FieldDefinition<ObjectType>>>;
+  private importConflictsByIdentity: ImportConflictsByIdentity;
+  private computeUniqueAlias: (specName: string) => string;
 
   constructor(readonly subgraphs: Subgraphs, readonly options: CompositionOptions) {
     this.latestFedVersionUsed = this.getLatestFederationVersionUsed();
@@ -421,7 +437,15 @@ class Merger {
       return subgraph.schema;
     });
 
-    this.subgraphNamesToJoinSpecName = this.prepareSupergraph();
+    const {
+      subgraphNamesToJoinSpecName,
+      importConflictsByIdentity,
+      computeUniqueAlias,
+    } = this.prepareSupergraph();
+
+    this.subgraphNamesToJoinSpecName = subgraphNamesToJoinSpecName;
+    this.importConflictsByIdentity = importConflictsByIdentity;
+    this.computeUniqueAlias = computeUniqueAlias;
     this.appliedDirectivesToMerge = [];
 
     // Represent any applications of directives imported from these spec URLs
@@ -480,7 +504,11 @@ class Merger {
   }
 
 
-  private prepareSupergraph(): Map<string, string> {
+  private prepareSupergraph(): {
+    subgraphNamesToJoinSpecName: Map<string, string>,
+    importConflictsByIdentity: ImportConflictsByIdentity,
+    computeUniqueAlias: (specName: string) => string,
+  } {
     // TODO: we will soon need to look for name conflicts for @core and @join with potentially user-defined directives and
     // pass a `as` to the methods below if necessary. However, as we currently don't propagate any subgraph directives to
     // the supergraph outside of a few well-known ones, we don't bother yet.
@@ -488,28 +516,87 @@ class Merger {
     const errors = this.linkSpec.applyFeatureToSchema(this.merged, this.joinSpec, undefined, this.joinSpec.defaultCorePurpose);
     assert(errors.length === 0, "We shouldn't have errors adding the join spec to the (still empty) supergraph schema");
 
+    // Validate @links for Apollo specs that compose.
     const directivesMergeInfo = collectCoreDirectivesToCompose(this.subgraphs);
-    this.validateAndMaybeAddSpecs(directivesMergeInfo);
-    return this.joinSpec.populateGraphEnum(this.merged, this.subgraphs);
+    const supergraphInfoByIdentity = this.validateCoreDirectiveInfo(directivesMergeInfo);
+
+    // Validate @links for user specs that compose via @composeDirective.
+    this.composeDirectiveManager.validate();
+
+    // Gather spec aliases and element names.
+    const specAliases = [];
+    for (const feature of this.merged.coreFeatures?.allFeatures() ?? []) {
+      specAliases.push({
+        url: feature.url,
+        alias: feature.url.name,
+        imports: feature.imports,
+      })
+    }
+    for (const { specInSupergraph, directives } of supergraphInfoByIdentity.values()) {
+      specAliases.push({
+        url: specInSupergraph.url,
+        alias: specInSupergraph.url.name,
+        imports: directives.map(({ nameInFeature, nameInSupergraph }) => ({
+          name: "@" + nameInFeature,
+          as: "@" + nameInSupergraph,
+        })),
+      })
+    }
+    for (const [feature, directives] of this.composeDirectiveManager.allComposedCoreFeatures()) {
+      specAliases.push({
+        url: feature.url,
+        alias: feature.url.name,
+        imports: directives.map(([asName, origName]) => ({
+          name: "@" + origName,
+          as: "@" + asName,
+        })),
+      })
+    }
+    const elementNames = new Set([
+      ...this.merged.allTypes().map((t) => t.name),
+      ...this.merged.allDirectives().map((t) => t.name),
+      ...this.subgraphs.values().flatMap((subgraph) => ([
+        ...subgraph.schema.allTypes().map((t) => t.name),
+        ...subgraph.schema.allDirectives().map((t) => t.name),
+      ])),
+    ]);
+    for (const spec of FEDERATION_OPERATION_TYPES) {
+      elementNames.delete(spec.name);
+    }
+    for (const name of elementNames) {
+      if (name.startsWith("__")) {
+        elementNames.delete(name);
+      }
+    }
+
+    // Compute import conflicts and function for computing unique aliases.
+    const {
+      importConflictsByIdentity,
+      computeUniqueAlias,
+    } = CoreFeatures.computeAliasConflicts(specAliases, elementNames);
+
+    this.maybeAddSpecs(
+      supergraphInfoByIdentity,
+      importConflictsByIdentity,
+      computeUniqueAlias,
+    );
+    const subgraphNamesToJoinSpecName = this.joinSpec.populateGraphEnum(this.merged, this.subgraphs);
+    return {
+      subgraphNamesToJoinSpecName,
+      importConflictsByIdentity,
+      computeUniqueAlias,
+    };
   }
 
-  private validateAndMaybeAddSpecs(directivesMergeInfo: CoreDirectiveInSubgraphs[]) {
-    const supergraphInfoByIdentity = new Map<
-      string,
-      {
-        specInSupergraph: FeatureDefinition;
-        directives: {
-          nameInFeature: string;
-          nameInSupergraph: string;
-          compositionSpec: DirectiveCompositionSpecification;
-        }[];
-      }
-    >;
+  private validateCoreDirectiveInfo(
+    directivesMergeInfo: CoreDirectiveInSubgraphs[],
+  ): SupergraphInfoByIdentity {
+    const supergraphInfoByIdentity: SupergraphInfoByIdentity = new Map();
 
     for (const {url, name, definitionsPerSubgraph, compositionSpec} of directivesMergeInfo) {
       // No composition specification means that it shouldn't be composed.
       if (!compositionSpec) {
-        return;
+        continue;
       }
 
       let nameInSupergraph: string | undefined;
@@ -529,7 +616,7 @@ class Merger {
             sourcesFromArray(this.subgraphs.values().map((s) => definitionsPerSubgraph.get(s.name))),
             (def) => `"@${def.name}"`,
           );
-          return;
+          return supergraphInfoByIdentity;
         }
       }
 
@@ -561,7 +648,23 @@ class Merger {
       }
     }
 
+    return supergraphInfoByIdentity;
+  }
+
+  private maybeAddSpecs(
+    supergraphInfoByIdentity: SupergraphInfoByIdentity,
+    importConflictsByIdentity: ImportConflictsByIdentity,
+    computeUniqueAlias: (specName: string) => string,
+  ) {
     for (const { specInSupergraph, directives } of supergraphInfoByIdentity.values()) {
+      const specAlias = this.merged.coreFeatures
+        ?.isAliasValid(
+          specInSupergraph.url.name,
+          specInSupergraph.identity,
+          importConflictsByIdentity,
+        )
+        ? specInSupergraph.url.name
+        : computeUniqueAlias(specInSupergraph.url.name);
       const imports: CoreImport[] = [];
       for (const { nameInFeature, nameInSupergraph, compositionSpec } of directives) {
         // If this directive is using the @join__directive directive, we don't import it in the
@@ -572,7 +675,7 @@ class Merger {
 
         const defaultNameInSupergraph = CoreFeature.directiveNameInSchemaForCoreArguments(
           specInSupergraph.url,
-          specInSupergraph.url.name,
+          specAlias,
           [],
           nameInFeature,
         );
@@ -583,16 +686,28 @@ class Merger {
           );
         }
       }
-      const errors = this.linkSpec.applyFeatureToSchema(
-        this.merged,
-        specInSupergraph,
-        undefined,
-        specInSupergraph.defaultCorePurpose,
-        imports,
-      );
+      let elementAdditionErrors = [];
+      try {
+        elementAdditionErrors = this.linkSpec.applyFeatureToSchema(
+          this.merged,
+          specInSupergraph,
+          specAlias === specInSupergraph.url.name ? undefined : specAlias,
+          specInSupergraph.defaultCorePurpose,
+          imports,
+        );
+      } catch (e) {
+        const causes = errorCauses(e);
+        if (causes) {
+          causes.forEach((c) => this.errors.push(c));
+          continue;
+        } else {
+          // An unexpected exception, rethrow.
+          throw e;
+        }
+      }
       assert(
-        errors.length === 0,
-        "We shouldn't have errors adding the join spec to the (still empty) supergraph schema"
+        elementAdditionErrors.length === 0,
+        "We shouldn't have errors adding spec elements to the (still empty) supergraph schema"
       );
       const feature = this.merged.coreFeatures?.getByIdentity(specInSupergraph.url.identity);
       assert(feature, 'Should have found the feature we just added');
@@ -688,25 +803,15 @@ class Merger {
   }
 
   merge(): MergeResult {
-    this.composeDirectiveManager.validate();
-    // If compose directive manager detected errors, the same errors will likely
-    // be re-caught by `this.addCoreFeatures()` (but with less helpful error
-    // messages, since they're caught at the schema level). To avoid this
-    // double-listing of errors, we return early in that case.
+    // If compose directive manager detected errors during the constructor, the
+    // same errors will likely be re-caught by `this.addCoreFeatures()` (but 
+    // with less helpful error messages, since they're caught at the schema 
+    // level). To avoid this double-listing of errors, we return early in that
+    // case.
     if (this.errors.length > 0) {
       return { errors: this.errors };
     }
-    try {
-      this.addCoreFeatures();
-    } catch (e) {
-      const causes = errorCauses(e);
-      if (causes) {
-        causes.forEach((c) => this.errors.push(c));
-      } else {
-        // An unexpected exception, rethrow.
-        throw e;
-      }
-    }
+    this.addCoreFeatures();
     // If core feature addition detected errors, the schema's `@link`s may be in
     // an incomplete state, which could cause later code to throw. To avoid
     // this, we return early in that case.
@@ -910,51 +1015,15 @@ class Merger {
 
   private addCoreFeatures() {
     const features = this.composeDirectiveManager.allComposedCoreFeatures();
-    let prefix: string | null = null;
-    let prefixIndex: number = 0;
-    // `computePrefix()` is a function that helps us handle the case where:
-    // 1. directives of some spec are being composed via @composeDirective,
-    // 2. those directives don't actually have any conflicts, and
-    // 3. the spec itself has conflicts when linked with the spec's name.
-    //
-    // Normally you'd think we could just use the `@link(as:)` rename from the
-    // subgraph, but when we established @composeDirective we never mandated
-    // that the spec aliases/name-in-schemas are the same (just their composed
-    // directive name-in-schemas). The reason we focused on directives was that
-    // downstream consumers were expecting certain directive names, so it makes
-    // sense to force agreement on a single name per directive across subgraphs
-    // As part of that, we explicitly generate imports for all those directives,
-    // so the spec alias is never used for namedspaced names via "__", and
-    // consumers consequently don't deal or care about those aliases much.
-    //
-    // We could make a breaking change to force alignment on a spec alias to use
-    // in the supergraph, but alias agreement likely isn't valuable enough for a
-    // breakage. So instead, when we detect a conflict, we generate a unique
-    // alias. The gist is we use a trie to determine a GraphQL name that isn't a
-    // prefix of any existing aliases (this prefix also doesn't use "_" outside
-    // the first character, so it should be safe for aliases). We then add an
-    // incrementing index to it, to account for core features that have the same
-    // spec name. Finally, we need to add some separator to avoid the case where
-    // the spec's name starts with a number and blends into the index (note spec
-    // names don't have to be valid GraphQL names, just name-in-schemas do). The
-    // separator also can't end in "_", since the spec name may begin with "_".
-    // We've arbitrarily chosen the separator "_composed" here.
-    const computePrefix = (): string => {
-      if (prefix === null) {
-        const allAliasConflicts = [
-          ...(this.merged.coreFeatures?.aliasTrieConflicts() ?? []),
-          ...(features.flatMap(([feature, directives]) =>
-            [
-              feature.url.name,
-              ...directives.map(([asName]) => asName),
-            ]
-          )),
-        ];
-        prefix = shortestNonPrefixAlias(allAliasConflicts);
-      }
-      return `${prefix}${prefixIndex++}_composed`;
-    }
     for (const [feature, directives] of features) {
+      const specAlias = this.merged.coreFeatures
+        ?.isAliasValid(
+          feature.url.name,
+          feature.url.identity,
+          this.importConflictsByIdentity,
+        )
+        ? feature.url.name
+        : this.computeUniqueAlias(feature.url.name);
       const imports = directives.map(([asName, origName]) => {
         if (asName === origName) {
           return `@${asName}`;
@@ -966,35 +1035,20 @@ class Merger {
         }
       });
       try {
-        // Check to see whether we can just use the feature's name as the alias.
-        this.merged.coreFeatures?.validateAlias(new CoreFeature(
-          feature.url,
-          feature.url.name,
-          feature.directive,
-          directives.map(([asName, origName]) => {
-            if (asName === origName) {
-              return { name: `@${asName}` };
-            } else {
-              return {
-                name: `@${origName}`,
-                as: `@${asName}`,
-              };
-            }
-          })
-        ));
-      } catch (_) {
-        // If not, we'll have to prefix it.
         this.merged.schemaDefinition.applyDirective('link', {
           url: feature.url.toString(),
-          as: computePrefix() + feature.url.name,
+          as: specAlias === feature.url.name ? undefined : specAlias,
           import: imports,
         });
-        continue;
+      } catch (e) {
+        const causes = errorCauses(e);
+        if (causes) {
+          causes.forEach((c) => this.errors.push(c));
+        } else {
+          // An unexpected exception, rethrow.
+          throw e;
+        }
       }
-      this.merged.schemaDefinition.applyDirective('link', {
-        url: feature.url.toString(),
-        import: imports,
-      });
     }
   }
 

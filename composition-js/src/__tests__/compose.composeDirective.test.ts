@@ -79,10 +79,11 @@ const expectDirectiveDefinition = (schema: Schema, name: string, locations: Dire
   expect(directive?.arguments().map(arg => arg.name)).toEqual(args);
 };
 
-const expectCoreFeature = (schema: Schema, identity: string, version: string, imports: { [key: string]: string}[]) => {
+const expectCoreFeature = (schema: Schema, identity: string, version: string, imports: { [key: string]: string}[], nameInSchema?: string) => {
   const feature = schema.coreFeatures?.getByIdentity(identity);
   expect(feature?.url.toString()).toBe(`${identity}/v${version}`);
   expect(feature?.imports).toEqual(imports);
+  expect(feature?.nameInSchema).toEqual(nameInSchema ?? feature?.url?.name);
 };
 
 describe('composing custom core directives', () => {
@@ -875,7 +876,7 @@ describe('composing custom core directives', () => {
     expect(errors(result)).toStrictEqual([
       [
         'INVALID_LINK_DIRECTIVE_USAGE',
-        `Cannot import "@foo" as "${directive}" from feature "https://specs.apollo.dev/foo" since it can be confused with a namespaced name from previously-linked feature "https://specs.apollo.dev/join". Please rename the import or feature to avoid conflicts via "as".`,
+        `Cannot import "@foo" as "${directive}" from feature "https://specs.apollo.dev/foo" since it can be confused with a namespaced name from another linked feature "https://specs.apollo.dev/join". Please rename the import or feature to avoid conflicts via "as".`,
       ]
     ]);
   });
@@ -1004,7 +1005,7 @@ describe('composing custom core directives', () => {
       extend schema
         @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@composeDirective", "@tag"])
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://custom.dev/tag/v1.0", import: [{ name: "@tag", as: "@mytag"}])
+        @link(url: "https://custom.dev/tag/v1.0", as: "mytag", import: [{ name: "@tag", as: "@mytag"}])
         @composeDirective(name: "@mytag")
 
         directive @mytag(name: String!, prop: String!) on FIELD_DEFINITION | OBJECT
@@ -1045,7 +1046,8 @@ describe('composing custom core directives', () => {
     expectDirectiveDefinition(schema, 'mytag', [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT], ['name', 'prop']);
     expectDirectiveOnElement(schema, 'User.a', 'mytag', { name: 'a', prop: 'b' });
     expectDirectiveOnElement(schema, 'User.b', 'tag', { name: 'c' });
-    expectCoreFeature(schema, 'https://custom.dev/tag', '1.0', [{ name: '@tag', as: '@mytag' }]);
+    expectCoreFeature(schema, 'https://custom.dev/tag', '1.0', [{ name: '@tag', as: '@mytag' }], '_0tag');
+    expectCoreFeature(schema, 'https://specs.apollo.dev/tag', '0.3', []);
   });
 
   it('custom tag directive works when federation tag is renamed', () => {
@@ -1099,10 +1101,7 @@ describe('composing custom core directives', () => {
     expectDirectiveOnElement(schema, 'User.b', 'mytag', { name: 'c' });
 
     expectCoreFeature(schema, 'https://custom.dev/tag', '1.0', [{ name: '@tag' }]);
-    const feature = schema.coreFeatures?.getByIdentity('https://specs.apollo.dev/tag');
-    expect(feature?.url.toString()).toBe('https://specs.apollo.dev/tag/v0.3');
-    expect(feature?.imports).toEqual([{ name: '@tag', as: '@mytag' }]);
-    expect(feature?.nameInSchema).toEqual('tag');
+    expectCoreFeature(schema, 'https://specs.apollo.dev/tag', '0.3', [{ name: '@tag', as: '@mytag' }], '_0tag');
     expect(printSchema(schema)).toMatchSnapshot();
   });
 
