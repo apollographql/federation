@@ -32,7 +32,7 @@ import {
   isCoreSpecDirectiveApplication,
   removeAllCoreFeatures,
 } from "./specs/coreSpec";
-import { assert, mapValues, MapWithCachedArrays, removeArrayElement } from "./utils";
+import { assert, assertUnreachable, mapValues, MapWithCachedArrays, removeArrayElement, SetMultiMap } from "./utils";
 import {
   withDefaultValues,
   valueEquals,
@@ -43,7 +43,8 @@ import {
   argumentsEquals,
   collectVariablesInValue
 } from "./values";
-import { removeInaccessibleElements } from "./specs/inaccessibleSpec";
+import { tagIdentity } from "./specs/tagSpec";
+import { inaccessibleIdentity, removeInaccessibleElements } from "./specs/inaccessibleSpec";
 import { printDirectiveDefinition, printSchema } from './print';
 import { sameType } from './types';
 import { addIntrospectionFields, introspectionFieldNames, isIntrospectionName } from "./introspection";
@@ -1019,10 +1020,53 @@ export class CoreFeature {
   }
 }
 
+export type ImportConflictsByIdentity = Map<
+  string,
+  { self: Set<string>, other: Set<string> }
+>;
+
 export class CoreFeatures {
   readonly coreDefinition: CoreSpecDefinition;
+  /**
+   * For specs, a map from their name-in-schemas (a.k.a. aliases) to their
+   * CoreFeatures.
+   */
   private readonly byAlias: Map<string, CoreFeature> = new Map();
-  private readonly byIdentity: Map<string, CoreFeature> = new Map();
+  /**
+   * For specs, a map from their identities to their CoreFeatures plus another
+   * map from imported type/directive name-in-specs to name-in-schemas. Like
+   * imports, we distinguish types from directives by using a leading "@".
+   */
+  private readonly byIdentity: Map<string, [CoreFeature, Map<string, string>]>
+    = new Map();
+  /**
+   * For imported types/directives, this is a map from their name-in-schemas to
+   * their CoreFeatures plus name-in-specs. Like imports, we distinguish types
+   * from directives by using a leading "@".
+   */
+  private readonly byImportName: Map<string, [CoreFeature, string]>
+    = new Map();
+  /**
+   * For composed elements, merge will generally keep the name-in-schemas of
+   * spec elements in subgraphs as a way to minimize conflicts while keeping
+   * element names predictable for user-defined downstream code. However, merge
+   * will also sometimes change the spec of certain spec elements (e.g. of a
+   * federation spec directive). The result of this is that sometimes elements
+   * using a default name of one spec may be imported using another spec, so we
+   * need to permit e.g. the cost spec to import "@cost" as "@federation__cost"
+   * in the supergraph schema. This kind of thing is generally fine, provided
+   * the old spec alias is no longer in use in the supergraph schema.
+   *
+   * So whenever an import occurs with a name-in-schema that uses a spec alias
+   * prefix that isn't in the schema, we store an entry here from the yet-unused
+   * spec alias to the name-in-schema. This lets us easily lookup those elements
+   * in `this.byImportName` if that spec alias ends up getting used later and
+   * we need to generate an error message. (You might think we only need to
+   * remember one example for error messages, but because we can remove features
+   * we need to remember all of them.)
+   */
+  private readonly conflictsByAlias: SetMultiMap<string, string>
+    = new SetMultiMap();
 
   constructor(readonly coreItself: CoreFeature) {
     this.add(coreItself);
@@ -1034,18 +1078,45 @@ export class CoreFeatures {
   }
 
   getByIdentity(identity: string): CoreFeature | undefined {
-    return this.byIdentity.get(identity);
+    return this.byIdentity.get(identity)?.[0];
   }
 
-  allFeatures(): IterableIterator<CoreFeature> {
-    return this.byIdentity.values();
+  allFeatures(): CoreFeature[] {
+    return [...this.byIdentity.values()].map(([feature]) => feature);
   }
 
   private removeFeature(featureIdentity: string) {
-    const feature = this.byIdentity.get(featureIdentity);
-    if (feature) {
+    const entry = this.byIdentity.get(featureIdentity);
+    if (entry) {
+      const [feature] = entry;
       this.byIdentity.delete(featureIdentity);
-      this.byAlias.delete(feature.nameInSchema);
+      const alias = feature.nameInSchema;
+      this.byAlias.delete(alias);
+      for (const { name: importInSpec, as } of feature.imports) {
+        const importInSchema = as ?? importInSpec;
+        const isDirective = importInSpec.charAt(0) === "@";
+        const nameInSchema = isDirective
+          ? importInSchema.slice(1)
+          : importInSchema;
+        this.byImportName.delete(importInSchema);
+        const split = CoreFeatures.splitPrefixedName(nameInSchema);
+        if (!split) {
+          continue;
+        }
+        const [splitAlias] = split;
+        if (splitAlias === alias) {
+          continue;
+        }
+        let conflicts = this.conflictsByAlias.get(importInSchema);
+        if (!conflicts) {
+          continue;
+        }
+        conflicts.delete(importInSchema);
+        if (conflicts.size) {
+          continue;
+        }
+        this.conflictsByAlias.delete(importInSchema);
+      }
     }
   }
 
@@ -1056,11 +1127,6 @@ export class CoreFeatures {
     const typedDirective = directive as Directive<SchemaDefinition, CoreOrLinkDirectiveArgs>
     const args = typedDirective.arguments();
     const url = this.coreDefinition.extractFeatureUrl(args);
-    const existing = this.byIdentity.get(url.identity);
-    if (existing) {
-      // TODO: we may want to lossen that limitation at some point. Including the same feature for 2 different major versions should be ok.
-      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(`Duplicate inclusion of feature ${url.identity}`);
-    }
     const imports = extractCoreFeatureImports(url, typedDirective);
     const feature = new CoreFeature(url, args.as ?? url.name, directive, imports, args.for);
     this.add(feature);
@@ -1069,48 +1135,666 @@ export class CoreFeatures {
   }
 
   private add(feature: CoreFeature) {
-    this.byAlias.set(feature.nameInSchema, feature);
-    this.byIdentity.set(feature.url.identity, feature);
-  }
+    const identity = feature.url.identity;
+    // The identity can't already be mapped to another @link/CoreFeature. (Even
+    // when they're different major versions, they're usually describing the
+    // same capabilities but in incompatible ways, so we don't want to allow
+    // the same schema to try to use multiple of them.)
+    if (this.byIdentity.has(identity)) {
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Cannot link feature "${identity}" since it has already been linked in the schema.`,
+      );
+    }
 
-  sourceFeature(element: DirectiveDefinition | Directive | NamedType): { feature: CoreFeature, nameInFeature: string, isImported: boolean } | undefined {
-    const isDirective = element instanceof DirectiveDefinition || element instanceof Directive;
-    const splitted = element.name.split('__');
-    if (splitted.length > 1) {
-      const feature = this.byAlias.get(splitted[0]);
-      return feature ? {
-        feature,
-        nameInFeature: splitted.slice(1).join('__'),
-        isImported: false,
-      } : undefined;
-    } else {
-      // Let's first see if it's an import, as this would take precedence over directive implicitely named like their feature.
-      const importName = isDirective ? '@' + element.name : element.name;
-      const allFeatures = [this.coreItself, ...this.byIdentity.values()];
-      for (const feature of allFeatures) {
-        for (const { as, name } of feature.imports) {
-          if ((as ?? name) === importName) {
-            return {
-              feature,
-              nameInFeature: isDirective ? name.slice(1) : name,
-              isImported: true,
-            };
+    const alias = feature.nameInSchema;
+    // Normally we'd always forbid "__" in aliases. However, there are some
+    // older supergraph schemas that link the "tag" and "inaccessible" specs to
+    // the aliases "federation__tag" and "federation__inaccessible". This is
+    // due to bugs in older versions of composition, but is technically fine
+    // since these specs have no types and directives other than the default
+    // directive, so they never prefix anything with "__". So we make a very
+    // specific exception here for that case. We may remove this exception in
+    // the future, once support has been dropped for those bugged composition
+    // versions.
+    if (
+      !(identity === tagIdentity &&
+        alias === 'federation__tag' &&
+        feature.imports.length === 0) &&
+      !(identity === inaccessibleIdentity &&
+        alias === 'federation__inaccessible' &&
+        feature.imports.length === 0)
+    ) {
+      // Don't allow spec name-in-schemas/aliases to have "__" in them, as
+      // namespace splitting splits on the earliest "__" (so a namespaced name
+      // with an alias containing "__" would be erroneously split mid-alias).
+      if (alias.indexOf('__') !== -1) {
+        throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+          `Cannot link feature "${identity}" as "${alias}" since it contains "__". Please rename to a compliant name via "as".`,
+        );
+      }
+    }
+    // Don't allow spec name-in-schemas/aliases to end in "_", as namespace
+    // splitting splits on the earliest "__" (so a namespaced name with an alias
+    // ending with "_" would end up with "___", and be split before the ending
+    // "_" instead of after).
+    if (alias.charAt(alias.length - 1) === '_') {
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Cannot link feature "${identity}" as "${alias}" since it ends in "_". Please rename to a compliant name via "as".`,
+      );
+    }
+    // Don't allow spec name-in-schemas/aliases to not be valid GraphQL names,
+    // since they may be used as prefixes for namespaced schema element names,
+    // and those have to be valid GraphQL names.
+    if (!nameRegexp.test(alias)) {
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Cannot link feature "${identity}" as "${alias}" since it is not a valid GraphQL name. Please rename to a compliant name via "as".`,
+      );
+    }
+    // Don't allow spec name-in-schemas/aliases to conflict with previous
+    // imports using "__" with that alias.
+    const conflicts = this.conflictsByAlias.get(alias);
+    if (conflicts) {
+      const importInSchema = conflicts?.values()?.next()?.value;
+      assert(importInSchema !== undefined, `Unexpectedly empty conflicts set`);
+      const entry = this.byImportName.get(importInSchema);
+      assert(entry, `Unexpectedly cannot find feature for import`);
+      const [conflictFeature, importInSpec] = entry;
+      const conflictIdentity = conflictFeature.url.identity;
+      this.checkTagInaccessibleConflict(conflictIdentity, identity);
+      const importInErrorMessage = importInSchema !== importInSpec
+        ? `"${importInSpec}" as "${importInSchema}"`
+        : `"${importInSpec}"`;
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Cannot import ${importInErrorMessage} from feature "${conflictIdentity}" since it can be confused with a namespaced name from another linked feature "${identity}". Please rename the import or feature to avoid conflicts via "as".`,
+      );
+    }
+    // Don't allow spec name-in-schemas/aliases to have default directive names
+    // that conflict with previous imports.
+    const importInSchema = "@" + alias;
+    const entry = this.byImportName.get(importInSchema);
+    if (entry) {
+      const [conflictFeature, importInSpec] = entry;
+      const conflictIdentity = conflictFeature.url.identity;
+      this.checkTagInaccessibleConflict(conflictIdentity, identity);
+      const importInErrorMessage = importInSchema !== importInSpec
+        ? `"${importInSpec}" as "${importInSchema}"`
+        : `"${importInSpec}"`;
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Cannot import ${importInErrorMessage} from feature "${conflictIdentity}" since it can be confused with a namespaced name from another linked feature "${identity}". Please rename the import or feature to avoid conflicts via "as".`,
+      );
+    }
+    // The alias can't be already mapped to another @link/CoreFeature.
+    const existingFeature = this.byAlias.get(alias);
+    if (existingFeature !== undefined) {
+      const existingIdentity = existingFeature.url.identity;
+      this.checkTagInaccessibleConflict(existingIdentity, identity);
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Cannot link feature ${identity} as "${alias}" since another feature "${existingIdentity}" already uses that alias. Please rename the feature to avoid conflicts via "as".`,
+      );
+    }
+
+    const importsMap: Map<string, string> = new Map();
+    for (const { name: importInSpec, as } of feature.imports) {
+      const importInSchema = as ?? importInSpec;
+      const importInErrorMessage = importInSchema !== importInSpec
+        ? `"${importInSpec}" as "${importInSchema}"`
+        : `"${importInSpec}"`;
+      const isDirective = importInSpec.charAt(0) === "@";
+      const nameInSpec = isDirective
+        ? importInSpec.slice(1)
+        : importInSpec;
+      const nameInSchema = isDirective
+        ? importInSchema.slice(1)
+        : importInSchema;
+
+      // Only allow mapping to a name with "__" if it's a no-op import or if
+      // it uses a non-existent spec alias.
+      const split = CoreFeatures.splitPrefixedName(nameInSchema);
+      if (split) {
+        const [splitAlias, splitNameInSpec] = split;
+        if (splitAlias === alias) {
+          if (splitNameInSpec !== nameInSpec) {
+            const splitImportInSpec = isDirective
+              ? "@" + splitNameInSpec
+              : splitNameInSpec;
+            throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+              `Cannot import ${importInErrorMessage} from feature "${identity}" since it can be confused with the namespaced name for "${splitImportInSpec}". Please rename the import to avoid conflicts via "as".`,
+            );
+          }
+        } else {
+          const conflictFeature = this.byAlias.get(splitAlias);
+          if (conflictFeature) {
+            const conflictIdentity = conflictFeature.url.identity;
+            this.checkTagInaccessibleConflict(conflictIdentity, identity);
+            throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+              `Cannot import ${importInErrorMessage} from feature "${identity}" since it can be confused with a namespaced name from another linked feature "${conflictIdentity}". Please rename the import or feature to avoid conflicts via "as".`,
+            );
+          } else {
+            // As mentioned in the docs for `this.conflictsByAlias`, we have to
+            // record the import in case a feature gets added with the spec
+            // alias later.
+            this.conflictsByAlias.add(splitAlias, importInSchema);
           }
         }
       }
-
-      // Otherwise, this may be the special directive having the same name as its feature.
-      const directFeature = this.byAlias.get(element.name);
-      if (directFeature && isDirective) {
-        return {
-          feature: directFeature,
-          nameInFeature: directFeature.url.name,
-          isImported: false,
-        };
+      // For default directives, only allow mapping to a spec alias if it's a
+      // no-op import.
+      if (isDirective) {
+        if (nameInSchema === alias) {
+          if (nameInSpec !== feature.url.name) {
+            throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+              `Cannot import ${importInErrorMessage} from feature "${identity}" since it can be confused with the namespaced name for "@${feature.url.name}". Please rename the import to avoid conflicts via "as".`,
+            );
+          }
+        } else {
+          const conflictFeature = this.byAlias.get(nameInSchema);
+          if (conflictFeature) {
+            const conflictIdentity = conflictFeature.url.identity;
+            this.checkTagInaccessibleConflict(conflictIdentity, identity);
+            throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+              `Cannot import ${importInErrorMessage} from feature "${identity}" since it can be confused with a namespaced name from another linked feature "${conflictIdentity}". Please rename the import or feature to avoid conflicts via "as".`,
+            );
+          }
+        }
       }
+      // The name-in-spec can't be already mapped to a different name-in-schema.
+      const existingImportInSchema = importsMap.get(importInSpec);
+      if (existingImportInSchema === undefined) {
+        importsMap.set(importInSpec, importInSchema);
+      } else {
+        if (existingImportInSchema !== importInSchema) {
+          throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+            `Cannot import ${importInErrorMessage} from feature "${identity}" since it was previously imported as "${existingImportInSchema}". Please remove one of these imports.`,
+          );
+        }
+      }
+      // The name-in-schema can't already be mapped to a different name-in-spec.
+      const entry = this.byImportName.get(importInSchema);
+      if (entry === undefined) {
+        this.byImportName.set(importInSchema, [feature, importInSpec]);
+      } else {
+        const [existingFeature, existingImportInSpec] = entry;
+        const existingIdentity = existingFeature.url.identity;
+        if (existingIdentity !== identity) {
+          this.checkTagInaccessibleConflict(existingIdentity, identity);
+          throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+            `Cannot import ${importInErrorMessage} from feature "${identity}" since it was previously imported from feature "${existingIdentity}". Please rename the import to avoid conflicts via "as".`,
+          );
+        }
+        if (existingImportInSpec !== importInSpec) {
+          throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+            `Cannot import ${importInErrorMessage} from feature "${identity}" since it was previously imported for "${existingImportInSpec}". Please rename the import to avoid conflicts via "as".`,
+          );
+        }
+      }
+    }
+    this.byAlias.set(alias, feature);
+    this.byIdentity.set(identity, [feature, importsMap]);
+  }
 
+  /**
+   * Returns whether the spec alias would pass the checks in `validate()`,
+   * except import conflicts are taken from the given map, which should be
+   * computed via `computeAliasConflicts()`.
+   */
+  isAliasValid(
+    alias: string,
+    identity: string,
+    importConflictsByIdentity: ImportConflictsByIdentity,
+  ) {
+    // Don't allow aliases to have "__" in them. Note that this function is only
+    // used in merging, so we don't need the exception for "federation__tag" and
+    // "federation__inaccessible" here.
+    if (alias.indexOf('__') !== -1) {
+      return false;
+    }
+    // Don't allow aliases to end in "_".
+    if (alias.charAt(alias.length - 1) === '_') {
+      return false;
+    }
+    // Don't allow aliases to not be valid GraphQL names.
+    if (!nameRegexp.test(alias)) {
+      return false;
+    }
+    for (const [otherIdentity, importConflicts] of importConflictsByIdentity.entries()) {
+      if (identity === otherIdentity) {
+        // For import names namespaced using this alias, only allow them if
+        // their no-op imports.
+        if (importConflicts.self.has(alias)) {
+          return false;
+        }
+      } else {
+        // Don't allow imports of other specs that are namespaced by this alias.
+        if (importConflicts.other.has(alias)) {
+          return false;
+        }
+      }
+    }
+    // The alias can't be already mapped to another @link/CoreFeature.
+    if (this.byAlias.has(alias)) {
+      return false;
+    }
+    return true;
+  }
+
+  /** 
+   * This is a method that helps us handle the case where:
+   * 1. directives of some spec are being composed into the supergraph (due to
+   *    them being Apollo specs or via `@composeDirective`),
+   * 2. those directives don't actually have any conflicts, and
+   * 3. the spec itself has alias conflicts when linked with the spec's name.
+   *
+   * For the `@composeDirective` case at least, you might think we could just
+   * use the `@link(as:)` rename from the subgraph, but when we established
+   * `@composeDirective` we never mandated that the spec aliases be the same
+   * (just their composed directive name-in-schemas). The reason we focused on
+   * directives was that downstream consumers were expecting certain directive
+   * names, so it makes sense to force agreement on a single name per directive
+   * across subgraphs. As part of that, we explicitly generate imports for all
+   * those directives, so the spec alias is never used for namespaced names via
+   * "__", and consumers consequently don't deal or care about those aliases
+   * much. We could make a breaking change to force alignment on a spec alias to
+   * use in the supergraph, but alias agreement likely isn't valuable enough for
+   * a breakage. More importantly, it also doesn't really solve the case for
+   * conflicts linking Apollo specs.
+   *
+   * So instead, when we detect a conflict, we generate a unique alias. This
+   * method does two things:
+   * 1. Outputs data that can be used to efficiently detect import conflicts.
+   * 2. Outputs a function that can be used to generate unique aliases.
+   *
+   * For unique alias computation, we compute a non-conflicting prefix by using
+   * a trie to determine a GraphQL name that isn't a prefix of any existing
+   * names (this prefix also doesn't use "_" outside the first character, so it
+   * should be safe for aliases). We then add an incrementing index to it, to
+   * account for core features that have the same spec name. Finally, we add
+   * the spec name but without any non-letter characters.
+   */
+  static computeAliasConflicts(
+    specAliases: {
+      url: FeatureUrl,
+      alias: string,
+      imports: CoreImport[],
+    }[],
+    elementNames: Set<string>,
+  ): {
+    importConflictsByIdentity: ImportConflictsByIdentity,
+    computeUniqueAlias: (specName: string) => string,
+  } {
+    // Generate `importConflictsByIdentity` and track names for the trie.
+    const trieNames = elementNames;
+    const importConflictsByIdentity: ImportConflictsByIdentity = new Map();
+    for (const { url, alias, imports } of specAliases) {
+      trieNames.add(alias);
+      const self = new Set<string>();
+      const other = new Set<string>();
+      for (const { name: importInSpec, as } of imports) {
+        const importInSchema = as ?? importInSpec;
+        const isDirective = importInSpec.charAt(0) === "@";
+        const nameInSpec = isDirective
+          ? importInSpec.slice(1)
+          : importInSpec;
+        const nameInSchema = isDirective
+          ? importInSchema.slice(1)
+          : importInSchema;
+        trieNames.add(nameInSchema);
+        const split = CoreFeatures.splitPrefixedName(nameInSchema);
+        if (split) {
+          const [splitAlias, splitNameInSpec] = split;
+          if (splitNameInSpec !== nameInSpec) {
+            // Alias being `splitAlias` would generate a conflict due to the
+            // import not being a no-op import for a namespaced name.
+            self.add(splitAlias);
+          }
+          // Alias being `splitAlias` would generate a conflict due to this
+          // import from some other identity being namespaced to it.
+          other.add(splitAlias);
+        }
+        if (isDirective) {
+          // Alias being 'nameInSchema' would generate a conflict due to the
+          // import not being a no-op import for the default directive.
+          if (nameInSpec !== url.name) {
+            self.add(nameInSchema);
+          }
+          // Alias being `nameInSchema` would generate a conflict due to this
+          // import from some other identity being the default directive for it.
+          other.add(nameInSchema)
+        }
+      }
+      importConflictsByIdentity.set(url.identity, { self, other });
+    }
+    // Create the closure for computing unique aliases via a trie.
+    let prefix: string | null = null;
+    let index: number = 0;
+    let computeUniqueAlias = (specName: string): string => {
+      if (prefix === null) {
+        const aliasStart = [
+          '_',
+          'abcdefghijklmnopqrstuvwxyz',
+          'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+        ].join('');
+        const aliasContinue = [
+          'abcdefghijklmnopqrstuvwxyz',
+          'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+          '0123456789',
+        ].join('');
+        type TrieNode = {
+          children: Map<string, TrieNode>;
+          parent: TrieNode | null;
+          char: string;
+        };
+        const root: TrieNode = { children: new Map(), parent: null, char: '' };
+
+        // Populate the trie.
+        for (const name of trieNames) {
+          let node = root;
+          for (const char of name) {
+            let child = node.children.get(char);
+            if (!child) {
+              child = { children: new Map(), parent: node, char };
+              node.children.set(char, child);
+            }
+            node = child;
+          }
+        }
+
+        // Note that we never really remove elements from this queue, we just
+        // advance the index pointing to the head of the queue. This is fine
+        // since its size is bounded above by the number of nodes in trie.
+        const queue: TrieNode[] = [root];
+        let head = 0;
+        while (prefix === null) {
+          const possibleChars = head === 0 ? aliasStart : aliasContinue;
+          const node = queue[head++];
+          for (const char of possibleChars) {
+            const child = node.children.get(char);
+            if (child) {
+              queue.push(child);
+            } else {
+              const chars = [char];
+              for (let cur: TrieNode | null = node; cur?.parent; cur = cur.parent) {
+                chars.push(cur.char);
+              }
+              prefix = chars.reverse().join('');
+              break;
+            }
+          }
+        }
+      }
+      const suffix = specName.replace(/[^a-zA-Z]/g, '');
+      return `${prefix}${index++}${suffix}`;
+    }
+
+    return {
+      importConflictsByIdentity,
+      computeUniqueAlias,
+    };
+  }
+
+  /**
+   * There's a particular pattern in Fed 1 subgraphs, where they would try to
+   * link the "tag" or "inaccessible" specs directly instead of importing the
+   * directives from the "federation" spec, and this can cause a conflict. This
+   * function gives a more helpful error message in that case.
+   *
+   * To elaborate, those are supergraph specs, not subgraph ones, and subgraph
+   * code doesn't check for the supergraph spec (just the "federation" spec). It
+   * may have worked before because the name we happened to import using the
+   * "federation" spec was the same, but if they become unaligned in the future
+   * (e.g. due to either our code or their schema using "as"), we'd suddenly
+   * start silently ignoring those spec directive applications.
+   */
+  private checkTagInaccessibleConflict(identity1: string, identity2: string) {
+    // TODO: We can't import this from "./specs/federationSpec" because it
+    // causes a circular import loop; we should fix that later.
+    const federationIdentity = 'https://specs.apollo.dev/federation';
+    const identities = new Set([identity1, identity2]);
+    if (!identities.has(federationIdentity)) {
+      return;
+    }
+    const [directive, identity] = identities.has(tagIdentity)
+      ? ['tag', tagIdentity]
+      : identities.has(inaccessibleIdentity)
+      ? ['inaccessible', inaccessibleIdentity]
+      : [undefined, undefined];
+    if (directive && identity) {
+      throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Please import "@${directive}" from the feature "${federationIdentity}" instead of using "${identity}" to avoid potential unexpected behavior in the future.`,
+      );
+    }
+  }
+
+  /**
+   * If the given schema element belongs to a spec/feature, return that feature
+   * along with the name-in-spec and whether it was imported. Note that if the
+   * element uses a default name but its name-in-spec was imported already under
+   * a different name (a.k.a. a shadowing import), this method will still
+   * consider it to belong to that feature, but its name-in-spec will be null.
+   */
+  sourceFeature(element: DirectiveDefinition | Directive | NamedType):
+    | {
+        feature: CoreFeature,
+        nameInFeature: string | null,
+        isImported: boolean,
+      }
+    | undefined
+  {
+    const isDirective =
+      element instanceof DirectiveDefinition || element instanceof Directive;
+    // Validations guarantee that import names don't collide with the default
+    // names of different spec schema elements, so it doesn't technically matter
+    // which order we check first. But we do have to some extra work for
+    // shadowing imports if we don't check imports first, so we do that first.
+    const importName = isDirective ? '@' + element.name : element.name;
+    const entry = this.byImportName.get(importName);
+    if (entry) {
+      const [feature, importInSpec] = entry;
+      return {
+        feature,
+        nameInFeature: isDirective ? importInSpec.slice(1) : importInSpec,
+        isImported: true,
+      };
+    }
+    // If it's not an import, check whether it's a default name with no
+    // shadowing imports.
+    const defaultEntry = this.sourceDefaultName(isDirective, element.name);
+    if (!defaultEntry) {
       return undefined;
     }
+    const [feature, nameInSpec] = defaultEntry;
+    const importInSpec = isDirective ? '@' + nameInSpec : nameInSpec;
+    // Note that if the import name is the same as the element's name, it's not
+    // a shadowing import, and we should return a non-null `nameInFeature`. But
+    // if that were true, we would have found an entry in `this.byImportName`
+    // above when checking for imports. So we don't need to handle that case
+    // specially here.
+    return {
+      feature,
+      nameInFeature: this.getImportName(feature, importInSpec) === undefined
+        ? nameInSpec
+        : null,
+      isImported: false,
+    };
+  }
+
+  /**
+   * Assuming the core features are for the given schema, returns an error for
+   * each schema element with a shadowing import. A "shadowing import" occurs
+   * when an element would normally belong to a feature due to having a default
+   * name for it, but the name-in-spec has been imported already under a
+   * different name. Note that for backwards-compatibility reasons, we ignore
+   * shadowed types if they're only used by other shadowed elements.
+   *
+   * We enforce this validation because downstream code almost always assumes
+   * there's exactly one name for a spec element, and allowing multiple elements
+   * with the same feature and name-in-spec will thus result in some of those
+   * elements being erroneously ignored. (This is similar to the validation that
+   * forbids importing the same name-in-spec with different name-in-schemas, but
+   * that can't be easily done when adding a feature since it depends on what
+   * elements are actually in the schema, and that doesn't get finalized until
+   * later in the schema-building process.)
+   */
+  validateNoShadowingImports(schema: Schema): GraphQLError[] {
+    const errors: GraphQLError[] = [];
+    for (const element of [...schema.allTypes(), ...schema.allDirectives()]) {
+      const shadowingImport = this.getShadowingImport(element);
+      if (!shadowingImport) {
+        continue;
+      }
+      const isUsed = element instanceof DirectiveDefinition
+        ? element.applications().size !== 0
+        : this.getReferencingRootElements(element)
+          .some((referencer) => {
+            return referencer.kind === 'SchemaDefinition'
+              ? true
+              : !this.getShadowingImport(referencer)
+          });
+      if (!isUsed) {
+        continue;
+      }
+      const { feature, importInSpec, importInSchema } = shadowingImport;
+      const importInErrorMessage = importInSchema !== importInSpec
+        ? `"${importInSpec}" as "${importInSchema}"`
+        : `"${importInSpec}"`;
+      errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+        `Cannot import ${importInErrorMessage} from feature "${feature.url.identity}" since there's a used definition for the namespaced name "${element.coordinate}". Please switch usages of the namespaced name to the import name and remove the definition.`,
+      ));
+    }
+    return errors;
+  }
+
+  private getShadowingImport(
+    element: DirectiveDefinition | Directive | NamedType
+  ):
+    | {
+        feature: CoreFeature,
+        importInSpec: string,
+        importInSchema: string,
+      }
+    | undefined
+  {
+    const isDirective =
+      element instanceof DirectiveDefinition || element instanceof Directive;
+    const defaultEntry = this.sourceDefaultName(isDirective, element.name);
+    if (!defaultEntry) {
+      return undefined;
+    }
+    const importName = isDirective ? '@' + element.name : element.name;
+    const [feature, nameInSpec] = defaultEntry;
+    const importInSpec = isDirective ? '@' + nameInSpec : nameInSpec;
+    const importInSchema = this.getImportName(feature, importInSpec);
+    return importInSchema !== undefined && importInSchema !== importName
+      ? {
+          feature,
+          importInSpec,
+          importInSchema,
+        }
+      : undefined;
+  }
+
+  /**
+   * Returns the root schema elements (types/directives/schema definitions) that
+   * contain references to the given type somewhere in their definition.
+   */
+  getReferencingRootElements(
+    element: NamedType,
+  ): (DirectiveDefinition | NamedType | SchemaDefinition)[] {
+    const referencers: (DirectiveDefinition | NamedType | SchemaDefinition)[]
+      = [];
+    for (const referencer of element.referencers()) {
+      switch (referencer.kind) {
+        case 'ObjectType':
+          referencers.push(referencer);
+          break;
+        case 'InterfaceType':
+          referencers.push(referencer);
+          break;
+        case 'UnionType':
+          referencers.push(referencer);
+          break;
+        case 'SchemaDefinition':
+          referencers.push(referencer);
+          break;
+        case 'FieldDefinition':
+          referencers.push(referencer.parent);
+          break;
+        case 'InputFieldDefinition':
+          referencers.push(referencer.parent);
+          break;
+        case 'ArgumentDefinition':
+          const parent: DirectiveDefinition | FieldDefinition<any>
+            = referencer.parent;
+          switch (parent.kind) {
+            case 'DirectiveDefinition':
+              referencers.push(parent);
+              break;
+            case 'FieldDefinition':
+              referencers.push(parent.parent);
+              break;
+            default:
+              assertUnreachable(parent);
+          }
+          break;
+        default:
+          assertUnreachable(referencer);
+      }
+    }
+    return referencers;
+  }
+
+  /**
+   * Returns the import name for the given feature and import-in-spec name. (By
+   * "import", we mean the element name, prefixed with "@" if it's a directive.)
+   */
+  private getImportName(
+    feature: CoreFeature,
+    importInSpec: string,
+  ): string | undefined {
+    return this.byIdentity.get(feature.url.identity)?.[1]?.get(importInSpec)
+  }
+
+  /**
+   * If the give element name is a default name (i.e., it's prefixed with an
+   * existing alias, or is a directive name for an existing alias), then return
+   * the feature for that alias along with the name-in-spec for the element.
+   */
+  private sourceDefaultName(
+    isDirective: boolean,
+    name: string,
+  ): [CoreFeature, string] | undefined {
+    // Handle the alias-prefixed case first.
+    const split = CoreFeatures.splitPrefixedName(name);
+    if (split) {
+      const [alias, nameInSpec] = split;
+      const feature = this.byAlias.get(alias);
+      // Note that we explicitly do not return `undefined` here if `feature`
+      // isn't found, and instead fall-through to the default directive name
+      // logic below. Normally that default directive name logic would also
+      // return `undefined`, since validations above guarantee "__" isn't in
+      // alias names. But as noted above, we make an exception for the "tag"
+      // and "inaccessible" specs for backwards-compatibility reasons, so we
+      // fall-through to allow those exceptions to be found in `this.byAlias`.
+      if (feature) {
+        return [feature, nameInSpec];
+      }
+    }
+    // If not prefixed, then check whether it's the default directive name for
+    // a spec.
+    if (!isDirective) {
+      return undefined;
+    }
+    const feature = this.byAlias.get(name);
+    return feature ? [feature, feature.url.name] : undefined;
+  }
+
+  /**
+   * Splits alias-prefixed names into their spec alias and their name-in-spec.
+   */
+  private static splitPrefixedName(name: string): [string, string] | undefined {
+    const splitIndex = name.indexOf('__');
+    return splitIndex !== -1
+      ? [name.slice(0, splitIndex), name.slice(splitIndex + 2)]
+      : undefined;
   }
 }
 
@@ -1174,8 +1858,10 @@ export type StreamDirectiveArgs = {
   if?: boolean,
 }
 
+// A valid GraphQL name.
+const nameRegexp = /^[_A-Za-z][_0-9A-Za-z]*$/;
 
-// A coordinate is up to 3 "graphQL name" ([_A-Za-z][_0-9A-Za-z]*).
+// A coordinate is up to 3 GraphQL names ([_A-Za-z][_0-9A-Za-z]*).
 const coordinateRegexp = /^@?[_A-Za-z][_0-9A-Za-z]*(\.[_A-Za-z][_0-9A-Za-z]*)?(\([_A-Za-z][_0-9A-Za-z]*:\))?$/;
 
 export type SchemaConfig = {
@@ -1607,6 +2293,13 @@ export class Schema {
     // probably extract that part of `validateSchema` and run `validateSDL` conditionally on that first check.
     let errors = validateSDL(this.toAST(), undefined, this.blueprint.validationRules()).map((e) => this.blueprint.onGraphQLJSValidationError(this, e));
     errors = errors.concat(validateSchema(this));
+
+    // Core feature validations around shadowing imports are @link-specific and
+    // don't really depend on the rest of the schema being valid, so it's fine
+    // to include them with standard GraphQL validation errors.
+    errors = errors.concat(
+      this.coreFeatures?.validateNoShadowingImports(this) ?? []
+    )
 
     // We avoid adding federation-specific validations if the base schema is not proper graphQL as the later can easily trigger
     // the former (for instance, someone mistyping the 'fields' argument name of a @key).

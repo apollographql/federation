@@ -286,8 +286,13 @@ export class ComposeDirectiveManager {
           if (featureDetails) {
             const identity = featureDetails.feature.url.identity;
 
-            // make sure that core feature is not blacklisted
-            if (DISALLOWED_IDENTITIES.includes(identity)) {
+            if (featureDetails.nameInFeature === null) {
+              this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
+                `Directive "@${name}" in subgraph "${sg.name}" cannot be composed because it is imported to a different name`,
+                { nodes: composeInstance.sourceAST },
+              ));
+            } else if (DISALLOWED_IDENTITIES.includes(identity)) {
+              // make sure that core feature is not blacklisted
               this.forFederationDirective(sg, composeInstance, directive);
             } else if (tagNamesInSubgraphs.includes(name)) {
               const subgraphs: string[] = [];

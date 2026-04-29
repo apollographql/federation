@@ -231,7 +231,7 @@ describe('removeInaccessibleElements', () => {
       }
 
       type Query {
-        someField: Bar @inaccessible
+        someField: Bar
         privateField: String @foo
       }
 

@@ -356,6 +356,56 @@ describe('validations', () => {
     expect(subgraphCAST.subgraph).toBe("subgraphC");
     expect(subgraphCAST.kind).toBe("ObjectTypeExtension");
   });
+
+  it('errors when trying to use supergraph tag spec', () => {
+    const subgraphA= {
+      typeDefs: gql`
+        schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/tag/v0.2")
+        {
+          query: Query
+        }
+
+        type Query {
+          q: Int
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const result = composeServices([subgraphA]);
+
+    expect(result.errors).toBeDefined();
+    expect(errors(result)).toStrictEqual([
+      ['INVALID_LINK_DIRECTIVE_USAGE', '[subgraphA] Please import "@tag" from the feature "https://specs.apollo.dev/federation" instead of using "https://specs.apollo.dev/tag" to avoid potential unexpected behavior in the future.'],
+    ]);
+  });
+
+  it('errors when trying to use supergraph inaccessible spec', () => {
+    const subgraphA= {
+      typeDefs: gql`
+        schema
+          @link(url: "https://specs.apollo.dev/link/v1.0")
+          @link(url: "https://specs.apollo.dev/inaccessible/v0.2")
+        {
+          query: Query
+        }
+
+        type Query {
+          q: Int
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const result = composeServices([subgraphA]);
+
+    expect(result.errors).toBeDefined();
+    expect(errors(result)).toStrictEqual([
+      ['INVALID_LINK_DIRECTIVE_USAGE', '[subgraphA] Please import "@inaccessible" from the feature "https://specs.apollo.dev/federation" instead of using "https://specs.apollo.dev/inaccessible" to avoid potential unexpected behavior in the future.'],
+    ]);
+  });
 });
 
 describe('shareable', () => {
