@@ -1,5 +1,16 @@
 # CHANGELOG for `federation-integration-testsuite-js`
 
+## 2.14.0
+
+### Minor Changes
+
+- Add opt-out anonymous deployment environment telemetry. To opt-out, set APOLLO_TELEMETRY_DISABLED=1 in your environment. ([#3379](https://github.com/apollographql/federation/pull/3379))
+
+### Patch Changes
+
+- Fixed print logic when calculating the max number of elements to include in the message. Previously we were not passing ([#3424](https://github.com/apollographql/federation/pull/3424))
+  the current calculated length correctly leading to inclusion of additional elements in the error/hints message.
+
 ## 2.13.3
 
 ## 2.13.2
