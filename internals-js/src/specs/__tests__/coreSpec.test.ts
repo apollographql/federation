@@ -313,6 +313,23 @@ describe('@link alias and import conflicts', () => {
     expectErrors(schema, []);
   });
 
+  // See the relevant code in CoreFeatures.add() for why we have this exception.
+  // That exception and this test may be removed in the future during a major
+  // version bump.
+  it('allows exception in GraphQL name validation for "." and "-', () => {
+    const schema = gql`
+      extend schema
+        @link(url: "https://specs.apollo.dev/federation/v2.0")
+        @link(url: "https://custom.dev/f-o.o/v1.0")
+
+      type Query {
+        q: Int
+      }
+    `;
+
+    expectErrors(schema, []);
+  });
+
   it('errors for spec alias that conflicts with past namespaced directive', () => {
     const schema = gql`
       extend schema

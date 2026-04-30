@@ -1105,6 +1105,34 @@ describe('composing custom core directives', () => {
     expect(printSchema(schema)).toMatchSnapshot();
   });
 
+  it('spec aliases with "-" and "." are renamed in supergraph schema', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: '@link(url: "https://specs.apollo.dev/f-oo/v1.0", import: ["@foo"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      linkText: '@link(url: "https://specs.apollo.dev/b.ar/v1.0", import: ["@bar"])',
+      composeText: '@composeDirective(name: "@bar")',
+      directiveText: 'directive @bar(name: String!) on FIELD_DEFINITION',
+      usage: '@bar(name: "b")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result);
+
+    expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectDirectiveDefinition(schema, 'bar', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'foo', { name: 'a' });
+    expectDirectiveOnElement(schema, 'User.subgraphB', 'bar', { name: 'b' });
+
+    expectCoreFeature(schema, 'https://specs.apollo.dev/f-oo', '1.0', [{ name: '@foo' }], '_0foo');
+    expectCoreFeature(schema, 'https://specs.apollo.dev/b.ar', '1.0', [{ name: '@bar' }], '_1bar');
+  })
+
   it('repeatable custom directives', () => {
     const subgraphA = {
       typeDefs: gql`
