@@ -1182,10 +1182,18 @@ export class CoreFeatures {
         `Cannot link feature "${identity}" as "${alias}" since it ends in "_". Please rename to a compliant name via "as".`,
       );
     }
-    // Don't allow spec name-in-schemas/aliases to not be valid GraphQL names,
-    // since they may be used as prefixes for namespaced schema element names,
-    // and those have to be valid GraphQL names.
-    if (!nameRegexp.test(alias)) {
+    // Ideally here, we wouldn't allow spec name-in-schemas/aliases to not be
+    // valid GraphQL names. However, enough supergraph schemas use "." and "-"
+    // after the first character that we can't impose that validation now. So
+    // instead, we match using a slightly relaxed regex than allows "." and "-"
+    // after the first character. For schemas that have "." or "-", they won't
+    // be able to use namespaced names for their spec schema elements due to
+    // GraphQL validation, but imports will still work.
+    //
+    // Note the error message below purposely says "not a valid GraphQL name"
+    // because we want to encourage users to actually use GraphQL names and
+    // avoid creating more exceptional cases.
+    if (!aliasRegexp.test(alias)) {
       throw ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
         `Cannot link feature "${identity}" as "${alias}" since it is not a valid GraphQL name. Please rename to a compliant name via "as".`,
       );
@@ -1333,18 +1341,19 @@ export class CoreFeatures {
   }
 
   /**
-   * Returns whether the spec alias would pass the checks in `validate()`,
-   * except import conflicts are taken from the given map, which should be
-   * computed via `computeAliasConflicts()`.
+   * Returns whether the spec alias would pass the checks in `add()`, except
+   * import conflicts are taken from the given map, which should be computed via
+   * `computeAliasConflicts()`.
    */
   isAliasValid(
     alias: string,
     identity: string,
     importConflictsByIdentity: ImportConflictsByIdentity,
   ) {
-    // Don't allow aliases to have "__" in them. Note that this function is only
-    // used in merging, so we don't need the exception for "federation__tag" and
-    // "federation__inaccessible" here.
+    // Don't allow aliases to have "__" in them. Note that this method is only
+    // used in merging to detect whether we need to rename the spec, so we don't
+    // need the exception for "federation__tag" and "federation__inaccessible"
+    // here.
     if (alias.indexOf('__') !== -1) {
       return false;
     }
@@ -1352,7 +1361,12 @@ export class CoreFeatures {
     if (alias.charAt(alias.length - 1) === '_') {
       return false;
     }
-    // Don't allow aliases to not be valid GraphQL names.
+    // Don't allow aliases to not be valid GraphQL names. Note that unlike
+    // `add()`, we consider "." and "-" to not be valid here, but since this
+    // method is only used in merging to detect whether we need to rename the
+    // spec, this has the effect of ensuring that supergraph schemas don't use
+    // "." and "-" in their alias (which will help later if we want to fully
+    // forbid "." and "-" in aliases).
     if (!nameRegexp.test(alias)) {
       return false;
     }
@@ -1857,6 +1871,10 @@ export type StreamDirectiveArgs = {
   initialCount: number,
   if?: boolean,
 }
+
+// A valid alias. Almost a valid GraphQL name, but we need to allow "." and "-"
+// after the first character for supergraph schema backwards compatibility.
+const aliasRegexp = /^[_A-Za-z][_0-9A-Za-z.-]*$/;
 
 // A valid GraphQL name.
 const nameRegexp = /^[_A-Za-z][_0-9A-Za-z]*$/;
