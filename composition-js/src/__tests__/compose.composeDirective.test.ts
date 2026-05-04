@@ -79,10 +79,11 @@ const expectDirectiveDefinition = (schema: Schema, name: string, locations: Dire
   expect(directive?.arguments().map(arg => arg.name)).toEqual(args);
 };
 
-const expectCoreFeature = (schema: Schema, identity: string, version: string, imports: { [key: string]: string}[]) => {
+const expectCoreFeature = (schema: Schema, identity: string, version: string, imports: { [key: string]: string}[], nameInSchema?: string) => {
   const feature = schema.coreFeatures?.getByIdentity(identity);
   expect(feature?.url.toString()).toBe(`${identity}/v${version}`);
   expect(feature?.imports).toEqual(imports);
+  expect(feature?.nameInSchema).toEqual(nameInSchema ?? feature?.url?.name);
 };
 
 describe('composing custom core directives', () => {
@@ -549,7 +550,7 @@ describe('composing custom core directives', () => {
     expectDirectiveOnElement(schema, 'User.subgraphB', 'bar', { name: 'b' });
   });
 
-  it('exported directive not imported everywhere. no definition', () => {
+  it('exported directive not imported everywhere. no definition for latest version', () => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
       linkText: '@link(url: "https://specs.apollo.dev/foo/v1.1", import: ["@foo"])',
@@ -574,10 +575,131 @@ describe('composing custom core directives', () => {
     expect(errors(result)).toStrictEqual([
       [
       'DIRECTIVE_COMPOSITION_ERROR',
-      'Core feature "https://specs.apollo.dev/foo" in subgraph "subgraphA" does not have a directive definition for "@bar"',
+      'Core feature "https://specs.apollo.dev/foo/v1.1" in subgraph "subgraphA" does not have a directive definition for "@bar"',
       ]
     ]);
     expect(hints(result)).toStrictEqual([]);
+  });
+
+  it('exported directive not imported everywhere. latest definition without @composeDirective', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.1", import: ["@foo", "@bar"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: `
+        directive @foo(name: String!) on FIELD_DEFINITION
+        directive @bar(name: String!, address: String) on FIELD_DEFINITION | OBJECT
+      `,
+      usage: '@foo(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@bar"])',
+      composeText: '@composeDirective(name: "@bar")',
+      directiveText: `
+        directive @bar(name: String!) on FIELD_DEFINITION
+      `,
+      usage: '@bar(name: "b")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result, []);
+    expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectDirectiveDefinition(schema, 'bar', [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT], ['name', 'address']);
+    expectCoreFeature(schema, 'https://specs.apollo.dev/foo', '1.1', [{ name: '@foo' }, { name: '@bar' }]);
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'foo', { name: 'a' });
+    expectDirectiveOnElement(schema, 'User.subgraphB', 'bar', { name: 'b' });
+  });
+
+  it('exported directive not imported everywhere. missing definition in one subgraph', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@bar"])',
+      composeText: '@composeDirective(name: "@bar")',
+      directiveText: `
+        directive @foo(name: String!) on FIELD_DEFINITION
+        directive @bar(name: String!, address: String) on FIELD_DEFINITION | OBJECT
+      `,
+      usage: '@bar(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: `
+        directive @foo(name: String!) on FIELD_DEFINITION
+      `,
+      usage: '@foo(name: "b")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result, []);
+    expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectDirectiveDefinition(schema, 'bar', [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT], ['name', 'address']);
+    expectCoreFeature(schema, 'https://specs.apollo.dev/foo', '1.0', [{ name: '@bar' }, { name: '@foo' }]);
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'bar', { name: 'a' });
+    expectDirectiveOnElement(schema, 'User.subgraphB', 'foo', { name: 'b' });
+  });
+
+  it('exported directive not imported everywhere. definitions split among subgraphs', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: `
+        directive @foo(name: String!) on FIELD_DEFINITION
+      `,
+      usage: '@foo(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@bar"])',
+      composeText: '@composeDirective(name: "@bar")',
+      directiveText: `
+        directive @bar(name: String!, address: String) on FIELD_DEFINITION | OBJECT
+      `,
+      usage: '@bar(name: "b")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result, []);
+    expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectDirectiveDefinition(schema, 'bar', [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT], ['name', 'address']);
+    expectCoreFeature(schema, 'https://specs.apollo.dev/foo', '1.0', [{ name: '@foo' }, { name: '@bar' }]);
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'foo', { name: 'a' });
+    expectDirectiveOnElement(schema, 'User.subgraphB', 'bar', { name: 'b' });
+  });
+
+  // This isn't something that users should be allowed to do, and can sometimes
+  // result in an error. But we don't explicitly validate against it today, and
+  // it may sometimes succeed. So we test the current behavior, which is to pick
+  // the last definition.
+  it('exported directive imported everywhere. different definition for latest version', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: `
+        directive @foo(name: String!) on FIELD_DEFINITION | OBJECT
+      `,
+      usage: '@foo(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: `
+        directive @foo(name: String!, address: String) on FIELD_DEFINITION
+      `,
+      usage: '@foo(name: "b", address: "c")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result, []);
+    expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name', 'address']);
+    expectCoreFeature(schema, 'https://specs.apollo.dev/foo', '1.0', [{ name: '@foo' }]);
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'foo', { name: 'a' });
+    expectDirectiveOnElement(schema, 'User.subgraphB', 'foo', { name: 'b', address: 'c' });
   });
 
   it.todo('composing same major version, but incompatible directives results in error');
@@ -670,23 +792,23 @@ describe('composing custom core directives', () => {
   it('composed directive must be the same original directive in all subgraphs', () => {
     const subgraphA = generateSubgraph({
       name: 'subgraphA',
-      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@foo"])',
-      composeText: '@composeDirective(name: "@foo")',
-      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
-      usage: '@foo(name: "a")',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: ["@baz"])',
+      composeText: '@composeDirective(name: "@baz")',
+      directiveText: 'directive @baz(name: String!) on FIELD_DEFINITION',
+      usage: '@baz(name: "a")',
     });
     const subgraphB = generateSubgraph({
       name: 'subgraphB',
-      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: [{ name: "@bar", as: "@foo" }])',
-      composeText: '@composeDirective(name: "@foo")',
-      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
-      usage: '@foo(name: "a")',
+      linkText: '@link(url: "https://specs.apollo.dev/foo/v1.0", import: [{ name: "@bar", as: "@baz" }])',
+      composeText: '@composeDirective(name: "@baz")',
+      directiveText: 'directive @baz(name: String!) on FIELD_DEFINITION',
+      usage: '@baz(name: "a")',
     });
 
     const result = composeServices([subgraphA, subgraphB]);
     expect(hints(result)).toEqual([]);
     expect(errors(result)).toStrictEqual([
-      ['DIRECTIVE_COMPOSITION_ERROR', `Composed directive "@foo" does not refer to the same directive in every subgraph`],
+      ['DIRECTIVE_COMPOSITION_ERROR', `Composed directive "@baz" does not refer to the same directive in every subgraph`],
     ]);
   });
 
@@ -753,8 +875,8 @@ describe('composing custom core directives', () => {
     const result = composeServices([subgraphA, subgraphB]);
     expect(errors(result)).toStrictEqual([
       [
-        'DIRECTIVE_COMPOSITION_ERROR',
-        `Directive "${directive}" in subgraph "subgraphA" cannot be composed because it is not a member of a core feature`,
+        'INVALID_LINK_DIRECTIVE_USAGE',
+        `Cannot import "@foo" as "${directive}" from feature "https://specs.apollo.dev/foo" since it can be confused with a namespaced name from another linked feature "https://specs.apollo.dev/join". Please rename the import or feature to avoid conflicts via "as".`,
       ]
     ]);
   });
@@ -883,7 +1005,7 @@ describe('composing custom core directives', () => {
       extend schema
         @link(url: "https://specs.apollo.dev/federation/v2.1", import: ["@key", "@composeDirective", "@tag"])
         @link(url: "https://specs.apollo.dev/link/v1.0")
-        @link(url: "https://custom.dev/tag/v1.0", import: [{ name: "@tag", as: "@mytag"}])
+        @link(url: "https://custom.dev/tag/v1.0", as: "mytag", import: [{ name: "@tag", as: "@mytag"}])
         @composeDirective(name: "@mytag")
 
         directive @mytag(name: String!, prop: String!) on FIELD_DEFINITION | OBJECT
@@ -924,7 +1046,8 @@ describe('composing custom core directives', () => {
     expectDirectiveDefinition(schema, 'mytag', [DirectiveLocation.FIELD_DEFINITION, DirectiveLocation.OBJECT], ['name', 'prop']);
     expectDirectiveOnElement(schema, 'User.a', 'mytag', { name: 'a', prop: 'b' });
     expectDirectiveOnElement(schema, 'User.b', 'tag', { name: 'c' });
-    expectCoreFeature(schema, 'https://custom.dev/tag', '1.0', [{ name: '@tag', as: '@mytag' }]);
+    expectCoreFeature(schema, 'https://custom.dev/tag', '1.0', [{ name: '@tag', as: '@mytag' }], '_0tag');
+    expectCoreFeature(schema, 'https://specs.apollo.dev/tag', '0.3', []);
   });
 
   it('custom tag directive works when federation tag is renamed', () => {
@@ -978,12 +1101,37 @@ describe('composing custom core directives', () => {
     expectDirectiveOnElement(schema, 'User.b', 'mytag', { name: 'c' });
 
     expectCoreFeature(schema, 'https://custom.dev/tag', '1.0', [{ name: '@tag' }]);
-    const feature = schema.coreFeatures?.getByIdentity('https://specs.apollo.dev/tag');
-    expect(feature?.url.toString()).toBe('https://specs.apollo.dev/tag/v0.3');
-    expect(feature?.imports).toEqual([{ name: '@tag', as: '@mytag' }]);
-    expect(feature?.nameInSchema).toEqual('tag');
+    expectCoreFeature(schema, 'https://specs.apollo.dev/tag', '0.3', [{ name: '@tag', as: '@mytag' }], '_0tag');
     expect(printSchema(schema)).toMatchSnapshot();
   });
+
+  it('spec aliases with "-" and "." are renamed in supergraph schema', () => {
+    const subgraphA = generateSubgraph({
+      name: 'subgraphA',
+      linkText: '@link(url: "https://specs.apollo.dev/f-oo/v1.0", import: ["@foo"])',
+      composeText: '@composeDirective(name: "@foo")',
+      directiveText: 'directive @foo(name: String!) on FIELD_DEFINITION',
+      usage: '@foo(name: "a")',
+    });
+    const subgraphB = generateSubgraph({
+      name: 'subgraphB',
+      linkText: '@link(url: "https://specs.apollo.dev/b.ar/v1.0", import: ["@bar"])',
+      composeText: '@composeDirective(name: "@bar")',
+      directiveText: 'directive @bar(name: String!) on FIELD_DEFINITION',
+      usage: '@bar(name: "b")',
+    });
+
+    const result = composeServices([subgraphA, subgraphB]);
+    const schema = expectNoErrors(result);
+
+    expectDirectiveDefinition(schema, 'foo', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectDirectiveDefinition(schema, 'bar', [DirectiveLocation.FIELD_DEFINITION], ['name']);
+    expectDirectiveOnElement(schema, 'User.subgraphA', 'foo', { name: 'a' });
+    expectDirectiveOnElement(schema, 'User.subgraphB', 'bar', { name: 'b' });
+
+    expectCoreFeature(schema, 'https://specs.apollo.dev/f-oo', '1.0', [{ name: '@foo' }], '_0foo');
+    expectCoreFeature(schema, 'https://specs.apollo.dev/b.ar', '1.0', [{ name: '@bar' }], '_1bar');
+  })
 
   it('repeatable custom directives', () => {
     const subgraphA = {

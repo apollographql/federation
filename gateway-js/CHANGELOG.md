@@ -1,5 +1,20 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.14.0
+
+### Minor Changes
+
+- Add opt-out anonymous deployment environment telemetry. To opt-out, set APOLLO_TELEMETRY_DISABLED=1 in your environment. ([#3379](https://github.com/apollographql/federation/pull/3379))
+
+### Patch Changes
+
+- Fixed print logic when calculating the max number of elements to include in the message. Previously we were not passing ([#3424](https://github.com/apollographql/federation/pull/3424))
+  the current calculated length correctly leading to inclusion of additional elements in the error/hints message.
+- Updated dependencies [[`21cf465d4c687daeed71635422718c3c7b7d2d0e`](https://github.com/apollographql/federation/commit/21cf465d4c687daeed71635422718c3c7b7d2d0e), [`e1fd4ac10f72bb09027995f0811ec6e0021bcd49`](https://github.com/apollographql/federation/commit/e1fd4ac10f72bb09027995f0811ec6e0021bcd49), [`5b36fc6b5a494aa6983e0339713dc45a0bd031e3`](https://github.com/apollographql/federation/commit/5b36fc6b5a494aa6983e0339713dc45a0bd031e3), [`a20279a0184d9dfbc01a806d849dc8ae22497298`](https://github.com/apollographql/federation/commit/a20279a0184d9dfbc01a806d849dc8ae22497298)]:
+  - @apollo/composition@2.14.0
+  - @apollo/federation-internals@2.14.0
+  - @apollo/query-planner@2.14.0
+
 ## 2.13.3
 
 ### Patch Changes

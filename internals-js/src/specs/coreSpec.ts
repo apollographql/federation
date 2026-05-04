@@ -209,6 +209,9 @@ export type CoreImport = {
   as?: string,
 };
 
+// The RegExp for a GraphQL name, plus an optional leading "@".
+const importRegExp = /^@?[_A-Za-z][_0-9A-Za-z]*$/;
+
 export function extractCoreFeatureImports(url: FeatureUrl, directive: Directive<SchemaDefinition, CoreOrLinkDirectiveArgs>): CoreImport[] {
   // Note: up to this point, we've kind of cheated with typing and force-casted the arguments to `CoreOrLinkDirectiveArgs`, and while this
   // graphQL type validations ensure this is "mostly" true, the `import' arg is an exception becuse it uses the `link__Import` scalar,
@@ -249,12 +252,26 @@ export function extractCoreFeatureImports(url: FeatureUrl, directive: Directive<
             ));
             continue importArgLoop;
           }
+          if (!importRegExp.test(value)) {
+            errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+              `Invalid value for the "name" field for sub-value ${valueToString(elt)} of @link(import:) argument: must use a GraphQL name.`,
+              { nodes: directive.sourceAST },
+            ));
+            continue importArgLoop;
+          }
           name = value;
           break;
         case 'as':
           if (typeof value !== 'string') {
             errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
               `Invalid value for the "as" field for sub-value ${valueToString(elt)} of @link(import:) argument: must be a string.`,
+              { nodes: directive.sourceAST },
+            ));
+            continue importArgLoop;
+          }
+          if (!importRegExp.test(value)) {
+            errors.push(ERRORS.INVALID_LINK_DIRECTIVE_USAGE.err(
+              `Invalid value for the "as" field for sub-value ${valueToString(elt)} of @link(import:) argument: must use a GraphQL name.`,
               { nodes: directive.sourceAST },
             ));
             continue importArgLoop;

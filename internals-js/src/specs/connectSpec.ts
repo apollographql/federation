@@ -249,7 +249,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
       directive @connect(
         source: String
         id: String
-        http: ConnectHTTP!
+        http: ConnectHTTP
         batch: ConnectBatch
         errors: ConnectorErrors
         selection: JSONSelection!
@@ -277,7 +277,7 @@ export class ConnectSpecDefinition extends FeatureDefinition {
             type: (schema, feature) => {
               const connectHttpType =
                   lookupFeatureTypeInSchema<InputObjectType>(CONNECT_HTTP, 'InputObjectType', schema, feature);
-              return new NonNullType(connectHttpType);
+              return connectHttpType;
             }
           },
           {

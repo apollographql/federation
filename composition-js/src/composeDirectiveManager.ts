@@ -11,6 +11,7 @@ import {
   Subgraph,
   Directive,
   isDefined,
+  printSubgraphNames,
 } from '@apollo/federation-internals';
 import { GraphQLError } from 'graphql';
 import { CompositionHint, HINTS } from './hints';
@@ -47,9 +48,13 @@ const directiveHasDifferentNameInSubgraph = ({
 
 const allEqual = <T>(arr: T[]) => arr.every((val: T) => val === arr[0]);
 
-type FeatureAndSubgraph = {
+type FeatureAndSubgraphs = {
   feature: CoreFeature,
-  subgraphName: string,
+  subgraphNames: string[],
+};
+
+type FeatureAndComposed = {
+  feature: CoreFeature,
   isComposed: boolean,
 };
 
@@ -74,8 +79,8 @@ export class ComposeDirectiveManager {
   // map of subgraphs to directives being composed
   mergeDirectiveMap: Map<string, Set<string>>;
 
-  // map of identities to the latest CoreFeature+Subgraph it can be found on
-  latestFeatureMap: Map<string, [CoreFeature,string]>;
+  // map of identities to the latest CoreFeature+Subgraphs it can be found on
+  latestFeatureMap: Map<string, [CoreFeature,string[]]>;
 
   // map of directive names to identity,origName
   directiveIdentityMap: Map<string, [string,string]>;
@@ -108,24 +113,25 @@ export class ComposeDirectiveManager {
    * If features are compatible (i.e. they have the same major version), return the latest
    * Otherwise return undefined
    */
-  private getLatestIfCompatible(coreIdentity: string, subgraphsUsed: string[]): FeatureAndSubgraph | undefined {
+  private getLatestIfCompatible(coreIdentity: string, subgraphsUsed: string[]): FeatureAndSubgraphs | undefined {
     let raisedHint = false;
+    const featureUrlsAndSubgraphs: [CoreFeature, string][] = [];
     const pairs = this.subgraphs.values()
       .map(sg => {
         const feature = sg.schema.coreFeatures?.getByIdentity(coreIdentity);
         if (!feature) {
           return undefined;
         }
+        featureUrlsAndSubgraphs.push([feature, sg.name]);
         return {
           feature,
-          subgraphName: sg.name,
           isComposed: subgraphsUsed.includes(sg.name),
         };
       })
       .filter(isDefined);
 
     // get the majorVersion iff they are consistent otherwise return undefined
-    const latest = pairs.reduce((acc: FeatureAndSubgraph | null | undefined, pair: FeatureAndSubgraph) => {
+    const latest = pairs.reduce((acc: FeatureAndComposed | null | undefined, pair: FeatureAndComposed) => {
       // if acc is null, that means that we are on our first element
       // if acc is undefined, that means we have detected a version conflict
       if (acc === null) {
@@ -169,7 +175,18 @@ export class ComposeDirectiveManager {
     if (!latest?.isComposed) {
       return undefined;
     }
-    return latest;
+    return {
+      feature: latest.feature,
+      subgraphNames: featureUrlsAndSubgraphs
+        .filter(([feature]) =>
+          feature.url.version.equals(latest.feature.url.version)
+        )
+        .map(([_, subgraphName]) => subgraphName)
+        // The reverse() here is necessary to maintain backwards compatibility
+        // with previous behavior (specifically, the search order of subgraphs
+        // when multiple of them have the right version).
+        .reverse(),
+    }
   }
 
   private forFederationDirective(sg: Subgraph, composeInstance: Directive, directive: DirectiveDefinition) {
@@ -269,8 +286,13 @@ export class ComposeDirectiveManager {
           if (featureDetails) {
             const identity = featureDetails.feature.url.identity;
 
-            // make sure that core feature is not blacklisted
-            if (DISALLOWED_IDENTITIES.includes(identity)) {
+            if (featureDetails.nameInFeature === null) {
+              this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
+                `Directive "@${name}" in subgraph "${sg.name}" cannot be composed because it is imported to a different name`,
+                { nodes: composeInstance.sourceAST },
+              ));
+            } else if (DISALLOWED_IDENTITIES.includes(identity)) {
+              // make sure that core feature is not blacklisted
               this.forFederationDirective(sg, composeInstance, directive);
             } else if (tagNamesInSubgraphs.includes(name)) {
               const subgraphs: string[] = [];
@@ -338,7 +360,7 @@ export class ComposeDirectiveManager {
 
       const latest = this.getLatestIfCompatible(identity, subgraphsUsed);
       if (latest) {
-        this.latestFeatureMap.set(identity, [latest.feature, latest.subgraphName]);
+        this.latestFeatureMap.set(identity, [latest.feature, latest.subgraphNames]);
       } else {
         wontMergeFeatures.add(identity);
       }
@@ -460,26 +482,36 @@ export class ComposeDirectiveManager {
       const [identity, origName] = val;
       const entry = this.latestFeatureMap.get(identity);
       assert(entry, 'core feature identity must exist in map');
-      const [feature, subgraphName] = entry;
-      const subgraph = this.subgraphs.get(subgraphName);
-      assert(subgraph, `subgraph "${subgraphName}" does not exist`);
-
-      // we need to convert from the name that is used in the schemas that export the directive
-      // to the name used in the schema that is the latest version, which may or may not export
-      // See test "exported directive not imported everywhere. imported with different name"
-      const nameInSchema = subgraph.schema.coreFeatures?.getByIdentity(identity)?.directiveNameInSchema(origName);
-      if (nameInSchema) {
-        const directive = subgraph.schema.directive(nameInSchema);
-        if (!directive) {
-          this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
-            `Core feature "${identity}" in subgraph "${subgraphName}" does not have a directive definition for "@${directiveName}"`,
-            {
-              nodes: feature.directive.sourceAST,
-            },
-          ));
+      const [feature, subgraphNames] = entry;
+      const sourceASTs = [];
+      for (const subgraphName of subgraphNames) {
+        const subgraph = this.subgraphs.get(subgraphName);
+        assert(subgraph, `subgraph "${subgraphName}" does not exist`);
+        // we need to convert from the name that is used in the schemas that
+        // export the directive to the name used in the schema that is the
+        // latest version, which may or may not export. See the test "exported
+        // directive not imported everywhere. imported with different name".
+        const nameInSchema = subgraph.schema.coreFeatures
+          ?.getByIdentity(identity)?.directiveNameInSchema(origName);
+        if (nameInSchema) {
+          const directive = subgraph.schema.directive(nameInSchema);
+          if (directive) {
+            return directive;
+          }
         }
-        return directive;
+        const sourceAST = feature.directive.sourceAST;
+        if (sourceAST) {
+          sourceASTs.push(sourceAST);
+        }
+
       }
+      let plural = subgraphNames.length !== 1;
+      this.pushError(ERRORS.DIRECTIVE_COMPOSITION_ERROR.err(
+        `Core feature "${identity}/${feature.url.version}" in ${printSubgraphNames(subgraphNames)} ${plural ? 'do' : 'does'} not have a directive definition for "@${directiveName}"`,
+        {
+          nodes: sourceASTs,
+        }
+      ));
     }
     return undefined;
   }
