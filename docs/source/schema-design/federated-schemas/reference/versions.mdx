@@ -38,11 +38,11 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 
 #### `@interfaceObject` alongside Federation 1 subgraphs
 
-Previously, composition failed whenever a Federation 2 subgraph used `@interfaceObject` and **any** Federation 1 subgraph was in the graph. The rule is now **scoped to a single type name**: composition reports an error only if a Federation 2 subgraph uses `@interfaceObject` on a type `T` **and** a Federation 1 subgraph defines `@key` on an **interface** that is also named `T`. `@interfaceObject` on other types can coexist with Federation 1 subgraphs when that specific conflict does not occur.
+Previously, composition failed whenever a Federation 2 subgraph used `@interfaceObject` and any Federation 1 subgraph was in the graph. The rule is now scoped to a single type name: composition reports an error only if a Federation 2 subgraph uses `@interfaceObject` on a type `T` and a Federation 1 subgraph defines `@key` on an interface that is also named `T`. `@interfaceObject` on other types can coexist with Federation 1 subgraphs when that specific conflict does not occur.
 
 #### `@composeDirective` and custom specifications
 
-When custom directives from the same spec are merged into the supergraph via `@composeDirective`, subgraphs on the **latest** version of that spec no longer need to **each** declare every composed directive. A directive definition must appear in **at least one** of those subgraphs. For example, one subgraph can link a spec, compose both `@foo` and `@bar`, and define both directives, while another subgraph links the same spec, composes only `@foo`, and defines only `@foo`.
+When custom directives from the same spec are merged into the supergraph via `@composeDirective`, subgraphs on the latest version of that spec no longer need to each declare every composed directive. A directive definition must appear in at least one of those subgraphs. For example, one subgraph can link a spec, compose both `@foo` and `@bar`, and define both directives, while another subgraph links the same spec, composes only `@foo`, and defines only `@foo`.
 
 #### `@link` usage
 
