@@ -46,7 +46,7 @@ When custom directives from the same spec are merged into the supergraph via `@c
 
 #### `@link` usage
 
-Composition validates `@link` to prevent **name conflicts** between linked specs and imported definitions. Conflicting names should be disambiguated with `import:` (and `as:` when needed). If you linked `https://specs.apollo.dev/tag` or `https://specs.apollo.dev/inaccessible` as separate specs, import `@tag` and `@inaccessible` from the [`federation` specification](/graphos/reference/federation/directives) instead; relying on those standalone links was tied to behavior this release fixes.
+Composition validates `@link` to prevent name conflicts between linked specs and imported definitions. Disambiguate conflicting names with `import:` (and `as:` when needed). If you linked `https://specs.apollo.dev/tag` or `https://specs.apollo.dev/inaccessible` as separate specs, import `@tag` and `@inaccessible` from the [`federation` specification](/graphos/reference/federation/directives) instead; relying on those standalone links was tied to behavior that this release fixes.
 
 ## v2.13
 
