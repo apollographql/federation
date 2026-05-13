@@ -1,4 +1,5 @@
 import { GraphQLFieldResolver, GraphQLScalarType, DocumentNode } from 'graphql';
+import type { GraphQLReferenceResolver } from '../schemaExtensions';
 
 export interface GraphQLSchemaModule {
   typeDefs: DocumentNode;
@@ -6,9 +7,9 @@ export interface GraphQLSchemaModule {
 }
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-export interface GraphQLResolverMap<TContext = {}> {
+export interface GraphQLResolverMap<TContext = {}, TReference extends object = any> {
   [typeName: string]:
-    | {
+    | ({
         [fieldName: string]:
           | GraphQLFieldResolver<any, TContext>
           | {
@@ -16,7 +17,9 @@ export interface GraphQLResolverMap<TContext = {}> {
               resolve?: GraphQLFieldResolver<any, TContext>;
               subscribe?: GraphQLFieldResolver<any, TContext>;
             };
-      }
+      } & {
+        __resolveReference?: GraphQLReferenceResolver<TContext, TReference>;
+      })
     | GraphQLScalarType
     | {
         [enumValue: string]: string | number;
