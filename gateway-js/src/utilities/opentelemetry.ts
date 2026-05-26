@@ -73,7 +73,7 @@ export enum OpenTelemetryAttributeNames {
 }
 
 const { name, version } = require('../../package.json');
-export const tracer = opentelemetry.trace.getTracer(`${name}/${version}`);
+export const tracer = opentelemetry.trace.getTracer(name, version);
 
 const APOLLO_OTEL_ENDPOINT = "https://usage-reporting.api.apollographql.com";
 const EXPORT_INTERVAL_SECONDS = 60 * 60; // one hour
@@ -188,7 +188,7 @@ export function createDataCollectionMeterProvider(metricExporter: PushMetricExpo
   const osAttrs = osDetectorSync.detect().attributes
   const osType = osAttrs[ATTR_OS_TYPE]
   const hostArch = hostAttrs[ATTR_HOST_ARCH]
-  const meter = meterProvider.getMeter("apollo/gateway-js")
+  const meter = meterProvider.getMeter(name, version)
 
   const uptimeGauge = meter.createObservableGauge(METRIC_PROCESS_UPTIME, {
     "description": "The uptime of the JS federation gateway running"
