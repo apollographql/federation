@@ -1593,7 +1593,7 @@ class Merger {
         // Note that if we change our mind on this semantic and wanted directives on external to propagate, then we'll also
         // need to update the merging of fields since external fields are filtered out (by this very method).
         for (const directive of source.appliedDirectives) {
-          if (this.isMergedDirective(source.name, directive)) {
+          if (this.isMergedDirective(this.names[i], directive)) {
             // Contrarily to most of the errors during merging that "merge" errors for related elements, we're logging one
             // error for every application here. But this is because there error is somewhat subgraph specific and is
             // unlikely to span multiple subgraphs. In fact, we could almost have thrown this error during subgraph validation
