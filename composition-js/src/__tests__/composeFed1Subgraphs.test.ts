@@ -795,3 +795,32 @@ describe('override', () => {
     assertCompositionSuccess(result);
   });
 });
+
+describe('user-defined fields named like federation built-ins', () => {
+  it('preserves _service field on non-Query types', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        type Query {
+          product: Product
+        }
+
+        type Product @key(fields: "id") {
+          id: ID!
+          _service: ProductService
+        }
+
+        type ProductService {
+          name: String
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const result = composeServices([subgraphA]);
+    assertCompositionSuccess(result);
+
+    const [_, api] = schemas(result);
+    const printed = printSchema(api);
+    expect(printed).toContain('_service: ProductService');
+  });
+});

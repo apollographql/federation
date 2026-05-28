@@ -1567,6 +1567,9 @@ export class FederationBlueprint extends SchemaBlueprint {
     if (!FEDERATION_OPERATION_FIELDS.includes(fieldName)) {
       return false;
     }
+    if (!isObjectType(type) || !type.isQueryRootType()) {
+      return false;
+    }
     const metadata = federationMetadata(type.schema());
     return !!metadata && !metadata.isFed2Schema();
   }
