@@ -1351,8 +1351,14 @@ class Merger {
         break;
     }
     for (const [index, source] of sources.entries()) {
-      // As soon as we find a subgraph that has the type but not the field, we hint.
-      if (source && !source.field(field.name) && !this.areAllFieldsExternal(index, source)) {
+      // @interfaceObject types only contribute specific fields and are not expected to have all interface fields.
+      if (source && isObjectType(source) && this.metadata(index).isInterfaceObjectType(source)) {
+        continue;
+      }
+      // As soon as we find a subgraph that has the type but not the field, we hint,
+      // unless the field is provided by an @interfaceObject in another subgraph.
+      if (source && !source.field(field.name) && !this.areAllFieldsExternal(index, source)
+        && !(isInterfaceType(dest) && this.isFieldProvidedByAnInterfaceObject(field.name, dest.name))) {
         this.mismatchReporter.reportMismatchHint({
           code: hintId,
           message: `Field "${field.coordinate}" of ${typeDescription} type "${dest}" is defined in some but not all subgraphs that define "${dest}": `,

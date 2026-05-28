@@ -399,6 +399,36 @@ test('*No* hint on field of interface _with @key_ not being in all subgraphs', (
   expect(result).toNotRaiseHints();
 })
 
+test('no hint for interface value type field missing from @interfaceObject subgraph', () => {
+  const subgraph1 = gql`
+    type Query {
+      a: Int
+    }
+
+    interface Product {
+      id: ID!
+      name: String
+      price: Int
+    }
+
+    type Book implements Product @key(fields: "id") {
+      id: ID!
+      name: String
+      price: Int
+    }
+  `;
+
+  const subgraph2 = gql`
+    type Product @interfaceObject @key(fields: "id") {
+      id: ID!
+      reviews: [String!]!
+    }
+  `;
+
+  const result = mergeDocuments(subgraph1, subgraph2);
+  expect(result).toNotRaiseHints();
+})
+
 test('hints on field of input object value type not being in all subgraphs', () => {
   const subgraph1 = gql`
     type Query {
