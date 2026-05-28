@@ -114,7 +114,7 @@ function shareableFieldNonIntersectingRuntimeTypesError(
   const message = `For the following supergraph API query:\n${operation}`
     + `\nShared field "${field.coordinate}" return type "${field.type}" has a non-intersecting set of possible runtime types across subgraphs. Runtime types in subgraphs are:`
     + `\n${typeStrings.join(';\n')}.`
-    + `\nThis is not allowed as shared fields must resolve the same way in all subgraphs, and that imply at least some common runtime types between the subgraphs.`;
+    + `\nThis is not allowed as shared fields must resolve the same way in all subgraphs, and that implies at least some common runtime types between the subgraphs.`;
   const error = new ValidationError(message, invalidState.supergraphPath, invalidState.allSubgraphPathInfos().map((p) => p.path.path), witness);
   return ERRORS.SHAREABLE_HAS_MISMATCHED_RUNTIME_TYPES.err(error.message, {
     nodes: subgraphNodes(invalidState, (s) => (s.type(field.parent.name) as CompositeType | undefined)?.field(field.name)?.sourceAST),
