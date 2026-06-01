@@ -1,5 +1,20 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.14.1
+
+### Patch Changes
+
+- Align `@connect` spec with Rust implementation. As per the [docs](https://www.apollographql.com/docs/graphos/schema-design/federated-schemas/reference/versions#v211) ([#3440](https://github.com/apollographql/federation/pull/3440))
+  `@connect/v0.2` version should require Apollo Federation v2.11.
+
+  There are no `@join` spec differences between Federation v2.10 and v2.11 so this change will not result in any supergraph
+  changes. This change may result in additional/updated hint messages when `@connect/v0.1` spec is auto-upgraded to `v0.2`
+  (which may result in auto-upgrading connector virtual subgraph to `v2.11`).
+
+- Preserve user-defined `_service` fields ([#3442](https://github.com/apollographql/federation/pull/3442))
+
+  `ignoreParsedField` was stripping any field named `_service` or `_entities` from all types during fed1 schema parsing, but should only strip them from the Query root type where they are federation built-in operations.
+
 ## 2.14.0
 
 ### Minor Changes

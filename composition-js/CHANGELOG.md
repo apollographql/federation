@@ -1,5 +1,17 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.14.1
+
+### Patch Changes
+
+- Suppress false INCONSISTENT_INTERFACE_VALUE_TYPE_FIELD hints for `@interfaceObject` ([#3444](https://github.com/apollographql/federation/pull/3444))
+
+  Skip the inconsistent value type field hint when a source is an `@interfaceObject` (which only contributes specific fields) or when the field is provided by an `@interfaceObject` in another subgraph (since non-`@interfaceObject` subgraphs are not expected to define those fields).
+
+- Updated dependencies [[`278eb0fc2bc0ef13ba371407df04cfe50fa2887d`](https://github.com/apollographql/federation/commit/278eb0fc2bc0ef13ba371407df04cfe50fa2887d), [`8bb88f9c7b90addd5ef29f9e4a3f9c027e6cf690`](https://github.com/apollographql/federation/commit/8bb88f9c7b90addd5ef29f9e4a3f9c027e6cf690)]:
+  - @apollo/federation-internals@2.14.1
+  - @apollo/query-graphs@2.14.1
+
 ## 2.14.0
 
 ### Minor Changes

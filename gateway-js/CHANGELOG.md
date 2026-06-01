@@ -1,5 +1,16 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.14.1
+
+### Patch Changes
+
+- Pass instrumentation scope version as a separate argument when creating the OpenTelemetry meter for telemetry. Fixes #3436. ([#3439](https://github.com/apollographql/federation/pull/3439))
+
+- Updated dependencies [[`278eb0fc2bc0ef13ba371407df04cfe50fa2887d`](https://github.com/apollographql/federation/commit/278eb0fc2bc0ef13ba371407df04cfe50fa2887d), [`8bb88f9c7b90addd5ef29f9e4a3f9c027e6cf690`](https://github.com/apollographql/federation/commit/8bb88f9c7b90addd5ef29f9e4a3f9c027e6cf690), [`621568719382df6592749168893e0e533a648ba5`](https://github.com/apollographql/federation/commit/621568719382df6592749168893e0e533a648ba5)]:
+  - @apollo/federation-internals@2.14.1
+  - @apollo/composition@2.14.1
+  - @apollo/query-planner@2.14.1
+
 ## 2.14.0
 
 ### Minor Changes
