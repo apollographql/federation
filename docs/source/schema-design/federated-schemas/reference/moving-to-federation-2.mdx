@@ -24,7 +24,7 @@ graph LR;
     You can upgrade to either of the following:
 
     - [The GraphOS Router](https://github.com/apollographql/router), a high-performance precompiled executable (recommended)
-    - Version 2.x of the `@apollo/gateway` library, along with version 4.x of Apollo Server
+    - Version 2.x of the `@apollo/gateway` library, along with version 5.x of Apollo Server
 2. Begin composing your supergraph schema with Federation 2 composition logic.
 3. Update your individual subgraphs to use Federation 2 features and directives.
 
@@ -42,7 +42,7 @@ For your Federation 1 supergraph to support Federation 2, you first need to upgr
 
 - The GraphOS Router. This is a high-performance, precompiled executable that is based on the Apollo Router Core and provides many benefits over the Node.js-based gateway.
     - We recommend moving to the GraphOS Router unless you've extended your Node.js gateway with functionality that the GraphOS Router doesn't currently support (this is uncommon).
-- Version 2.x of the `@apollo/gateway` library, with version 4.x of Apollo Server
+- Version 2.x of the `@apollo/gateway` library, with version 5.x of Apollo Server
 
 <Note>
 
@@ -65,10 +65,10 @@ You can install updated versions of these libraries in your gateway project with
 npm install @apollo/gateway graphql
 ```
 
-Apollo Server 3.x supports these updated library versions, however Apollo Server 3.x is deprecated. Therefore, we strongly recommend also upgrading your gateway to Apollo Server 4.
+Apollo Server 3.x supports these updated library versions, but Apollo Server 3.x is end-of-life. Therefore, we strongly recommend also upgrading your gateway to Apollo Server 5.
 
-- [Learn how to migrate to Apollo Server 4.](/apollo-server/migration)
-- If you're still using Apollo Server 2.x, we recommend [migrating to v3.x ](/apollo-server/v3/migration) and then migrating to 4.x.
+- [Learn how to migrate from Apollo Server 3 to Apollo Server 5.](/apollo-server/migration-from-v3)
+- If you're still using Apollo Server 2.x, first [migrate to Apollo Server 3](/apollo-server/v3/migration), and then migrate to Apollo Server 5.
 
 ## Step 2: Configure your composition method
 
