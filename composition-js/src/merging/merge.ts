@@ -57,6 +57,9 @@ import {
   baseType,
   isEnumType,
   isNonNullType,
+  isListType,
+  isVariable,
+  fieldArgumentNames,
   isExecutableDirectiveLocation,
   parseFieldSetArgument,
   isCompositeType,
@@ -3772,11 +3775,23 @@ class Merger {
         assert(mergedType && isCompositeType(mergedType), () => `Merged type ${originalField.parent.name} should exist should have field ${originalField.name}`)
         assert(isCompositeType(mergedType), `${mergedType} should be a composite type but got ${mergedType.kind}`);
         try {
-          parseFieldSetArgument({
+          const parsedFieldSet = parseFieldSetArgument({
             parentType: mergedType,
             directive: requiresApplication,
             decorateValidationErrors: false,
+            // Tolerate variables binding to the field's arguments; their types are checked just below.
+            allowedFieldArgumentVariables: fieldArgumentNames(originalField),
           });
+          const variableTypeErrors: string[] = [];
+          collectRequiresVariableTypeErrors(parsedFieldSet, originalField, variableTypeErrors);
+          for (const message of variableTypeErrors) {
+            const nodes = requiresApplication.sourceAST ? [addSubgraphToASTNode(requiresApplication.sourceAST, subgraph.name)] : [];
+            const error = ERRORS.REQUIRES_INVALID_FIELDS.err(
+              `On field "${originalField.coordinate}", for ${requiresApplication}: ${message}`,
+              { nodes },
+            );
+            this.errors.push(addSubgraphToError(error, subgraph.name));
+          }
         } catch (e) {
           if (!(e instanceof GraphQLError)) {
             throw e;
@@ -4396,4 +4411,55 @@ class AuthRequirementsOnElement {
     result += ' }';
     return result;
   }
+}
+
+// For each variable in the field set bound to an argument of `annotatedField`, checks the bound argument's type is
+// compatible with the type expected at its usage, collecting any mismatch message into `errors`.
+function collectRequiresVariableTypeErrors(
+  selectionSet: SelectionSet,
+  annotatedField: FieldDefinition<CompositeType>,
+  errors: string[],
+): void {
+  for (const selection of selectionSet.selections()) {
+    if (selection.kind === 'FieldSelection') {
+      const field = selection.element;
+      if (field.args) {
+        for (const [argName, value] of Object.entries(field.args)) {
+          if (!isVariable(value)) {
+            continue;
+          }
+          const boundArgument = annotatedField.argument(value.name);
+          // Unbound variables are reported during subgraph validation; here we only type-check bound ones.
+          if (!boundArgument) {
+            continue;
+          }
+          const locationType = field.definition.argument(argName)?.type;
+          const boundType = boundArgument.type;
+          if (boundType && locationType && !argumentTypesCompatible(boundType, locationType)) {
+            errors.push(
+              `variable "$${value.name}" cannot be used for argument "${argName}" of field "${field.name}": `
+              + `it is bound to argument "${value.name}" of type "${boundType}", which is not compatible with the expected type "${locationType}"`
+            );
+          }
+        }
+      }
+      if (selection.selectionSet) {
+        collectRequiresVariableTypeErrors(selection.selectionSet, annotatedField, errors);
+      }
+    } else if (selection.kind === 'FragmentSelection') {
+      collectRequiresVariableTypeErrors(selection.selectionSet, annotatedField, errors);
+    }
+  }
+}
+
+// Nullability-blind input-type compatibility: equal inner named type and list nesting after stripping non-null
+// wrappers (a list and a non-list never match). Nullability is ignored on purpose — the nullable-into-non-null case
+// is handled by runtime coercion (omitted/null), not a composition error.
+function argumentTypesCompatible(variableType: Type, locationType: Type): boolean {
+  const v = isNonNullType(variableType) ? variableType.ofType : variableType;
+  const l = isNonNullType(locationType) ? locationType.ofType : locationType;
+  if (isListType(l) || isListType(v)) {
+    return isListType(l) && isListType(v) && argumentTypesCompatible(v.ofType, l.ofType);
+  }
+  return baseType(v).name === baseType(l).name;
 }
