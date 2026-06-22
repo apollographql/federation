@@ -4,7 +4,7 @@ import type { GatewayGraphQLRequestContext } from '@apollo/server-gateway-interf
 import { cpuCountSync } from 'node-cpu-count';
 import * as os from 'node:os';
 import { OperationContext } from '../operationContext';
-import {ATTR_OS_TYPE, ATTR_HOST_ARCH, OS_TYPE_VALUE_LINUX, ATTR_OS_NAME, METRIC_SYSTEM_MEMORY_LIMIT, METRIC_SYSTEM_CPU_LOGICAL_COUNT, METRIC_SYSTEM_CPU_FREQUENCY, ATTR_SERVICE_NAME, ATTR_SERVICE_INSTANCE_ID, METRIC_PROCESS_UPTIME} from '@opentelemetry/semantic-conventions/incubating';
+import {ATTR_OS_TYPE, ATTR_HOST_ARCH, OS_TYPE_VALUE_LINUX, ATTR_OS_NAME, METRIC_SYSTEM_MEMORY_LIMIT, METRIC_SYSTEM_CPU_LOGICAL_COUNT, METRIC_SYSTEM_CPU_FREQUENCY, ATTR_SERVICE_NAME, ATTR_SERVICE_INSTANCE_ID, METRIC_PROCESS_UPTIME, ATTR_CLOUD_PROVIDER, ATTR_CLOUD_PLATFORM} from '@opentelemetry/semantic-conventions/incubating';
 import {
   MeterProvider,
   PeriodicExportingMetricReader,
@@ -151,10 +151,30 @@ export function recordExceptions(
   }
 }
 
+// Non-identifying cloud resource attributes that we process.
+const ALLOWED_CLOUD_RESOURCE_ATTRIBUTES: Set<string> = new Set([
+  ATTR_CLOUD_PROVIDER,
+  ATTR_CLOUD_PLATFORM,
+]);
+
+function filterToAllowedCloudAttributes(resource: Resource): Resource {
+  return new Resource(
+    {},
+    Promise.resolve(resource.waitForAsyncAttributes?.()).then(() => {
+      const filtered: Attributes = {};
+      for (const [key, value] of Object.entries(resource.attributes)) {
+        if (ALLOWED_CLOUD_RESOURCE_ATTRIBUTES.has(key)) {
+          filtered[key] = value;
+        }
+      }
+      return filtered;
+    }),
+  );
+}
+
 // Exposed for unit testing with a testable exporter
 export function createDataCollectionMeterProvider(metricExporter: PushMetricExporter): MeterProvider {
-  // cloud resource detectors
-  const resource = detectResourcesSync({
+  const detectedResource = detectResourcesSync({
     detectors: [
       alibabaCloudEcsDetector,
       awsEc2Detector,
@@ -168,6 +188,7 @@ export function createDataCollectionMeterProvider(metricExporter: PushMetricExpo
       azureAppServiceDetector
     ],
   })
+  const resource = filterToAllowedCloudAttributes(detectedResource);
 
   const meterProvider = new MeterProvider({
     resource: resource.merge(
