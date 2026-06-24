@@ -74,6 +74,7 @@ excercices
 excercises
 executiable
 exisiting
+FAAS
 falsey
 Fastify
 Fiel

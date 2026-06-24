@@ -26,6 +26,10 @@ import {
   METRIC_SYSTEM_CPU_FREQUENCY,
   METRIC_SYSTEM_CPU_LOGICAL_COUNT,
   METRIC_SYSTEM_MEMORY_LIMIT,
+  ATTR_FAAS_NAME,
+  ATTR_TELEMETRY_SDK_LANGUAGE,
+  ATTR_TELEMETRY_SDK_NAME,
+  ATTR_TELEMETRY_SDK_VERSION,
 } from '@opentelemetry/semantic-conventions/incubating';
 
 expect.addSnapshotSerializer(spanSerializer);
@@ -370,6 +374,44 @@ describe('opentelemetry', () => {
         expect(resource.attributes[ATTR_CLOUD_PLATFORM]).toBe(
           'azure_app_service',
         );
+      }, 10000);
+
+      it('strips identifying attributes and only exports the safe allowlist', async () => {
+        process.env.AWS_LAMBDA_FUNCTION_NAME = 'my-secret-function';
+        process.env.AWS_REGION = 'us-east-1';
+        process.env.AWS_EXECUTION_ENV = 'AWS_Lambda_nodejs20.x';
+
+        const metricExporter = new InMemoryMetricExporter(
+          AggregationTemporality.CUMULATIVE,
+        );
+        const meterProvider = createDataCollectionMeterProvider(metricExporter);
+        await meterProvider.shutdown();
+
+        const resource = metricExporter.getMetrics()[0].resource;
+
+        // Safe cloud attributes should be present.
+        expect(resource.attributes[ATTR_CLOUD_PROVIDER]).toBe('aws');
+        expect(resource.attributes[ATTR_CLOUD_PLATFORM]).toBe('aws_lambda');
+
+        // The identifying function name must have been filtered out.
+        expect(resource.attributes[ATTR_FAAS_NAME]).toBeUndefined();
+
+        // Every key in the resource must be from the safe set — nothing else
+        // should ever be exported.
+        const SAFE_RESOURCE_ATTRIBUTE_KEYS: Set<string> = new Set([
+          ATTR_CLOUD_PROVIDER,
+          ATTR_CLOUD_PLATFORM,
+          ATTR_SERVICE_NAME,
+          ATTR_SERVICE_INSTANCE_ID,
+          // Added automatically by the OTel SDK
+          ATTR_TELEMETRY_SDK_LANGUAGE,
+          ATTR_TELEMETRY_SDK_NAME,
+          ATTR_TELEMETRY_SDK_VERSION,
+        ]);
+        const unexpectedKeys = Object.keys(resource.attributes).filter(
+          (key) => !SAFE_RESOURCE_ATTRIBUTE_KEYS.has(key),
+        );
+        expect(unexpectedKeys).toEqual([]);
       }, 10000);
     });
   });
