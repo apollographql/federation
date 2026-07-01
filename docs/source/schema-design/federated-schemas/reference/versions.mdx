@@ -36,74 +36,74 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 
 #### Composition and validation changes
 
-This is a first Rust Native Apollo composition release. This release does not contain any new features. Rust composition
+This is the first Rust Native Apollo composition release. This release does not contain any new features. Rust composition
 generates semantically equivalent supergraphs as the previous JavaScript binaries.
 
-#### Additional Validations
+#### Additional validations
 
-##### Disallow Interfaces Implementing `@interfaceObject`
+##### Disallow interfaces implementing `@interfaceObject`
 
-This pattern is not currently supported by the federation. Composition now generates an `INTERFACE_OBJECT_USAGE_ERROR`
-error when it detects such scenario and fails the composition.
+Federation does not currently support this pattern. Composition now generates an `INTERFACE_OBJECT_USAGE_ERROR`
+error when it detects such a scenario and fails the composition.
 
-##### Override Label Validation
+##### Override label validation
 
 Composition now drops the `@override` labels if they don't reference a valid subgraph.
 
-##### External Field Validation
+##### External field validation
 
 Composition now correctly validates merged directive usage on `@external` fields  and emits `MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL`
 error on failures.
 
-##### Custom Spec Url Validation
+##### Custom spec URL validation
 
-Composition now rejects custom specs imports that specify Apollo spec domain `https://specs.apollo.dev`. Previously,
-custom spec URLs were only checked against individual Apollo specs. This was problematic as new Apollo specs could start
-colliding with previously defined user specs.
+Composition now rejects custom spec imports that specify the Apollo spec domain `https://specs.apollo.dev`. Previously,
+Custom spec URLs are now checked against the entire Apollo spec domain to prevent future collisions with new Apollo specs.
+colliding with previously defined specs in your schema.
 
-##### Input Object Validation
+##### Input object validation
 
 Composition now validates user provided default object values to ensure they are valid (i.e. all fields are optional
 or have default values). Invalid values are removed from the supergraph.
 
-##### `@tag` Validations
+##### `@tag` validations
 
-`@tag` validations are now run as part of the main composition process (previously they were only run while contract
+Composition runs `@tag` validations as part of the main process (previously they ran while contract variants).
 variants).
 
-##### Root Type Inference Fix
+##### Root type inference fix
 
-Fixed GraphQL spec validation to ensure that composition will only infer default root operation types (e.g. `Mutation`)
+Composition ensures that it only infers default root operation types (e.g. `Mutation`)
 if they are not referenced by other schema elements.
 
-##### Stricter FieldSet Coercion Rules
+##### Stricter FieldSet coercion rules
 
-`_FieldSet/FieldSet` is a custom scalar that represents a GraphQL selection set (minus brackets). While we expect this
-value to be a `String`, additional values were accepted due to auto coercion logic. Composition will no longer accept
+`_FieldSet/FieldSet` is a custom scalar that represents a GraphQL selection set (minus brackets). While Apollo expects this
+While we expect this value to be a `String`, the system accepted additional values due to auto coercion logic.
 list of strings as a valid field set value.
 
-#### Cosmetic Changes
+#### Cosmetic changes
 
-##### Additional Hints
+##### Additional hints
 
-Merge process now correctly emits hints on composition failure.
+The merge process now correctly emits hints on composition failure.
 
-##### Empty Object vs Expanded Object
+##### Empty object vs expanded object
 
 Composition now auto expands input objects explicitly specifying all the default values for the fields (e.g. `input: SortAndFilter = {}`
 becomes `input: SortAndFilter = { limit: 100, sort: DESC)`).
 
-##### Value Coercion
+##### Value coercion
 
-Whenever subgraph defines a default value with coercible value (e.g. default value of `Int` for field that accepts `Float`),
-this value will now be coerced to the appropriate target type (e.g. `weight: Float = 1` becomes `weight: Float = 1.0`).
+Whenever your subgraph defines a default value with a coercible value (e.g., a default value of `Int` for a field that accepts `Float`),
+this value now coerces to the appropriate target type (e.g. `weight: Float = 1` becomes `weight: Float = 1.0`).
 
-##### Example Queries
+##### Example queries
 
-Due to the differences in the underlying data structures and libraries, new composition version may include different
+Due to differences in underlying data structures and libraries, this new composition version might include different
 example operations in the hint messages.
 
-##### Rich Error Diagnostics
+##### Rich error diagnostics
 
 `apollo-compiler` provides rich error diagnostics (with line numbers and references to the schema) for GraphQL errors.
 
