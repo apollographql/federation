@@ -36,8 +36,10 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 
 #### Composition and validation changes
 
-This is the first Rust Native Apollo composition release. This release does not contain any new features. Rust composition
-generates semantically equivalent supergraphs as the previous JavaScript binaries.
+This is the first Rust-native Apollo composition release. It introduces no new directives or composition behavior.
+Rust composition generates semantically equivalent supergraphs to the previous JavaScript binaries. However, the rewrite
+does surface a number of validation and error-reporting improvements, detailed below, that were previously inconsistent
+or missing.
 
 #### Additional validations
 
@@ -57,9 +59,8 @@ error on failures.
 
 ##### Custom spec URL validation
 
-Composition now rejects custom spec imports that specify the Apollo spec domain `https://specs.apollo.dev`. Previously,
-Custom spec URLs are now checked against the entire Apollo spec domain to prevent future collisions with new Apollo specs.
-colliding with previously defined specs in your schema.
+Composition now rejects custom spec imports that specify the Apollo spec domain `https://specs.apollo.dev`. Custom spec
+URLs are now checked against the entire Apollo spec domain to prevent future collisions with new Apollo specs.
 
 ##### Input object validation
 
@@ -68,19 +69,18 @@ or have default values). Invalid values are removed from the supergraph.
 
 ##### `@tag` validations
 
-Composition runs `@tag` validations as part of the main process (previously they ran while contract variants).
-variants).
+Composition now runs `@tag` validations as part of the main process (previously they very checked during contract variant
+generation only).
 
 ##### Root type inference fix
 
-Composition ensures that it only infers default root operation types (e.g. `Mutation`)
-if they are not referenced by other schema elements.
+Composition ensures that it only infers default root operation types (e.g. `Mutation`) if they are not referenced by
+other schema elements.
 
 ##### Stricter FieldSet coercion rules
 
 `_FieldSet/FieldSet` is a custom scalar that represents a GraphQL selection set (minus brackets). While Apollo expects this
-While we expect this value to be a `String`, the system accepted additional values due to auto coercion logic.
-list of strings as a valid field set value.
+value to be a `String`, the system accepted additional values due to auto coercion logic.
 
 #### Cosmetic changes
 
