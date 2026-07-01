@@ -26,6 +26,87 @@ For a comprehensive changelog for Apollo Federation and its associated libraries
 
 - If you maintain a [subgraph-compatible library](/graphos/reference/federation/compatible-subgraphs), consult this article to stay current with recently added directives. All of these directive definitions are also listed in the [subgraph specification](/graphos/reference/federation/subgraph-spec/#subgraph-schema-additions).
 
+## v2.15 (LTS)
+
+<hr/>
+
+| First release | Available in GraphOS? | Minimum router version |
+| ------------- | --------------------- | ---------------------- |
+| **July 2026** | **Yes** | **`2.16.0`** |
+
+#### Composition and validation changes
+
+This is a first Rust Native Apollo composition release. This release does not contain any new features. Rust composition
+generates semantically equivalent supergraphs as the previous JavaScript binaries.
+
+#### Additional Validations
+
+##### Disallow Interfaces Implementing `@interfaceObject`
+
+This pattern is not currently supported by the federation. Composition now generates an `INTERFACE_OBJECT_USAGE_ERROR`
+error when it detects such scenario and fails the composition.
+
+##### Override Label Validation
+
+Composition now drops the `@override` labels if they don't reference a valid subgraph.
+
+##### External Field Validation
+
+Composition now correctly validates merged directive usage on `@external` fields  and emits `MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL`
+error on failures.
+
+##### Custom Spec Url Validation
+
+Composition now rejects custom specs imports that specify Apollo spec domain `https://specs.apollo.dev`. Previously,
+custom spec URLs were only checked against individual Apollo specs. This was problematic as new Apollo specs could start
+colliding with previously defined user specs.
+
+##### Input Object Validation
+
+Composition now validates user provided default object values to ensure they are valid (i.e. all fields are optional
+or have default values). Invalid values are removed from the supergraph.
+
+##### `@tag` Validations
+
+`@tag` validations are now run as part of the main composition process (previously they were only run while contract
+variants).
+
+##### Root Type Inference Fix
+
+Fixed GraphQL spec validation to ensure that composition will only infer default root operation types (e.g. `Mutation`)
+if they are not referenced by other schema elements.
+
+##### Stricter FieldSet Coercion Rules
+
+`_FieldSet/FieldSet` is a custom scalar that represents a GraphQL selection set (minus brackets). While we expect this
+value to be a `String`, additional values were accepted due to auto coercion logic. Composition will no longer accept
+list of strings as a valid field set value.
+
+#### Cosmetic Changes
+
+##### Additional Hints
+
+Merge process now correctly emits hints on composition failure.
+
+##### Empty Object vs Expanded Object
+
+Composition now auto expands input objects explicitly specifying all the default values for the fields (e.g. `input: SortAndFilter = {}`
+becomes `input: SortAndFilter = { limit: 100, sort: DESC)`).
+
+##### Value Coercion
+
+Whenever subgraph defines a default value with coercible value (e.g. default value of `Int` for field that accepts `Float`),
+this value will now be coerced to the appropriate target type (e.g. `weight: Float = 1` becomes `weight: Float = 1.0`).
+
+##### Example Queries
+
+Due to the differences in the underlying data structures and libraries, new composition version may include different
+example operations in the hint messages.
+
+##### Rich Error Diagnostics
+
+`apollo-compiler` provides rich error diagnostics (with line numbers and references to the schema) for GraphQL errors.
+
 ## v2.14
 
 <hr/>
@@ -59,7 +140,7 @@ Composition validates `@link` to prevent name conflicts between linked specs and
 Federation v2.13 is a prerequisite for the Connector specification version 0.4.
 [Learn more.](/graphos/connectors/reference/changelog)
 
-## v2.12
+## v2.12 (LTS)
 
 <hr/>
 
