@@ -45,7 +45,7 @@ or missing.
 
 ##### Disallow interfaces implementing `@interfaceObject`
 
-Federation does not currently support this pattern. Composition now generates an `INTERFACE_OBJECT_USAGE_ERROR`
+Federation doesn't currently support this pattern. Composition now generates an `INTERFACE_OBJECT_USAGE_ERROR`
 error when it detects such a scenario and fails the composition.
 
 ##### Override label validation
@@ -60,27 +60,27 @@ error on failures.
 ##### Custom spec URL validation
 
 Composition now rejects custom spec imports that specify the Apollo spec domain `https://specs.apollo.dev`. Custom spec
-URLs are now checked against the entire Apollo spec domain to prevent future collisions with new Apollo specs.
+URLs are now checked against Apollo spec domain to prevent future collisions with new Apollo specs.
 
 ##### Input object validation
 
-Composition now validates user provided default object values to ensure they are valid (i.e. all fields are optional
+Composition now validates user-provided default object values to ensure they're valid (i.e. all fields are optional
 or have default values). Invalid values are removed from the supergraph.
 
 ##### `@tag` validations
 
-Composition now runs `@tag` validations as part of the main process (previously they very checked during contract variant
+Composition now runs `@tag` validations as part of the main process (previously they were checked during contract variant
 generation only).
 
 ##### Root type inference fix
 
-Composition ensures that it only infers default root operation types (e.g. `Mutation`) if they are not referenced by
+Composition ensures that it only infers default root operation types (e.g. `Mutation`) if they aren't referenced by
 other schema elements.
 
 ##### Stricter FieldSet coercion rules
 
 `_FieldSet/FieldSet` is a custom scalar that represents a GraphQL selection set (minus brackets). While Apollo expects this
-value to be a `String`, the system accepted additional values due to auto coercion logic.
+value to be a `String`, the system accepted additional values due to auto-coercion logic.
 
 #### Cosmetic changes
 
@@ -91,7 +91,7 @@ The merge process now correctly emits hints on composition failure.
 ##### Empty object vs expanded object
 
 Composition now auto expands input objects explicitly specifying all the default values for the fields (e.g. `input: SortAndFilter = {}`
-becomes `input: SortAndFilter = { limit: 100, sort: DESC)`).
+becomes `input: SortAndFilter = { limit: 100, sort: DESC }`).
 
 ##### Value coercion
 
