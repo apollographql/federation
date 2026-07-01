@@ -45,8 +45,7 @@ or missing.
 
 ##### Disallow interfaces implementing `@interfaceObject`
 
-Federation doesn't currently support this pattern. Composition now generates an `INTERFACE_OBJECT_USAGE_ERROR`
-error when it detects such a scenario and fails the composition.
+Federation currently doesn't support this pattern and will emit `INTERFACE_OBJECT_USAGE_ERROR` error when it detects such a scenario.
 
 ##### Override label validation
 
@@ -77,7 +76,7 @@ generation only).
 Composition ensures that it only infers default root operation types (e.g. `Mutation`) if they aren't referenced by
 other schema elements.
 
-##### Stricter FieldSet coercion rules
+##### Stricter `FieldSet` coercion rules
 
 `_FieldSet/FieldSet` is a custom scalar that represents a GraphQL selection set (minus brackets). While Apollo expects this
 value to be a `String`, the system accepted additional values due to auto-coercion logic.
