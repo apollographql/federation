@@ -42,7 +42,7 @@ Because the Rust implementation is more rigorous, composition now catches severa
 
 ##### Interfaces implementing `@interfaceObject` now fail explicitly
 
-Federation doesn't support interfaces as the target of `@interfaceObject`. If your schema uses this pattern, composition now reports `INTERFACE_OBJECT_USAGE_ERROR`.
+Federation doesn't support interfaces implementing `@interfaceObject` interfaces. If your schema uses this pattern, composition now reports `INTERFACE_OBJECT_USAGE_ERROR`.
 
 ##### Invalid `@override` labels are dropped
 
@@ -50,7 +50,7 @@ If an `@override` directive's `label` references a subgraph name that doesn't ex
 
 ##### Merged directives on `@external` fields are rejected
 
-Applying a merged directive to an `@external` field now produces a `MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL` error. Review your `@external` field definitions..
+Applying a merged directive to an `@external` field now produces a `MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL` error. Review your `@external` field definitions.
 
 ##### Custom spec URLs can't use the Apollo domain
 
