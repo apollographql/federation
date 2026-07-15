@@ -18,7 +18,7 @@ In Apollo Federation, federated data objects are represented as _entities_. Enti
 
 Entities are defined in subgraph schemas. Each subgraph can contribute different fields to an entity it defines and is responsible for _resolving_ it—returning only the fields that it contributes. This enables subgraphs to adhere to the separation of concerns principle.
 
-An _entity type_ is an object type that has been [defined as an entity](#defining-an-entity). Because an entity is keyed, an entity type's definition must have a `@key` directive. For example, this `Product` entity's fields are defined and resolved across two subgraphs:
+An _entity type_ is an object type that has been [defined as an entity](#defining-an-entity). Because an entity is keyed, an entity type's definition must have a `@key` directive. For example, this `Product` entity's fields are defined and resolved across two subgraphs. Both subgraphs use `upc` as a `@key` field so the router can merge their fields into a single `Product` type:
 
 <CodeColumns>
 
@@ -31,8 +31,8 @@ type Product @key(fields: "upc") {
 ```
 
 ```graphql title="Reviews subgraph"
-type Product @key(fields: "productUpc") {
-  productUpc: ID!
+type Product @key(fields: "upc") {
+  upc: ID!
   rating: Int!
 }
 ```
@@ -85,32 +85,11 @@ In the previous example, the `Product` entity's unique key is its `upc` field.
 Every instance of an entity must be uniquely identifiable by its `@key` field(s).
 Key fields' uniqueness enable your router to associate fields from different subgraphs with the same entity instance.
 
-In most cases, the `@key` field(s) for the same entity will be the same across subgraphs.
-For example, if one subgraph uses `upc` as the `@key` field for the `Product` entity, other subgraphs should likely do the same.
-However, this [isn't strictly required](/graphos/schema-design/federated-schemas/entities/define-keys/#differing-keys-across-subgraphs).
+In most cases, the `@key` field(s) for the same entity are the same across subgraphs. Subgraphs can use [differing `@key`s](/graphos/schema-design/federated-schemas/entities/define-keys/#differing-keys-across-subgraphs), but at least one `@key` field must be shared between subgraphs for the entity to merge during composition.
 
 If coming from a database context, it can be helpful to think of a `@key` as an entity's [primary key](https://en.wikipedia.org/wiki/Primary_key).
 This term isn't completely accurate for entities since a single entity can have [multiple `@key`s](/graphos/schema-design/federated-schemas/entities/define-keys/#multiple-keys). The field(s) you select for an entity's `@key` must, however, uniquely identify the entity.
 In that way, `@key`s are similar to [candidate keys](https://en.wikipedia.org/wiki/Candidate_key).
-
-<CodeColumns>
-
-```graphql title="Products subgraph"
-type Product @key(fields: "upc") {
-  upc: ID!
-  name: String!
-  price: Int
-}
-```
-
-```graphql title="Reviews subgraph"
-type Product @key(fields: "productUpc") {
-  productUpc: ID!
-  rating: Int!
-}
-```
-
-</CodeColumns>
 
 For more information on advanced key options, like defining [multiple keys](/graphos/schema-design/federated-schemas/entities/define-keys/#multiple-keys) or [compound keys](/graphos/schema-design/federated-schemas/entities/define-keys/#compound-keys), see the guide on [Defining keys](/graphos/schema-design/federated-schemas/entities/define-keys).
 
