@@ -1993,12 +1993,14 @@ class Merger {
     // Note that we don't truly merge externals: we don't want, for instance, a field that is non-nullable everywhere to appear nullable in the
     // supergraph just because someone fat-fingered the type in an external definition. But after merging the non-external definitions, we
     // validate the external ones are consistent.
-    this.mergeDescription(withoutExternal, dest);
-    this.recordFieldAppliedDirectivesToMerge(withoutExternal, dest);
-    this.addArgumentsShallow(withoutExternal, dest);
-    for (const destArg of dest.arguments()) {
-      const subgraphArgs = mapSources(withoutExternal, f => f?.argument(destArg.name));
-      this.mergeArgument(subgraphArgs, destArg);
+    if (someSources(withoutExternal, isDefined)) {
+      this.mergeDescription(withoutExternal, dest);
+      this.recordFieldAppliedDirectivesToMerge(withoutExternal, dest);
+      this.addArgumentsShallow(withoutExternal, dest);
+      for (const destArg of dest.arguments()) {
+        const subgraphArgs = mapSources(withoutExternal, f => f?.argument(destArg.name));
+        this.mergeArgument(subgraphArgs, destArg);
+      }
     }
     // Note that due to @interfaceObject, it's possible that `withoutExternal` is "empty" (has no
     // non-undefined at all) but to still get here. That is, we can have:
