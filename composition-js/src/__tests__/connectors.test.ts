@@ -779,6 +779,44 @@ type Resource
     expect(printed).toContain(
       '@link(url: "https://specs.apollo.dev/connect/v0.4", for: EXECUTION)'
     );
+    expect(printed).not.toContain('connect/v0.5');
+  });
+
+  it("uses v0.5 in supergraph @link when a subgraph explicitly links to v0.5", () => {
+    const subgraphs = [
+      {
+        name: "with-connectors-v0_5",
+        typeDefs: parse(`
+                    extend schema
+                    @link(
+                        url: "https://specs.apollo.dev/federation/v2.14"
+                        import: ["@key"]
+                    )
+                    @link(
+                        url: "https://specs.apollo.dev/connect/v0.5"
+                        import: ["@connect", "@source"]
+                    )
+                    @source(name: "v1", http: { baseURL: "http://v1" })
+
+                    type Query {
+                        resources: [Resource!]!
+                        @connect(source: "v1", http: { GET: "/resources" }, selection: "")
+                    }
+
+                    type Resource @key(fields: "id") {
+                        id: ID!
+                        name: String!
+                    }
+                `),
+      },
+    ];
+
+    const result = composeServices(subgraphs);
+    expect(result.errors ?? []).toEqual([]);
+    const printed = printSchema(result.schema!);
+    expect(printed).toContain(
+      '@link(url: "https://specs.apollo.dev/connect/v0.5", for: EXECUTION)'
+    );
   });
 
   it("uses v0.3 (not v0.4) in supergraph @link when subgraphs only use v0.3 and earlier", () => {
@@ -817,6 +855,7 @@ type Resource
       '@link(url: "https://specs.apollo.dev/connect/v0.3", for: EXECUTION)'
     );
     expect(printed).not.toContain('connect/v0.4');
+    expect(printed).not.toContain('connect/v0.5');
   });
 
   it("composes with renames", () => {
