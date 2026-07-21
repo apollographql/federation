@@ -4075,6 +4075,53 @@ describe('composition', () => {
       const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
       assertCompositionSuccess(result);
     });
+
+    it('propagates @tag from @interfaceObject field to locally @external implementation field', () => {
+      const subgraphA = {
+        typeDefs: gql`
+          type Query {
+            product: Product
+          }
+
+          type Product @key(fields: "id") @interfaceObject {
+            id: ID!
+            name: String @tag(name: "custom")
+          }
+        `,
+        name: 'subgraphA',
+      };
+
+      const subgraphB = {
+        typeDefs: gql`
+          type Query {
+            book: Book
+          }
+
+          interface Product @key(fields: "id") {
+            id: ID!
+          }
+
+          type Book implements Product @key(fields: "id") {
+            id: ID!
+            name: String @external
+            description: String @requires(fields: "name")
+          }
+        `,
+        name: 'subgraphB',
+      };
+
+      const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+      assertCompositionSuccess(result);
+
+      const supergraph = result.schema;
+      const bookType = supergraph.type('Book');
+      assert(bookType && isObjectType(bookType), 'Book should be an object type');
+      const nameField = bookType.field('name');
+      expect(nameField).toBeDefined();
+      const tags = nameField!.appliedDirectivesOf('tag');
+      expect(tags).toHaveLength(1);
+      expect(tags[0].arguments()['name']).toBe('custom');
+    });
   });
 
   describe('@authenticated', () => {
