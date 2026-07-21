@@ -1377,10 +1377,23 @@ class Merger {
     // For each merged object types, we check if we're missing a field from one of the implemented interface.
     // If we do, then we look if one of the subgraph provides that field as a (non-external) interface object
     // type, and if that's the case, we add the field to the object.
+    const joinFieldDirective = this.joinSpec.fieldDirective(this.merged);
     for (const type of this.merged.objectTypes()) {
       for (const implementedItf of type.interfaces()) {
         for (const itfField of implementedItf.fields()) {
-          if (type.field(itfField.name)) {
+          const existingField = type.field(itfField.name);
+          if (existingField) {
+            // An implementation may locally declare a field as `@external` purely to reference it in
+            // a `@requires`, in which case it already exists on the object so it won't be propagated
+            // from the interface object. But that field's only "real" definition is the abstracting
+            // `@interfaceObject` field, so directives that only apply there (e.g. `@tag`) still need
+            // to be propagated onto it.
+            const joinFieldApplications = existingField.appliedDirectivesOf(joinFieldDirective);
+            const isFullyExternal = joinFieldApplications.length > 0
+              && joinFieldApplications.every((d) => d.arguments().external === true);
+            if (isFullyExternal && this.isFieldProvidedByAnInterfaceObject(itfField.name, implementedItf.name)) {
+              this.copyNonJoinAppliedDirectives(itfField, existingField);
+            }
             continue;
           }
 
@@ -1980,12 +1993,14 @@ class Merger {
     // Note that we don't truly merge externals: we don't want, for instance, a field that is non-nullable everywhere to appear nullable in the
     // supergraph just because someone fat-fingered the type in an external definition. But after merging the non-external definitions, we
     // validate the external ones are consistent.
-    this.mergeDescription(withoutExternal, dest);
-    this.recordFieldAppliedDirectivesToMerge(withoutExternal, dest);
-    this.addArgumentsShallow(withoutExternal, dest);
-    for (const destArg of dest.arguments()) {
-      const subgraphArgs = mapSources(withoutExternal, f => f?.argument(destArg.name));
-      this.mergeArgument(subgraphArgs, destArg);
+    if (someSources(withoutExternal, isDefined)) {
+      this.mergeDescription(withoutExternal, dest);
+      this.recordFieldAppliedDirectivesToMerge(withoutExternal, dest);
+      this.addArgumentsShallow(withoutExternal, dest);
+      for (const destArg of dest.arguments()) {
+        const subgraphArgs = mapSources(withoutExternal, f => f?.argument(destArg.name));
+        this.mergeArgument(subgraphArgs, destArg);
+      }
     }
     // Note that due to @interfaceObject, it's possible that `withoutExternal` is "empty" (has no
     // non-undefined at all) but to still get here. That is, we can have:
