@@ -42,6 +42,10 @@ If you ever have any problems, questions, or ideas, the maintainers of this proj
 
 Check out the [Odyssey](https://odyssey.apollographql.com/) learning platform, the perfect place to start your GraphQL journey with videos and interactive code challenges. Join the [Apollo Community](https://community.apollographql.com/) to interact with and get technical help from the GraphQL community.
 
+## Privacy Policy
+
+Apollo's [Privacy Policy](https://www.apollographql.com/privacy-policy) describes how Apollo collects, uses, and protects data, including telemetry that some Apollo tools and services (such as Apollo Studio/GraphOS integrations) may gather. Review it to understand what data is collected and how it's handled when using Apollo products alongside this project.
+
 ## Licensing
 
 Source code in this repository is covered by (i) the Elastic License 2.0 or (ii) an MIT compatible license, in each case, as designated by a licensing file in a subdirectory or file header. The default throughout the repository is a license under the Elastic License 2.0, unless a file header or a licensing file in a subdirectory specifies another license.
