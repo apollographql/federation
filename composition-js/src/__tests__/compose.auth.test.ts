@@ -1659,6 +1659,88 @@ describe('authorization tests', () => {
       ).toBeDefined();
     })
 
+    it('propagates access control on @external field with multiple interface objects', () => {
+      const subgraph1 = {
+        name: 'Subgraph1',
+        url: 'https://Subgraph1',
+        typeDefs: gql`
+          type Query {
+            i1: I1
+            i2: I2
+          }
+
+          type I1 @interfaceObject @key(fields: "id") {
+            id: ID!
+            secret: String @requiresScopes(scopes: [["S1"]]) @shareable
+          }
+
+          type I2 @interfaceObject @key(fields: "id") {
+            id: ID!
+            secret: String @requiresScopes(scopes: [["S2"]]) @shareable
+          }
+        `
+      }
+
+      const subgraph2 = {
+        name: 'Subgraph2',
+        url: 'https://Subgraph2',
+        typeDefs: gql`
+          interface I1 @key(fields: "id") {
+            id: ID!
+          }
+
+          interface I2 @key(fields: "id") {
+            id: ID!
+          }
+
+          type T implements I1 & I2 @key(fields: "id") {
+            id: ID!
+            extra: String @requires(fields: "secret") @requiresScopes(scopes: [["S1", "S2"]])
+            secret: String @external
+          }
+        `
+      }
+
+      const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+      assertCompositionSuccess(result);
+      const i1 = result.schema.type('I1');
+      expect(i1).toBeDefined();
+      expect(i1).toBeInstanceOf(InterfaceType);
+      const secretI1 = (i1 as InterfaceType).field("secret");
+      expect(
+          secretI1
+              ?.appliedDirectivesOf("requiresScopes")
+              ?.[0]?.arguments()?.["scopes"]).toStrictEqual(
+          [
+            ['S1', 'S2'],
+          ]
+      );
+      const i2 = result.schema.type('I2');
+      expect(i2).toBeDefined();
+      expect(i2).toBeInstanceOf(InterfaceType);
+      const secretI2 = (i2 as InterfaceType).field("secret");
+      expect(
+          secretI2
+              ?.appliedDirectivesOf("requiresScopes")
+              ?.[0]?.arguments()?.["scopes"]).toStrictEqual(
+          [
+            ['S1', 'S2'],
+          ]
+      );
+      const t = result.schema.type('T');
+      expect(t).toBeDefined();
+      expect(t).toBeInstanceOf(ObjectType);
+      const secretT = (t as ObjectType).field("secret");
+      expect(
+          secretT
+              ?.appliedDirectivesOf("requiresScopes")
+              ?.[0]?.arguments()?.["scopes"]).toStrictEqual(
+          [
+            ['S1', 'S2'],
+          ]
+      );
+    })
+
     it('works with renames', () => {
       const subgraph1 = {
         name: 'Subgraph1',
