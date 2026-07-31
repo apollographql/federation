@@ -73,6 +73,8 @@ export enum OpenTelemetryAttributeNames {
 }
 
 const APOLLO_OTEL_ENDPOINT = "https://usage-reporting.api.apollographql.com";
+const METRIC_SIGNAL_PATH = "/v1/metrics";
+export const APOLLO_OTEL_METRICS_URL = `${APOLLO_OTEL_ENDPOINT}${METRIC_SIGNAL_PATH}`;
 const EXPORT_INTERVAL_SECONDS = 60 * 60; // one hour
 const EXPORT_INTERVAL_MILLIS = 1000 * EXPORT_INTERVAL_SECONDS;
 const NAME = "apollo/gateway-js";
@@ -263,5 +265,5 @@ export function createDataCollectionMeterProvider(metricExporter: PushMetricExpo
 }
 
 export function createDataCollectionExporter(): MeterProvider {
-  return createDataCollectionMeterProvider(new OTLPMetricExporter({ url: APOLLO_OTEL_ENDPOINT }));
+  return createDataCollectionMeterProvider(new OTLPMetricExporter({ url: APOLLO_OTEL_METRICS_URL }));
 }

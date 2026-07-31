@@ -14,7 +14,10 @@ import {
   InMemoryMetricExporter,
   AggregationTemporality,
 } from '@opentelemetry/sdk-metrics';
-import { createDataCollectionMeterProvider } from '../../utilities/opentelemetry';
+import {
+  APOLLO_OTEL_METRICS_URL,
+  createDataCollectionMeterProvider,
+} from '../../utilities/opentelemetry';
 import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_INSTANCE_ID,
@@ -413,6 +416,12 @@ describe('opentelemetry', () => {
         );
         expect(unexpectedKeys).toEqual([]);
       }, 10000);
+    });
+
+    it('exports metrics to the /v1/metrics route', () => {
+      expect(APOLLO_OTEL_METRICS_URL).toBe(
+        'https://usage-reporting.api.apollographql.com/v1/metrics',
+      );
     });
   });
 });
