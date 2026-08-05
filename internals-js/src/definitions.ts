@@ -1817,6 +1817,11 @@ const graphQLBuiltInTypesSpecifications: readonly TypeSpecification[] = graphQLB
 
 const graphQLBuiltInDirectivesSpecifications: readonly DirectiveSpecification[] = [
   createDirectiveSpecification({
+    name: 'oneOf',
+    locations: [DirectiveLocation.INPUT_OBJECT],
+    args: [],
+  }),
+  createDirectiveSpecification({
     name: 'include',
     locations: [DirectiveLocation.FIELD, DirectiveLocation.FRAGMENT_SPREAD, DirectiveLocation.INLINE_FRAGMENT],
     args: [{ name: 'if', type: (schema) => new NonNullType(schema.booleanType()) }],

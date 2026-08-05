@@ -5,6 +5,58 @@ import { buildSubgraph } from '../federation';
 import { defaultPrintOptions, printSchema } from '../print';
 import { buildForErrors } from './testUtils';
 
+describe('@oneOf directive', () => {
+  it('is accepted on input object types and round-trips through printSchema', () => {
+    const subgraph = gql`
+      type Query {
+        findBook(criteria: FindBookInput!): String
+      }
+
+      input FindBookInput @oneOf {
+        id: ID
+        name: String
+      }
+    `;
+
+    expect(buildForErrors(subgraph)).toBeUndefined();
+
+    const { schema } = buildSubgraph('S', 'https://S', subgraph);
+    expect(printSchema(schema, defaultPrintOptions)).toMatchString(`
+      directive @key(fields: _FieldSet!, resolvable: Boolean = true) repeatable on OBJECT | INTERFACE
+
+      directive @requires(fields: _FieldSet!) on FIELD_DEFINITION
+
+      directive @provides(fields: _FieldSet!) on FIELD_DEFINITION
+
+      directive @external(reason: String) on OBJECT | FIELD_DEFINITION
+
+      directive @tag(name: String!) repeatable on FIELD_DEFINITION | OBJECT | INTERFACE | UNION | ARGUMENT_DEFINITION | SCALAR | ENUM | ENUM_VALUE | INPUT_OBJECT | INPUT_FIELD_DEFINITION
+
+      directive @extends on OBJECT | INTERFACE
+
+      type Query {
+        findBook(criteria: FindBookInput!): String
+        _service: _Service!
+      }
+
+      input FindBookInput
+        @oneOf
+      {
+        id: ID
+        name: String
+      }
+
+      scalar _FieldSet
+
+      scalar _Any
+
+      type _Service {
+        sdl: String
+      }
+    `);
+  });
+});
+
 describe('fieldset-based directives', () => {
   it('rejects field defined with arguments in @key', () => {
     const subgraph = gql`
