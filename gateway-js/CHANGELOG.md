@@ -1,5 +1,18 @@
 # CHANGELOG for `@apollo/gateway`
 
+## 2.14.4
+
+### Patch Changes
+
+- Fix fleet-awareness telemetry exporting metrics to the bare usage-reporting endpoint instead of the OTLP `/v1/metrics` route ([#3465](https://github.com/apollographql/federation/pull/3465))
+
+  The opt-out anonymous telemetry pipeline introduced in #3289 configured the OTLP metric exporter with a bare `https://usage-reporting.api.apollographql.com` URL. Because the URL is supplied programmatically (rather than via `OTEL_EXPORTER_OTLP_ENDPOINT`), the `@opentelemetry/exporter-metrics-otlp-http` package does not append the `/v1/metrics` signal path automatically, so every export POSTed to `/` instead of `/v1/metrics`. The exporter now targets the full OTLP metrics route.
+
+- Updated dependencies []:
+  - @apollo/composition@2.14.4
+  - @apollo/federation-internals@2.14.4
+  - @apollo/query-planner@2.14.4
+
 ## 2.14.3
 
 ### Patch Changes
