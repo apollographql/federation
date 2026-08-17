@@ -56,10 +56,6 @@ Applying a merged directive to an `@external` field now produces a `MERGED_DIREC
 
 Custom specifications can no longer import from `https://specs.apollo.dev`. This prevents future conflicts with new Apollo specifications.
 
-##### Invalid input object defaults are removed
-
-Default values for input objects are now validated at composition time. If a default object value is missing required fields, composition removes it from the supergraph.
-
 ##### `@tag` validation runs during composition
 
 `@tag` errors now surface during the main composition process so you can catch tag problems at build time.
@@ -78,10 +74,6 @@ The `_FieldSet` scalar no longer accepts non-string values through automatic coe
 ##### Hints are emitted on composition failure
 
 The composition process now emits hints even when composition fails, giving you more context to diagnose what went wrong.
-
-##### Input object defaults are fully expanded
-
-When an input object has a default value of `{}`, composition now expands it to list all field defaults explicitly — for example, `{}` becomes `{ limit: 100, sort: DESC }`.
 
 ##### Default values are normalized to their correct types
 
