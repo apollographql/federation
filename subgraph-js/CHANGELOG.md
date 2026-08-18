@@ -1,5 +1,12 @@
 # CHANGELOG for `@apollo/subgraph`
 
+## 2.14.4
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.14.4
+
 ## 2.14.3
 
 ### Patch Changes
