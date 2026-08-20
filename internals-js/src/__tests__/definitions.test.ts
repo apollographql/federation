@@ -9,7 +9,10 @@ import {
   UnionType,
   InputObjectType,
 } from '../definitions';
-import { printSchema as printGraphQLjsSchema } from 'graphql';
+import {
+  GraphQLInputObjectType,
+  printSchema as printGraphQLjsSchema,
+} from 'graphql';
 import { defaultPrintOptions, printSchema } from '../print';
 import { buildSchema } from '../buildSchema';
 import {
@@ -872,6 +875,27 @@ describe('Conversion to graphQL-js schema', () => {
 
     const graphqQLSchema = schema.toGraphQLJSSchema();
     expect(printGraphQLjsSchema(graphqQLSchema)).toMatchString(sdl);
+  });
+
+  test('recognizes @oneOf as a built-in directive and sets isOneOf on the resulting graphQL-js type', () => {
+    const sdl = `
+      type Query {
+        foo(input: FooInput!): Int
+      }
+
+      input FooInput @oneOf {
+        byId: ID
+        byName: String
+      }
+    `;
+    const schema = parseSchema(sdl);
+
+    const graphQLJSSchema = schema.toGraphQLJSSchema();
+    expect(printGraphQLjsSchema(graphQLJSSchema)).toMatchString(sdl);
+
+    const fooInput = graphQLJSSchema.getType('FooInput');
+    expect(fooInput).toBeDefined();
+    expect((fooInput as GraphQLInputObjectType).isOneOf).toBe(true);
   });
 
   test('can optionally add @defer and/or @streams definition(s)', () => {
