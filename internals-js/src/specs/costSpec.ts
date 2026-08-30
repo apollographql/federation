@@ -31,13 +31,13 @@ export class CostSpecDefinition extends FeatureDefinition {
       name: 'listSize',
       locations: [DirectiveLocation.FIELD_DEFINITION],
       args: [
-        { name: 'assumedSize', type: (schema) => schema.intType(), compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_MAX },
-        { name: 'slicingArguments', type: (schema) => new ListType(new NonNullType(schema.stringType())), compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_UNION },
-        { name: 'sizedFields', type: (schema) => new ListType(new NonNullType(schema.stringType())), compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_UNION },
-        { name: 'requireOneSlicingArgument', type: (schema) => schema.booleanType(), defaultValue: true, compositionStrategy: ARGUMENT_COMPOSITION_STRATEGIES.NULLABLE_AND },
+        { name: 'assumedSize', type: (schema) => schema.intType() },
+        { name: 'slicingArguments', type: (schema) => new ListType(new NonNullType(schema.stringType())) },
+        { name: 'sizedFields', type: (schema) => new ListType(new NonNullType(schema.stringType())) },
+        { name: 'requireOneSlicingArgument', type: (schema) => schema.booleanType(), defaultValue: true },
       ],
       composes: true,
-      repeatable: false,
+      repeatable: true,
       supergraphSpecification: (fedVersion) => COST_VERSIONS.getMinimumRequiredVersion(fedVersion)
     }));
   }

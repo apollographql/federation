@@ -1522,11 +1522,19 @@ describe('@listSize', () => {
     const doc = gql`
       type Query {
         a1: [A]! @listSize(assumedSize: 5)
-        a2: [A] @listSize(assumedSize: 5)
+        a2: [A]
+          @listSize(assumedSize: 5)
+          @listSize(assumedSize: 10, sizedFields: ["myList"])
+        # Note: this is a minimal example of repeating @listSize
+        # Todo: expand this into new tests for
+        #   1) assumedSize conflicting on main field
+        #   2) assumedSize conflicting on subfields named in sizedFields
+        #   3) a secret third thing?
       }
 
       type A {
         field: String
+        myList: [String]
       }
     `;
 
