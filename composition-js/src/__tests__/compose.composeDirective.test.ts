@@ -1200,4 +1200,40 @@ describe('composing custom core directives', () => {
     const appliedDirectives = schema.elementByCoordinate('Query.shared')?.appliedDirectives;
     expect(appliedDirectives?.map(d => [d.name, d.arguments()])).toMatchObject([['auth', { scope: 'VIEWER'}], ['auth', {}]]);
   });
+
+  it('rejects composed directive on external field', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@shareable"])
+        type Query { a: Int }
+        type Product @key(fields: "id") @shareable {
+          id: ID!
+          name: String!
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        extend schema
+          @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@key", "@external", "@composeDirective", "@requires"])
+          @link(url: "https://custom.dev/custom/v1.0", import: ["@custom"])
+          @composeDirective(name: "@custom")
+        directive @custom(scope: String!) on FIELD_DEFINITION | OBJECT
+        type Product @key(fields: "id") {
+          id: ID!
+          name: String! @external @custom(scope: "read")
+          description: String @requires(fields: "name") @custom(scope: "read")
+        }
+      `,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+    expect(errors(result)).toStrictEqual([
+      ['MERGED_DIRECTIVE_APPLICATION_ON_EXTERNAL', '[subgraphB] Cannot apply merged directive @custom(scope: "read") to external field "Product.name"'],
+    ]);
+  });
 });
