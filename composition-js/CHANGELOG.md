@@ -1,5 +1,21 @@
 # CHANGELOG for `@apollo/composition`
 
+## 2.14.1
+
+### Patch Changes
+
+- Fixed `@composeDirective` logic to use correct source for validation ([#3445](https://github.com/apollographql/federation/pull/3445))
+
+  `validateAndFilterExternal` was passing `source.name` (the field name)
+  instead of `this.names[i]` (the subgraph name) to `isMergedDirective`.
+  This caused `shouldComposeDirective` to miss `@composeDirective`-composed
+  directives on external fields, since it looked up the directive under
+  a nonexistent subgraph name.
+
+- Updated dependencies []:
+  - @apollo/federation-internals@2.14.1
+  - @apollo/query-graphs@2.14.1
+
 ## 2.14.0
 
 ### Minor Changes
