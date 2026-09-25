@@ -856,7 +856,7 @@ directive @hello on FIELD_DEFINITION
 
 <Tip>
 
-Unlike Apollo-provided directives (`@key`, `@connect`, etc.), the `url` values in a custom `@link` are never fetched or resolved — they're used only as labels for namespacing and versioning. Composition has no built-in knowledge of custom specs, so the `directive @myDirective(a: String!) on FIELD_DEFINITION` and `directive @hello on FIELD_DEFINITION` definitions shown above are always required, not optional or illustrative.
+Apollo-provided directives like `@key` and `@connect` offer built-in functionality, whereas `url` values in a custom `@link` serve as labels for namespacing and versioning. Composition has no built-in knowledge of custom specs, so the `directive @myDirective(a: String!) on FIELD_DEFINITION` and `directive @hello on FIELD_DEFINITION` definitions shown above are always required.
 
 </Tip>
 
