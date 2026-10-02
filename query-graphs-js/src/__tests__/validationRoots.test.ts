@@ -1,15 +1,15 @@
-import { composeServices } from '@apollo/composition';
+import { CompositionOptions, composeServices } from '@apollo/composition';
 import { Supergraph } from '@apollo/federation-internals';
 import { buildFederatedQueryGraph } from '@apollo/query-graphs';
 import { parse } from 'graphql';
 
-function compose(first: string, second = 'type Query { b: String }') {
+function compose(first: string, second = 'type Query { b: String }', options: CompositionOptions = {}) {
   const result = composeServices([
     { name: 'a', typeDefs: parse(first) },
     { name: 'b', typeDefs: parse(second) },
-  ]);
+  ], options);
   if (result.errors) throw result.errors[0];
-  return Supergraph.build(result.supergraphSdl);
+  return Supergraph.build(result.supergraphSdl, { supportedFeatures: null });
 }
 
 function rootEdges(supergraph: Supergraph, forQueryPlanning: boolean) {
@@ -47,4 +47,31 @@ test('a reference in a later subgraph keeps transitions from every source root',
   const supergraph = compose('type Query { a: String }', 'type Query { b: String nested: Query }');
   const edges = rootEdges(supergraph, false);
   expect(new Set(edges.map(e => e.head.source)).size).toBe(2);
+});
+
+test('@requires on a root field keeps the transitions of that root kind', () => {
+  const supergraph = compose(
+    `
+      extend schema @link(url: "https://specs.apollo.dev/federation/v2.8", import: ["@requires", "@external"])
+      type Query { a: String foo: String @requires(fields: "bar") bar: String @external }
+      type Mutation { m: String }
+    `,
+    'type Query { b: String bar: String } type Mutation { n: String }',
+    { runSatisfiability: false },
+  );
+  const edges = rootEdges(supergraph, false);
+  expect(edges.length).toBeGreaterThan(0);
+  expect(edges.every(e => e.transition.kind === 'RootTypeResolution' && e.transition.rootKind === 'query')).toBe(true);
+});
+
+test('@context on a root type keeps the transitions of that root kind', () => {
+  const supergraph = compose(`
+    extend schema @link(url: "https://specs.apollo.dev/federation/v2.8", import: ["@key", "@context", "@fromContext"])
+    type Query @context(name: "ctx") { x: Int t: T }
+    type T @key(fields: "id") { id: ID! f(a: Int @fromContext(field: "$ctx { x }")): Int }
+    type Mutation { m: String }
+  `);
+  const edges = rootEdges(supergraph, false);
+  expect(edges.length).toBeGreaterThan(0);
+  expect(edges.every(e => e.transition.kind === 'RootTypeResolution' && e.transition.rootKind === 'query')).toBe(true);
 });

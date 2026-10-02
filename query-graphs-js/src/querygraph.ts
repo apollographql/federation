@@ -772,8 +772,10 @@ function federateSubgraphs(
   }
 
   // Validation starts from every subgraph root already. Cross-root transitions
-  // are only useful if a root type can also be reached as a value. Query planning
-  // keeps them unconditionally, including self edges needed for @defer.
+  // are only useful if a root type can also be reached as a value, or if condition
+  // resolution can start a fresh path on a root vertex: @requires on a root field
+  // and @context on a root type both do that. Query planning keeps them
+  // unconditionally, including self edges needed for @defer.
   const rootKindsUsedAsValues = new Set<SchemaRootKind>();
   if (!forQueryPlanning) {
     for (const schema of schemas) {
@@ -781,7 +783,9 @@ function federateSubgraphs(
       for (const root of schema.schemaDefinition.roots()) {
         if (root.type.interfaces().length > 0
           || Array.from(root.type.referencers()).some(ref => ref !== schema.schemaDefinition)
-          || root.type.appliedDirectivesOf(metadata.keyDirective()).length > 0) {
+          || root.type.appliedDirectivesOf(metadata.keyDirective()).length > 0
+          || Array.from(metadata.contextDirective().applications()).some(application => application.parent === root.type)
+          || root.type.fields().some(field => field.appliedDirectivesOf(metadata.requiresDirective()).length > 0)) {
           rootKindsUsedAsValues.add(root.rootKind);
         }
       }

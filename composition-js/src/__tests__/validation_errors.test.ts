@@ -110,6 +110,45 @@ describe('@requires', () => {
       `
     ]);
   });
+
+  it('reports a missing resumable key for @requires on a root type field', () => {
+    const subgraphA = {
+      name: 'A',
+      typeDefs: gql`
+        type Query {
+          foo: Int @requires(fields: "bar")
+          bar: Int @external
+        }
+      `
+    };
+
+    const subgraphB = {
+      name: 'B',
+      typeDefs: gql`
+        type Query {
+          bar: Int
+        }
+      `
+    };
+
+    const result = composeAsFed2Subgraphs([subgraphA, subgraphB]);
+    expect(result.errors).toBeDefined();
+    expect(errorMessages(result)).toMatchStringArray([
+      `
+      The following supergraph API query:
+      {
+        foo
+      }
+      cannot be satisfied by the subgraphs because:
+      - from subgraph "A":
+        - @require condition on field "Query.foo" can be satisfied but missing usable key on "Query" in subgraph "A" to resume query.
+        - ignoring moving to subgraph "B" using @key(fields: "undefined") of "Query" because there is a more direct path in B that avoids A altogether.
+      - from subgraph "B":
+        - cannot find field "Query.foo".
+        - ignoring moving to subgraph "A" using @key(fields: "undefined") of "Query" because there is a more direct path in A that avoids B altogether.
+      `
+    ]);
+  });
 });
 
 describe('non-resolvable keys', () => {
