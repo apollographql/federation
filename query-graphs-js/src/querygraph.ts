@@ -48,6 +48,7 @@ import { NonLocalSelectionsMetadata } from './nonLocalSelectionsEstimation';
 // without taking space.
 export const FEDERATED_GRAPH_ROOT_SOURCE = FEDERATION_RESERVED_SUBGRAPH_NAME;
 const FEDERATED_GRAPH_ROOT_SCHEMA = new Schema();
+const NO_EDGES: readonly Edge[] = [];
 
 export function federatedGraphRootTypeName(rootKind: SchemaRootKind): string {
   return `[${rootKind}]`;
@@ -347,6 +348,8 @@ export class QueryGraph {
    */
   readonly nonLocalSelectionsMetadata: NonLocalSelectionsMetadata | null;
 
+  private readonly fieldEdges = new Map<number, MultiMap<string, Edge>>();
+
   /**
    * Creates a new query graph.
    *
@@ -443,6 +446,25 @@ export class QueryGraph {
   outEdges(vertex: Vertex, includeKeyAndRootTypeEdgesToSelf: boolean = false): readonly Edge[] {
     const allEdges = this._outEdges[vertex.index];
     return includeKeyAndRootTypeEdgesToSelf ? allEdges : allEdges.filter((e) => !e.isKeyOrRootTypeEdgeToSelf())
+  }
+
+  /**
+   * Field collection candidates, in their original edge order. Index by vertex rather
+   * than type because @provides can give copies of the same type different fields.
+   * Argument, context, and override checks remain the caller's responsibility.
+   */
+  outEdgesForField(vertex: Vertex, fieldName: string): readonly Edge[] {
+    let fields = this.fieldEdges.get(vertex.index);
+    if (!fields) {
+      fields = new MultiMap<string, Edge>();
+      for (const edge of this._outEdges[vertex.index]) {
+        if (edge.transition.kind === 'FieldCollection') {
+          fields.add(edge.transition.definition.name, edge);
+        }
+      }
+      this.fieldEdges.set(vertex.index, fields);
+    }
+    return fields.get(fieldName) ?? NO_EDGES;
   }
 
   /**

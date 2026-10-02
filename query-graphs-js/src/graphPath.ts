@@ -1446,13 +1446,16 @@ function advancePathWithNonCollectingAndTypePreservingTransitions<TTrigger, V ex
       // `QueryGraph.nonTrivialFollowupEdges()`. In the later, this means there is a key we could use, but
       // it get us back to the previous vertex in the path, which is useless. But we distinguish that case
       // to 1) make the debug more "true" and 2) much more importantly, record a "dead-end" for this path.
-      const outEdges = toAdvance.graph.outEdges(toAdvance.tail).filter(e => !e.transition.collectOperationElements);
-      if (outEdges.length > 0) {
+      // Only materialize the dead-end details if requested. In particular, root
+      // vertices may have many non-collecting edges that are all trivial here.
+      const outEdges = toAdvance.graph.outEdges(toAdvance.tail, true);
+      const isNonCollecting = (edge: Edge) => !edge.transition.collectOperationElements && !edge.isKeyOrRootTypeEdgeToSelf();
+      if (outEdges.some(isNonCollecting)) {
         debug.log(() => `Nothing to try for ${toAdvance}: it only has "trivial" non-collecting outbound edges`);
         deadEndClosures.push(() => {
           const unadvanceables = [];
           for (const edge of outEdges) {
-            if (edge.tail.source !== toAdvance.tail.source && edge.tail.source !== originalSource) {
+            if (isNonCollecting(edge) && edge.tail.source !== toAdvance.tail.source && edge.tail.source !== originalSource) {
               unadvanceables.push({
                 sourceSubgraph: toAdvance.tail.source,
                 destSubgraph: edge.tail.source,
@@ -2401,7 +2404,7 @@ export function createInitialOptions<V extends Vertex>(
     overrideConditions,
   );
   if (isFederatedGraphRootType(initialPath.tail.type)) {
-    let initialOptions = lazyInitialPath.indirectOptions(initialContext, 0);
+    const initialOptions = lazyInitialPath.indirectOptions(initialContext, 0);
     if (initialSubgraphConstraint !== null) {
       initialOptions.paths = initialOptions
         .paths
@@ -2948,7 +2951,7 @@ function edgeForField(
   field: Field<any>,
   overrideConditions: Map<string, boolean>
 ): Edge | undefined {
-  const candidates = graph.outEdges(vertex)
+  const candidates = graph.outEdgesForField(vertex, field.name)
     .filter(e =>
       e.transition.kind === 'FieldCollection'
       && field.selects(e.transition.definition, true, undefined, e.requiredContexts?.map(c => c.namedParameter))
