@@ -10,7 +10,7 @@ test('shares immutable root transitions while preserving destinations and root k
   }));
   const merged = composeServices(services, { runSatisfiability: false });
   if (merged.errors) throw merged.errors[0];
-  const graph = buildFederatedQueryGraph(Supergraph.build(merged.supergraphSdl), false);
+  const graph = buildFederatedQueryGraph(Supergraph.build(merged.supergraphSdl), true);
   const seen = new Set<number>();
   const kinds = new Set<string>();
   simpleTraversal(graph, () => undefined, edge => {

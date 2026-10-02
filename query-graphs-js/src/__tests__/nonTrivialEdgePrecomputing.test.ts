@@ -18,7 +18,7 @@ describe('non-trivial root followups', () => {
     }));
     const merged = composeServices(services, { runSatisfiability: false });
     if (merged.errors) throw merged.errors[0];
-    const graph = buildFederatedQueryGraph(Supergraph.build(merged.supergraphSdl), false);
+    const graph = buildFederatedQueryGraph(Supergraph.build(merged.supergraphSdl), true);
     const roots = new Map<number, readonly unknown[]>();
     const transitionCounts = new Map<string, number>();
     simpleTraversal(graph, () => undefined, edge => {

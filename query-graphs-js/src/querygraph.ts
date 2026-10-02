@@ -749,6 +749,23 @@ function federateSubgraphs(
     copyPointers[i] = builder.copyGraph(subgraph);
   }
 
+  // Validation starts from every subgraph root already. Cross-root transitions
+  // are only useful if a root type can also be reached as a value. Query planning
+  // keeps them unconditionally, including self edges needed for @defer.
+  const rootKindsUsedAsValues = new Set<SchemaRootKind>();
+  if (!forQueryPlanning) {
+    for (const schema of schemas) {
+      const metadata = federationMetadata(schema)!;
+      for (const root of schema.schemaDefinition.roots()) {
+        if (root.type.interfaces().length > 0
+          || Array.from(root.type.referencers()).some(ref => ref !== schema.schemaDefinition)
+          || root.type.appliedDirectivesOf(metadata.keyDirective()).length > 0) {
+          rootKindsUsedAsValues.add(root.rootKind);
+        }
+      }
+    }
+  }
+
   // We then add the edges from supergraph roots to the subgraph ones.
   // Also, for each root kind, we also add edges from the corresponding root type of each subgraph to the root type of other subgraphs
   // (and for @defer, like for @key, we also add self-link looping on the current subgraph).
@@ -758,6 +775,10 @@ function federateSubgraphs(
     for (const rootKind of subgraph.rootKinds()) {
       const rootVertex = copyPointer.copiedVertex(subgraph.root(rootKind)!);
       builder.addEdge(builder.root(rootKind)!, rootVertex, subgraphEnteringTransition)
+
+      if (!forQueryPlanning && !rootKindsUsedAsValues.has(rootKind)) {
+        continue;
+      }
 
       // Root transitions have no per-edge state and can be shared within this root.
       const rootTypeResolution = new RootTypeResolution(rootKind);
