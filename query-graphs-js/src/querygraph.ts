@@ -759,11 +759,13 @@ function federateSubgraphs(
       const rootVertex = copyPointer.copiedVertex(subgraph.root(rootKind)!);
       builder.addEdge(builder.root(rootKind)!, rootVertex, subgraphEnteringTransition)
 
+      // Root transitions have no per-edge state and can be shared within this root.
+      const rootTypeResolution = new RootTypeResolution(rootKind);
       for (const [j, otherSubgraph] of subgraphs.entries()) {
         const otherRootVertex = otherSubgraph.root(rootKind);
         if (otherRootVertex) {
           const otherCopyPointer = copyPointers[j];
-          builder.addEdge(rootVertex, otherCopyPointer.copiedVertex(otherRootVertex), new RootTypeResolution(rootKind));
+          builder.addEdge(rootVertex, otherCopyPointer.copiedVertex(otherRootVertex), rootTypeResolution);
         }
       }
     }
