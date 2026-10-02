@@ -48,6 +48,7 @@ import { NonLocalSelectionsMetadata } from './nonLocalSelectionsEstimation';
 // without taking space.
 export const FEDERATED_GRAPH_ROOT_SOURCE = FEDERATION_RESERVED_SUBGRAPH_NAME;
 const FEDERATED_GRAPH_ROOT_SCHEMA = new Schema();
+const NO_EDGES: readonly Edge[] = [];
 
 export function federatedGraphRootTypeName(rootKind: SchemaRootKind): string {
   return `[${rootKind}]`;
@@ -347,6 +348,8 @@ export class QueryGraph {
    */
   readonly nonLocalSelectionsMetadata: NonLocalSelectionsMetadata | null;
 
+  private readonly fieldEdges = new Map<number, MultiMap<string, Edge>>();
+
   /**
    * Creates a new query graph.
    *
@@ -443,6 +446,25 @@ export class QueryGraph {
   outEdges(vertex: Vertex, includeKeyAndRootTypeEdgesToSelf: boolean = false): readonly Edge[] {
     const allEdges = this._outEdges[vertex.index];
     return includeKeyAndRootTypeEdgesToSelf ? allEdges : allEdges.filter((e) => !e.isKeyOrRootTypeEdgeToSelf())
+  }
+
+  /**
+   * Field collection candidates, in their original edge order. Index by vertex rather
+   * than type because @provides can give copies of the same type different fields.
+   * Argument, context, and override checks remain the caller's responsibility.
+   */
+  outEdgesForField(vertex: Vertex, fieldName: string): readonly Edge[] {
+    let fields = this.fieldEdges.get(vertex.index);
+    if (!fields) {
+      fields = new MultiMap<string, Edge>();
+      for (const edge of this._outEdges[vertex.index]) {
+        if (edge.transition.kind === 'FieldCollection') {
+          fields.add(edge.transition.definition.name, edge);
+        }
+      }
+      this.fieldEdges.set(vertex.index, fields);
+    }
+    return fields.get(fieldName) ?? NO_EDGES;
   }
 
   /**
@@ -749,6 +771,27 @@ function federateSubgraphs(
     copyPointers[i] = builder.copyGraph(subgraph);
   }
 
+  // Validation starts from every subgraph root already. Cross-root transitions
+  // are only useful if a root type can also be reached as a value, or if condition
+  // resolution can start a fresh path on a root vertex: @requires on a root field
+  // and @context on a root type both do that. Query planning keeps them
+  // unconditionally, including self edges needed for @defer.
+  const rootKindsUsedAsValues = new Set<SchemaRootKind>();
+  if (!forQueryPlanning) {
+    for (const schema of schemas) {
+      const metadata = federationMetadata(schema)!;
+      for (const root of schema.schemaDefinition.roots()) {
+        if (root.type.interfaces().length > 0
+          || Array.from(root.type.referencers()).some(ref => ref !== schema.schemaDefinition)
+          || root.type.appliedDirectivesOf(metadata.keyDirective()).length > 0
+          || Array.from(metadata.contextDirective().applications()).some(application => application.parent === root.type)
+          || root.type.fields().some(field => field.appliedDirectivesOf(metadata.requiresDirective()).length > 0)) {
+          rootKindsUsedAsValues.add(root.rootKind);
+        }
+      }
+    }
+  }
+
   // We then add the edges from supergraph roots to the subgraph ones.
   // Also, for each root kind, we also add edges from the corresponding root type of each subgraph to the root type of other subgraphs
   // (and for @defer, like for @key, we also add self-link looping on the current subgraph).
@@ -759,11 +802,17 @@ function federateSubgraphs(
       const rootVertex = copyPointer.copiedVertex(subgraph.root(rootKind)!);
       builder.addEdge(builder.root(rootKind)!, rootVertex, subgraphEnteringTransition)
 
+      if (!forQueryPlanning && !rootKindsUsedAsValues.has(rootKind)) {
+        continue;
+      }
+
+      // Root transitions have no per-edge state and can be shared within this root.
+      const rootTypeResolution = new RootTypeResolution(rootKind);
       for (const [j, otherSubgraph] of subgraphs.entries()) {
         const otherRootVertex = otherSubgraph.root(rootKind);
         if (otherRootVertex) {
           const otherCopyPointer = copyPointers[j];
-          builder.addEdge(rootVertex, otherCopyPointer.copiedVertex(otherRootVertex), new RootTypeResolution(rootKind));
+          builder.addEdge(rootVertex, otherCopyPointer.copiedVertex(otherRootVertex), rootTypeResolution);
         }
       }
     }

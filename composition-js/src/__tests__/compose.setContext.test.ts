@@ -42,6 +42,41 @@ describe("setContext tests", () => {
     assertCompositionSuccess(result);
   });
 
+  test("context on a root type whose selection is resolved by another subgraph", () => {
+    const subgraph1 = {
+      name: "Subgraph1",
+      utl: "https://Subgraph1",
+      typeDefs: gql`
+        type Query @context(name: "context") {
+          prop: String @external
+          t: T!
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+          field(a: String @fromContext(field: "$context { prop }")): Int!
+        }
+      `,
+    };
+
+    const subgraph2 = {
+      name: "Subgraph2",
+      utl: "https://Subgraph2",
+      typeDefs: gql`
+        type Query {
+          prop: String
+        }
+
+        type T @key(fields: "id") {
+          id: ID!
+        }
+      `,
+    };
+
+    const result = composeAsFed2Subgraphs([subgraph1, subgraph2]);
+    assertCompositionSuccess(result);
+  });
+
   test("using a list as input to @fromContext", () => {
     const subgraph1 = {
       name: "Subgraph1",
