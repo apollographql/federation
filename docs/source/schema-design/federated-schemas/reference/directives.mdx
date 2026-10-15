@@ -844,8 +844,9 @@ Do not use this directive with an [executable directive](/graphos/reference/fede
 extend schema
     @link(url: "https://specs.apollo.dev/link/v1.0")
     @link(url: "https://specs.apollo.dev/federation/v2.3", import: ["@composeDirective"])
-    @link(url: "https://myspecs.dev/myDirective/v1.0", import: ["@myDirective", { name: "@anotherDirective", as: "@hello" }])
     # highlight-start
+    @link(url: "https://myspecs.dev/myDirective/v1.0",
+      import: ["@myDirective", { name: "@anotherDirective", as: "@hello" }])
     @composeDirective(name: "@myDirective")
     @composeDirective(name: "@hello")
 
@@ -853,6 +854,12 @@ directive @myDirective(a: String!) on FIELD_DEFINITION
 directive @hello on FIELD_DEFINITION
     # highlight-end
 ```
+
+<Tip>
+
+Composition recognizes Apollo's own specifications (such as `@key` and `@connect`), but it doesn't fetch or interpret custom ones. The `url` in a custom `@link` is just a label for namespacing and versioning, so you must define your custom directives in every subgraph that uses them.
+
+</Tip>
 
 This directive has the following requirements:
 
