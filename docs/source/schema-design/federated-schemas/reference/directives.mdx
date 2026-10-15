@@ -857,7 +857,7 @@ directive @hello on FIELD_DEFINITION
 
 <Tip>
 
-Apollo-provided directives like `@key` and `@connect` offer built-in functionality, whereas `url` values in a custom `@link` serve as labels for namespacing and versioning. Composition has no built-in knowledge of custom specs, so the `directive @myDirective(a: String!) on FIELD_DEFINITION` and `directive @hello on FIELD_DEFINITION` definitions shown above are required.
+Composition recognizes Apollo's own specifications (such as `@key` and `@connect`), but it doesn't fetch or interpret custom ones. The `url` in a custom `@link` is just a label for namespacing and versioning, so you must define your custom directives in every subgraph that uses them.
 
 </Tip>
 
