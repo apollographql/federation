@@ -662,6 +662,7 @@ function propagateDemandControlDirectives(source: SchemaElement<any, any>, dest:
     }
   }
 
+  // TODO: this may need to be repeated, since there's now a possibility of more than one @listSize per field
   const listSizeDirective = costSpec.listSizeDirective(source.schema());
   if (listSizeDirective) {
     const application = source.appliedDirectivesOf(listSizeDirective)[0];
