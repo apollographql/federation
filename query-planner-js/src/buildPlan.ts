@@ -3321,7 +3321,17 @@ export class QueryPlanner {
     // We expand all fragments. This might merge a number of common branches and save us some work, and we're
     // going to expand everything during the algorithm anyway. We'll re-optimize subgraph fetches with fragments
     // later if possible (which is why we saved them above before expansion).
-    operation = operation.expandAllFragments();
+    const expandedSelectionSet = operation.selectionSet.expandFragments();
+    const selectionSetWithTypenames = addTypenameFieldForAbstractTypes(expandedSelectionSet);
+    operation = new Operation(
+      operation.schema(),
+      operation.rootKind,
+      selectionSetWithTypenames.normalize({ parentType: expandedSelectionSet.parentType }),
+      operation.variableDefinitions,
+      undefined,
+      operation.name,
+      operation.appliedDirectives,
+    );
     operation = withoutIntrospection(operation);
     operation = this.withSiblingTypenameOptimizedAway(operation);
 
@@ -4070,7 +4080,12 @@ function addTypenameFieldForAbstractTypesInNamedFragments(fragments: NamedFragme
   //  3. re-optimize all fragments (using the "updated-with-typename" versions).
   // which is what `mapToExpandedSelectionSets` gives us.
   assert(!fragments.isEmpty(), 'Should not pass empty fragments to this method');
-  const updated = fragments.mapToExpandedSelectionSets(addTypenameFieldForAbstractTypes);
+  const updated = fragments.mapToExpandedSelectionSets((selectionSet) =>
+    addTypenameFieldForAbstractTypes(
+      selectionSet,
+      isAbstractType(selectionSet.parentType) ? selectionSet.parentType : undefined,
+    ),
+  );
   assert(updated, 'No fragments should have been removed');
   return updated;
 }
