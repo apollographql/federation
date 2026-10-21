@@ -1,15 +1,30 @@
 import { assert } from "@apollo/federation-internals";
-import { Edge, QueryGraph, QueryGraphState, simpleTraversal } from "./querygraph";
+import { Edge, QueryGraph, simpleTraversal } from "./querygraph";
 
 export function preComputeNonTrivialFollowupEdges(graph: QueryGraph): (previousEdge: Edge) => readonly Edge[] {
-  const state = new QueryGraphState<undefined, readonly Edge[]>();
-  simpleTraversal(graph, () => {}, (edge) => {
-    const followupEdges = graph.outEdges(edge.tail);
-    state.setEdgeState(edge, computeNonTrivialFollowups(edge, followupEdges));
+  // Edge indices are dense within each vertex; arrays avoid a Map entry per edge.
+  const state: (readonly Edge[] | undefined)[][] = [];
+  // Both root transition kinds have the same followups for a given destination.
+  // Compute that readonly list once instead of filtering it for every incoming edge.
+  const rootFollowups = new Map<number, readonly Edge[]>();
+  simpleTraversal(graph, () => undefined, (edge) => {
+    const headState = state[edge.head.index] ?? (state[edge.head.index] = new Array(graph.outEdgesCount(edge.head)));
+    if (edge.transition.kind === 'RootTypeResolution' || edge.transition.kind === 'SubgraphEnteringTransition') {
+      let followups = rootFollowups.get(edge.tail.index);
+      if (!followups) {
+        followups = computeNonTrivialFollowups(edge, graph.outEdges(edge.tail));
+        rootFollowups.set(edge.tail.index, followups);
+      }
+      headState[edge.index] = followups;
+    } else {
+      const followupEdges = graph.outEdges(edge.tail);
+      headState[edge.index] = computeNonTrivialFollowups(edge, followupEdges);
+    }
     return true;
   });
   return (previousEdge) => {
-    const nonTrivialFollowups = state.getEdgeState(previousEdge);
+    const headState = state[previousEdge.head.index];
+    const nonTrivialFollowups = headState && headState[previousEdge.index];
     assert(nonTrivialFollowups, () => `Non-trivial followup edges of ${previousEdge} should have been computed`);
     return nonTrivialFollowups;
   }
