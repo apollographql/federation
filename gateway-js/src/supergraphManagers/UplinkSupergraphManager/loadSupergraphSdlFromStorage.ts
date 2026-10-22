@@ -160,7 +160,7 @@ export async function loadSupergraphSdlFromStorage({
       response = await result.json();
     } catch (e) {
       // Bad response
-      throw new UplinkFetcherError(fetchErrorMsg + result.status + ' ' + e.message ?? e);
+      throw new UplinkFetcherError(fetchErrorMsg + result.status + ' ' + (e.message ?? e));
     }
 
     if ('errors' in response) {
