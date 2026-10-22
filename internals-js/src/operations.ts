@@ -38,6 +38,7 @@ import {
   isAbstractType,
   DeferDirectiveArgs,
   Variable,
+  isVariable,
   possibleRuntimeTypes,
   Type,
   sameDirectiveApplication,
@@ -290,10 +291,10 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
     return true;
   }
 
-  validate(variableDefinitions: VariableDefinitions, validateContextualArgs: boolean) {
+  validate(variableDefinitions: VariableDefinitions, validateContextualArgs: boolean, allowedFieldArgumentVariables?: Set<string>) {
     validate(this.name === this.definition.name, () => `Field name "${this.name}" cannot select field "${this.definition.coordinate}: name mismatch"`);
-    
-    
+
+
     // We need to make sure the field has valid values for every non-optional argument.
     for (const argDef of this.definition.arguments()) {
       const appliedValue = this.argumentValue(argDef.name);
@@ -311,7 +312,7 @@ export class Field<TArgs extends {[key: string]: any} = {[key: string]: any}> ex
           () => `Missing mandatory value for argument "${argDef.name}" of field "${this.definition.coordinate}" in selection "${this}"`);
       } else {
         validate(
-          (isContextualArg && !validateContextualArgs) || isValidValue(appliedValue, argDef, variableDefinitions),
+          (isContextualArg && !validateContextualArgs) || isValidValue(appliedValue, argDef, variableDefinitions, allowedFieldArgumentVariables),
           () => `Invalid value ${valueToString(appliedValue)} for argument "${argDef.coordinate}" of type ${argDef.type}`)
       }
     }
@@ -1750,6 +1751,37 @@ export class SelectionSet {
     }
   }
 
+  /**
+   * Returns a copy of this selection set with every field-argument variable named in `substitutions` replaced by its
+   * value. A variable not in the map is left as-is, which is how an operation variable is *forwarded* into a subgraph
+   * fetch. Used to bind a `@requires` field set's symbolic variables to a field's arguments at planning time.
+   */
+  substituteFieldArgumentVariables(substitutions: Map<string, any>): SelectionSet {
+    return this.lazyMap((selection) => {
+      if (selection.kind === 'FieldSelection') {
+        const field = selection.element;
+        const updatedSelectionSet = selection.selectionSet?.substituteFieldArgumentVariables(substitutions);
+        let updatedField = field;
+        if (field.args) {
+          let argsChanged = false;
+          const newArgs: {[key: string]: any} = {};
+          for (const [name, value] of Object.entries(field.args)) {
+            const newValue = substituteVariablesInValue(value, substitutions);
+            newArgs[name] = newValue;
+            argsChanged = argsChanged || newValue !== value;
+          }
+          if (argsChanged) {
+            updatedField = field.withUpdatedArguments(newArgs);
+          }
+        }
+        return selection.withUpdatedComponents(updatedField, updatedSelectionSet);
+      }
+      // Inline fragments have no arguments of their own, so we only recurse.
+      const updatedSelectionSet = selection.selectionSet.substituteFieldArgumentVariables(substitutions);
+      return selection.withUpdatedSelectionSet(updatedSelectionSet);
+    });
+  }
+
   collectUsedFragmentNames(collector: Map<string, number>) {
     for (const selection of this.selections()) {
       selection.collectUsedFragmentNames(collector);
@@ -2078,10 +2110,10 @@ export class SelectionSet {
     return this.selections().every((selection) => selection.canAddTo(parentTypeToTest));
   }
 
-  validate(variableDefinitions: VariableDefinitions, validateContextualArgs: boolean = false) {
+  validate(variableDefinitions: VariableDefinitions, validateContextualArgs: boolean = false, allowedFieldArgumentVariables?: Set<string>) {
     validate(!this.isEmpty(), () => `Invalid empty selection set`);
     for (const selection of this.selections()) {
-      selection.validate(variableDefinitions, validateContextualArgs);
+      selection.validate(variableDefinitions, validateContextualArgs, allowedFieldArgumentVariables);
     }
   }
 
@@ -2600,7 +2632,7 @@ abstract class AbstractSelection<TElement extends OperationElement, TIsLeaf exte
 
   abstract toSelectionNode(): SelectionNode;
 
-  abstract validate(variableDefinitions: VariableDefinitions, validateContextualArgs: boolean): void;
+  abstract validate(variableDefinitions: VariableDefinitions, validateContextualArgs: boolean, allowedFieldArgumentVariables?: Set<string>): void;
 
   abstract rebaseOn(args: { parentType: CompositeType, fragments: NamedFragments | undefined, errorIfCannotRebase: boolean}): TOwnType | undefined;
 
@@ -3128,8 +3160,8 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
     return predicate(thisWithFilteredSelectionSet) ? thisWithFilteredSelectionSet : undefined;
   }
 
-  validate(variableDefinitions: VariableDefinitions, validateContextualArgs: boolean) {
-    this.element.validate(variableDefinitions, validateContextualArgs);
+  validate(variableDefinitions: VariableDefinitions, validateContextualArgs: boolean, allowedFieldArgumentVariables?: Set<string>) {
+    this.element.validate(variableDefinitions, validateContextualArgs, allowedFieldArgumentVariables);
     // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
     validate(
@@ -3137,7 +3169,7 @@ export class FieldSelection extends AbstractSelection<Field<any>, undefined, Fie
       () => `Invalid empty selection set for field "${this.element.definition.coordinate}" of non-leaf type ${this.element.definition.type}`,
       this.element.definition.sourceAST
     );
-    this.selectionSet?.validate(variableDefinitions);
+    this.selectionSet?.validate(variableDefinitions, false, allowedFieldArgumentVariables);
   }
 
   /**
@@ -3383,7 +3415,7 @@ class InlineFragmentSelection extends FragmentSelection {
     return new InlineFragmentSelection(fragment, selectionSet);
   }
 
-  validate(variableDefinitions: VariableDefinitions) {
+  validate(variableDefinitions: VariableDefinitions, _validateContextualArgs?: boolean, allowedFieldArgumentVariables?: Set<string>) {
     this.validateDeferAndStream();
     // Note that validation is kind of redundant since `this.selectionSet.validate()` will check that it isn't empty. But doing it
     // allow to provide much better error messages.
@@ -3391,7 +3423,7 @@ class InlineFragmentSelection extends FragmentSelection {
       !this.selectionSet.isEmpty(),
       () => `Invalid empty selection set for fragment "${this.element}"`
     );
-    this.selectionSet.validate(variableDefinitions);
+    this.selectionSet.validate(variableDefinitions, false, allowedFieldArgumentVariables);
   }
 
   rebaseOn({
@@ -4030,6 +4062,7 @@ export function parseSelectionSet({
   fragments,
   fieldAccessor,
   validate = true,
+  allowedFieldArgumentVariables,
 }: {
   parentType: CompositeType,
   source: string | SelectionSetNode,
@@ -4037,6 +4070,8 @@ export function parseSelectionSet({
   fragments?: NamedFragments,
   fieldAccessor?: (type: CompositeType, fieldName: string) => (FieldDefinition<any> | undefined),
   validate?: boolean,
+  // Variable names accepted during validation without a definition (kept symbolic); see `fieldArgumentNames`.
+  allowedFieldArgumentVariables?: Set<string>,
 }): SelectionSet {
   // TODO: we should maybe allow the selection, when a string, to contain fragment definitions?
   const node = typeof source === 'string'
@@ -4044,8 +4079,31 @@ export function parseSelectionSet({
     : source;
   const selectionSet = selectionSetOfNode(parentType, node, variableDefinitions ?? new VariableDefinitions(), fragments, fieldAccessor);
   if (validate)
-    selectionSet.validate(variableDefinitions);
+    selectionSet.validate(variableDefinitions, false, allowedFieldArgumentVariables);
   return selectionSet;
+}
+
+// Replaces every `Variable` named in `substitutions` within an argument value, recursing into lists and objects.
+function substituteVariablesInValue(value: any, substitutions: Map<string, any>): any {
+  if (isVariable(value)) {
+    return substitutions.has(value.name) ? substitutions.get(value.name) : value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => substituteVariablesInValue(v, substitutions));
+  }
+  if (value && typeof value === 'object') {
+    const result: {[key: string]: any} = {};
+    for (const [k, v] of Object.entries(value)) {
+      result[k] = substituteVariablesInValue(v, substitutions);
+    }
+    return result;
+  }
+  return value;
+}
+
+// The variable names a `@requires` field set on `field` may reference (each binds to the like-named argument).
+export function fieldArgumentNames(field: FieldDefinition<any>): Set<string> {
+  return new Set(field.arguments().map((arg) => arg.name));
 }
 
 export function parseOperationAST(source: string): OperationDefinitionNode {

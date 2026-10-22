@@ -59,7 +59,7 @@ import {
 } from "graphql";
 import { KnownTypeNamesInFederationRule } from "./validation/KnownTypeNamesInFederationRule";
 import { buildSchema, buildSchemaFromAST } from "./buildSchema";
-import { FragmentSelection, hasSelectionWithPredicate, parseOperationAST, parseSelectionSet, Selection, SelectionSet } from './operations';
+import { fieldArgumentNames, FragmentSelection, hasSelectionWithPredicate, parseOperationAST, parseSelectionSet, Selection, SelectionSet } from './operations';
 import { TAG_VERSIONS } from "./specs/tagSpec";
 import {
   errorCodeDef,
@@ -254,6 +254,7 @@ function validateFieldSet({
   errorCollector,
   allowOnNonExternalLeafFields,
   allowFieldsWithArguments,
+  allowedFieldArgumentVariables,
   onFields,
 }: {
   type: CompositeType,
@@ -262,6 +263,7 @@ function validateFieldSet({
   errorCollector: GraphQLError[],
   allowOnNonExternalLeafFields: boolean,
   allowFieldsWithArguments: boolean,
+  allowedFieldArgumentVariables?: Set<string>,
   onFields?: (field: FieldDefinition<any>) => void,
 }): void {
   try {
@@ -280,7 +282,25 @@ function validateFieldSet({
         return field;
       }
       : undefined;
-    const selectionSet = parseFieldSetArgument({parentType: type, directive, fieldAccessor});
+    // A `@requires` variable must reference one of the annotated field's arguments. We check it explicitly (parsing
+    // unvalidated, which still enforces field existence) to give a precise message rather than a generic one.
+    if (allowedFieldArgumentVariables) {
+      const symbolic = parseFieldSetArgument({parentType: type, directive, validate: false, allowedFieldArgumentVariables});
+      let hasUnboundVariable = false;
+      for (const variable of symbolic.usedVariables()) {
+        if (!allowedFieldArgumentVariables.has(variable.name)) {
+          hasUnboundVariable = true;
+          errorCollector.push(handleFieldSetValidationError(
+            directive,
+            new GraphQLError(`variable "$${variable.name}" is not defined; a variable in a @requires field set must reference an argument of "${directive.parent?.coordinate}"`),
+          ));
+        }
+      }
+      if (hasUnboundVariable) {
+        return;
+      }
+    }
+    const selectionSet = parseFieldSetArgument({parentType: type, directive, fieldAccessor, allowedFieldArgumentVariables});
     validateFieldSetSelections({
       directiveName: directive.name,
       selectionSet,
@@ -732,6 +752,7 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>({
   isOnParentType = false,
   allowOnNonExternalLeafFields = false,
   allowFieldsWithArguments = false,
+  allowFieldArgumentVariables = false,
   allowOnInterface = false,
   onFields,
 }: {
@@ -742,6 +763,8 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>({
   isOnParentType?: boolean,
   allowOnNonExternalLeafFields?: boolean,
   allowFieldsWithArguments?: boolean,
+  // When true (only `@requires`), variables naming the field's arguments are accepted and kept symbolic.
+  allowFieldArgumentVariables?: boolean,
   allowOnInterface?: boolean,
   onFields?: (field: FieldDefinition<any>) => void,
 }): void {
@@ -758,6 +781,9 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>({
         { nodes: sourceASTs(application).concat(isOnParentType ? [] : sourceASTs(type)) },
       ));
     }
+    const allowedFieldArgumentVariables = allowFieldArgumentVariables && elt instanceof FieldDefinition
+      ? fieldArgumentNames(elt)
+      : undefined;
     validateFieldSet({
       type,
       directive: application,
@@ -765,6 +791,7 @@ function validateAllFieldSet<TParent extends SchemaElement<any, any>>({
       errorCollector,
       allowOnNonExternalLeafFields,
       allowFieldsWithArguments,
+      allowedFieldArgumentVariables,
       onFields,
     });
   }
@@ -1663,6 +1690,7 @@ export class FederationBlueprint extends SchemaBlueprint {
       errorCollector,
       metadata,
       allowFieldsWithArguments: true,
+      allowFieldArgumentVariables: true,
     });
     // Note that like for @requires above, we error out if a leaf field of the selection is not
     // external in a @provides (we pass `false` for the `allowOnNonExternalLeafFields` parameter),
@@ -2259,6 +2287,7 @@ export function parseFieldSetArgument({
   validate,
   decorateValidationErrors = true,
   normalize = false,
+  allowedFieldArgumentVariables,
 }: {
   parentType: CompositeType,
   directive: Directive<SchemaElement<any, any>, {fields: any}>,
@@ -2266,6 +2295,8 @@ export function parseFieldSetArgument({
   validate?: boolean,
   decorateValidationErrors?: boolean,
   normalize?: boolean,
+  // Variable names allowed in the field set; for `@requires` only (see `fieldArgumentNames`), undefined elsewhere.
+  allowedFieldArgumentVariables?: Set<string>,
 }): SelectionSet {
   try {
     const selectionSet = parseSelectionSet({
@@ -2273,6 +2304,7 @@ export function parseFieldSetArgument({
       source: validateFieldSetValue(directive),
       fieldAccessor,
       validate,
+      allowedFieldArgumentVariables,
     });
     if (validate ?? true) {
       selectionSet.forEachElement((elt) => {

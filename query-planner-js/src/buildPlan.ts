@@ -95,6 +95,7 @@ import {
   SimultaneousPaths,
   terminateWithNonRequestedTypenameField,
   getLocallySatisfiableKey,
+  fieldArgumentSubstitutedConditions,
   createInitialOptions,
   buildFederatedQueryGraph,
   FEDERATED_GRAPH_ROOT_SOURCE,
@@ -4530,6 +4531,10 @@ function computeGroupsForTree(
             }
 
             if (edge.conditions) {
+              // Substitute any field-argument variables so the inputs match what's fetched (`x(arg: $v)`, not `$arg`).
+              const requireConditions = operation && operation.kind === 'Field'
+                ? (fieldArgumentSubstitutedConditions(edge, operation) ?? edge.conditions)
+                : edge.conditions;
               // This edge needs the conditions just fetched, to be provided via
               // _entities (@requires or fake interface object downcast). So we
               // create the post-@requires group, adding the subgraph jump (if
@@ -4541,6 +4546,7 @@ function computeGroupsForTree(
                 path,
                 context,
                 handleRequiresResult,
+                requireConditions,
               );
               updated.group = createPostRequiresResult.group;
               updated.path = createPostRequiresResult.path;
@@ -4810,7 +4816,9 @@ function createPostRequiresGroup(
     fullyLocalRequires: boolean,
     createdGroups: FetchGroup[],
     requiresParent: ParentRelation | undefined,
-  }
+  },
+  // The post-require inputs: `edge.conditions` with any field-argument variables substituted (see the caller).
+  requireConditions: SelectionSet,
 ): {
   group: FetchGroup,
   path: GroupPath,
@@ -4829,10 +4837,12 @@ function createPostRequiresGroup(
     if (createdGroups.length === 0) {
       group.addInputs(
         inputsForRequire(
-          dependencyGraph, 
-          entityType, 
+          dependencyGraph,
+          entityType,
           edge,
-          context, false).inputs);
+          context,
+          requireConditions,
+          false).inputs);
       return { group, path, createdGroups: [] };
     }
     // If we get here, it means that @requires needs the information from `createdGroups` (plus whatever has
@@ -4887,6 +4897,7 @@ function createPostRequiresGroup(
       context,
       preRequireGroup,
       postRequireGroup,
+      requireConditions,
     );
     return {
       group: postRequireGroup,
@@ -4924,6 +4935,7 @@ function createPostRequiresGroup(
       context,
       group,
       postRequireGroup,
+      requireConditions,
     );
     return {
       group: postRequireGroup,
@@ -5127,8 +5139,9 @@ function addPostRequireInputs(
   context: PathContext,
   preRequireGroup: FetchGroup,
   postRequireGroup: FetchGroup,
+  requireConditions: SelectionSet,
 ) {
-  const { inputs, keyInputs } = inputsForRequire(dependencyGraph, entityType, edge, context);
+  const { inputs, keyInputs } = inputsForRequire(dependencyGraph, entityType, edge, context, requireConditions);
   // Note that `computeInputRewritesOnKeyFetch` will return `undefined` in general, but if `entityType` is an interface/interface object,
   // then we need those rewrites to ensure the underlying fetch is valid.
   postRequireGroup.addInputs(
@@ -5153,6 +5166,8 @@ function inputsForRequire(
   entityType: ObjectType,
   edge: Edge,
   context: PathContext,
+  // Conditions to declare as inputs (field-argument variables already substituted); falls back to `edge.conditions`.
+  requireConditions: SelectionSet | undefined,
   includeKeyInputs: boolean = true
 ): {
   inputs: SelectionSet,
@@ -5169,8 +5184,9 @@ function inputsForRequire(
   assert(inputType && isCompositeType(inputType), () => `Type ${inputTypeName} should exist in the supergraph and be a composite type`);
 
   const fullSelectionSet = newCompositeTypeSelectionSet(inputType);
-  if (edge.conditions) {
-    fullSelectionSet.updates().add(edge.conditions);
+  const conditions = requireConditions ?? edge.conditions;
+  if (conditions) {
+    fullSelectionSet.updates().add(conditions);
   }
   let keyInputs: MutableSelectionSet | undefined = undefined;
   if (includeKeyInputs) {

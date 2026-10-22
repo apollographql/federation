@@ -496,19 +496,25 @@ function areTypesCompatible(variableType: InputType, locationType: InputType): b
   return !isListType(variableType) && sameType(variableType, locationType);
 }
 
-export function isValidValue(value: any, argument: ArgumentDefinition<any> | InputFieldDefinition, variableDefinitions: VariableDefinitions): boolean {
-  return isValidValueApplication(value, argument.type!, argument.defaultValue, variableDefinitions);
+export function isValidValue(value: any, argument: ArgumentDefinition<any> | InputFieldDefinition, variableDefinitions: VariableDefinitions, allowedVariableNames?: Set<string>): boolean {
+  return isValidValueApplication(value, argument.type!, argument.defaultValue, variableDefinitions, allowedVariableNames);
 }
 
-export function isValidValueApplication(value: any, locationType: InputType, locationDefault: any, variableDefinitions: VariableDefinitions): boolean {
+// Variables named in `allowedVariableNames` are accepted without a matching definition (and regardless of type): a
+// `@requires` field set may reference the annotated field's arguments as variables, which stay symbolic until query
+// planning (their types are checked separately during composition).
+export function isValidValueApplication(value: any, locationType: InputType, locationDefault: any, variableDefinitions: VariableDefinitions, allowedVariableNames?: Set<string>): boolean {
   // Note that this needs to be first, or the recursive call within 'isNonNullType' would break for variables
   if (isVariable(value)) {
+    if (allowedVariableNames?.has(value.name)) {
+      return true;
+    }
     const definition = variableDefinitions.definition(value);
     return !!definition && isValidVariable(definition, locationType, locationDefault);
   }
 
   if (isNonNullType(locationType)) {
-    return value !== null && isValidValueApplication(value, locationType.ofType, undefined, variableDefinitions);
+    return value !== null && isValidValueApplication(value, locationType.ofType, undefined, variableDefinitions, allowedVariableNames);
   }
 
   if (value === null || value === undefined) {
@@ -518,10 +524,10 @@ export function isValidValueApplication(value: any, locationType: InputType, loc
   if (isListType(locationType)) {
     const itemType: InputType = locationType.ofType;
     if (Array.isArray(value)) {
-      return value.every(item => isValidValueApplication(item, itemType, undefined, variableDefinitions));
+      return value.every(item => isValidValueApplication(item, itemType, undefined, variableDefinitions, allowedVariableNames));
     }
     // Equivalent of coercing non-null element as a list of one.
-    return isValidValueApplication(value, itemType, locationDefault, variableDefinitions);
+    return isValidValueApplication(value, itemType, locationDefault, variableDefinitions, allowedVariableNames);
   }
 
   if (isInputObjectType(locationType)) {
@@ -531,7 +537,7 @@ export function isValidValueApplication(value: any, locationType: InputType, loc
     const valueKeys = new Set(Object.keys(value));
     const fieldsAreValid = locationType.fields().every(field => {
       valueKeys.delete(field.name);
-      return isValidValueApplication(value[field.name], field.type!, field.defaultValue, variableDefinitions)
+      return isValidValueApplication(value[field.name], field.type!, field.defaultValue, variableDefinitions, allowedVariableNames)
     });
     const hasUnexpectedField = valueKeys.size !== 0
     return fieldsAreValid && !hasUnexpectedField;
