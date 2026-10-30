@@ -441,6 +441,89 @@ Therefore, the definition of the `Color` enum must match exactly in every subgra
 
 The subgraph schemas above do not compose, because their definitions of the `Color` enum differ.
 
+#### Adding values to shared enums
+
+Adding a new value to an enum that's shared across subgraphs can cause problems, because it's challenging to add the value to every subgraph at the same time. If an enum is used as an input type, composition omits any value that isn't defined in every subgraph. If the enum is used as both an input and an output type, composition fails with an `ENUM_VALUE_MISMATCH` error.
+
+To add a value incrementally without breaking composition, apply the [`@inaccessible` directive](/graphos/reference/federation/directives#inaccessible) to the new value. Composition skips the consistency check for an `@inaccessible` enum value. The value appears in the supergraph schema, but composition omits it from the API schema, so clients can't use it yet.
+
+To use `@inaccessible`, first make sure you include it in the `import` array of your Federation 2 opt-in declaration:
+
+```graphql {3} title="Subgraph A"
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.3",
+        import: ["@key", "@shareable", "@inaccessible"])
+```
+
+Then, add the new value to the enum in one subgraph and mark it `@inaccessible`:
+
+<CodeColumns>
+
+```graphql {5} title="Subgraph A"
+enum Color {
+  RED
+  GREEN
+  BLUE
+  YELLOW @inaccessible
+}
+
+type Query {
+  favoriteColor: Color
+}
+```
+
+```graphql title="Subgraph B"
+enum Color {
+  RED
+  GREEN
+  BLUE
+}
+
+type Query {
+  images(color: Color): [Image]
+}
+```
+
+</CodeColumns>
+
+These subgraph schemas compose successfully, even though `Color` is used as both an input and an output type.
+
+Next, add the value to every other subgraph that defines the enum. You only need to apply `@inaccessible` in one subgraph:
+
+<CodeColumns>
+
+```graphql {5} title="Subgraph A"
+enum Color {
+  RED
+  GREEN
+  BLUE
+  YELLOW @inaccessible
+}
+
+type Query {
+  favoriteColor: Color
+}
+```
+
+```graphql {5} title="Subgraph B"
+enum Color {
+  RED
+  GREEN
+  BLUE
+  YELLOW
+}
+
+type Query {
+  images(color: Color): [Image]
+}
+```
+
+</CodeColumns>
+
+Finally, when every subgraph that defines `Color` includes `YELLOW`, remove `@inaccessible` from Subgraph A. Composition now includes `YELLOW` in the API schema, and clients can use it.
+
+To learn more about this incremental approach, see [Using `@inaccessible`](/graphos/schema-design/federated-schemas/sharing-types#using-inaccessible).
+
 ## Directives
 
 Composition handles a directive differently depending on whether it's an "executable" directive or a "type system" directive.
