@@ -135,7 +135,6 @@ export type RouterEntitlement = {
 };
 
 export enum RouterEntitlementAudience {
-  Cloud = 'CLOUD',
   SelfHosted = 'SELF_HOSTED'
 }
 
