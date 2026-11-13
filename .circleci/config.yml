@@ -16,8 +16,22 @@ jobs:
     resource_class: large
     steps:
       - checkout
-      - node/install:
-          node-version: << parameters.node-version >>
+      # The orb resolves `latest` to the newest tag listed by nvm, which can be a
+      # pre-release (e.g. `v27.0.0-alpha.*`) that does not run on this image. Keep
+      # the `vlatest` job name (it is a required check) but install the newest
+      # stable major explicitly. Bump this when a new Node.js major is released.
+      - when:
+          condition:
+            equal: [latest, << parameters.node-version >>]
+          steps:
+            - node/install:
+                node-version: "26"
+      - unless:
+          condition:
+            equal: [latest, << parameters.node-version >>]
+          steps:
+            - node/install:
+                node-version: << parameters.node-version >>
       - node/install-packages
       - run:
           name: Run tests
