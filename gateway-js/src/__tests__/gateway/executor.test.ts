@@ -54,8 +54,9 @@ describe('ApolloGateway executor', () => {
       logger,
     });
 
+    // graphql v16 and v17 word this error differently.
     expect(errors![0].message).toMatch(
-      'Variable "$first" got invalid value "3";',
+      /^Variable "\$first" (got invalid value "3";|has invalid value: Int cannot represent non-integer value: "3")/,
     );
   });
 

@@ -33,6 +33,6 @@
     "pretty-format": "^29.0.0"
   },
   "peerDependencies": {
-    "graphql": "^16.5.0"
+    "graphql": "^16.5.0 || ^17.0.0"
   }
 }

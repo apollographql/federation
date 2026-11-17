@@ -14,7 +14,7 @@ describe('custom executable directives', () => {
     const query = `#graphql
       query GetReviewers {
         topReviews {
-          body @stream
+          body @lowercase
         }
       }
     `;
@@ -30,7 +30,7 @@ describe('custom executable directives', () => {
           Fetch(service: "reviews") {
             {
               topReviews {
-                body @stream
+                body @lowercase
               }
             }
           },
@@ -42,9 +42,9 @@ describe('custom executable directives', () => {
     const query = `#graphql
       query GetReviewers {
         topReviews {
-          body @stream
+          body @lowercase
           author @transform(from: "JSON") {
-            name @stream {
+            name @lowercase {
               first
               last
             }
@@ -66,7 +66,7 @@ describe('custom executable directives', () => {
           Fetch(service: "reviews") {
             {
               topReviews {
-                body @stream
+                body @lowercase
                 author @transform(from: "JSON") {
                   __typename
                   id
@@ -84,7 +84,7 @@ describe('custom executable directives', () => {
               } =>
               {
                 ... on User {
-                  name @stream {
+                  name @lowercase {
                     first
                     last
                   }
@@ -98,7 +98,7 @@ describe('custom executable directives', () => {
   });
 
   // With relaxed composition, instead of erroring out if a directive is not declared everywhere, we compose but don't
-  // include the directive in the supergraph and generate a hint. So the following test will complain that @stream
+  // include the directive in the supergraph and generate a hint. So the following test will complain that @lowercase
   // is unknown in the query. Not that the hints tests do test we properly raise an hint in that case.
   it.skip("returns validation errors when directives aren't present across all services", async () => {
     const invalidService = {
@@ -111,7 +111,7 @@ describe('custom executable directives', () => {
     const query = `#graphql
       query GetReviewers {
         topReviews {
-          body @stream
+          body @lowercase
         }
       }
     `;
@@ -126,7 +126,7 @@ describe('custom executable directives', () => {
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
       "[@invalid] -> Custom directives must be implemented in every service. The following services do not implement the @invalid directive: accounts, books, documents, inventory, product, reviews.
 
-      [@stream] -> Custom directives must be implemented in every service. The following services do not implement the @stream directive: invalidService.
+      [@lowercase] -> Custom directives must be implemented in every service. The following services do not implement the @lowercase directive: invalidService.
 
       [@transform] -> Custom directives must be implemented in every service. The following services do not implement the @transform directive: invalidService."
     `);
@@ -134,19 +134,19 @@ describe('custom executable directives', () => {
 
   // Same as previous: we don't of error out on inconsistent execution directives. Here, we instead look at the intersection of locations
   // defined, and as that is empty, we don't include the directive in the supergraph (and raise a hint).
-  // So the following test will complain that @stream is unknown in the query. Not that the hints tests do test we properly raise an hint in that case.
+  // So the following test will complain that @lowercase is unknown in the query. Not that the hints tests do test we properly raise an hint in that case.
   it.skip("returns validation errors when directives aren't identical across all services", async () => {
     const invalidService = {
       name: 'invalid',
       typeDefs: gql`
-        directive @stream on QUERY
+        directive @lowercase on QUERY
       `,
     };
 
     const query = `#graphql
       query GetReviewers {
         topReviews {
-          body @stream
+          body @lowercase
         }
       }
     `;
@@ -161,14 +161,14 @@ describe('custom executable directives', () => {
     ).rejects.toThrowErrorMatchingInlineSnapshot(`
       "[@transform] -> Custom directives must be implemented in every service. The following services do not implement the @transform directive: invalid.
 
-      [@stream] -> custom directives must be defined identically across all services. See below for a list of current implementations:
-      	accounts: directive @stream on FIELD
-      	books: directive @stream on FIELD
-      	documents: directive @stream on FIELD
-      	inventory: directive @stream on FIELD
-      	product: directive @stream on FIELD
-      	reviews: directive @stream on FIELD
-      	invalid: directive @stream on QUERY"
+      [@lowercase] -> custom directives must be defined identically across all services. See below for a list of current implementations:
+      	accounts: directive @lowercase on FIELD
+      	books: directive @lowercase on FIELD
+      	documents: directive @lowercase on FIELD
+      	inventory: directive @lowercase on FIELD
+      	product: directive @lowercase on FIELD
+      	reviews: directive @lowercase on FIELD
+      	invalid: directive @lowercase on QUERY"
     `);
   });
 });

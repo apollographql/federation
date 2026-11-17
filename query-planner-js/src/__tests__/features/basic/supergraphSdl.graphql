@@ -16,7 +16,7 @@ directive @join__owner(graph: join__Graph!) on OBJECT | INTERFACE
 
 directive @join__graph(name: String!, url: String!) on ENUM_VALUE
 
-directive @stream on FIELD
+directive @lowercase on FIELD
 
 directive @fragmentDirective on INLINE_FRAGMENT
 

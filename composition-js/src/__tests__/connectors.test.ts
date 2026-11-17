@@ -973,8 +973,9 @@ type Resource
     const result = composeServices(subgraphs);
     expect(result.errors?.length).toBe(1);
     const error = result.errors![0];
-    expect(error.message).toEqual(
-      '[with-connectors] Directive "@source" argument "http" of type "connect__SourceHTTP!" is required, but it was not provided.'
+    // graphql v16 and v17 word this error differently.
+    expect(error.message).toMatch(
+      /^\[with-connectors\] (Directive "@source" argument "http"|Argument "@source\(http:\)") of type "connect__SourceHTTP!" is required, but it was not provided\.$/
     );
     expect(error.extensions.code).toEqual("INVALID_GRAPHQL");
   });
