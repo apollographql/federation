@@ -89,6 +89,8 @@ export class RemoteGraphQLDataSource<
         headers.append(name, value);
       }
     }
+
+    headers.set('Accept', 'application/graphql-response+json, application/json');
     headers.set('Content-Type', 'application/json');
 
     request.http = {
