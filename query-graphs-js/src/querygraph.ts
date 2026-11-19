@@ -18,6 +18,7 @@ import {
   FieldDefinition,
   isCompositeType,
   parseFieldSetArgument,
+  fieldArgumentNames,
   AbstractType,
   isAbstractType,
   possibleRuntimeTypes,
@@ -862,7 +863,9 @@ function federateSubgraphs(
           const field = e.transition.definition;
           assert(isCompositeType(type), () => `Non composite type "${type}" should not have field collection edge ${e}`);
           for (const requiresApplication of field.appliedDirectivesOf(requireDirective)) {
-            const conditions = parseFieldSetArgument({ parentType: type, directive: requiresApplication, normalize: true });
+            // Keep any field-argument variables symbolic on the edge; they're substituted at planning time
+            // (see `fieldArgumentSubstitutedConditions` in graphPath.ts).
+            const conditions = parseFieldSetArgument({ parentType: type, directive: requiresApplication, normalize: true, allowedFieldArgumentVariables: fieldArgumentNames(field) });
             const head = copyPointers[i].copiedVertex(e.head);
             // We rely on the fact that the edge indexes will be the same in the copied builder. But there is no real reason for
             // this to not be the case at this point so...

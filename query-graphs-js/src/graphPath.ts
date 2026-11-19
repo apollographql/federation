@@ -1962,6 +1962,9 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
   excludedEdges: ExcludedDestinations,
   excludedConditions: ExcludedConditions,
   getFieldParentType: (trigger: TTrigger) => CompositeType | null,
+  // Resolved instead of the edge's own `conditions` (an operation-specific `@requires` condition with its variables
+  // substituted). Being edge-specific, it bypasses the resolution cache (see `cachingConditionResolver`).
+  extraConditions?: SelectionSet,
 ): ConditionResolution {
   const { conditions, requiredContexts } = edge;
   if (!conditions && requiredContexts.length === 0) {
@@ -2063,8 +2066,8 @@ function canSatisfyConditions<TTrigger, V extends Vertex, TNullEdge extends null
     }
   }
   
-  debug.group(() => `Checking conditions ${conditions} on edge ${edge}`);
-  const resolution = conditionResolver(edge, context, excludedEdges, excludedConditions);
+  debug.group(() => `Checking conditions ${extraConditions ?? conditions} on edge ${edge}`);
+  const resolution = conditionResolver(edge, context, excludedEdges, excludedConditions, extraConditions);
   if (!resolution.satisfied) {
     debug.groupEnd('Conditions are not satisfied');
     return unsatisfiedConditionsResolution;
@@ -2926,8 +2929,40 @@ function addFieldEdge<V extends Vertex>(
   conditionResolver: ConditionResolver,
   context: PathContext
 ): OpGraphPath<V> | undefined {
-  const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, context, [], [], getFieldParentTypeForOpTrigger);
+  const substitutedConditions = fieldArgumentSubstitutedConditions(edge, fieldOperation);
+  const conditionResolution = canSatisfyConditions(path, edge, conditionResolver, context, [], [], getFieldParentTypeForOpTrigger, substitutedConditions);
   return conditionResolution.satisfied ? path.add(fieldOperation, edge, conditionResolution) : undefined;
+}
+
+// Binds field-argument variables in the edge's `@requires` conditions to the values `operationField` supplies,
+// following argument coercion (supplied value, else schema default, else null); a supplied operation variable is
+// left in place and thus forwarded into the subgraph fetch. Returns `undefined` when there's nothing to substitute
+// (the common case, keeping resolution cacheable). Also used by the plan builder to compute the fetch's inputs, so
+// they match the fields actually fetched.
+export function fieldArgumentSubstitutedConditions(edge: Edge, operationField: Field<any>): SelectionSet | undefined {
+  const conditions = edge.conditions;
+  if (!conditions) {
+    return undefined;
+  }
+  const usedVariableNames = new Set(conditions.usedVariables().map((v) => v.name));
+  if (usedVariableNames.size === 0) {
+    return undefined;
+  }
+  const substitutions = new Map<string, any>();
+  for (const argDef of operationField.definition.arguments()) {
+    if (!usedVariableNames.has(argDef.name)) {
+      continue;
+    }
+    const suppliedValue = operationField.argumentValue(argDef.name);
+    const effectiveValue = suppliedValue !== undefined
+      ? suppliedValue
+      : (argDef.defaultValue !== undefined ? argDef.defaultValue : null);
+    substitutions.set(argDef.name, effectiveValue);
+  }
+  if (substitutions.size === 0) {
+    return undefined;
+  }
+  return conditions.substituteFieldArgumentVariables(substitutions);
 }
 
 function pathAsOptions<V extends Vertex>(path: OpGraphPath<V> | undefined): SimultaneousPaths<V>[] | undefined {

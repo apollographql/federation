@@ -123,9 +123,38 @@ type Product @key(fields: "id") {
 The following rules apply:
 
 - The router provides the specified values in its query to whichever subgraph defines the required field.
-- Each specified argument value is static; the router always provides the same value.
+- Each specified argument value is either a static literal (as shown in the preceding section) or a [variable that forwards the computed field's own argument](#forwarding-an-argument-value-with-a-variable).
 - You can omit values for nullable arguments. You must provide values for non-nullable arguments.
 - If you define your subgraph schema in an SDL file instead of programmatically, you must escape quotes for string and enum values with backslashes (as shown above).
+
+#### Forwarding an argument value with a variable
+
+<MinVersionBadge version="Federation v2.15.0" />
+
+Instead of a static literal, use a variable that references one of the computed field's own arguments. Router forwards the value your client supplies for that argument to the subgraph that defines the required field:
+
+```graphql title="Shipping subgraph"
+type Product @key(fields: "id") {
+  id: ID!
+  weight(units: String): Int @external
+  #highlight-start
+  shippingEstimate(units: String): String @requires(fields: "weight(units: $units)")
+  #highlight-end
+}
+```
+
+Here `$units` names the `units` argument of `shippingEstimate` (the field carrying `@requires`). For a query like `shippingEstimate(units: "KILOGRAMS")`, the router fetches `weight(units: "KILOGRAMS")` from the subgraph that owns `weight`.
+
+The value forwarded follows standard GraphQL argument coercion:
+
+- Operation variable (`shippingEstimate(units: $clientUnits)`): The variable is forwarded into the subgraph fetch and resolved at execution time.
+- Literal (`shippingEstimate(units: "POUNDS")`): The literal is forwarded as-is.
+- Omitted, nullable argument: Resolves to `null`.
+- Omitted argument with a schema default: Resolves to that default.
+
+A variable can also appear nested inside a list or object argument value (for example, `weight(unitsList: [$units])`), and a single `@requires` field set can forward multiple arguments.
+
+The variable's name must match an argument of the computed field, and that argument's type must be compatible with the type expected where the variable is used. Otherwise, composition fails with a `REQUIRES_INVALID_FIELDS` error. `@requires` field sets support variables, but `@provides` and `@key` do not.
 
 ## Referencing an entity without contributing fields
 
