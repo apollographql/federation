@@ -794,6 +794,42 @@ describe('override', () => {
     const result = composeServices([subgraphA,]);
     assertCompositionSuccess(result);
   });
+
+  it('@requires on a key selecting another field', () => {
+    const subgraphA = {
+      typeDefs: gql`
+        type Query {
+          T: T!
+        }
+
+        type T @key(fields: "a") {
+          a: String
+          d: String
+        }
+      `,
+      name: 'subgraphA',
+    };
+
+    const subgraphB = {
+      typeDefs: gql`
+        type Query {
+          foo: T
+        }
+
+        type T @key(fields: "a") @extends {
+          a: String @external @requires(fields: "d")
+          d: String @external
+        }
+      `,
+      name: 'subgraphB',
+    };
+
+    const result = composeServices([subgraphA, subgraphB]);
+
+    expect(result.errors).toBeDefined();
+    expect(errors(result)).toStrictEqual([
+    ]);
+  });
 });
 
 describe('user-defined fields named like federation built-ins', () => {
