@@ -74,7 +74,7 @@ describe('opentelemetry', () => {
       const localDataSources = Object.fromEntries(
         fixtures.map((f) => [
           f.name,
-          new LocalGraphQLDataSource(buildSubgraphSchema(f)),
+          new LocalGraphQLDataSource(buildSubgraphSchema([f])),
         ]),
       );
       const gateway = new ApolloGateway({

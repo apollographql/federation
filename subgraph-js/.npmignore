@@ -1,7 +1,0 @@
-*
-!src/**/*
-src/**/*.test.*
-src/__tests__/*
-!dist/**/*
-!package.json
-!README.md

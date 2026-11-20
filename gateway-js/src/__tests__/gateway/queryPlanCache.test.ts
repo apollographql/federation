@@ -17,7 +17,7 @@ it('caches the query plan for a request', async () => {
   const localDataSources = Object.fromEntries(
     fixtures.map((f) => [
       f.name,
-      new LocalGraphQLDataSource(buildSubgraphSchema(f)),
+      new LocalGraphQLDataSource(buildSubgraphSchema([f])),
     ]),
   );
   const gateway = new ApolloGateway({
@@ -78,7 +78,7 @@ it('supports multiple operations and operationName', async () => {
   const localDataSources = Object.fromEntries(
     fixtures.map((f) => [
       f.name,
-      new LocalGraphQLDataSource(buildSubgraphSchema(f)),
+      new LocalGraphQLDataSource(buildSubgraphSchema([f])),
     ]),
   );
 
@@ -186,8 +186,8 @@ it('does not corrupt cached queryplan data across requests', async () => {
   };
 
   const dataSources: Record<string, LocalGraphQLDataSource> = {
-    a: new LocalGraphQLDataSource(buildSubgraphSchema(serviceA)),
-    b: new LocalGraphQLDataSource(buildSubgraphSchema(serviceB)),
+    a: new LocalGraphQLDataSource(buildSubgraphSchema([serviceA])),
+    b: new LocalGraphQLDataSource(buildSubgraphSchema([serviceB])),
   };
 
   const gateway = new ApolloGateway({

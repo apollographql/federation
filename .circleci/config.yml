@@ -32,6 +32,22 @@ jobs:
           steps:
             - node/install:
                 node-version: << parameters.node-version >>
+      # The gateway tests use the @apollo/subgraph devDependency, which declares
+      # `engines.node >=22` even though it works fine on older Node versions (the
+      # gateway suite passes on Node 18). This repo installs with `engine-strict`
+      # (see .npmrc), which would refuse that package on 18 and 20, so relax the
+      # check for the install on those versions only. Environment variables
+      # override .npmrc, and nothing else in the tree is affected: the published
+      # packages' dependencies still install engine-strict on every other job.
+      - when:
+          condition:
+            or:
+              - equal: ["18", << parameters.node-version >>]
+              - equal: ["20", << parameters.node-version >>]
+          steps:
+            - run:
+                name: Relax engine-strict for the @apollo/subgraph devDependency
+                command: echo 'export npm_config_engine_strict=false' >> "$BASH_ENV"
       - node/install-packages
       - run:
           name: Run tests
