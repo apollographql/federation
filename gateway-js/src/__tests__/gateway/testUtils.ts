@@ -7,7 +7,7 @@ import {
 } from '@apollo/server';
 import { startStandaloneServer } from '@apollo/server/standalone';
 import { ApolloServerPluginInlineTrace } from '@apollo/server/plugin/inlineTrace';
-import { GraphQLSchemaModule } from '@apollo/subgraph/src/schema-helper';
+import { GraphQLSchemaModule } from '@apollo/subgraph';
 import { ApolloGateway, GatewayConfig } from '../..';
 import { ServiceDefinition } from '@apollo/federation-internals';
 import fetch, { Response } from 'node-fetch';

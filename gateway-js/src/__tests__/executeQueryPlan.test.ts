@@ -27,10 +27,7 @@ import {
   arrayEquals,
   Supergraph,
 } from '@apollo/federation-internals';
-import {
-  addResolversToSchema,
-  GraphQLResolverMap,
-} from '@apollo/subgraph/src/schema-helper';
+import { addResolversToSchema, GraphQLResolverMap } from '@apollo/subgraph';
 import {
   GatewayExecutionResult,
   GatewayGraphQLRequestContext,
@@ -7575,6 +7572,12 @@ describe('executeQueryPlan', () => {
     const s1 = {
       name: 'S1',
       typeDefs: gql`
+        extend schema
+          @link(
+            url: "https://specs.apollo.dev/federation/v2.4"
+            import: ["@key"]
+          )
+
         type Query {
           testQuery(id: String!): I
         }
