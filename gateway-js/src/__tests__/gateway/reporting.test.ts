@@ -90,7 +90,10 @@ describe('reporting', () => {
         plugins: [
           ApolloServerPluginUsageReporting({
             sendReportsImmediately: true,
-            fetcher: async (_url, init) => {
+            fetcher: async (url, init) => {
+              expect(url).toBe(
+                'https://usage-reporting.api.apollographql.com/api/ingress/traces',
+              );
               reportPromise.resolve(init!.body as Buffer);
               return new Response('ok');
             },
