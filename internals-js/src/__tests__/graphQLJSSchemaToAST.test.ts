@@ -4,19 +4,31 @@ import {
   GraphQLSchema,
   introspectionFromSchema,
   print,
+  versionInfo,
 } from 'graphql';
 import { graphQLJSSchemaToAST } from '../graphQLJSSchemaToAST';
+
+// graphql v17 prints object values with spaces inside the braces (`{ x: 2 }`)
+// where v16 printed `{x: 2}`. Normalize to the v16 form so the round-trip
+// comparison below works with both.
+function printNormalized(ast: Parameters<typeof print>[0]): string {
+  return print(ast)
+    .replace(/\{ (?=\S)/g, '{')
+    .replace(/(?<=\S) \}/g, '}');
+}
 
 function validateRoundtrip(
   schemaStr: string,
   expectedWithoutASTNodes: string | undefined = schemaStr,
 ) {
   const schema = buildSchema(schemaStr);
-  expect(print(graphQLJSSchemaToAST(schema))).toMatchString(schemaStr);
+  expect(printNormalized(graphQLJSSchemaToAST(schema))).toMatchString(
+    schemaStr,
+  );
   if (expectedWithoutASTNodes) {
-    expect(print(graphQLJSSchemaToAST(withoutASTNodes(schema)))).toMatchString(
-      expectedWithoutASTNodes,
-    );
+    expect(
+      printNormalized(graphQLJSSchemaToAST(withoutASTNodes(schema))),
+    ).toMatchString(expectedWithoutASTNodes);
   }
 }
 
@@ -72,11 +84,15 @@ it('round-trip with default arguments', () => {
 
   const schema = schemaFct('{x: 2}');
   // We go through introspection to ensure the AST nodes are
-  // removed, but that also somehow expand default values (which is
-  // fine, we just have to account for it in our assertion).
+  // removed. With graphql v16, that also somehow expands default values
+  // (which is fine, we just have to account for it in our assertion);
+  // graphql v17 keeps default values as literals and does not.
   const schemaWithDefaultExpanded = schemaFct('{x: 2, y: 3}');
 
-  validateRoundtrip(schema, schemaWithDefaultExpanded);
+  validateRoundtrip(
+    schema,
+    versionInfo.major >= 17 ? schema : schemaWithDefaultExpanded,
+  );
 });
 
 it('round-trip for directive definitions and applications', () => {

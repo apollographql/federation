@@ -3,7 +3,7 @@ import { fed2gql as gql } from '../utils/fed2gql';
 export const name = 'documents';
 export const url = `https://${name}.api.com.invalid`;
 export const typeDefs = gql`
-  directive @stream on FIELD
+  directive @lowercase on FIELD
   directive @transform(from: String!) on FIELD
 
   type Query {

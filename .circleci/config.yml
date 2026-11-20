@@ -11,6 +11,10 @@ jobs:
     parameters:
       node-version:
         type: string
+      graphql-major:
+        description: "If set, swap in this major version of graphql after installing packages"
+        type: string
+        default: ""
     docker:
       - image: cimg/base:stable
     resource_class: large
@@ -49,6 +53,16 @@ jobs:
                 name: Relax engine-strict for the @apollo/subgraph devDependency
                 command: echo 'export npm_config_engine_strict=false' >> "$BASH_ENV"
       - node/install-packages
+      # The lockfile pins graphql v16 (the root devDependency); the published
+      # packages also accept v17, so this job swaps it in to test against it.
+      # --legacy-peer-deps because the @apollo/server v5 devDependency used by
+      # the gateway tests only declares a v16 peer.
+      - when:
+          condition: << parameters.graphql-major >>
+          steps:
+            - run:
+                name: Use graphql v<< parameters.graphql-major >>
+                command: npm install --no-save --legacy-peer-deps graphql@<< parameters.graphql-major >>
       - run:
           name: Run tests
           command: npm run test:ci
@@ -89,6 +103,10 @@ workflows:
                 - "22"
                 - "24"
                 - "latest"
+      - Test:
+          name: Test - graphql v17 (Node.js v24)
+          node-version: "24"
+          graphql-major: "17"
       - Lint:
           name: Lint - << matrix.script >>
           matrix:

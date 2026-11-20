@@ -2573,7 +2573,12 @@ export class SchemaDefinition extends SchemaElement<SchemaDefinition, Schema>  {
 
 export class ScalarType extends BaseNamedType<OutputTypeReferencer | InputTypeReferencer, ScalarType> {
   readonly kind = 'ScalarType' as const;
-  readonly astDefinitionKind = Kind.SCALAR_TYPE_DEFINITION;
+  // The explicit type annotations on `astDefinitionKind` (here and on the other
+  // named types below) matter for declaration emit: with graphql v17, `Kind` is
+  // a const object rather than an enum, and without the annotation tsc emits
+  // `readonly astDefinitionKind = Kind.X` into the .d.ts, which is only legal
+  // for enum members (TS1254).
+  readonly astDefinitionKind: typeof Kind.SCALAR_TYPE_DEFINITION = Kind.SCALAR_TYPE_DEFINITION;
 
   protected removeTypeReference(type: NamedType) {
     assert(false, `Scalar type ${this} can't reference other types; shouldn't be asked to remove reference to ${type}`);
@@ -2806,7 +2811,7 @@ abstract class FieldBasedType<T extends (ObjectType | InterfaceType) & NamedSche
 
 export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer> {
   readonly kind = 'ObjectType' as const;
-  readonly astDefinitionKind = Kind.OBJECT_TYPE_DEFINITION;
+  readonly astDefinitionKind: typeof Kind.OBJECT_TYPE_DEFINITION = Kind.OBJECT_TYPE_DEFINITION;
 
   /**
    *  Whether this type is one of the schema root type (will return false if the type is detached).
@@ -2859,7 +2864,7 @@ export class ObjectType extends FieldBasedType<ObjectType, ObjectTypeReferencer>
 
 export class InterfaceType extends FieldBasedType<InterfaceType, InterfaceTypeReferencer> {
   readonly kind = 'InterfaceType' as const;
-  readonly astDefinitionKind = Kind.INTERFACE_TYPE_DEFINITION;
+  readonly astDefinitionKind: typeof Kind.INTERFACE_TYPE_DEFINITION = Kind.INTERFACE_TYPE_DEFINITION;
 
   allImplementations(): (ObjectType | InterfaceType)[] {
     const implementations: (ObjectType | InterfaceType)[] = [];
@@ -2902,7 +2907,7 @@ export class UnionMember extends BaseExtensionMember<UnionType> {
 
 export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
   readonly kind = 'UnionType' as const;
-  readonly astDefinitionKind = Kind.UNION_TYPE_DEFINITION;
+  readonly astDefinitionKind: typeof Kind.UNION_TYPE_DEFINITION = Kind.UNION_TYPE_DEFINITION;
   protected readonly _members: MapWithCachedArrays<string, UnionMember> = new MapWithCachedArrays();
   private _typenameField?: FieldDefinition<UnionType>;
 
@@ -3025,7 +3030,7 @@ export class UnionType extends BaseNamedType<OutputTypeReferencer, UnionType> {
 
 export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
   readonly kind = 'EnumType' as const;
-  readonly astDefinitionKind = Kind.ENUM_TYPE_DEFINITION;
+  readonly astDefinitionKind: typeof Kind.ENUM_TYPE_DEFINITION = Kind.ENUM_TYPE_DEFINITION;
   private _values = new Map<string, EnumValue>();
 
   get values(): readonly EnumValue[] {
@@ -3096,7 +3101,7 @@ export class EnumType extends BaseNamedType<OutputTypeReferencer, EnumType> {
 
 export class InputObjectType extends BaseNamedType<InputTypeReferencer, InputObjectType> {
   readonly kind = 'InputObjectType' as const;
-  readonly astDefinitionKind = Kind.INPUT_OBJECT_TYPE_DEFINITION;
+  readonly astDefinitionKind: typeof Kind.INPUT_OBJECT_TYPE_DEFINITION = Kind.INPUT_OBJECT_TYPE_DEFINITION;
   private readonly _fields: Map<string, InputFieldDefinition> = new Map();
   private _cachedFieldsArray?: InputFieldDefinition[];
 

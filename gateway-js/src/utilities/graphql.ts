@@ -25,6 +25,7 @@ export function allNodesAreOfSameKind<T extends ASTNode>(
 export function astFromType(
   type: GraphQLNullableType,
 ): NamedTypeNode | ListTypeNode;
+export function astFromType(type: GraphQLType): TypeNode;
 export function astFromType(type: GraphQLType): TypeNode {
   if (isListType(type)) {
     return { kind: Kind.LIST_TYPE, type: astFromType(type.ofType) };

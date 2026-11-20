@@ -5,7 +5,7 @@ import { maybeCacheControlFromInfo } from '@apollo/cache-control-types';
 export const name = 'product';
 export const url = `https://${name}.api.com.invalid`;
 export const typeDefs = gql`
-  directive @stream on FIELD
+  directive @lowercase on FIELD
   directive @transform(from: String!) on FIELD
 
   enum CacheControlScope {

@@ -21,7 +21,14 @@ export default {
     _refs: Refs,
     _printer: any,
   ): string {
-    const lines = print(remapInlineFragmentNodes(value)).trim().split('\n');
+    // graphql v17 prints object values with spaces inside the braces
+    // (`{ x: 2 }`) where v16 printed `{x: 2}`. Normalize to the v16 form so
+    // snapshots are the same under both.
+    const lines = print(remapInlineFragmentNodes(value))
+      .replace(/\{ (?=\S)/g, '{')
+      .replace(/(?<=\S) \}/g, '}')
+      .trim()
+      .split('\n');
 
     // Avoid adding newlines for single line results.
     if (lines.length === 0) {
@@ -119,10 +126,15 @@ function remapSelections(
             kind: Kind.NAME,
             value: selection.name,
           },
-          selectionSet: {
-            kind: Kind.SELECTION_SET,
-            selections: remapSelections(selection.selections || []),
-          },
+          // Leaf fields have no selections; leave `selectionSet` undefined for
+          // them rather than emitting an empty one, which graphql 17 prints as
+          // `{}` (graphql 16 printed nothing for an empty selection set).
+          selectionSet: selection.selections?.length
+            ? {
+                kind: Kind.SELECTION_SET,
+                selections: remapSelections(selection.selections),
+              }
+            : undefined,
         };
       case 'InlineFragment':
         return {

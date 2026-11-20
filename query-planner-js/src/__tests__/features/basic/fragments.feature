@@ -358,12 +358,12 @@ Scenario: supports directives on inline fragments (https://github.com/apollograp
         }
       }
       ... on Van {
-        price @stream
+        price @lowercase
       }
     }
   }
   """
   Then query plan
   """
-  {"kind":"QueryPlan","node":{"kind":"Fetch","serviceName":"product","variableUsages":[],"operationKind": "query","operation":"query GetVehicle__product__0{vehicle(id:\"rav4\"){__typename ...on Car@fragmentDirective{price thing{__typename ...on Ikea{asile}}}...on Van{price@stream}}}","operationName":"GetVehicle__product__0"}}
+  {"kind":"QueryPlan","node":{"kind":"Fetch","serviceName":"product","variableUsages":[],"operationKind": "query","operation":"query GetVehicle__product__0{vehicle(id:\"rav4\"){__typename ...on Car@fragmentDirective{price thing{__typename ...on Ikea{asile}}}...on Van{price@lowercase}}}","operationName":"GetVehicle__product__0"}}
   """
