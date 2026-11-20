@@ -10,7 +10,6 @@ import { ApolloServerPluginInlineTrace } from '@apollo/server/plugin/inlineTrace
 import { GraphQLSchemaModule } from '@apollo/subgraph';
 import { ApolloGateway, GatewayConfig } from '../..';
 import { ServiceDefinition } from '@apollo/federation-internals';
-import fetch, { Response } from 'node-fetch';
 import { assert } from '@apollo/federation-internals';
 
 export class Services {
