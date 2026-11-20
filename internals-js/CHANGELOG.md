@@ -1,5 +1,11 @@
 # CHANGELOG for `@apollo/federation-internals`
 
+## 2.14.5
+
+### Patch Changes
+
+- Allow `graphql` v17 as a peer dependency (`^16.5.0 || ^17.0.0`), so these packages can be used with either Apollo Server 5 or the forthcoming Apollo Server 6, which will require graphql v17. ([#3481](https://github.com/apollographql/federation/pull/3481))
+
 ## 2.14.4
 
 ## 2.14.3
