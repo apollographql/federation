@@ -9,9 +9,15 @@ import {
   mockCloudConfigUrl1,
 } from './nockMocks';
 import { getTestingSupergraphSdl } from '../execution-utils';
+import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 import { fixtures, Fixture } from 'apollo-federation-integration-testsuite';
 
 let logger: Logger;
+
+// Make sure nock is restored after every test: a nock interceptor left active
+// breaks unmocked requests in test files that later run in the same worker.
+beforeEach(nockBeforeEach);
+afterEach(nockAfterEach);
 
 const service: Fixture = {
   name: 'accounts',
@@ -262,7 +268,7 @@ describe('gateway config / env behavior', () => {
 
       expect(receivedHeaders).toHaveBeenCalledWith(
         expect.objectContaining({
-          authorization: ['Bearer static'],
+          authorization: 'Bearer static',
         }),
       );
     });
@@ -286,8 +292,8 @@ describe('gateway config / env behavior', () => {
 
       expect(receivedHeaders).toHaveBeenCalledWith(
         expect.objectContaining({
-          authorization: ['Bearer dynamic-async'],
-          'x-service-name': ['accounts'],
+          authorization: 'Bearer dynamic-async',
+          'x-service-name': 'accounts',
         }),
       );
     });
@@ -311,8 +317,8 @@ describe('gateway config / env behavior', () => {
 
       expect(receivedHeaders).toHaveBeenCalledWith(
         expect.objectContaining({
-          authorization: ['Bearer dynamic-sync'],
-          'x-service-name': ['accounts'],
+          authorization: 'Bearer dynamic-sync',
+          'x-service-name': 'accounts',
         }),
       );
     });
@@ -361,19 +367,19 @@ describe('deprecation warnings', () => {
   });
 
   it('warns with `serviceList` option set', async () => {
+    mockSdlQuerySuccess(service);
     const gateway = new ApolloGateway({
-      serviceList: [{ name: 'accounts', url: 'http://localhost:4001' }],
+      serviceList: [{ name: 'accounts', url: service.url }],
       logger,
     });
 
-    try {
-      await gateway.load();
-      // gateway will throw since we haven't mocked these requests, unimportant for this test
-    } catch {}
+    await gateway.load();
 
     expect(logger.warn).toHaveBeenCalledWith(
       'The `serviceList` option is deprecated and will be removed in a future version of `@apollo/gateway`. Please migrate to its replacement `IntrospectAndCompose`. More information on `IntrospectAndCompose` can be found in the documentation.',
     );
+
+    await gateway.stop();
   });
 
   it('warns with `localServiceList` option set', async () => {

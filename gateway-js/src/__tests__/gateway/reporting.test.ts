@@ -1,15 +1,12 @@
 import { gunzipSync } from 'zlib';
-import nock from 'nock';
 import gql from 'graphql-tag';
 import { ApolloServerPluginUsageReporting } from '@apollo/server/plugin/usageReporting';
 import { execute } from '@apollo/client/link/core';
 import { toPromise } from '@apollo/client/link/utils';
 import { createHttpLink } from '@apollo/client/link/http';
-import fetch from 'node-fetch';
 import { Plugin, Config, Refs } from 'pretty-format';
 import { Report, Trace } from '@apollo/usage-reporting-protobuf';
 import { fixtures } from 'apollo-federation-integration-testsuite';
-import { nockAfterEach, nockBeforeEach } from '../nockAssertions';
 import resolvable, { Resolvable } from '@josephg/resolvable';
 import { startSubgraphsAndGateway, Services } from './testUtils';
 
@@ -79,18 +76,10 @@ expect.addSnapshotSerializer(
 
 describe('reporting', () => {
   let services: Services;
-  let reportPromise: Resolvable<any>;
+  let reportPromise: Resolvable<Buffer>;
 
   beforeEach(async () => {
     reportPromise = resolvable();
-
-    nockBeforeEach();
-    nock('https://usage-reporting.api.apollographql.com')
-      .post('/api/ingress/traces')
-      .reply(200, (_: any, requestBody: string) => {
-        reportPromise.resolve(requestBody);
-        return 'ok';
-      });
 
     services = await startSubgraphsAndGateway(fixtures, {
       gatewayServerConfig: {
@@ -101,6 +90,10 @@ describe('reporting', () => {
         plugins: [
           ApolloServerPluginUsageReporting({
             sendReportsImmediately: true,
+            fetcher: async (_url, init) => {
+              reportPromise.resolve(init!.body as Buffer);
+              return new Response('ok');
+            },
           }),
         ],
       },
@@ -111,8 +104,6 @@ describe('reporting', () => {
     if (services) {
       await services.stop();
     }
-
-    nockAfterEach();
   });
 
   it(`queries three services`, async () => {
@@ -131,12 +122,9 @@ describe('reporting', () => {
     `;
 
     const result = await toPromise(
-      execute(
-        createHttpLink({ uri: services.gatewayUrl, fetch: fetch as any }),
-        {
-          query,
-        },
-      ),
+      execute(createHttpLink({ uri: services.gatewayUrl, fetch }), {
+        query,
+      }),
     );
     expect(result).toMatchInlineSnapshot(`
       Object {
@@ -167,9 +155,7 @@ describe('reporting', () => {
         },
       }
     `);
-    const reportBody = await reportPromise;
-    // nock returns binary bodies as hex strings
-    const gzipReportBuffer = Buffer.from(reportBody, 'hex');
+    const gzipReportBuffer = await reportPromise;
     const reportBuffer = gunzipSync(gzipReportBuffer);
     const report = Report.decode(reportBuffer);
 
